@@ -1,0 +1,14 @@
+[package]
+name = "keytray"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+
+[features]
+default = ["xlib"]
+xlib = []
+
+[dependencies]
+nix = "0.20"
+libc = "0.2.87"
+x11 = { version = "2.18.2", features = ["xlib", "xinerama"] }
+once_cell = "1.7.2"
