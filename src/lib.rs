@@ -1,9 +1,15 @@
+extern crate fontconfig;
 extern crate libc;
 extern crate nix;
-extern crate once_cell;
 extern crate x11;
 
+pub mod app;
+pub mod config;
+pub mod context;
+
 mod atom_store;
-pub mod event_handler;
-pub mod signal_handler;
-pub mod tray;
+mod error_handler;
+mod event_handler;
+mod font_set;
+mod signal;
+mod tray;

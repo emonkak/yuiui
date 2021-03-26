@@ -8,7 +8,7 @@ default = ["xlib"]
 xlib = []
 
 [dependencies]
-nix = "0.20"
 libc = "0.2.87"
-x11 = { version = "2.18.2", features = ["xlib", "xinerama"] }
-once_cell = "1.7.2"
+nix = "0.20"
+servo-fontconfig = "0.5.1"
+x11 = { version = "2.18.2", features = ["xft", "xinerama", "xlib"] }

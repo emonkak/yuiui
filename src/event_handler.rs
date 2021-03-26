@@ -6,6 +6,7 @@ pub trait EventHandler {
             xlib::ClientMessage => self.handle_client_message(xlib::XClientMessageEvent::from(event)),
             xlib::DestroyNotify => self.handle_destroy_notify(xlib::XDestroyWindowEvent::from(event)),
             xlib::ReparentNotify => self.handle_reparent_notify(xlib::XReparentEvent::from(event)),
+            xlib::Expose => self.handle_expose(xlib::XExposeEvent::from(event)),
             _ => true,
         }
     }
@@ -15,4 +16,6 @@ pub trait EventHandler {
     fn handle_destroy_notify(&mut self, event: xlib::XDestroyWindowEvent) -> bool;
 
     fn handle_reparent_notify(&mut self, event: xlib::XReparentEvent) -> bool;
+
+    fn handle_expose(&mut self, event: xlib::XExposeEvent) -> bool;
 }
