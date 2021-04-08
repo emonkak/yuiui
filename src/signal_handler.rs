@@ -21,8 +21,8 @@ pub struct SignalHandler {
 
 impl SignalHandler {
     pub fn install(signal: signal::Signal) -> nix::Result<Self> {
-        if PIPE == (-1, -1) {
-            unsafe {
+        unsafe {
+            if PIPE == (-1, -1) {
                 PIPE = unistd::pipe2(fcntl::OFlag::O_NONBLOCK)?;
             }
         }
@@ -56,16 +56,23 @@ impl SignalHandler {
         self.fd
     }
 
+    #[allow(dead_code)]
     pub fn try_read(&self) -> nix::Result<signal::Signal> {
-        let mut buffer = [0; mem::size_of::<libc::c_int>()];
-        unistd::read(self.fd, &mut buffer[..])?;
-        let signum: libc::c_int = mem::transmute(buffer);
-        signal::Signal::try_from(signum)
+        try_read_signal(self.fd)
     }
+}
+
+pub fn try_read_signal(fd: RawFd) -> nix::Result<signal::Signal> {
+    let mut buffer = [0; mem::size_of::<libc::c_int>()];
+    unistd::read(fd, &mut buffer[..])?;
+    let signum: libc::c_int = unsafe { mem::transmute(buffer) };
+    signal::Signal::try_from(signum)
 }
 
 impl Drop for SignalHandler {
     fn drop(&mut self) {
-        signal::sigaction(self.signal, &self.old_sig_action);
+        unsafe {
+            let _ = signal::sigaction(self.signal, &self.old_sig_action);
+        }
     }
 }

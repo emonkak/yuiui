@@ -1,28 +1,24 @@
-use std::collections::HashMap;
-
-use x11::xlib;
-
 use context::Context;
 use context::Event;
-use event_handler::EventHandler;
 use tray::Tray;
-use tray::TrayIcon;
 
 pub fn run(context: Context) {
-    let mut tray = Tray::new(context.display);
-    tray.acquire_tray_selection();
+    let mut context = context;
+    let mut tray = Tray::new(&context);
+
+    let previous_selection_owner = context.acquire_tray_selection(tray.window);
+
     tray.show();
 
-    let mut icons: HashMap<xlib::Window, TrayIcon> = HashMap::new();
-
-    unsafe {
-        xlib::XFlush(context.display);
-    }
-
-    context.poll_events(|event| {
+    context.poll_events(|context, event| {
         match event {
-            Event::XEvent(event) => tray.handle_event(event),
-            Event::Signal(_) => false,
+            Event::XEvent(event) => tray.handle_event(context, event),
+            Event::Signal(signal) => {
+                println!("{:?}", signal);
+                false
+            },
         }
     });
+
+    context.release_tray_selection(previous_selection_owner);
 }

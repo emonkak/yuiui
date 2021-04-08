@@ -6,10 +6,8 @@ extern crate x11;
 pub mod app;
 pub mod config;
 pub mod context;
+pub mod font;
+pub mod tray;
 
-mod atom_store;
 mod error_handler;
-mod event_handler;
-mod font_set;
-mod signal;
-mod tray;
+mod signal_handler;
