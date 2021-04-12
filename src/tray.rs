@@ -15,7 +15,7 @@ const SYSTEM_TRAY_CANCEL_MESSAGE: i64 = 2;
 pub struct Tray {
     pub display: *mut xlib::Display,
     pub window: xlib::Window,
-    items: HashMap<xlib::Window, TrayItem>,
+    icons: HashMap<xlib::Window, TrayIcon>,
 }
 
 impl Tray {
@@ -63,7 +63,7 @@ impl Tray {
             Tray {
                 display: context.display,
                 window,
-                items: HashMap::new(),
+                icons: HashMap::new(),
             }
         }
     }
@@ -88,22 +88,23 @@ impl Tray {
                 self.display,
                 self.window,
                 600,
-                context.icon_size * cmp::max(1, self.items.len()) as u32
+                context.icon_size * cmp::max(1, self.icons.len()) as u32
             );
         }
     }
 
-    pub fn handle_event(&mut self, context: &mut Context, event: xlib::XEvent) -> bool {
+    pub fn on_event(&mut self, context: &mut Context, event: xlib::XEvent) -> bool {
         match event.get_type() {
-            xlib::ClientMessage => self.handle_client_message(context, xlib::XClientMessageEvent::from(event)),
-            xlib::DestroyNotify => self.handle_destroy_notify(context, xlib::XDestroyWindowEvent::from(event)),
-            xlib::ReparentNotify => self.handle_reparent_notify(context, xlib::XReparentEvent::from(event)),
-            xlib::Expose => self.handle_expose(context, xlib::XExposeEvent::from(event)),
+            xlib::ClientMessage => self.on_client_message(context, xlib::XClientMessageEvent::from(event)),
+            xlib::DestroyNotify => self.on_destroy_notify(context, xlib::XDestroyWindowEvent::from(event)),
+            xlib::Expose => self.on_expose(context, xlib::XExposeEvent::from(event)),
+            xlib::PropertyNotify => self.on_property_notify(context, xlib::XPropertyEvent::from(event)),
+            xlib::ReparentNotify => self.on_reparent_notify(context, xlib::XReparentEvent::from(event)),
             _ => true,
         }
     }
 
-    fn handle_client_message(&mut self, context: &mut Context, event: xlib::XClientMessageEvent) -> bool {
+    fn on_client_message(&mut self, context: &mut Context, event: xlib::XClientMessageEvent) -> bool {
         let wm_protocols_atom = context.atoms.WM_PROTOCOLS;
         let wm_delete_window_atom = context.atoms.WM_DELETE_WINDOW;
         let net_system_tray_message_data_atom = context.atoms.NET_SYSTEM_TRAY_MESSAGE_DATA;
@@ -131,64 +132,91 @@ impl Tray {
         true
     }
 
-    fn handle_destroy_notify(&mut self, context: &mut Context, event: xlib::XDestroyWindowEvent) -> bool {
+    fn on_destroy_notify(&mut self, context: &mut Context, event: xlib::XDestroyWindowEvent) -> bool {
         if event.window == self.window {
             return false;
         }
-        if let Some(mut item) = self.remove_icon(context, event.window) {
-            item.mark_as_unhandled();
+        if let Some(icon) = self.remove_icon(context, event.window) {
+            icon.destroy();
         }
         true
     }
 
-    fn handle_reparent_notify(&mut self, context: &mut Context, event: xlib::XReparentEvent) -> bool {
-        if let Some(item) = self.items.get(&event.window) {
-            if item.window != event.parent {
+    fn on_property_notify(&mut self, context: &mut Context, event: xlib::XPropertyEvent) -> bool {
+        if event.atom == context.atoms.XEMBED_INFO {
+            let unmapped = match self.icons.get_mut(&event.window) {
+                Some(icon) => {
+                    if let Some(embed_info) = context.get_xembed_info(icon.icon_window) {
+                        if !embed_info.is_mapped() {
+                            return true;
+                        }
+                        icon.show(context);
+                    }
+                    false
+                },
+                _ => false
+            };
+            if unmapped {
                 self.remove_icon(context, event.window);
             }
         }
         true
     }
 
-    fn handle_expose(&mut self, context: &mut Context, event: xlib::XExposeEvent) -> bool {
-        if self.window == event.window {
-            self.update_window_dimension(context);
-        } else {
-            for (_, item) in self.items.iter_mut() {
-                if item.icon_window == event.window {
-                    item.render(context);
-                }
+    fn on_reparent_notify(&mut self, context: &mut Context, event: xlib::XReparentEvent) -> bool {
+        if let Some(icon) = self.icons.get(&event.window) {
+            if icon.window != event.parent {
+                self.remove_icon(context, event.window);
             }
         }
         true
     }
 
+    fn on_expose(&mut self, context: &mut Context, event: xlib::XExposeEvent) -> bool {
+        if self.window == event.window {
+            self.update_window_dimension(context);
+        } else if let Some(icon) = self.icons.get_mut(&event.window) {
+            icon.update(context);
+        }
+        true
+    }
+
     fn add_icon(&mut self, context: &mut Context, icon_window: xlib::Window) {
-        println!("NewIcon: {:#02x}", icon_window);
+        if !self.icons.contains_key(&icon_window) {
+            if let Some(embed_info) = context.get_xembed_info(icon_window) {
+                let mut icon = TrayIcon::new(
+                    context,
+                    self.window,
+                    icon_window,
+                    0,
+                    self.icons.len() as i32 * context.icon_size as i32,
+                    600,
+                    context.icon_size
+                );
 
-        if !self.items.contains_key(&icon_window) {
-            let mut item = TrayItem::new(
-                context,
-                self.window,
-                icon_window,
-                0,
-                self.items.len() as i32 * context.icon_size as i32,
-                600,
-                context.icon_size,
-                context.icon_size
-            );
+                context.send_embedded_notify(
+                    icon_window,
+                    xlib::CurrentTime,
+                    self.window,
+                    embed_info.version
+                );
 
-            item.render(context);
+                if embed_info.is_mapped() {
+                    icon.show(context);
+                } else {
+                    icon.hide(context);
+                };
 
-            self.items.insert(icon_window, item);
+                self.icons.insert(icon_window, icon);
+            }
         }
 
         self.update_window_dimension(context);
     }
 
-    fn remove_icon(&mut self, context: &mut Context, icon_window: xlib::Window) -> Option<TrayItem> {
-        let result = self.items.remove(&icon_window);
-        if let Some(_) = result {
+    fn remove_icon(&mut self, context: &mut Context, icon_window: xlib::Window) -> Option<TrayIcon> {
+        let result = self.icons.remove(&icon_window);
+        if result.is_some() {
             self.update_window_dimension(context);
         }
         result
@@ -197,9 +225,7 @@ impl Tray {
 
 impl Drop for Tray {
     fn drop(&mut self) {
-        println!("Drop Tray");
-
-        self.items.clear();
+        self.icons.clear();
 
         unsafe {
             xlib::XDestroyWindow(self.display, self.window);
@@ -207,37 +233,32 @@ impl Drop for Tray {
     }
 }
 
-pub struct TrayItem {
+#[derive(Debug)]
+struct TrayIcon {
     display: *mut xlib::Display,
-    status: TrayItemStatus,
-    pub icon_window: xlib::Window,
-    pub window: xlib::Window,
+    window: xlib::Window,
+    icon_window: xlib::Window,
     width: u32,
     height: u32,
+    window_status: WindowStatus,
 }
 
-enum TrayItemStatus {
-    Handled,
-    Unhandled,
+#[derive(Debug, PartialEq)]
+enum WindowStatus {
+    Initialized,
+    Embedded,
+    Hidden,
+    Destroyed,
 }
 
-impl TrayItem {
-    pub fn new(context: &Context, tray_window: xlib::Window, icon_window: xlib::Window, x: i32, y: i32, width: u32, height: u32, icon_size: u32) -> Self {
+impl TrayIcon {
+    fn new(context: &mut Context, tray_window: xlib::Window, icon_window: xlib::Window, x: i32, y: i32, width: u32, height: u32) -> Self {
         unsafe {
-            let mut size_hints: xlib::XSizeHints = mem::MaybeUninit::uninit().assume_init();
-            size_hints.flags = xlib::PSize;
-            size_hints.width = icon_size as i32;
-            size_hints.height = icon_size as i32;
-
-            xlib::XSetWMNormalHints(context.display, icon_window, &mut size_hints);
-            xlib::XResizeWindow(context.display, icon_window, icon_size, icon_size);
-
             xlib::XSelectInput(context.display, icon_window, xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask);
 
             let mut attributes: xlib::XSetWindowAttributes = mem::MaybeUninit::uninit().assume_init();
             attributes.win_gravity = xlib::NorthWestGravity;
             attributes.background_pixmap = xlib::ParentRelative as u64;
-            // attributes.background_pixel = context.normal_background.pixel();
 
             let window = xlib::XCreateWindow(
                 context.display,
@@ -254,31 +275,28 @@ impl TrayItem {
                 &mut attributes
             );
 
-            xlib::XReparentWindow(context.display, icon_window, window, 0, 0);
-            xlib::XMapRaised(context.display, icon_window);
-            xlib::XMapWindow(context.display, window);
-
-            TrayItem {
+            TrayIcon {
                 display: context.display,
-                status: TrayItemStatus::Handled,
-                icon_window,
                 window,
+                icon_window,
                 width,
                 height,
+                window_status: WindowStatus::Initialized,
             }
         }
     }
 
-    pub fn render(&mut self, context: &mut Context) {
+    fn update(&self, context: &mut Context) {
         let title = unsafe {
             let mut name_ptr: *mut i8 = mem::MaybeUninit::uninit().assume_init();
             let result = xlib::XFetchName(self.display, self.icon_window, &mut name_ptr);
             if result == 0 || name_ptr.is_null() {
-                "NO NAME".to_string()
+                "".to_string()
             } else {
                 CString::from_raw(name_ptr).into_string().unwrap_or_default()
             }
         };
+
 
         unsafe {
             let screen_number = xlib::XDefaultScreen(self.display);
@@ -294,14 +312,13 @@ impl TrayItem {
             xlib::XSetForeground(self.display, gc, bg_pixel);
             xlib::XFillRectangle(self.display, pixmap, gc, 0, 0, self.width, self.height);
 
-
             context.font_renderer.render_line_text(
                 self.display,
                 draw,
                 &mut context.normal_foreground.xft_color(),
                 &context.font_set,
                 context.icon_size as i32,
-                0,
+                (self.height / 2) as i32 - (context.font_set.description().pixel_size / 2) as i32,
                 &title
             );
 
@@ -310,22 +327,49 @@ impl TrayItem {
             xlib::XFreeGC(self.display, gc);
             xlib::XFreePixmap(self.display, pixmap);
             xft::XftDrawDestroy(draw);
-
-            xlib::XResizeWindow(self.display, self.icon_window, context.icon_size, context.icon_size);
         }
     }
 
-    pub fn mark_as_unhandled(&mut self) {
-        self.status = TrayItemStatus::Unhandled;
+    fn show(&mut self, context: &Context) {
+        if self.window_status == WindowStatus::Embedded {
+            return;
+        }
+
+        self.window_status = WindowStatus::Embedded;
+        resize_window(context.display, self.icon_window, context.icon_size, context.icon_size);
+
+        unsafe {
+            xlib::XSelectInput(context.display, self.icon_window, xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask);
+            xlib::XReparentWindow(context.display, self.icon_window, self.window, 0, 0);
+            xlib::XMapRaised(context.display, self.icon_window);
+            xlib::XMapWindow(context.display, self.window);
+        }
+    }
+
+    fn hide(&mut self, context: &Context) {
+        if self.window_status == WindowStatus::Hidden {
+            return;
+        }
+
+        unsafe {
+            xlib::XSelectInput(context.display, self.icon_window, xlib::PropertyChangeMask);
+        }
+    }
+
+    fn destroy(self) {
+        if self.window_status == WindowStatus::Destroyed {
+            return;
+        }
+
+        let mut self_mut = self;
+        self_mut.window_status = WindowStatus::Destroyed;
     }
 }
 
-impl Drop for TrayItem {
+impl Drop for TrayIcon {
     fn drop(&mut self) {
-        println!("Drop TrayItem: {:#02x}", self.icon_window);
-
         unsafe {
-            if let TrayItemStatus::Handled = self.status {
+            if self.window_status == WindowStatus::Embedded {
                 let screen = xlib::XDefaultScreenOfDisplay(self.display);
                 let root = xlib::XRootWindowOfScreen(screen);
 
@@ -337,5 +381,17 @@ impl Drop for TrayItem {
 
             xlib::XDestroyWindow(self.display, self.window);
         }
+    }
+}
+
+fn resize_window(display: *mut xlib::Display, window: xlib::Window, width: u32, height: u32) {
+    let mut size_hints: xlib::XSizeHints = unsafe { mem::MaybeUninit::uninit().assume_init() };
+    size_hints.flags = xlib::PSize;
+    size_hints.width = width as i32;
+    size_hints.height = height as i32;
+
+    unsafe {
+        xlib::XSetWMNormalHints(display, window, &mut size_hints);
+        xlib::XResizeWindow(display, window, width, height);
     }
 }

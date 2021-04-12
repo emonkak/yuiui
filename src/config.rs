@@ -27,7 +27,7 @@ impl Default for Config {
         Self {
             border_color: "#869096".to_string(),
             border_width: 2,
-            icon_size: 32,
+            icon_size: 64,
             font_family: "Sans".to_string(),
             font_size: 14,
             font_weight: FontWeight::Bold,

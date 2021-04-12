@@ -79,6 +79,10 @@ impl FontSet {
         }
     }
 
+    pub fn description(&self) -> &FontDescription {
+        &self.description
+    }
+
     fn default_font(&self) -> *mut fc::FcPattern {
         unsafe {
             *(*self.fontset).fonts.offset(0)

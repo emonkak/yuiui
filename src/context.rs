@@ -17,6 +17,8 @@ use font::FontDescription;
 use font::FontRenderer;
 use font::FontSet;
 use signal_handler::SignalHandler;
+use xembed::XEmbedInfo;
+use xembed::XEmbedMessage;
 
 pub struct Context {
     pub display: *mut xlib::Display,
@@ -128,6 +130,67 @@ impl Context {
         new_atom(self.display, null_terminated_name.borrow())
     }
 
+    pub fn get_xembed_info(&self, window: xlib::Window) -> Option<XEmbedInfo> {
+        let mut actual_type_return: xlib::Atom = 0;
+        let mut actual_format_return: i32 = 0;
+        let mut nitems_return: u64 = 0;
+        let mut bytes_after_return: u64 = 0;
+        let mut prop_return: *mut u8 = ptr::null_mut();
+
+        let result = unsafe {
+            xlib::XGetWindowProperty(
+                self.display,
+                window,
+                self.atoms.XEMBED_INFO,
+                0,
+                2,
+                xlib::False,
+                self.atoms.XEMBED_INFO,
+                &mut actual_type_return,
+                &mut actual_format_return,
+                &mut nitems_return,
+                &mut bytes_after_return,
+                &mut prop_return
+            )
+        };
+
+        if result != xlib::Success.into()
+            || actual_type_return != self.atoms.XEMBED_INFO
+            || nitems_return != 2 {
+            return None;
+        }
+
+        let data: *mut [u64; 2] = prop_return.cast();
+        let info = unsafe {
+            XEmbedInfo {
+                version: (*data)[0],
+                flags: (*data)[1],
+            }
+        };
+
+        unsafe {
+            xlib::XFree(prop_return as *mut raw::c_void);
+        }
+
+        Some(info)
+    }
+
+    pub fn send_embedded_notify(&self, window: xlib::Window, timestamp: xlib::Time, embedder_window: xlib::Window, version: u64) {
+        let mut data = xlib::ClientMessageData::new();
+        data.set_long(0, timestamp as raw::c_long);
+        data.set_long(1, XEmbedMessage::EmbeddedNotify as raw::c_long);
+        data.set_long(2, embedder_window as raw::c_long);
+        data.set_long(2, version as raw::c_long);
+
+        send_client_message(
+            self.display,
+            window,
+            window,
+            self.atoms.XEMBED,
+            data
+        );
+    }
+
     pub fn acquire_tray_selection(&self, tray_window: xlib::Window) -> xlib::Window {
         unsafe {
             let screen = xlib::XDefaultScreenOfDisplay(self.display);
@@ -138,23 +201,18 @@ impl Context {
             let previous_selection_owner = xlib::XGetSelectionOwner(self.display, net_system_tray_atom);
             xlib::XSetSelectionOwner(self.display, net_system_tray_atom, tray_window, xlib::CurrentTime);
 
-            let mut client_message_data = xlib::ClientMessageData::new();
-            client_message_data.set_long(0, xlib::CurrentTime as raw::c_long);
-            client_message_data.set_long(1, net_system_tray_atom as raw::c_long);
-            client_message_data.set_long(2, tray_window as raw::c_long);
+            let mut data = xlib::ClientMessageData::new();
+            data.set_long(0, xlib::CurrentTime as raw::c_long);
+            data.set_long(1, net_system_tray_atom as raw::c_long);
+            data.set_long(2, tray_window as raw::c_long);
 
-            let mut client_message_event = xlib::XEvent::from(xlib::XClientMessageEvent {
-                type_: xlib::ClientMessage,
-                serial: 0,
-                send_event: xlib::True,
-                display: self.display,
-                window: root,
-                message_type: self.atoms.MANAGER,
-                format: 32,
-                data: client_message_data,
-            });
-
-            xlib::XSendEvent(self.display, root, xlib::False, 0xffffff, &mut client_message_event);
+            send_client_message(
+                self.display,
+                root,
+                root,
+                self.atoms.MANAGER,
+                data
+            );
 
             previous_selection_owner
         }
@@ -230,6 +288,8 @@ pub struct Atoms {
     pub WM_PING: xlib::Atom,
     pub WM_PROTOCOLS: xlib::Atom,
     pub WM_TAKE_FOCUS: xlib::Atom,
+    pub XEMBED: xlib:: Atom,
+    pub XEMBED_INFO: xlib:: Atom,
 }
 
 impl Atoms {
@@ -242,13 +302,34 @@ impl Atoms {
             WM_PING: new_atom(display, "WM_PING\0"),
             WM_PROTOCOLS: new_atom(display, "WM_PROTOCOLS\0"),
             WM_TAKE_FOCUS: new_atom(display, "WM_TAKE_FOCUS\0"),
+            XEMBED: new_atom(display, "_XEMBED\0"),
+            XEMBED_INFO: new_atom(display, "_XEMBED_INFO\0"),
         }
     }
 }
 
+#[inline]
 fn new_atom(display: *mut xlib::Display, null_terminated_name: &str) -> xlib::Atom {
     assert!(null_terminated_name.chars().last().map_or(false, |c| c == '\0'));
     unsafe {
         xlib::XInternAtom(display, null_terminated_name.as_ptr() as *const raw::c_char, xlib::False)
+    }
+}
+
+#[inline]
+fn send_client_message(display: *mut xlib::Display, destination: xlib::Window, window: xlib::Window, message_type: xlib::Atom, data: xlib::ClientMessageData) -> bool {
+    let mut client_message_event = xlib::XEvent::from(xlib::XClientMessageEvent {
+        type_: xlib::ClientMessage,
+        serial: 0,
+        send_event: xlib::True,
+        display,
+        window,
+        message_type,
+        format: 32,
+        data,
+    });
+
+    unsafe {
+        xlib::XSendEvent(display, destination, xlib::False, 0xffffff, &mut client_message_event) == xlib::True
     }
 }
