@@ -4,7 +4,7 @@ use std::borrow::Borrow;
 use std::env;
 use std::ffi::CString;
 use std::mem;
-use std::os::raw;
+use std::os::raw::*;
 use std::os::unix::io::RawFd;
 use std::ptr;
 use x11::xft;
@@ -17,6 +17,7 @@ use font::FontDescription;
 use font::FontRenderer;
 use font::FontSet;
 use signal_handler::SignalHandler;
+use utils;
 use xembed::XEmbedInfo;
 use xembed::XEmbedMessage;
 
@@ -32,7 +33,7 @@ pub struct Context {
     pub selected_background: Color,
     pub selected_foreground: Color,
     signal_handler: SignalHandler,
-    old_error_handler: Option<unsafe extern "C" fn (*mut xlib::Display, *mut xlib::XErrorEvent) -> raw::c_int>,
+    old_error_handler: Option<unsafe extern "C" fn (*mut xlib::Display, *mut xlib::XErrorEvent) -> c_int>,
 }
 
 pub enum Event {
@@ -127,62 +128,43 @@ impl Context {
     }
 
     pub fn get_atom<T: Borrow<str>>(&self, null_terminated_name: T) -> xlib::Atom {
-        new_atom(self.display, null_terminated_name.borrow())
+        utils::new_atom(self.display, null_terminated_name.borrow())
     }
 
     pub fn get_xembed_info(&self, window: xlib::Window) -> Option<XEmbedInfo> {
-        let mut actual_type_return: xlib::Atom = 0;
-        let mut actual_format_return: i32 = 0;
-        let mut nitems_return: u64 = 0;
-        let mut bytes_after_return: u64 = 0;
-        let mut prop_return: *mut u8 = ptr::null_mut();
-
-        let result = unsafe {
-            xlib::XGetWindowProperty(
-                self.display,
-                window,
-                self.atoms.XEMBED_INFO,
-                0,
-                2,
-                xlib::False,
-                self.atoms.XEMBED_INFO,
-                &mut actual_type_return,
-                &mut actual_format_return,
-                &mut nitems_return,
-                &mut bytes_after_return,
-                &mut prop_return
-            )
-        };
-
-        if result != xlib::Success.into()
-            || actual_type_return != self.atoms.XEMBED_INFO
-            || nitems_return != 2 {
-            return None;
-        }
-
-        let data: *mut [u64; 2] = prop_return.cast();
-        let info = unsafe {
+        utils::get_window_property::<_, 2>(self.display, window, self.atoms.XEMBED_INFO).map(|prop| {
             XEmbedInfo {
-                version: (*data)[0],
-                flags: (*data)[1],
+                version: (*prop)[0],
+                flags: (*prop)[1],
             }
-        };
+        })
+    }
 
-        unsafe {
-            xlib::XFree(prop_return as *mut raw::c_void);
+    pub fn get_window_title(&self, window: xlib::Window) -> Option<String> {
+        let mut name_ptr: *mut i8 = ptr::null_mut();
+
+        let result = unsafe { xlib::XFetchName(self.display, window, &mut name_ptr) };
+        if result == xlib::True && !name_ptr.is_null() && unsafe { *name_ptr } != 0 {
+            unsafe {
+                CString::from_raw(name_ptr).into_string().ok()
+            }
+        } else {
+            utils::get_window_property::<c_ulong, 1>(self.display, window, self.atoms.NET_WM_PID)
+                .and_then(|prop| {
+                    let pid = prop[0] as u32;
+                    utils::get_process_name(pid as u32).ok()
+                })
         }
-
-        Some(info)
     }
 
     pub fn send_embedded_notify(&self, window: xlib::Window, timestamp: xlib::Time, embedder_window: xlib::Window, version: u64) {
         let mut data = xlib::ClientMessageData::new();
-        data.set_long(0, timestamp as raw::c_long);
-        data.set_long(1, XEmbedMessage::EmbeddedNotify as raw::c_long);
-        data.set_long(2, embedder_window as raw::c_long);
-        data.set_long(2, version as raw::c_long);
+        data.set_long(0, timestamp as c_long);
+        data.set_long(1, XEmbedMessage::EmbeddedNotify as c_long);
+        data.set_long(2, embedder_window as c_long);
+        data.set_long(3, version as c_long);
 
-        send_client_message(
+        utils::send_client_message(
             self.display,
             window,
             window,
@@ -202,11 +184,11 @@ impl Context {
             xlib::XSetSelectionOwner(self.display, net_system_tray_atom, tray_window, xlib::CurrentTime);
 
             let mut data = xlib::ClientMessageData::new();
-            data.set_long(0, xlib::CurrentTime as raw::c_long);
-            data.set_long(1, net_system_tray_atom as raw::c_long);
-            data.set_long(2, tray_window as raw::c_long);
+            data.set_long(0, xlib::CurrentTime as c_long);
+            data.set_long(1, net_system_tray_atom as c_long);
+            data.set_long(2, tray_window as c_long);
 
-            send_client_message(
+            utils::send_client_message(
                 self.display,
                 root,
                 root,
@@ -258,7 +240,7 @@ impl Color {
         None
     }
 
-    pub fn pixel(&self) -> raw::c_ulong {
+    pub fn pixel(&self) -> c_ulong {
         self.color.pixel
     }
 
@@ -284,6 +266,7 @@ pub struct Atoms {
     pub MANAGER: xlib::Atom,
     pub NET_SYSTEM_TRAY_MESSAGE_DATA: xlib::Atom,
     pub NET_SYSTEM_TRAY_OPCODE: xlib::Atom,
+    pub NET_WM_PID: xlib::Atom,
     pub WM_DELETE_WINDOW: xlib::Atom,
     pub WM_PING: xlib::Atom,
     pub WM_PROTOCOLS: xlib::Atom,
@@ -295,41 +278,16 @@ pub struct Atoms {
 impl Atoms {
     fn new(display: *mut xlib::Display) -> Self {
         Self {
-            MANAGER: new_atom(display, "MANAGER\0"),
-            NET_SYSTEM_TRAY_MESSAGE_DATA: new_atom(display, "_NET_SYSTEM_TRAY_MESSAGE_DATA\0"),
-            NET_SYSTEM_TRAY_OPCODE: new_atom(display, "_NET_SYSTEM_TRAY_OPCODE\0"),
-            WM_DELETE_WINDOW: new_atom(display, "WM_DELETE_WINDOW\0"),
-            WM_PING: new_atom(display, "WM_PING\0"),
-            WM_PROTOCOLS: new_atom(display, "WM_PROTOCOLS\0"),
-            WM_TAKE_FOCUS: new_atom(display, "WM_TAKE_FOCUS\0"),
-            XEMBED: new_atom(display, "_XEMBED\0"),
-            XEMBED_INFO: new_atom(display, "_XEMBED_INFO\0"),
+            MANAGER: utils::new_atom(display, "MANAGER\0"),
+            NET_SYSTEM_TRAY_MESSAGE_DATA: utils::new_atom(display, "_NET_SYSTEM_TRAY_MESSAGE_DATA\0"),
+            NET_SYSTEM_TRAY_OPCODE: utils::new_atom(display, "_NET_SYSTEM_TRAY_OPCODE\0"),
+            NET_WM_PID: utils::new_atom(display, "_NET_WM_PID\0"),
+            WM_DELETE_WINDOW: utils::new_atom(display, "WM_DELETE_WINDOW\0"),
+            WM_PING: utils::new_atom(display, "WM_PING\0"),
+            WM_PROTOCOLS: utils::new_atom(display, "WM_PROTOCOLS\0"),
+            WM_TAKE_FOCUS: utils::new_atom(display, "WM_TAKE_FOCUS\0"),
+            XEMBED: utils::new_atom(display, "_XEMBED\0"),
+            XEMBED_INFO: utils::new_atom(display, "_XEMBED_INFO\0"),
         }
-    }
-}
-
-#[inline]
-fn new_atom(display: *mut xlib::Display, null_terminated_name: &str) -> xlib::Atom {
-    assert!(null_terminated_name.chars().last().map_or(false, |c| c == '\0'));
-    unsafe {
-        xlib::XInternAtom(display, null_terminated_name.as_ptr() as *const raw::c_char, xlib::False)
-    }
-}
-
-#[inline]
-fn send_client_message(display: *mut xlib::Display, destination: xlib::Window, window: xlib::Window, message_type: xlib::Atom, data: xlib::ClientMessageData) -> bool {
-    let mut client_message_event = xlib::XEvent::from(xlib::XClientMessageEvent {
-        type_: xlib::ClientMessage,
-        serial: 0,
-        send_event: xlib::True,
-        display,
-        window,
-        message_type,
-        format: 32,
-        data,
-    });
-
-    unsafe {
-        xlib::XSendEvent(display, destination, xlib::False, 0xffffff, &mut client_message_event) == xlib::True
     }
 }

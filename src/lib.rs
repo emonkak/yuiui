@@ -9,5 +9,7 @@ pub mod font;
 pub mod tray;
 
 mod error_handler;
+mod icon;
 mod signal_handler;
+mod utils;
 mod xembed;
