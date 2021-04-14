@@ -62,7 +62,7 @@ impl<'a> Tray<'a> {
             xlib::XSelectInput(
                 context.display,
                 window,
-                xlib::KeyPressMask | xlib::KeyReleaseMask | xlib::ButtonPressMask | xlib::ButtonReleaseMask | xlib::StructureNotifyMask | xlib::FocusChangeMask | xlib::PropertyChangeMask | xlib::ExposureMask
+                xlib::KeyPressMask | xlib::KeyReleaseMask | xlib::StructureNotifyMask | xlib::FocusChangeMask | xlib::PropertyChangeMask | xlib::ExposureMask
             );
 
             Tray {
@@ -262,12 +262,12 @@ impl<'a> Tray<'a> {
     }
 
     fn click_selected_icon(&mut self, button: c_uint, button_mask: c_uint) {
-        println!("Tray.click_selected_icon(): {:?}", self.selected_icon_index);
+        println!("Tray.click_selected_icon({:?}): {:?}", button, self.selected_icon_index);
 
         match self.selected_icon_index {
             Some(index) => {
                 let icon = &self.icons[index];
-                icon.emit_icon_click(button, button_mask, 0, 0);
+                icon.emit_icon_click(button, button_mask, 10, 10);
             },
             _ => (),
         }

@@ -91,6 +91,33 @@ pub fn get_process_name(pid: u32) -> io::Result<String> {
 }
 
 #[inline]
+pub fn get_pointer_position(display: *mut xlib::Display, window: xlib::Window) -> (c_int, c_int) {
+    let mut root = 0;
+    let mut child = 0;
+    let mut root_x = 0;
+    let mut root_y = 0;
+    let mut x = 0;
+    let mut y = 0;
+    let mut state = 0;
+
+    unsafe {
+        xlib::XQueryPointer(
+            display,
+            window,
+            &mut root,
+            &mut child,
+            &mut root_x,
+            &mut root_y,
+            &mut x,
+            &mut y,
+            &mut state
+        );
+    }
+
+    (x, y)
+}
+
+#[inline]
 pub fn resize_window(display: *mut xlib::Display, window: xlib::Window, width: u32, height: u32) {
     let mut size_hints: xlib::XSizeHints = unsafe { mem::MaybeUninit::uninit().assume_init() };
     size_hints.flags = xlib::PSize;
@@ -104,7 +131,7 @@ pub fn resize_window(display: *mut xlib::Display, window: xlib::Window, width: u
 }
 
 #[inline]
-pub fn emit_button_event(display: *mut xlib::Display, window: xlib::Window, event_type: c_int, event_mask: c_long, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
+pub fn emit_button_event(display: *mut xlib::Display, window: xlib::Window, event_type: c_int, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
     unsafe {
         let screen = xlib::XDefaultScreen(display);
         let root = xlib::XRootWindow(display, screen);
@@ -113,7 +140,7 @@ pub fn emit_button_event(display: *mut xlib::Display, window: xlib::Window, even
             type_: event_type,
             serial: 0,
             send_event: xlib::True,
-            display: display,
+            display,
             window,
             root,
             subwindow: 0,
@@ -127,36 +154,6 @@ pub fn emit_button_event(display: *mut xlib::Display, window: xlib::Window, even
             same_screen: xlib::True,
         });
 
-        xlib::XSendEvent(display, window, xlib::True, event_mask, &mut event) == xlib::True
-    }
-}
-
-#[inline]
-pub fn emit_crossing_event(display: *mut xlib::Display, window: xlib::Window, event_type: c_int, event_mask: c_long, focus: xlib::Bool) -> bool {
-    unsafe {
-        let screen = xlib::XDefaultScreen(display);
-        let root = xlib::XRootWindow(display, screen);
-
-        let mut event = xlib::XEvent::from(xlib::XCrossingEvent {
-            type_: event_type,
-            serial: 0,
-            send_event: xlib::True,
-            display: display,
-            window,
-            root,
-            subwindow: 0,
-            time: xlib::CurrentTime,
-            x: 0,
-            y: 0,
-            x_root: 0,
-            y_root: 0,
-            mode: xlib::NotifyNormal,
-            detail: xlib::NotifyAncestor,
-            same_screen: xlib::True,
-            focus,
-            state: 0,
-        });
-
-        xlib::XSendEvent(display, window, xlib::True, event_mask, &mut event) == xlib::True
+        xlib::XSendEvent(display, xlib::PointerWindow as xlib::Window, xlib::True, xlib::NoEventMask, &mut event) == xlib::True
     }
 }

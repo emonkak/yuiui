@@ -71,7 +71,7 @@ impl<'a> TrayIcon<'a> {
     }
 
     pub fn render(&self, font_renderer: &mut FontRenderer) {
-        println!("TrayIcon.render: {:?} ({})", self.title, self.icon_window);
+        println!("TrayIcon.render: {:?} (embedder_window: {}) (icon_window: {})", self.title, self.embedder_window, self.icon_window);
 
         unsafe {
             let screen_number = xlib::XDefaultScreen(self.context.display);
@@ -158,54 +158,43 @@ impl<'a> TrayIcon<'a> {
     }
 
     pub fn emit_icon_click(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
-        let result = utils::emit_crossing_event(
-            self.context.display,
-            self.icon_window,
-            xlib::EnterNotify,
-            xlib::EnterWindowMask,
-            xlib::True
-        );
-        if !result {
-            return false;
-        }
+        unsafe {
+            let screen = xlib::XDefaultScreenOfDisplay(self.context.display);
+            let root = xlib::XRootWindowOfScreen(screen);
 
-        let result = utils::emit_button_event(
-            self.context.display,
-            self.icon_window,
-            xlib::ButtonPress,
-            xlib::ButtonPressMask,
-            button,
-            button_mask,
-            x,
-            y
-        );
-        if !result {
-            return false;
-        }
+            let (original_x, original_y) = utils::get_pointer_position(self.context.display, root);
 
-        let result = utils::emit_button_event(
-            self.context.display,
-            self.icon_window,
-            xlib::ButtonRelease,
-            xlib::ButtonReleaseMask,
-            button,
-            button_mask,
-            x,
-            y
-        );
-        if !result {
-            return false;
-        }
+            xlib::XWarpPointer(self.context.display, 0, self.icon_window, 0, 0, 0, 0, x, y);
 
-        let result = utils::emit_crossing_event(
-            self.context.display,
-            self.icon_window,
-            xlib::LeaveNotify,
-            xlib::LeaveWindowMask,
-            xlib::False
-        );
-        if !result {
-            return false;
+            let result = utils::emit_button_event(
+                self.context.display,
+                self.icon_window,
+                xlib::ButtonPress,
+                button,
+                button_mask,
+                x,
+                y
+            );
+            if !result {
+                return false;
+            }
+
+            let result = utils::emit_button_event(
+                self.context.display,
+                self.icon_window,
+                xlib::ButtonRelease,
+                button,
+                button_mask,
+                x,
+                y
+            );
+            if !result {
+                return false;
+            }
+
+            xlib::XWarpPointer(self.context.display, 0, root, 0, 0, 0, 0, original_x, original_y);
+
+            xlib::XFlush(self.context.display);
         }
 
         true
