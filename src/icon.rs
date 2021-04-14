@@ -13,6 +13,7 @@ pub struct TrayIcon {
     embedder_window: xlib::Window,
     icon_window: xlib::Window,
     status: Status,
+    is_selected: bool,
     title: String,
     width: u32,
     height: u32,
@@ -50,7 +51,7 @@ impl TrayIcon {
             xlib::XSelectInput(
                 context.display,
                 embedder_window,
-                xlib::ButtonPressMask | xlib::ButtonReleaseMask | xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask
+                xlib::ButtonPressMask | xlib::ButtonReleaseMask | xlib::LeaveWindowMask | xlib::EnterWindowMask | xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask
             );
 
             let title = context.get_window_title(icon_window).unwrap_or_default();
@@ -60,6 +61,7 @@ impl TrayIcon {
                 embedder_window,
                 icon_window,
                 status: Status::Initialized,
+                is_selected: false,
                 title,
                 width,
                 height,
@@ -137,7 +139,7 @@ impl TrayIcon {
         self_mut.status = Status::Invalidated;
     }
 
-    pub fn emit_click(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
+    pub fn emit_icon_click(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
         println!("emit_click: {} {} {} {}", button, button_mask, x, y);
 
         let result = utils::emit_crossing_event(
@@ -191,6 +193,68 @@ impl TrayIcon {
         }
 
         true
+    }
+
+    pub fn emit_icon_press(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
+        println!("emit_icon_press: {}", self.icon_window);
+        utils::emit_button_event(
+            self.display,
+            self.icon_window,
+            xlib::ButtonPress,
+            xlib::ButtonPressMask,
+            button,
+            button_mask,
+            x,
+            y
+        )
+    }
+
+    pub fn emit_icon_release(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
+        println!("emit_icon_release: {}", self.icon_window);
+        utils::emit_button_event(
+            self.display,
+            self.icon_window,
+            xlib::ButtonRelease,
+            xlib::ButtonReleaseMask,
+            button,
+            button_mask,
+            x,
+            y
+        )
+    }
+
+    pub fn emit_icon_enter(&self) -> bool {
+        println!("emit_icon_enter: {}", self.icon_window);
+        utils::emit_crossing_event(
+            self.display,
+            self.icon_window,
+            xlib::EnterNotify,
+            xlib::EnterWindowMask,
+            xlib::True
+        )
+    }
+
+    pub fn emit_icon_leave(&self) -> bool {
+        println!("emit_icon_leave: {}", self.icon_window);
+        utils::emit_crossing_event(
+            self.display,
+            self.icon_window,
+            xlib::LeaveNotify,
+            xlib::LeaveWindowMask,
+            xlib::False
+        )
+    }
+
+    pub fn set_selected(&self, selected: bool) {
+        if self.is_selected == selected {
+            return;
+        }
+
+        if selected {
+
+        } else {
+
+        }
     }
 
     pub fn embedder_window(&self) -> xlib::Window {
