@@ -11,16 +11,16 @@ fn main() {
     let args = env::args().collect();
     let config = Config::parse(args);
 
-    let mut context = Context::new(config).unwrap();
+    let context = Context::new(config).unwrap();
     let mut tray = Tray::new(&context);
 
-    let previous_selection_owner = context.acquire_tray_selection(tray.window);
+    let previous_selection_owner = context.acquire_tray_selection(tray.window());
 
     tray.show();
 
-    context.poll_events(|context, event| {
+    context.poll_events(|event| {
         match event {
-            Event::XEvent(event) => tray.on_event(context, event),
+            Event::XEvent(event) => tray.on_event(event),
             Event::Signal(_) => false,
         }
     });

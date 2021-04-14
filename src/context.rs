@@ -25,9 +25,9 @@ pub struct Context {
     pub display: *mut xlib::Display,
     pub atoms: Atoms,
     pub icon_size: u32,
+    pub window_width: u32,
     pub font_set: FontSet,
     pub font_renderer: FontRenderer,
-    pub border_color: Color,
     pub normal_background: Color,
     pub normal_foreground: Color,
     pub selected_background: Color,
@@ -63,6 +63,7 @@ impl Context {
             display,
             atoms: Atoms::new(display),
             icon_size: config.icon_size,
+            window_width: config.window_width,
             font_set: FontSet::new(FontDescription {
                     family_name: config.font_family.clone(),
                     weight: config.font_weight,
@@ -71,8 +72,6 @@ impl Context {
                 })
                 .ok_or(format!("Failed to initialize `font_set`: {:?}", config.font_family))?,
             font_renderer: FontRenderer::new(),
-            border_color: Color::new(display, &config.border_color)
-                .ok_or(format!("Failed to parse `border_color`: {:?}", config.border_color))?,
             normal_background: Color::new(display, &config.normal_background)
                 .ok_or(format!("Failed to parse `normal_background`: {:?}", config.normal_background))?,
             normal_foreground: Color::new(display, &config.normal_foreground)
@@ -86,7 +85,7 @@ impl Context {
         })
     }
 
-    pub fn poll_events<F>(&mut self, mut callback: F) where F: FnMut(&mut Context, Event) -> bool {
+    pub fn poll_events<F>(&self, mut callback: F) where F: FnMut(Event) -> bool {
         let epoll_fd = epoll::epoll_create().unwrap();
 
         let x11_fd = unsafe { xlib::XConnectionNumber(self.display) as RawFd };
@@ -112,23 +111,19 @@ impl Context {
                             xlib::XNextEvent(self.display, &mut event);
                         }
 
-                        if !callback(self, Event::XEvent(event)) {
+                        if !callback(Event::XEvent(event)) {
                             break 'outer;
                         }
                     }
                 } else if fd == signal_fd {
                     if let Ok(signal) = self.signal_handler.try_read() {
-                        if !callback(self, Event::Signal(signal)) {
+                        if !callback(Event::Signal(signal)) {
                             break 'outer;
                         }
                     }
                 }
             }
         }
-    }
-
-    pub fn get_atom<T: Borrow<str>>(&self, null_terminated_name: T) -> xlib::Atom {
-        utils::new_atom(self.display, null_terminated_name.borrow())
     }
 
     pub fn get_xembed_info(&self, window: xlib::Window) -> Option<XEmbedInfo> {
@@ -209,18 +204,24 @@ impl Context {
             xlib::XSetSelectionOwner(self.display, net_system_tray_atom, previous_selection_owner, xlib::CurrentTime);
         }
     }
+
+    #[inline]
+    fn get_atom<T: Borrow<str>>(&self, null_terminated_name: T) -> xlib::Atom {
+        utils::new_atom(self.display, null_terminated_name.borrow())
+    }
 }
 
 impl Drop for Context {
     fn drop(&mut self) {
         unsafe {
-            xlib::XSync(self.display, 0);
+            xlib::XSync(self.display, xlib::False);
             xlib::XCloseDisplay(self.display);
             xlib::XSetErrorHandler(self.old_error_handler);
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Color {
     color: xlib::XColor,
 }
@@ -233,11 +234,16 @@ impl Color {
             let colormap = xlib::XDefaultColormap(display, screen_number);
             let mut color: xlib::XColor = mem::MaybeUninit::uninit().assume_init();
 
-            if xlib::XParseColor(display, colormap, color_spec_cstr.as_ptr(), &mut color) != 0 {
-                return Some(Self { color })
+            if xlib::XParseColor(display, colormap, color_spec_cstr.as_ptr(), &mut color) == xlib::False {
+                return None;
             }
+
+            if xlib::XAllocColor(display, colormap, &mut color) == xlib::False {
+                return None;
+            }
+
+            Some(Self { color })
         }
-        None
     }
 
     pub fn pixel(&self) -> c_ulong {

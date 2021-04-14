@@ -212,7 +212,7 @@ pub struct FontDescription {
 }
 
 impl FontDescription {
-    fn to_pattern(&self) -> *mut fc::FcPattern {
+    pub fn to_pattern(&self) -> *mut fc::FcPattern {
         unsafe {
             let pattern = fc::FcPatternCreate();
 
@@ -246,8 +246,7 @@ impl FontDescription {
         }
     }
 
-    #[allow(dead_code)]
-    fn key(&self) -> u64 {
+    pub fn key(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()

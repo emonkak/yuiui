@@ -62,17 +62,17 @@ pub fn get_window_property<T: Sized, const N: usize>(display: *mut xlib::Display
         )
     };
 
-    if actual_format == 32 {
-        actual_format = 64;
-    }
+    let format = match mem::size_of::<T>() {
+        8 | 4 => 32,
+        2 => 16,
+        1 => 8,
+        _ => 0,
+    };
 
     if result != xlib::Success.into()
-        || actual_format != (mem::size_of::<T>() * 8) as i32
+        || actual_format != format
         || nitems != N as c_ulong
         || prop.is_null() {
-        println!("format: {} {}", actual_format, mem::size_of::<T>() * 8);
-        println!("items: {} {}", nitems, N);
-        println!("prop: {:?}", prop);
         return None;
     }
 

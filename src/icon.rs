@@ -5,11 +5,11 @@ use x11::xft;
 use x11::xlib;
 
 use context::Context;
+use font::FontRenderer;
 use utils;
 
-#[derive(Debug)]
-pub struct TrayIcon {
-    display: *mut xlib::Display,
+pub struct TrayIcon<'a> {
+    context: &'a Context,
     embedder_window: xlib::Window,
     icon_window: xlib::Window,
     status: Status,
@@ -26,12 +26,13 @@ enum Status {
     Invalidated,
 }
 
-impl TrayIcon {
-    pub fn new(context: &mut Context, tray_window: xlib::Window, icon_window: xlib::Window, x: i32, y: i32, width: u32, height: u32) -> Self {
+impl<'a> TrayIcon<'a> {
+    pub fn new(context: &'a Context, tray_window: xlib::Window, icon_window: xlib::Window, x: i32, y: i32, width: u32, height: u32) -> Self {
         unsafe {
             let mut attributes: xlib::XSetWindowAttributes = mem::MaybeUninit::uninit().assume_init();
+            attributes.background_pixel = context.normal_background.pixel();
+            attributes.backing_store = xlib::WhenMapped;
             attributes.win_gravity = xlib::NorthWestGravity;
-            attributes.background_pixmap = xlib::ParentRelative as u64;
 
             let embedder_window = xlib::XCreateWindow(
                 context.display,
@@ -41,23 +42,23 @@ impl TrayIcon {
                 width,
                 height,
                 0,
-                0,
-                xlib::CopyFromParent as u32,
+                xlib::CopyFromParent,
+                xlib::InputOutput as u32,
                 xlib::CopyFromParent as *mut xlib::Visual,
-                xlib::CWBackPixmap | xlib::CWWinGravity,
+                xlib::CWBackPixel | xlib::CWBackingStore | xlib::CWWinGravity,
                 &mut attributes
             );
 
             xlib::XSelectInput(
                 context.display,
                 embedder_window,
-                xlib::ButtonPressMask | xlib::ButtonReleaseMask | xlib::LeaveWindowMask | xlib::EnterWindowMask | xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask
+                xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask
             );
 
             let title = context.get_window_title(icon_window).unwrap_or_default();
 
             TrayIcon {
-                display: context.display,
+                context,
                 embedder_window,
                 icon_window,
                 status: Status::Initialized,
@@ -69,64 +70,81 @@ impl TrayIcon {
         }
     }
 
-    pub fn update(&self, context: &mut Context) {
+    pub fn render(&self, font_renderer: &mut FontRenderer) {
+        println!("TrayIcon.render: {:?} ({})", self.title, self.icon_window);
+
         unsafe {
-            let screen_number = xlib::XDefaultScreen(self.display);
-            let visual = xlib::XDefaultVisual(self.display, screen_number);
-            let colormap = xlib::XDefaultColormap(self.display, screen_number);
-            let depth = xlib::XDefaultDepth(self.display, screen_number);
+            let screen_number = xlib::XDefaultScreen(self.context.display);
+            let visual = xlib::XDefaultVisual(self.context.display, screen_number);
+            let colormap = xlib::XDefaultColormap(self.context.display, screen_number);
+            let depth = xlib::XDefaultDepth(self.context.display, screen_number);
+            let pixmap = xlib::XCreatePixmap(self.context.display, self.embedder_window, self.width, self.height, depth as u32);
+            let gc = xlib::XCreateGC(self.context.display, pixmap, 0, ptr::null_mut());
+            let draw = xft::XftDrawCreate(self.context.display, pixmap, visual, colormap);
 
-            let pixmap = xlib::XCreatePixmap(self.display, self.embedder_window, self.width, self.height, depth as u32);
-            let draw = xft::XftDrawCreate(self.display, pixmap, visual, colormap);
-            let gc = xlib::XCreateGC(self.display, pixmap, 0, ptr::null_mut());
-            let bg_pixel = context.normal_background.pixel();
+            let background_color;
+            let foreground_color;
 
-            xlib::XSetForeground(self.display, gc, bg_pixel);
-            xlib::XFillRectangle(self.display, pixmap, gc, 0, 0, self.width, self.height);
+            if self.is_selected {
+                background_color = &self.context.selected_background;
+                foreground_color = &self.context.selected_foreground;
+            } else {
+                background_color = &self.context.normal_background;
+                foreground_color = &self.context.normal_foreground;
+            }
 
-            context.font_renderer.render_line_text(
-                self.display,
+            xlib::XSetForeground(self.context.display, gc, background_color.pixel());
+            xlib::XFillRectangle(self.context.display, pixmap, gc, 0, 0, self.width, self.height);
+
+            font_renderer.render_line_text(
+                self.context.display,
                 draw,
-                &mut context.normal_foreground.xft_color(),
-                &context.font_set,
-                context.icon_size as i32,
-                (self.height / 2) as i32 - (context.font_set.description().pixel_size / 2) as i32,
+                &mut foreground_color.xft_color(),
+                &self.context.font_set,
+                self.context.icon_size as i32,
+                (self.height / 2) as i32 - (self.context.font_set.description().pixel_size / 2) as i32,
                 &self.title
             );
 
-            xlib::XCopyArea(self.display, pixmap, self.embedder_window, gc, 0, 0, self.width, self.height, 0, 0);
+            xlib::XSetWindowBackground(
+                self.context.display,
+                self.embedder_window,
+                background_color.pixel()
+            );
 
-            xlib::XFreeGC(self.display, gc);
-            xlib::XFreePixmap(self.display, pixmap);
+            xlib::XUnmapWindow(self.context.display, self.icon_window);
+            xlib::XSetSubwindowMode(self.context.display,gc, xlib::IncludeInferiors);
+            xlib::XCopyArea(self.context.display, pixmap, self.embedder_window, gc, 0, 0, self.width, self.height, 0, 0);
+            xlib::XMapRaised(self.context.display, self.icon_window);
+            xlib::XFlush(self.context.display);
+
+            xlib::XFreeGC(self.context.display, gc);
+            xlib::XFreePixmap(self.context.display, pixmap);
             xft::XftDrawDestroy(draw);
         }
     }
 
-    pub fn show(&mut self, context: &Context) {
-        println!("show_icon: {:?}", self);
-
+    pub fn show(&mut self) {
         if self.status == Status::Embedded {
             return;
         }
 
         self.status = Status::Embedded;
-        utils::resize_window(self.display, self.icon_window, context.icon_size, context.icon_size);
+        utils::resize_window(self.context.display, self.icon_window, self.context.icon_size, self.context.icon_size);
 
         unsafe {
-            xlib::XSelectInput(self.display, self.icon_window, xlib::StructureNotifyMask | xlib::PropertyChangeMask | xlib::ExposureMask);
-            xlib::XReparentWindow(self.display, self.icon_window, self.embedder_window, 0, 0);
-            xlib::XMapRaised(self.display, self.icon_window);
-            xlib::XMapWindow(self.display, self.embedder_window);
-            xlib::XFlush(self.display);
+            xlib::XSelectInput(self.context.display, self.icon_window, xlib::StructureNotifyMask | xlib::PropertyChangeMask);
+            xlib::XReparentWindow(self.context.display, self.icon_window, self.embedder_window, 0, 0);
+            xlib::XMapRaised(self.context.display, self.icon_window);
+            xlib::XMapWindow(self.context.display, self.embedder_window);
+            xlib::XFlush(self.context.display);
         }
-
-        println!("show_icon end");
     }
 
     pub fn wait_for_embedding(&mut self) {
         unsafe {
-            xlib::XSelectInput(self.display, self.icon_window, xlib::PropertyChangeMask);
-            xlib::XFlush(self.display);
+            xlib::XSelectInput(self.context.display, self.icon_window, xlib::PropertyChangeMask);
+            xlib::XFlush(self.context.display);
         }
     }
 
@@ -140,10 +158,8 @@ impl TrayIcon {
     }
 
     pub fn emit_icon_click(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
-        println!("emit_click: {} {} {} {}", button, button_mask, x, y);
-
         let result = utils::emit_crossing_event(
-            self.display,
+            self.context.display,
             self.icon_window,
             xlib::EnterNotify,
             xlib::EnterWindowMask,
@@ -154,7 +170,7 @@ impl TrayIcon {
         }
 
         let result = utils::emit_button_event(
-            self.display,
+            self.context.display,
             self.icon_window,
             xlib::ButtonPress,
             xlib::ButtonPressMask,
@@ -168,7 +184,7 @@ impl TrayIcon {
         }
 
         let result = utils::emit_button_event(
-            self.display,
+            self.context.display,
             self.icon_window,
             xlib::ButtonRelease,
             xlib::ButtonReleaseMask,
@@ -182,7 +198,7 @@ impl TrayIcon {
         }
 
         let result = utils::emit_crossing_event(
-            self.display,
+            self.context.display,
             self.icon_window,
             xlib::LeaveNotify,
             xlib::LeaveWindowMask,
@@ -195,66 +211,8 @@ impl TrayIcon {
         true
     }
 
-    pub fn emit_icon_press(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
-        println!("emit_icon_press: {}", self.icon_window);
-        utils::emit_button_event(
-            self.display,
-            self.icon_window,
-            xlib::ButtonPress,
-            xlib::ButtonPressMask,
-            button,
-            button_mask,
-            x,
-            y
-        )
-    }
-
-    pub fn emit_icon_release(&self, button: c_uint, button_mask: c_uint, x: c_int, y: c_int) -> bool {
-        println!("emit_icon_release: {}", self.icon_window);
-        utils::emit_button_event(
-            self.display,
-            self.icon_window,
-            xlib::ButtonRelease,
-            xlib::ButtonReleaseMask,
-            button,
-            button_mask,
-            x,
-            y
-        )
-    }
-
-    pub fn emit_icon_enter(&self) -> bool {
-        println!("emit_icon_enter: {}", self.icon_window);
-        utils::emit_crossing_event(
-            self.display,
-            self.icon_window,
-            xlib::EnterNotify,
-            xlib::EnterWindowMask,
-            xlib::True
-        )
-    }
-
-    pub fn emit_icon_leave(&self) -> bool {
-        println!("emit_icon_leave: {}", self.icon_window);
-        utils::emit_crossing_event(
-            self.display,
-            self.icon_window,
-            xlib::LeaveNotify,
-            xlib::LeaveWindowMask,
-            xlib::False
-        )
-    }
-
-    pub fn set_selected(&self, selected: bool) {
-        if self.is_selected == selected {
-            return;
-        }
-
-        if selected {
-
-        } else {
-
-        }
+    pub fn set_selected(&mut self, selected: bool) {
+        self.is_selected = selected;
     }
 
     pub fn embedder_window(&self) -> xlib::Window {
@@ -266,22 +224,20 @@ impl TrayIcon {
     }
 }
 
-impl Drop for TrayIcon {
+impl<'a> Drop for TrayIcon<'a> {
     fn drop(&mut self) {
-        println!("drop_icon: {:?}", self);
-
         unsafe {
             if self.status == Status::Embedded {
-                let screen = xlib::XDefaultScreenOfDisplay(self.display);
+                let screen = xlib::XDefaultScreenOfDisplay(self.context.display);
                 let root = xlib::XRootWindowOfScreen(screen);
 
-                xlib::XSelectInput(self.display, self.icon_window, xlib::NoEventMask);
-                xlib::XUnmapWindow(self.display, self.icon_window);
-                xlib::XReparentWindow(self.display, self.icon_window, root, 0, 0);
-                xlib::XMapRaised(self.display, self.icon_window);
+                xlib::XSelectInput(self.context.display, self.icon_window, xlib::NoEventMask);
+                xlib::XUnmapWindow(self.context.display, self.icon_window);
+                xlib::XReparentWindow(self.context.display, self.icon_window, root, 0, 0);
+                xlib::XMapRaised(self.context.display, self.icon_window);
             }
 
-            xlib::XDestroyWindow(self.display, self.embedder_window);
+            xlib::XDestroyWindow(self.context.display, self.embedder_window);
         }
     }
 }
