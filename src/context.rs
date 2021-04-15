@@ -16,6 +16,8 @@ use error_handler;
 use font::FontDescription;
 use font::FontRenderer;
 use font::FontSet;
+use layout::Layout;
+use layout::Layoutable;
 use signal_handler::SignalHandler;
 use utils;
 use xembed::XEmbedInfo;
@@ -26,6 +28,7 @@ pub struct Context {
     pub atoms: Atoms,
     pub icon_size: u32,
     pub window_width: u32,
+    pub padding: u32,
     pub font_set: FontSet,
     pub font_renderer: FontRenderer,
     pub normal_background: Color,
@@ -64,6 +67,7 @@ impl Context {
             atoms: Atoms::new(display),
             icon_size: config.icon_size,
             window_width: config.window_width,
+            padding: config.padding,
             font_set: FontSet::new(FontDescription {
                     family_name: config.font_family.clone(),
                     weight: config.font_weight,
@@ -124,6 +128,10 @@ impl Context {
                 }
             }
         }
+    }
+
+    pub fn get_layout<T: Layoutable>(&self) -> Layout<T> {
+        Layout::new(self.window_width, self.icon_size + self.padding * 2)
     }
 
     pub fn get_xembed_info(&self, window: xlib::Window) -> Option<XEmbedInfo> {

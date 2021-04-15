@@ -10,6 +10,7 @@ pub mod tray;
 
 mod error_handler;
 mod icon;
+mod layout;
 mod signal_handler;
 mod utils;
 mod xembed;

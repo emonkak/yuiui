@@ -118,7 +118,7 @@ pub fn get_pointer_position(display: *mut xlib::Display, window: xlib::Window) -
 }
 
 #[inline]
-pub fn resize_window(display: *mut xlib::Display, window: xlib::Window, width: u32, height: u32) {
+pub fn move_resize_window(display: *mut xlib::Display, window: xlib::Window, x: i32, y: i32, width: u32, height: u32) {
     let mut size_hints: xlib::XSizeHints = unsafe { mem::MaybeUninit::uninit().assume_init() };
     size_hints.flags = xlib::PSize;
     size_hints.width = width as i32;
@@ -126,7 +126,7 @@ pub fn resize_window(display: *mut xlib::Display, window: xlib::Window, width: u
 
     unsafe {
         xlib::XSetWMNormalHints(display, window, &mut size_hints);
-        xlib::XResizeWindow(display, window, width, height);
+        xlib::XMoveResizeWindow(display, window, x, y, width, height);
     }
 }
 

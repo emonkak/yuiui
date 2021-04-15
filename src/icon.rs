@@ -6,6 +6,7 @@ use x11::xlib;
 
 use context::Context;
 use font::FontRenderer;
+use layout::Layoutable;
 use utils;
 
 pub struct TrayIcon<'a> {
@@ -101,7 +102,7 @@ impl<'a> TrayIcon<'a> {
                 draw,
                 &mut foreground_color.xft_color(),
                 &self.context.font_set,
-                self.context.icon_size as i32,
+                self.context.icon_size as i32 + self.context.padding as i32 * 2,
                 (self.height / 2) as i32 - (self.context.font_set.description().pixel_size / 2) as i32,
                 &self.title
             );
@@ -130,7 +131,14 @@ impl<'a> TrayIcon<'a> {
         }
 
         self.status = Status::Embedded;
-        utils::resize_window(self.context.display, self.icon_window, self.context.icon_size, self.context.icon_size);
+        utils::move_resize_window(
+            self.context.display,
+            self.icon_window,
+            self.context.padding as i32,
+            self.context.padding as i32,
+            self.context.icon_size,
+            self.context.icon_size
+        );
 
         unsafe {
             xlib::XSelectInput(self.context.display, self.icon_window, xlib::StructureNotifyMask | xlib::PropertyChangeMask);
@@ -161,7 +169,6 @@ impl<'a> TrayIcon<'a> {
         unsafe {
             let screen = xlib::XDefaultScreenOfDisplay(self.context.display);
             let root = xlib::XRootWindowOfScreen(screen);
-
             let (original_x, original_y) = utils::get_pointer_position(self.context.display, root);
 
             xlib::XWarpPointer(self.context.display, 0, self.icon_window, 0, 0, 0, 0, x, y);
@@ -193,7 +200,6 @@ impl<'a> TrayIcon<'a> {
             }
 
             xlib::XWarpPointer(self.context.display, 0, root, 0, 0, 0, 0, original_x, original_y);
-
             xlib::XFlush(self.context.display);
         }
 
@@ -210,6 +216,24 @@ impl<'a> TrayIcon<'a> {
 
     pub fn icon_window(&self) -> xlib::Window {
         self.icon_window
+    }
+}
+
+impl<'a> Layoutable for TrayIcon<'a> {
+    fn update_layout(&mut self, x: i32, y: i32, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+
+        unsafe {
+            xlib::XMoveResizeWindow(
+                self.context.display,
+                self.embedder_window,
+                x,
+                y,
+                width,
+                height
+            );
+        }
     }
 }
 
