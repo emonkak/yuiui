@@ -1,4 +1,3 @@
-use nix::sys::epoll;
 use nix::sys::signal;
 use nix::sys::signalfd;
 use std::borrow::Borrow;
@@ -21,6 +20,8 @@ use font::FontRenderer;
 use font::FontSet;
 use layout::Layout;
 use layout::Layoutable;
+use task::TaskScheduler;
+use task::CallbackResult;
 use utils;
 use xembed::XEmbedInfo;
 use xembed::XEmbedMessage;
@@ -37,6 +38,7 @@ pub struct Context {
     pub normal_foreground: Color,
     pub selected_background: Color,
     pub selected_foreground: Color,
+    pub task_scheduler: TaskScheduler,
     old_error_handler: Option<unsafe extern "C" fn (*mut xlib::Display, *mut xlib::XErrorEvent) -> c_int>,
     signal_fd: RefCell<signalfd::SignalFd>,
 }
@@ -67,6 +69,13 @@ impl Context {
             );
         }
 
+        let mut task_scheduler = TaskScheduler::new()
+            .map_err(|error| format!("Failed to initialize TaskScheduler: {}", error))?;
+        task_scheduler.watch(unsafe { xlib::XConnectionNumber(display) as RawFd })
+            .map_err(|error| format!("Failed to register X connection file descriptor: {}", error))?;
+        task_scheduler.watch(signal_fd.as_raw_fd())
+            .map_err(|error| format!("Failed to register signal file descriptor: {}", error))?;
+
         Ok(Context {
             display,
             atoms: Atoms::new(display),
@@ -89,50 +98,36 @@ impl Context {
                 .ok_or(format!("Failed to parse `selected_background`: {:?}", config.selected_background))?,
             selected_foreground: Color::new(display, &config.selected_foreground)
                 .ok_or(format!("Failed to parse `selected_foreground`: {:?}", config.selected_foreground))?,
+            task_scheduler,
             old_error_handler,
             signal_fd: RefCell::new(signal_fd),
         })
     }
 
-    pub fn poll_events<F>(&self, mut callback: F) where F: FnMut(Event) -> bool {
-        let epoll_fd = epoll::epoll_create().unwrap();
-
+    pub fn wait_events<F: FnMut(Event) -> CallbackResult<T>, T>(&self, mut callback: F) -> T {
         let x11_fd = unsafe { xlib::XConnectionNumber(self.display) as RawFd };
-        let mut x11_ev = epoll::EpollEvent::new(epoll::EpollFlags::EPOLLIN, x11_fd as u64);
-        epoll::epoll_ctl(epoll_fd, epoll::EpollOp::EpollCtlAdd, x11_fd, Some(&mut x11_ev)).unwrap();
-
         let signal_fd = self.signal_fd.borrow().as_raw_fd();
-        let mut signal_ev = epoll::EpollEvent::new(epoll::EpollFlags::EPOLLIN, signal_fd as u64);
-        epoll::epoll_ctl(epoll_fd, epoll::EpollOp::EpollCtlAdd, signal_fd, Some(&mut signal_ev)).unwrap();
 
-        let mut epoll_events = [epoll::EpollEvent::empty(); 2];
-        let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
+        let mut xevent: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
 
-        'outer: loop {
-            let changed_fds = epoll::epoll_wait(epoll_fd, &mut epoll_events, -1).unwrap_or(0);
-
-            for i in 0..changed_fds {
-                let fd = epoll_events[i].data() as RawFd;
-                if fd == x11_fd {
-                    let pendings = unsafe { xlib::XPending(self.display) };
-                    for _ in 0..pendings {
-                        unsafe {
-                            xlib::XNextEvent(self.display, &mut event);
-                        }
-
-                        if !callback(Event::XEvent(event)) {
-                            break 'outer;
-                        }
+        self.task_scheduler.wait(-1, |fd| {
+            if fd == x11_fd {
+                let pendings = unsafe { xlib::XPending(self.display) };
+                for _ in 0..pendings {
+                    unsafe {
+                        xlib::XNextEvent(self.display, &mut xevent);
                     }
-                } else if fd == signal_fd {
-                    if let Ok(Some(signal)) = self.signal_fd.borrow_mut().read_signal() {
-                        if !callback(Event::Signal(signal)) {
-                            break 'outer;
-                        }
-                    }
+
+                    return callback(Event::XEvent(xevent));
+                }
+            } else if fd == signal_fd {
+                if let Ok(Some(signal)) = self.signal_fd.borrow_mut().read_signal() {
+                    return callback(Event::Signal(signal));
                 }
             }
-        }
+
+            CallbackResult::Continue
+        })
     }
 
     pub fn get_layout<T: Layoutable>(&self) -> Layout<T> {

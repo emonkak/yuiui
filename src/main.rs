@@ -6,6 +6,7 @@ use keytray::config::Config;
 use keytray::context::Context;
 use keytray::context::Event;
 use keytray::tray::Tray;
+use keytray::task;
 
 fn main() {
     let args = env::args().collect();
@@ -18,10 +19,10 @@ fn main() {
 
     tray.show();
 
-    context.poll_events(|event| {
+    context.wait_events(|event| {
         match event {
             Event::XEvent(event) => tray.on_event(event),
-            Event::Signal(_) => false,
+            Event::Signal(_) => task::Return(()),
         }
     });
 

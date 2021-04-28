@@ -7,6 +7,7 @@ use context::Context;
 use font::FontRenderer;
 use icon::TrayIcon;
 use layout::Layout;
+use task;
 
 const SYSTEM_TRAY_REQUEST_DOCK: i64 = 0;
 const SYSTEM_TRAY_BEGIN_MESSAGE: i64 = 1;
@@ -116,7 +117,7 @@ impl<'a> Tray<'a> {
         self.window
     }
 
-    pub fn on_event(&mut self, event: xlib::XEvent) -> bool {
+    pub fn on_event(&mut self, event: xlib::XEvent) -> task::CallbackResult<()> {
         match event.get_type() {
             xlib::KeyRelease => self.on_key_release(xlib::XKeyEvent::from(event)),
             xlib::ClientMessage => self.on_client_message(xlib::XClientMessageEvent::from(event)),
@@ -124,11 +125,11 @@ impl<'a> Tray<'a> {
             xlib::Expose => self.on_expose(xlib::XExposeEvent::from(event)),
             xlib::PropertyNotify => self.on_property_notify(xlib::XPropertyEvent::from(event)),
             xlib::ReparentNotify => self.on_reparent_notify(xlib::XReparentEvent::from(event)),
-            _ => true,
+            _ => task::Continue,
         }
     }
 
-    fn on_key_release(&mut self, event: xlib::XKeyEvent) -> bool {
+    fn on_key_release(&mut self, event: xlib::XKeyEvent) -> task::CallbackResult<()> {
         let keysym = unsafe {
             xlib::XkbKeycodeToKeysym(
                 self.context.display,
@@ -144,14 +145,14 @@ impl<'a> Tray<'a> {
             keysym::XK_Left | keysym::XK_h => self.click_selected_icon(xlib::Button3, xlib::Button3Mask),
             _ => (),
         }
-        true
+        task::Continue
     }
 
-    fn on_client_message(&mut self, event: xlib::XClientMessageEvent) -> bool {
+    fn on_client_message(&mut self, event: xlib::XClientMessageEvent) -> task::CallbackResult<()> {
         if event.message_type == self.context.atoms.WM_PROTOCOLS && event.format == 32 {
             let protocol = event.data.get_long(0) as xlib::Atom;
             if protocol == self.context.atoms.WM_DELETE_WINDOW {
-                return false;
+                return task::Return(());
             }
         } else if event.message_type == self.context.atoms.NET_SYSTEM_TRAY_OPCODE {
             let opcode = event.data.get_long(1);
@@ -167,24 +168,24 @@ impl<'a> Tray<'a> {
         } else if event.message_type == self.context.atoms.NET_SYSTEM_TRAY_MESSAGE_DATA {
             // TODO:
         }
-        true
+        task::Continue
     }
 
-    fn on_destroy_notify(&mut self, event: xlib::XDestroyWindowEvent) -> bool {
+    fn on_destroy_notify(&mut self, event: xlib::XDestroyWindowEvent) -> task::CallbackResult<()> {
         if event.window == self.window {
-            return false;
+            return task::Return(());
         }
         if let Some(icon) = self.remove_icon(event.window) {
             icon.invalidate();
         }
-        true
+        task::Continue
     }
 
-    fn on_expose(&mut self, _: xlib::XExposeEvent) -> bool {
-        true
+    fn on_expose(&mut self, _: xlib::XExposeEvent) -> task::CallbackResult<()> {
+        task::Continue
     }
 
-    fn on_property_notify(&mut self, event: xlib::XPropertyEvent) -> bool {
+    fn on_property_notify(&mut self, event: xlib::XPropertyEvent) -> task::CallbackResult<()> {
         if event.atom == self.context.atoms.XEMBED_INFO {
             if let Some(index) = self.index_of_icon(event.window) {
                 let icon = self.layout.get_unchecked_mut(index);
@@ -200,17 +201,17 @@ impl<'a> Tray<'a> {
                 }
             }
         }
-        true
+        task::Continue
     }
 
-    fn on_reparent_notify(&mut self, event: xlib::XReparentEvent) -> bool {
+    fn on_reparent_notify(&mut self, event: xlib::XReparentEvent) -> task::CallbackResult<()> {
         if let Some(index) = self.index_of_icon(event.window) {
             let icon = self.layout.get_unchecked_mut(index);
             if icon.embedder_window() != event.parent {
                 self.remove_icon(event.window);
             }
         }
-        true
+        task::Continue
     }
 
     fn index_of_icon(&mut self, window: xlib::Window) -> Option<usize> {
