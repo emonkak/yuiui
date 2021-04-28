@@ -1,10 +1,13 @@
 use nix::sys::epoll;
 use nix::sys::signal;
+use nix::sys::signalfd;
 use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::env;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw::*;
+use std::os::unix::io::AsRawFd;
 use std::os::unix::io::RawFd;
 use std::ptr;
 use x11::xft;
@@ -18,7 +21,6 @@ use font::FontRenderer;
 use font::FontSet;
 use layout::Layout;
 use layout::Layoutable;
-use signal_handler::SignalHandler;
 use utils;
 use xembed::XEmbedInfo;
 use xembed::XEmbedMessage;
@@ -35,20 +37,23 @@ pub struct Context {
     pub normal_foreground: Color,
     pub selected_background: Color,
     pub selected_foreground: Color,
-    signal_handler: SignalHandler,
     old_error_handler: Option<unsafe extern "C" fn (*mut xlib::Display, *mut xlib::XErrorEvent) -> c_int>,
+    signal_fd: RefCell<signalfd::SignalFd>,
 }
 
 pub enum Event {
     XEvent(xlib::XEvent),
-    Signal(signal::Signal),
+    Signal(signalfd::siginfo),
 }
 
 impl Context {
     pub fn new(config: Config) -> Result<Self, String> {
-        let signal_handler = SignalHandler::install(signal::Signal::SIGINT)
-            .map_err(|error| error.to_string())?;
-
+        let signal_fd = {
+            let mut mask = signalfd::SigSet::empty();
+            mask.add(signal::Signal::SIGINT);
+            mask.thread_block().unwrap();
+            signalfd::SignalFd::new(&mask)
+        }.map_err(|error| format!("Failed to initialize SignalFd: {}", error))?;
         let old_error_handler = unsafe {
             xlib::XSetErrorHandler(Some(error_handler::handle))
         };
@@ -84,8 +89,8 @@ impl Context {
                 .ok_or(format!("Failed to parse `selected_background`: {:?}", config.selected_background))?,
             selected_foreground: Color::new(display, &config.selected_foreground)
                 .ok_or(format!("Failed to parse `selected_foreground`: {:?}", config.selected_foreground))?,
-            signal_handler,
             old_error_handler,
+            signal_fd: RefCell::new(signal_fd),
         })
     }
 
@@ -96,7 +101,7 @@ impl Context {
         let mut x11_ev = epoll::EpollEvent::new(epoll::EpollFlags::EPOLLIN, x11_fd as u64);
         epoll::epoll_ctl(epoll_fd, epoll::EpollOp::EpollCtlAdd, x11_fd, Some(&mut x11_ev)).unwrap();
 
-        let signal_fd = self.signal_handler.fd();
+        let signal_fd = self.signal_fd.borrow().as_raw_fd();
         let mut signal_ev = epoll::EpollEvent::new(epoll::EpollFlags::EPOLLIN, signal_fd as u64);
         epoll::epoll_ctl(epoll_fd, epoll::EpollOp::EpollCtlAdd, signal_fd, Some(&mut signal_ev)).unwrap();
 
@@ -120,7 +125,7 @@ impl Context {
                         }
                     }
                 } else if fd == signal_fd {
-                    if let Ok(signal) = self.signal_handler.try_read() {
+                    if let Ok(Some(signal)) = self.signal_fd.borrow_mut().read_signal() {
                         if !callback(Event::Signal(signal)) {
                             break 'outer;
                         }
