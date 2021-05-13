@@ -14,3 +14,6 @@ mod icon;
 mod layout;
 mod utils;
 mod xembed;
+
+#[allow(dead_code)]
+pub mod tree;
