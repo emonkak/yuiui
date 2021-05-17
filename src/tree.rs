@@ -1,381 +1,396 @@
-use std::cell::{Ref, RefCell, RefMut};
-use std::convert::TryInto;
-use std::fmt::Debug;
+use std::cell::Cell;
+use std::fmt;
+use std::ops::Deref;
 use std::rc::{Rc, Weak};
+use std::ptr;
 
 #[derive(Debug)]
-pub struct Tree<T>(NodeRef<T>);
+pub struct Tree<T>(Rc<Link<T>>);
 
-#[derive(Debug)]
+pub struct Link<T> {
+    current: Node<T>,
+    parent: Cell<Weak<Link<T>>>,
+    prev_sibling: Cell<Weak<Link<T>>>,
+    next_sibling: Cell<Option<Tree<T>>>,
+}
+
 pub struct Node<T> {
     data: T,
-    first_child: Option<NodeRef<T>>,
-    last_child: NodeWeak<T>,
-    prev_sibling: NodeWeak<T>,
-    next_sibling: Option<NodeRef<T>>,
-    parent: NodeWeak<T>,
+    first_child: Cell<Option<Tree<T>>>,
+    last_child: Cell<Weak<Link<T>>>,
 }
 
-type NodeRef<T> = Rc<RefCell<Node<T>>>;
-type NodeWeak<T> = Weak<RefCell<Node<T>>>;
+pub trait Rearrange<T> {
+    fn rearrange(self, new_parent: Weak<Link<T>>, new_prev_sibling: Weak<Link<T>>, new_next_sibling: Option<Tree<T>>) -> Tree<T>;
+}
+
+impl<T> Rearrange<T> for Tree<T> {
+    fn rearrange(self, new_parent: Weak<Link<T>>, new_prev_sibling: Weak<Link<T>>, new_next_sibling: Option<Tree<T>>) -> Tree<T> {
+        self.attach(new_parent, new_prev_sibling, new_next_sibling);
+        self
+    }
+}
+
+impl<T> Rearrange<T> for Node<T> {
+    fn rearrange(self, new_parent: Weak<Link<T>>, new_prev_sibling: Weak<Link<T>>, new_next_sibling: Option<Tree<T>>) -> Tree<T> {
+        Tree::from(Link {
+            current: self,
+            parent: Cell::new(new_parent),
+            prev_sibling: Cell::new(new_prev_sibling),
+            next_sibling: Cell::new(new_next_sibling),
+        })
+    }
+}
 
 impl<T> Tree<T> {
-    pub fn append(&self, mut new_node: Node<T>) -> Tree<T> {
-        assert!(new_node.prev_sibling.upgrade().is_none());
-        assert!(new_node.next_sibling.is_none());
-        assert!(new_node.parent.upgrade().is_none());
+    pub fn append(&self, node: impl Rearrange<T>) -> Tree<T> {
+        let last_child_weak = self.current.last_child.take();
 
-        new_node.parent = Rc::downgrade(&self.0);
-
-        let mut current = self.0.borrow_mut();
-
-        if let Some(last_child_ref) = current.last_child.upgrade() {
-            new_node.prev_sibling = Rc::downgrade(&last_child_ref);
-            let new_child_ref = new_node.into_ref();
-            current.last_child = Rc::downgrade(&new_child_ref);
-            last_child_ref.borrow_mut().next_sibling = Some(Rc::clone(&new_child_ref));
-            Tree(new_child_ref)
-        } else {
-            let new_child_ref = new_node.into_ref();
-            current.last_child = Rc::downgrade(&new_child_ref);
-            current.first_child = Some(Rc::clone(&new_child_ref));
-            Tree(new_child_ref)
+        match last_child_weak.upgrade() {
+            Some(last_child) => {
+                let new_tree = node.rearrange(self.downgrade(), last_child_weak, None);
+                self.current.last_child.set(new_tree.downgrade());
+                last_child.next_sibling.set(Some(new_tree.clone()));
+                new_tree
+            }
+            None => {
+                let new_tree = node.rearrange(self.downgrade(), Weak::new(), None);
+                self.current.last_child.set(new_tree.downgrade());
+                self.current.first_child.set(Some(new_tree.clone()));
+                new_tree
+            }
         }
     }
 
-    pub fn prepend(&self, mut new_node: Node<T>) -> Tree<T> {
-        assert!(new_node.prev_sibling.upgrade().is_none());
-        assert!(new_node.next_sibling.is_none());
-        assert!(new_node.parent.upgrade().is_none());
-
-        new_node.parent = Rc::downgrade(&self.0);
-
-        let mut current = self.0.borrow_mut();
-
-        if let Some(first_child_ref) = current.first_child.as_ref() {
-            new_node.next_sibling = Some(Rc::clone(&first_child_ref));
-
-            let new_child_ref = new_node.into_ref();
-            first_child_ref.borrow_mut().prev_sibling = Rc::downgrade(&new_child_ref);
-            current.first_child = Some(Rc::clone(&new_child_ref));
-            Tree(new_child_ref)
-        } else {
-            let new_child_ref = new_node.into_ref();
-            current.last_child = Rc::downgrade(&new_child_ref);
-            current.first_child = Some(Rc::clone(&new_child_ref));
-            Tree(new_child_ref)
+    pub fn prepend(&self, node: impl Rearrange<T>) -> Tree<T> {
+        match self.current.first_child.take() {
+            Some(first_child) => {
+                let new_tree = node.rearrange(self.downgrade(), Weak::new(), Some(first_child.clone()));
+                self.current.first_child.set(Some(new_tree.clone()));
+                first_child.prev_sibling.set(new_tree.downgrade());
+                new_tree
+            }
+            None => {
+                let new_tree = node.rearrange(self.downgrade(), Weak::new(), None);
+                self.current.first_child.set(Some(new_tree.clone()));
+                self.current.last_child.set(new_tree.downgrade());
+                new_tree
+            }
         }
     }
 
-    pub fn insert_before(&self, mut new_node: Node<T>) -> Tree<T> {
-        assert!(new_node.prev_sibling.upgrade().is_none());
-        assert!(new_node.next_sibling.is_none());
-        assert!(new_node.parent.upgrade().is_none());
+    pub fn insert_before(&self, node: impl Rearrange<T>) -> Tree<T> {
+        let prev_sibling_weak = self.prev_sibling.take();
 
-        let mut current = self.0.borrow_mut();
-
-        let node_ref = if let Some(prev_sibling_ref) = current.prev_sibling.upgrade() {
-            new_node.prev_sibling = Rc::downgrade(&prev_sibling_ref);
-            new_node.next_sibling = Some(Rc::clone(&self.0));
-            new_node.parent = current.parent.clone();
-
-            let node_ref: NodeRef<T> = new_node.into_ref();
-            prev_sibling_ref.borrow_mut().next_sibling = Some(node_ref.clone());
-            node_ref
-        } else {
-            let parent_ref = current.parent.upgrade().expect("Only one element on root allowed.");
-            new_node.next_sibling = Some(Rc::clone(&self.0));
-            new_node.parent = Rc::downgrade(&parent_ref);
-
-            let node_ref = new_node.into_ref();
-            parent_ref.borrow_mut().first_child = Some(Rc::clone(&node_ref));
-            node_ref
+        let new_tree = match prev_sibling_weak.upgrade() {
+            Some(prev_sibling) => {
+                let new_tree = node.rearrange(
+                    clone_cell_inner(&self.parent),
+                    prev_sibling_weak,
+                    Some(self.clone())
+                );
+                prev_sibling.next_sibling.set(Some(new_tree.clone()));
+                new_tree
+            }
+            None => {
+                let parent = self.parent().expect("Only one element on root allowed.");
+                let new_tree = node.rearrange(
+                    parent.downgrade(),
+                    Weak::new(),
+                    Some(self.clone())
+                );
+                parent.current.first_child.set(Some(new_tree.clone()));
+                new_tree
+            }
         };
 
-        current.prev_sibling = Rc::downgrade(&node_ref);
+        self.prev_sibling.set(new_tree.downgrade());
 
-        Tree(node_ref)
+        new_tree
     }
 
-    pub fn insert_after(&self, mut new_node: Node<T>) -> Tree<T> {
-        assert!(new_node.prev_sibling.upgrade().is_none());
-        assert!(new_node.next_sibling.is_none());
-        assert!(new_node.parent.upgrade().is_none());
-
-        let mut current = self.0.borrow_mut();
-
-        let node_ref = if let Some(next_sibling_ref) = current.next_sibling.as_ref() {
-            new_node.prev_sibling = Rc::downgrade(&self.0);
-            new_node.next_sibling = Some(Rc::clone(&next_sibling_ref));
-            new_node.parent = current.parent.clone();
-
-            let node_ref = new_node.into_ref();
-            next_sibling_ref.borrow_mut().prev_sibling = Rc::downgrade(&node_ref);
-            node_ref
-        } else {
-            let parent_ref = current.parent.upgrade().expect("Only one element on root allowed.");
-            new_node.prev_sibling = Rc::downgrade(&self.0);
-            new_node.parent = Rc::downgrade(&parent_ref);
-
-            let node_ref = new_node.into_ref();
-            parent_ref.borrow_mut().last_child = Rc::downgrade(&node_ref);
-            node_ref
+    pub fn insert_after(&self, node: impl Rearrange<T>) -> Tree<T> {
+        let new_tree = match self.next_sibling.take() {
+            Some(next_sibling) => {
+                let new_tree = node.rearrange(
+                    clone_cell_inner(&self.parent),
+                    self.downgrade(),
+                    Some(next_sibling.clone())
+                );
+                next_sibling.prev_sibling.set(new_tree.downgrade());
+                new_tree
+            }
+            None => {
+                let parent = self.parent().expect("Only one element on root allowed.");
+                let new_tree = node.rearrange(
+                    parent.downgrade(),
+                    self.downgrade(),
+                    None
+                );
+                parent.current.last_child.set(new_tree.downgrade());
+                new_tree
+            }
         };
 
-        current.next_sibling = Some(Rc::clone(&node_ref));
+        self.next_sibling.set(Some(new_tree.clone()));
 
-        Tree(node_ref)
+        new_tree
     }
 
-    pub fn remove(&self) {
-        self.0.borrow_mut().detach();
-    }
-
-    pub fn first_child(&self) -> Option<Tree<T>> {
-        self.0
-            .borrow()
-            .first_child
-            .as_ref()
-            .map(|node| Tree(Rc::clone(node)))
-    }
-
-    pub fn last_child(&self) -> Option<Tree<T>> {
-        self.0
-            .borrow()
-            .last_child
-            .upgrade()
-            .map(|node| Tree(node))
-    }
-
-    pub fn prev_sibling(&self) -> Option<Tree<T>> {
-        self.0
-            .borrow()
-            .prev_sibling
-            .upgrade()
-            .map(|node| Tree(node))
-    }
-
-    pub fn next_sibling(&self) -> Option<Tree<T>> {
-        self.0
-            .borrow()
-            .next_sibling
-            .as_ref()
-            .map(|node| Tree(Rc::clone(node)))
-    }
-
-    pub fn parent(&self) -> Option<Tree<T>> {
-        self.0
-            .borrow()
-            .parent
-            .upgrade()
-            .map(|node| Tree(node))
-    }
-
-    pub fn children(&self) -> impl DoubleEndedIterator<Item = Self> {
-        Siblings::new(self.first_child())
-    }
-
-    pub fn children_rev(&self) -> impl DoubleEndedIterator<Item = Self> {
-        Siblings::new(self.last_child()).rev()
-    }
-
-    pub fn next_siblings(&self) -> impl DoubleEndedIterator<Item = Self> {
-        Siblings::new(self.next_sibling())
-    }
-
-    pub fn prev_siblings(&self) -> impl DoubleEndedIterator<Item = Self> {
-        Siblings::new(self.prev_sibling()).rev()
-    }
-
-    pub fn descendants<'a>(&'a self) -> impl Iterator<Item = Self> + 'a {
-        Descendants::new(self, self.first_child())
-    }
-
-    pub fn parents(&self) -> impl Iterator<Item = Self> {
-        Parents::new(self.parent())
-    }
-
-    pub fn get(&self) -> Ref<T> {
-        Ref::map(self.0.borrow(), |node| &node.data)
-    }
-
-    pub fn get_mut(&self) -> RefMut<T> {
-        RefMut::map(self.0.borrow_mut(), |node| &mut node.data)
-    }
-
-    fn ensure_valid_recursive(&self) where T: Debug {
-        self.ensure_valid();
-
-        for descendant in self.descendants() {
-            descendant.ensure_valid()
-        }
-    }
-
-    fn ensure_valid(&self) where T: Debug {
-        if let Some(prev_sibling) = self.prev_sibling() {
-            assert_eq!(prev_sibling.next_sibling(), Some(self.clone()));
-        }
-        if let Some(last_child) = self.last_child() {
-            assert_eq!(last_child.parent(), Some(self.clone()));
-        }
-        if let Some(first_child) = self.first_child() {
-            assert_eq!(first_child.parent(), Some(self.clone()));
-        }
-        if let Some(next_sibling) = self.next_sibling() {
-            assert_eq!(next_sibling.prev_sibling(), Some(self.clone()));
-        }
+    fn downgrade(&self) -> Weak<Link<T>> {
+        Rc::downgrade(&self.0)
     }
 }
 
-impl<T> TryInto<Node<T>> for Tree<T> {
-    type Error = Tree<T>;
-
-    fn try_into(self) -> Result<Node<T>, Tree<T>> {
-        Rc::try_unwrap(self.0)
-            .map_err(Tree)
-            .map(|node_cell| node_cell.into_inner())
-    }
-}
-
-impl<T> Clone for Tree<T> {
-    fn clone(&self) -> Self {
-        Tree(Rc::clone(&self.0))
+impl<T> From<Link<T>> for Tree<T> {
+    fn from(tree: Link<T>) -> Tree<T> {
+        Tree(Rc::new(tree))
     }
 }
 
 impl<T> From<Node<T>> for Tree<T> {
-    fn from(node: Node<T>) -> Self {
-        Tree(node.into_ref())
+    fn from(node: Node<T>) -> Tree<T> {
+        Tree::from(Link {
+            current: node,
+            parent: Cell::new(Weak::new()),
+            next_sibling: Cell::new(None),
+            prev_sibling: Cell::new(Weak::new()),
+        })
     }
 }
 
-impl<T: Debug> ToString for Tree<T> {
-    fn to_string(&self) -> String {
-        self.0.borrow().to_string()
+impl<T> Clone for Tree<T> {
+    fn clone(&self) -> Tree<T> {
+        Tree(Rc::clone(&self.0))
     }
 }
 
-impl<T> PartialEq for Tree<T> {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+impl<T> Deref for Tree<T> {
+    type Target = Link<T>;
+
+    fn deref(&self) -> &Link<T> {
+        &self.0
     }
 }
 
-impl<T> Eq for Tree<T> {
-}
-
-impl<T> Node<T> {
-    pub fn new(data: T) -> Self {
-        Self {
-            data,
-            first_child: None,
-            last_child: Weak::new(),
-            prev_sibling: Weak::new(),
-            next_sibling: None,
-            parent: Weak::new(),
-        }
+impl<T> Link<T> {
+    pub fn detach(&self) {
+        self.attach(Weak::new(), Weak::new(), None);
     }
 
-    pub fn get(&self) -> &T {
-        &self.data
-    }
+    pub fn replace(&self, node: impl Rearrange<T>) -> Tree<T> {
+        let new_tree = node.rearrange(
+            self.parent.take(),
+            self.prev_sibling.take(),
+            self.next_sibling.take(),
+        );
 
-    pub fn get_mut(&mut self) -> &mut T {
-        &mut self.data
-    }
-
-    fn detach(&mut self) {
-        match (self.prev_sibling.upgrade(), self.next_sibling.as_ref()) {
-            (Some(prev_sibling_ref), Some(next_sibling_ref)) => {
-                let mut prev_sibling = prev_sibling_ref.borrow_mut();
-                prev_sibling.next_sibling = Some(next_sibling_ref.clone());
-
-                let mut next_sibling = next_sibling_ref.borrow_mut();
-                next_sibling.prev_sibling = Rc::downgrade(&prev_sibling_ref);
+        match (new_tree.prev_sibling(), new_tree.next_sibling()) {
+            (Some(prev_sibling), Some(next_sibling)) => {
+                prev_sibling.next_sibling.set(Some(new_tree.clone()));
+                next_sibling.prev_sibling.set(new_tree.downgrade());
             }
-            (Some(prev_sibling_ref), None) => {
-                prev_sibling_ref.borrow_mut().next_sibling = None;
+            (Some(prev_sibling), None) => {
+                prev_sibling.next_sibling.set(Some(new_tree.clone()));
 
-                if let Some(parent_ref) = self.parent.upgrade() {
-                    parent_ref.borrow_mut().last_child = Rc::downgrade(&prev_sibling_ref);
+                if let Some(parent) = new_tree.parent() {
+                    parent.current.last_child.set(new_tree.downgrade());
                 }
             }
-            (None, Some(next_sibling_ref)) => {
-                next_sibling_ref.borrow_mut().prev_sibling = Weak::new();
+            (None, Some(next_sibling)) => {
+                next_sibling.prev_sibling.set(new_tree.downgrade());
 
-                if let Some(parent_ref) = self.parent.upgrade() {
-                    parent_ref.borrow_mut().first_child = Some(next_sibling_ref.clone());
+                if let Some(parent) = new_tree.parent() {
+                    parent.current.first_child.set(Some(new_tree.clone()));
                 }
             }
             (None, None) => {
-                if let Some(parent_ref) = self.parent.upgrade() {
-                    let mut parent = parent_ref.borrow_mut();
-                    parent.first_child = None;
-                    parent.last_child = Weak::new();
+                if let Some(parent) = new_tree.parent() {
+                    parent.current.first_child.set(Some(new_tree.clone()));
+                    parent.current.last_child.set(new_tree.downgrade());
                 }
             }
-        }
+        };
 
-        self.parent = Weak::new();
-        self.prev_sibling = Weak::new();
-        self.next_sibling = None;
+        new_tree
     }
 
-    fn into_ref(self) -> NodeRef<T> {
-        Rc::new(RefCell::new(self))
+    pub fn data(&self) -> &T {
+        &self.current.data
+    }
+
+    pub fn first_child(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.current.first_child)
+    }
+
+    pub fn last_child(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.current.last_child).upgrade().map(Tree)
+    }
+
+    pub fn parent(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.parent).upgrade().map(Tree)
+    }
+
+    pub fn children(&self) -> impl DoubleEndedIterator<Item = Tree<T>> {
+        Siblings {
+            next: self.first_child(),
+        }
+    }
+
+    pub fn children_rev(&self) -> impl DoubleEndedIterator<Item = Tree<T>> {
+        Siblings {
+            next: self.last_child(),
+        }.rev()
+    }
+
+    pub fn descendants(&self) -> impl Iterator<Item = Tree<T>> + '_ {
+        Descendants {
+            next: self.first_child(),
+            root: &self.current,
+        }
+    }
+
+    pub fn next_sibling(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.next_sibling)
+    }
+
+    pub fn prev_sibling(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.prev_sibling).upgrade().map(Tree)
+    }
+
+    pub fn ancestors(&self) -> impl Iterator<Item = Tree<T>> {
+        Ancestors {
+            next: self.parent(),
+        }
+    }
+
+    pub fn next_siblings(&self) -> impl DoubleEndedIterator<Item = Tree<T>> {
+        Siblings {
+            next: self.next_sibling(),
+        }
+    }
+
+    pub fn prev_siblings(&self) -> impl DoubleEndedIterator<Item = Tree<T>> {
+        Siblings {
+            next: self.prev_sibling()
+        }.rev()
+    }
+
+    fn attach(&self, new_parent: Weak<Link<T>>, new_prev_sibling: Weak<Link<T>>, new_next_sibling: Option<Tree<T>>) {
+        let prev_sibling_weak = self.prev_sibling.replace(new_prev_sibling);
+
+        match (
+            prev_sibling_weak.upgrade(),
+            self.next_sibling.replace(new_next_sibling)
+        ) {
+            (Some(prev_sibling), Some(next_sibling)) => {
+                next_sibling.prev_sibling.set(prev_sibling_weak);
+                prev_sibling.next_sibling.set(Some(next_sibling));
+                self.parent.set(new_parent);
+            }
+            (Some(prev_sibling), None) => {
+                prev_sibling.next_sibling.set(None);
+
+                if let Some(parent) = self.parent.replace(new_parent).upgrade() {
+                    parent.current.last_child.set(prev_sibling_weak);
+                }
+            }
+            (None, Some(next_sibling)) => {
+                next_sibling.prev_sibling.set(Weak::new());
+
+                if let Some(parent) = self.parent.replace(new_parent).upgrade() {
+                    parent.current.first_child.set(Some(next_sibling));
+                }
+            }
+            (None, None) => {
+                if let Some(parent) = self.parent.replace(new_parent).upgrade() {
+                    parent.current.first_child.set(None);
+                    parent.current.last_child.set(Weak::new());
+                }
+            }
+        };
     }
 }
 
-impl<T: Debug> ToString for Node<T> {
+impl<T: fmt::Debug> ToString for Link<T> {
     fn to_string(&self) -> String {
-        fn step<T: Debug>(node: &Node<T>, level: usize) -> String {
+        fn to_string_link<T>(link: &Link<T>, level: usize) -> String where T: fmt::Debug {
+            let current_string = to_string_node(&link.current, level);
+            if level > 0 {
+                link.next_sibling()
+                    .map(|next_sibling| {
+                        format!("{}\n{}", current_string, to_string_link(&next_sibling, level))
+                    })
+                    .unwrap_or(current_string)
+            } else {
+                current_string
+            }
+        }
+
+        fn to_string_node<T>(node: &Node<T>, level: usize) -> String where T: fmt::Debug {
             let indent_string = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
-            let children_string = match node.first_child {
-                Some(ref child_ref) => {
-                    format!("\n{}\n{}", step(&child_ref.borrow(), level + 1), indent_string)
-                }
-                _ => "".to_string()
-            };
-            let siblings_string = match node.next_sibling {
-                Some(ref next_sibling_ref) if level > 0 => {
-                    format!("\n{}", step(&next_sibling_ref.borrow(), level))
-                }
-                _ => "".to_string()
-            };
+            let children_string = clone_cell_inner(&node.first_child)
+                .map(|first_child| {
+                    format!("\n{}\n{}", to_string_link(&first_child, level + 1), indent_string)
+                })
+                .unwrap_or_default();
             format!(
-                "{}<{:?} data={:?}>{}</{:?}>{}",
+                "{}<{:?} data=\"{}\">{}</{:?}>",
                 indent_string,
-                node as *const Node<T>,
-                node.data,
+                node as *const _,
+                format!("{:?}", node.data).trim_matches('"'),
                 children_string,
-                node as *const Node<T>,
-                siblings_string
+                node as *const _,
             )
         }
-        step(self, 0)
+
+        to_string_link(&self, 0)
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Link<T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("Link")
+            .field("current", &self.current)
+            .field("parent", &clone_cell_inner(&self.parent))
+            .field("next_sibling", &clone_cell_inner(&self.next_sibling))
+            .field("prev_sibling", &clone_cell_inner(&self.prev_sibling))
+            .finish()
+    }
+}
+
+impl<T> Node<T> {
+    pub fn new(data: T) -> Node<T> {
+        Node {
+            data,
+            first_child: Cell::new(None),
+            last_child: Cell::new(Weak::new()),
+        }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Node<T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("Node")
+            .field("data", &self.data)
+            .field("first_child", &clone_cell_inner(&self.first_child))
+            .field("last_child", &clone_cell_inner(&self.last_child))
+            .finish()
     }
 }
 
 struct Siblings<T> {
-    current: Option<Tree<T>>,
-}
-
-impl<T> Siblings<T> {
-    fn new(current: Option<Tree<T>>) -> Self {
-        Self {
-            current
-        }
-    }
+    next: Option<Tree<T>>,
 }
 
 impl<T> Iterator for Siblings<T> {
     type Item = Tree<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.current.take() {
-            Some(node) => {
-                self.current = node.next_sibling();
-                Some(node)
+        match self.next.take() {
+            Some(current) => {
+                self.next = current.next_sibling();
+                Some(current)
             },
             None => None,
         }
@@ -384,9 +399,9 @@ impl<T> Iterator for Siblings<T> {
 
 impl<T> DoubleEndedIterator for Siblings<T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.current.take() {
+        match self.next.take() {
             Some(current) => {
-                self.current = current.prev_sibling();
+                self.next = current.prev_sibling();
                 Some(current)
             },
             None => None,
@@ -395,31 +410,22 @@ impl<T> DoubleEndedIterator for Siblings<T> {
 }
 
 pub struct Descendants<'a, T> {
-    root: &'a Tree<T>,
-    current: Option<Tree<T>>,
-}
-
-impl<'a, T> Descendants<'a, T> {
-    fn new(root: &'a Tree<T>, current: Option<Tree<T>>) -> Self {
-        Self {
-            root,
-            current
-        }
-    }
+    next: Option<Tree<T>>,
+    root: &'a Node<T>,
 }
 
 impl<'a, T> Iterator for Descendants<'a, T> {
     type Item = Tree<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.current.take().map(|current| {
-            self.current = current.first_child()
+        self.next.take().map(|current| {
+            self.next = current.first_child()
                 .or_else(|| current.next_sibling())
                 .or_else(|| {
                     let mut current = current.parent();
                     loop {
                         match current {
-                            Some(parent) if parent != *self.root => {
+                            Some(parent) if !ptr::eq(&parent.current, self.root) => {
                                 if let Some(next_sibling) = parent.next_sibling() {
                                     return Some(next_sibling);
                                 }
@@ -435,25 +441,17 @@ impl<'a, T> Iterator for Descendants<'a, T> {
     }
 }
 
-struct Parents<T> {
-    current: Option<Tree<T>>,
+struct Ancestors<T> {
+    next: Option<Tree<T>>,
 }
 
-impl<T> Parents<T> {
-    fn new(current: Option<Tree<T>>) -> Self {
-        Self {
-            current
-        }
-    }
-}
-
-impl<T> Iterator for Parents<T> {
+impl<T> Iterator for Ancestors<T> {
     type Item = Tree<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.current.take() {
+        match self.next.take() {
             Some(current) => {
-                self.current = current.parent();
+                self.next = current.parent();
                 Some(current)
             },
             None => None,
@@ -461,110 +459,57 @@ impl<T> Iterator for Parents<T> {
     }
 }
 
+fn clone_cell_inner<T: Clone>(cell: &Cell<T>) -> T {
+    unsafe { &*cell.as_ptr() }.clone()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl<T> PartialEq for Tree<T> {
+        fn eq(&self, other: &Self) -> bool {
+            Rc::ptr_eq(&self.0, &other.0)
+        }
+    }
+
+    impl<T> Eq for Tree<T> {
+    }
 
     #[test]
     fn test_append() {
         let root = Tree::from(Node::new("root"));
 
-        assert_eq!(root.first_child(), None);
-        assert_eq!(root.last_child(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
+        assert_tree(&root, &"root", None, None, None, None, None);
 
         let foo = root.append(Node::new("foo"));
 
-        assert_eq!(root.first_child(), Some(foo.clone()));
-        assert_eq!(root.last_child(), Some(foo.clone()));
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
-
-        assert_eq!(foo.first_child(), None);
-        assert_eq!(foo.last_child(), None);
-        assert_eq!(foo.next_sibling(), None);
-        assert_eq!(foo.prev_sibling(), None);
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
+        assert_tree(&root, &"root", Some(&foo), Some(&foo), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, None);
 
         let bar = root.append(Node::new("bar"));
 
-        assert_eq!(root.first_child(), Some(foo.clone()));
-        assert_eq!(root.last_child(), Some(bar.clone()));
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
-
-        assert_eq!(foo.first_child(), None);
-        assert_eq!(foo.last_child(), None);
-        assert_eq!(foo.next_sibling(), Some(bar.clone()));
-        assert_eq!(foo.prev_sibling(), None);
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
-
-        assert_eq!(bar.first_child(), None);
-        assert_eq!(bar.last_child(), None);
-        assert_eq!(bar.next_sibling(), None);
-        assert_eq!(bar.prev_sibling(), Some(foo.clone()));
-        assert_eq!(bar.parent(), Some(root.clone()));
-        assert_eq!(*bar.get(), "bar");
+        assert_tree(&root, &"root", Some(&foo), Some(&bar), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, Some(&bar));
+        assert_tree(&bar, &"bar", None, None, Some(&root), Some(&foo), None);
     }
 
     #[test]
     fn test_prepend() {
         let root = Tree::from(Node::new("root"));
 
-        assert_eq!(root.first_child(), None);
-        assert_eq!(root.last_child(), None);
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
+        assert_tree(&root, &"root", None, None, None, None, None);
 
         let foo = root.prepend(Node::new("foo"));
 
-        assert_eq!(root.first_child(), Some(foo.clone()));
-        assert_eq!(root.last_child(), Some(foo.clone()));
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
-
-        assert_eq!(foo.first_child(), None);
-        assert_eq!(foo.last_child(), None);
-        assert_eq!(foo.prev_sibling(), None);
-        assert_eq!(foo.next_sibling(), None);
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
+        assert_tree(&root, &"root", Some(&foo), Some(&foo), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, None);
 
         let bar = root.prepend(Node::new("bar"));
 
-        assert_eq!(root.first_child(), Some(bar.clone()));
-        assert_eq!(root.last_child(), Some(foo.clone()));
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
-
-        assert_eq!(foo.first_child(), None);
-        assert_eq!(foo.last_child(), None);
-        assert_eq!(foo.prev_sibling(), Some(bar.clone()));
-        assert_eq!(foo.next_sibling(), None);
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
-
-        assert_eq!(bar.first_child(), None);
-        assert_eq!(bar.last_child(), None);
-        assert_eq!(bar.prev_sibling(), None);
-        assert_eq!(bar.next_sibling(), Some(foo.clone()));
-        assert_eq!(bar.parent(), Some(root.clone()));
-        assert_eq!(*bar.get(), "bar");
+        assert_tree(&root, &"root", Some(&bar), Some(&foo), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), Some(&bar), None);
+        assert_tree(&bar, &"bar", None, None, Some(&root), None, Some(&foo));
     }
 
     #[test]
@@ -575,47 +520,17 @@ mod tests {
         let baz = foo.insert_before(Node::new("baz"));
         let qux = foo.insert_before(Node::new("qux"));
 
-        assert_eq!(root.first_child(), Some(baz.clone()));
-        assert_eq!(root.last_child(), Some(bar.clone()));
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
-
-        assert_eq!(foo.first_child(), None);
-        assert_eq!(foo.last_child(), None);
-        assert_eq!(foo.prev_sibling(), Some(qux.clone()));
-        assert_eq!(foo.next_sibling(), Some(bar.clone()));
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
-
-        assert_eq!(bar.first_child(), None);
-        assert_eq!(bar.last_child(), None);
-        assert_eq!(bar.prev_sibling(), Some(foo.clone()));
-        assert_eq!(bar.next_sibling(), None);
-        assert_eq!(bar.parent(), Some(root.clone()));
-        assert_eq!(*bar.get(), "bar");
-
-        assert_eq!(baz.first_child(), None);
-        assert_eq!(baz.last_child(), None);
-        assert_eq!(baz.prev_sibling(), None);
-        assert_eq!(baz.next_sibling(), Some(qux.clone()));
-        assert_eq!(baz.parent(), Some(root.clone()));
-        assert_eq!(*baz.get(), "baz");
-
-        assert_eq!(qux.first_child(), None);
-        assert_eq!(qux.last_child(), None);
-        assert_eq!(qux.prev_sibling(), Some(baz.clone()));
-        assert_eq!(qux.next_sibling(), Some(foo.clone()));
-        assert_eq!(qux.parent(), Some(root.clone()));
-        assert_eq!(*qux.get(), "qux");
+        assert_tree(&root, &"root", Some(&baz), Some(&bar), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), Some(&qux), Some(&bar));
+        assert_tree(&bar, &"bar", None, None, Some(&root), Some(&foo), None);
+        assert_tree(&baz, &"baz", None, None, Some(&root), None, Some(&qux));
+        assert_tree(&qux, &"qux", None, None, Some(&root), Some(&baz), Some(&foo));
     }
 
     #[should_panic]
     #[test]
     fn test_insert_before_should_panic() {
         let root = Tree::from(Node::new("root"));
-
         root.insert_before(Node::new("foo"));
     }
 
@@ -627,112 +542,108 @@ mod tests {
         let baz = bar.insert_after(Node::new("baz"));
         let qux = bar.insert_after(Node::new("qux"));
 
-        println!("{}", root.to_string());
-
-        assert_eq!(root.first_child(), Some(foo.clone()));
-        assert_eq!(root.last_child(), Some(baz.clone()));
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
-
-        assert_eq!(foo.first_child(), None);
-        assert_eq!(foo.last_child(), None);
-        assert_eq!(foo.prev_sibling(), None);
-        assert_eq!(foo.next_sibling(), Some(bar.clone()));
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
-
-        assert_eq!(bar.first_child(), None);
-        assert_eq!(bar.last_child(), None);
-        assert_eq!(bar.prev_sibling(), Some(foo.clone()));
-        assert_eq!(bar.next_sibling(), Some(qux.clone()));
-        assert_eq!(bar.parent(), Some(root.clone()));
-        assert_eq!(*bar.get(), "bar");
-
-        assert_eq!(baz.first_child(), None);
-        assert_eq!(baz.last_child(), None);
-        assert_eq!(baz.prev_sibling(), Some(qux.clone()));
-        assert_eq!(baz.next_sibling(), None);
-        assert_eq!(baz.parent(), Some(root.clone()));
-        assert_eq!(*baz.get(), "baz");
-
-        assert_eq!(qux.first_child(), None);
-        assert_eq!(qux.last_child(), None);
-        assert_eq!(qux.prev_sibling(), Some(bar.clone()));
-        assert_eq!(qux.next_sibling(), Some(baz.clone()));
-        assert_eq!(qux.parent(), Some(root.clone()));
-        assert_eq!(*qux.get(), "qux");
+        assert_tree(&root, &"root", Some(&foo), Some(&baz), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, Some(&bar));
+        assert_tree(&bar, &"bar", None, None, Some(&root), Some(&foo), Some(&qux));
+        assert_tree(&baz, &"baz", None, None, Some(&root), Some(&qux), None);
+        assert_tree(&qux, &"qux", None, None, Some(&root), Some(&bar), Some(&baz));
     }
 
     #[should_panic]
     #[test]
     fn test_insert_after_should_panic() {
         let root = Tree::from(Node::new("root"));
-
         root.insert_after(Node::new("foo"));
     }
 
     #[test]
-    fn test_remove() {
+    fn test_detach() {
         let root = Tree::from(Node::new("root"));
         let foo = root.append(Node::new("foo"));
         let bar = root.append(Node::new("bar"));
-        let baz = foo.append(Node::new("baz"));
-        let qux = baz.append(Node::new("qux"));
-        let quux = qux.append(Node::new("quux"));
-        let corge = baz.append(Node::new("corge"));
+        let baz = root.append(Node::new("baz"));
+        let qux = root.append(Node::new("qux"));
 
-        bar.remove();
+        bar.detach();
 
-        assert_eq!(root.prev_sibling(), None);
-        assert_eq!(root.next_sibling(), None);
-        assert_eq!(root.first_child(), Some(foo.clone()));
-        assert_eq!(root.last_child(), Some(foo.clone()));
-        assert_eq!(root.parent(), None);
-        assert_eq!(*root.get(), "root");
+        assert_tree(&root, &"root", Some(&foo), Some(&qux), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, Some(&baz));
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, Some(&root), Some(&foo), Some(&qux));
+        assert_tree(&qux, &"qux", None, None, Some(&root), Some(&baz), None);
 
-        assert_eq!(foo.prev_sibling(), None);
-        assert_eq!(foo.next_sibling(), None);
-        assert_eq!(foo.first_child(), Some(baz.clone()));
-        assert_eq!(foo.last_child(), Some(baz.clone()));
-        assert_eq!(foo.parent(), Some(root.clone()));
-        assert_eq!(*foo.get(), "foo");
+        qux.detach();
 
-        assert_eq!(bar.prev_sibling(), None);
-        assert_eq!(bar.next_sibling(), None);
-        assert_eq!(bar.first_child(), None);
-        assert_eq!(bar.last_child(), None);
-        assert_eq!(bar.parent(), None);
-        assert_eq!(*bar.get(), "bar");
+        assert_tree(&root, &"root", Some(&foo), Some(&baz), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, Some(&baz));
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, Some(&root), Some(&foo), None);
+        assert_tree(&qux, &"qux", None, None, None, None, None);
 
-        assert_eq!(baz.prev_sibling(), None);
-        assert_eq!(baz.next_sibling(), None);
-        assert_eq!(baz.first_child(), Some(qux.clone()));
-        assert_eq!(baz.last_child(), Some(corge.clone()));
-        assert_eq!(baz.parent(), Some(foo.clone()));
-        assert_eq!(*baz.get(), "baz");
+        foo.detach();
 
-        assert_eq!(qux.prev_sibling(), None);
-        assert_eq!(qux.next_sibling(), Some(corge.clone()));
-        assert_eq!(qux.first_child(), Some(quux.clone()));
-        assert_eq!(qux.last_child(), Some(quux.clone()));
-        assert_eq!(qux.parent(), Some(baz.clone()));
-        assert_eq!(*qux.get(), "qux");
+        assert_tree(&root, &"root", Some(&baz), Some(&baz), None, None, None);
+        assert_tree(&foo, &"foo", None, None, None, None, None);
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, Some(&root), None, None);
+        assert_tree(&qux, &"qux", None, None, None, None, None);
 
-        assert_eq!(quux.prev_sibling(), None);
-        assert_eq!(quux.next_sibling(), None);
-        assert_eq!(quux.first_child(), None);
-        assert_eq!(quux.last_child(), None);
-        assert_eq!(quux.parent(), Some(qux.clone()));
-        assert_eq!(*quux.get(), "quux");
+        baz.detach();
 
-        assert_eq!(corge.prev_sibling(), Some(qux.clone()));
-        assert_eq!(corge.next_sibling(), None);
-        assert_eq!(corge.first_child(), None);
-        assert_eq!(corge.last_child(), None);
-        assert_eq!(corge.parent(), Some(baz.clone()));
-        assert_eq!(*quux.get(), "quux");
+        assert_tree(&root, &"root", None, None, None, None, None);
+        assert_tree(&foo, &"foo", None, None, None, None, None);
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, None, None, None);
+        assert_tree(&qux, &"qux", None, None, None, None, None);
+    }
+
+    #[test]
+    fn test_replace() {
+        let root = Tree::from(Node::new("root"));
+        let foo = root.append(Node::new("foo"));
+        let bar = root.append(Node::new("bar"));
+        let baz = root.append(Node::new("baz"));
+
+        let new_bar = bar.replace(Node::new("new_bar"));
+
+        assert_tree(&root, &"root", Some(&foo), Some(&baz), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, Some(&new_bar));
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, Some(&root), Some(&new_bar), None);
+
+        assert_tree(&new_bar, &"new_bar", None, None, Some(&root), Some(&foo), Some(&baz));
+
+        let new_baz = baz.replace(Node::new("new_baz"));
+
+        assert_tree(&root, &"root", Some(&foo), Some(&new_baz), None, None, None);
+        assert_tree(&foo, &"foo", None, None, Some(&root), None, Some(&new_bar));
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, None, None, None);
+
+        assert_tree(&new_bar, &"new_bar", None, None, Some(&root), Some(&foo), Some(&new_baz));
+        assert_tree(&new_baz, &"new_baz", None, None, Some(&root), Some(&new_bar), None);
+
+        let new_foo = foo.replace(Node::new("new_foo"));
+
+        assert_tree(&root, &"root", Some(&new_foo), Some(&new_baz), None, None, None);
+        assert_tree(&foo, &"foo", None, None, None, None, None);
+        assert_tree(&bar, &"bar", None, None, None, None, None);
+        assert_tree(&baz, &"baz", None, None, None, None, None);
+
+        assert_tree(&new_foo, &"new_foo", None, None, Some(&root), None, Some(&new_bar));
+        assert_tree(&new_bar, &"new_bar", None, None, Some(&root), Some(&new_foo), Some(&new_baz));
+        assert_tree(&new_baz, &"new_baz", None, None, Some(&root), Some(&new_bar), None);
+    }
+
+    #[test]
+    fn test_replace_only_child() {
+        let root = Tree::from(Node::new("root"));
+        let foo = root.append(Node::new("foo"));
+        let new_foo = foo.replace(Node::new("new_foo"));
+
+        assert_tree(&root, &"root", Some(&new_foo), Some(&new_foo), None, None, None);
+        assert_tree(&foo, &"foo", None, None, None, None, None);
+        assert_tree(&new_foo, &"new_foo", None, None, Some(&root), None, None);
     }
 
     #[test]
@@ -745,21 +656,22 @@ mod tests {
         let quux = qux.append(Node::new("quux"));
         let corge = baz.append(Node::new("corge"));
 
-        assert_eq!(collect_tree_values(root.children()), vec!["foo", "bar"]);
-        assert_eq!(collect_tree_values(foo.children()), vec!["baz"]);
-        assert_eq!(collect_tree_values(bar.children()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(baz.children()), vec!["qux", "corge"]);
-        assert_eq!(collect_tree_values(qux.children()), vec!["quux"]);
-        assert_eq!(collect_tree_values(quux.children()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(corge.children()), vec![] as Vec<&str>);
+        assert_iterator(root.children(), &[&foo, &bar]);
 
-        assert_eq!(collect_tree_values(root.children_rev()), vec!["bar", "foo"]);
-        assert_eq!(collect_tree_values(foo.children_rev()), vec!["baz"]);
-        assert_eq!(collect_tree_values(bar.children_rev()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(baz.children_rev()), vec!["corge", "qux"]);
-        assert_eq!(collect_tree_values(qux.children_rev()), vec!["quux"]);
-        assert_eq!(collect_tree_values(quux.children_rev()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(corge.children_rev()), vec![] as Vec<&str>);
+        assert_iterator(foo.children(), &[&baz]);
+        assert_iterator(bar.children(), &[]);
+        assert_iterator(baz.children(), &[&qux, &corge]);
+        assert_iterator(qux.children(), &[&quux]);
+        assert_iterator(quux.children(), &[]);
+        assert_iterator(corge.children(), &[]);
+
+        assert_iterator(root.children_rev(), &[&bar, &foo]);
+        assert_iterator(foo.children_rev(), &[&baz]);
+        assert_iterator(bar.children_rev(), &[]);
+        assert_iterator(baz.children_rev(), &[&corge, &qux]);
+        assert_iterator(qux.children_rev(), &[&quux]);
+        assert_iterator(quux.children_rev(), &[]);
+        assert_iterator(corge.children_rev(), &[]);
     }
 
     #[test]
@@ -772,13 +684,13 @@ mod tests {
         let quux = qux.append(Node::new("quux"));
         let corge = baz.append(Node::new("corge"));
 
-        assert_eq!(collect_tree_values(root.descendants()), vec!["foo", "baz", "qux", "quux", "corge", "bar"]);
-        assert_eq!(collect_tree_values(foo.descendants()), vec!["baz", "qux", "quux", "corge"]);
-        assert_eq!(collect_tree_values(bar.descendants()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(baz.descendants()), vec!["qux", "quux", "corge"]);
-        assert_eq!(collect_tree_values(qux.descendants()), vec!["quux"]);
-        assert_eq!(collect_tree_values(quux.descendants()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(corge.descendants()), vec![] as Vec<&str>);
+        assert_iterator(root.descendants(), &[&foo, &baz, &qux, &quux, &corge, &bar]);
+        assert_iterator(foo.descendants(), &[&baz, &qux, &quux, &corge]);
+        assert_iterator(bar.descendants(), &[]);
+        assert_iterator(baz.descendants(), &[&qux, &quux, &corge]);
+        assert_iterator(qux.descendants(), &[&quux]);
+        assert_iterator(quux.descendants(), &[]);
+        assert_iterator(corge.descendants(), &[]);
     }
 
     #[test]
@@ -791,13 +703,13 @@ mod tests {
         let quux = qux.append(Node::new("quux"));
         let corge = baz.append(Node::new("corge"));
 
-        assert_eq!(collect_tree_values(root.parents()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(foo.parents()), vec!["root"]);
-        assert_eq!(collect_tree_values(bar.parents()), vec!["root"]);
-        assert_eq!(collect_tree_values(baz.parents()), vec!["foo", "root"]);
-        assert_eq!(collect_tree_values(qux.parents()), vec!["baz", "foo", "root"]);
-        assert_eq!(collect_tree_values(quux.parents()), vec!["qux", "baz", "foo", "root"]);
-        assert_eq!(collect_tree_values(corge.parents()), vec!["baz", "foo", "root"]);
+        assert_iterator(root.ancestors(), &[]);
+        assert_iterator(foo.ancestors(), &[&root]);
+        assert_iterator(bar.ancestors(), &[&root]);
+        assert_iterator(baz.ancestors(), &[&foo, &root]);
+        assert_iterator(qux.ancestors(), &[&baz, &foo, &root]);
+        assert_iterator(quux.ancestors(), &[&qux, &baz, &foo, &root]);
+        assert_iterator(corge.ancestors(), &[&baz, &foo, &root]);
     }
 
     #[test]
@@ -810,24 +722,51 @@ mod tests {
         let quux = root.append(Node::new("quux"));
         let corge = root.append(Node::new("corge"));
 
-        assert_eq!(collect_tree_values(root.prev_siblings()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(foo.prev_siblings()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(bar.prev_siblings()), vec!["foo"]);
-        assert_eq!(collect_tree_values(baz.prev_siblings()), vec!["bar", "foo"]);
-        assert_eq!(collect_tree_values(qux.prev_siblings()), vec!["baz", "bar", "foo"]);
-        assert_eq!(collect_tree_values(quux.prev_siblings()), vec!["qux", "baz", "bar", "foo"]);
-        assert_eq!(collect_tree_values(corge.prev_siblings()), vec!["quux", "qux", "baz", "bar", "foo"]);
+        assert_iterator(root.prev_siblings(), &[]);
+        assert_iterator(foo.prev_siblings(), &[]);
+        assert_iterator(bar.prev_siblings(), &[&foo]);
+        assert_iterator(baz.prev_siblings(), &[&bar, &foo]);
+        assert_iterator(qux.prev_siblings(), &[&baz, &bar, &foo]);
+        assert_iterator(quux.prev_siblings(), &[&qux, &baz, &bar, &foo]);
+        assert_iterator(corge.prev_siblings(), &[&quux, &qux, &baz, &bar, &foo]);
 
-        assert_eq!(collect_tree_values(root.next_siblings()), vec![] as Vec<&str>);
-        assert_eq!(collect_tree_values(foo.next_siblings()), vec!["bar", "baz", "qux", "quux", "corge"]);
-        assert_eq!(collect_tree_values(bar.next_siblings()), vec!["baz", "qux", "quux", "corge"]);
-        assert_eq!(collect_tree_values(baz.next_siblings()), vec!["qux", "quux", "corge"]);
-        assert_eq!(collect_tree_values(qux.next_siblings()), vec!["quux", "corge"]);
-        assert_eq!(collect_tree_values(quux.next_siblings()), vec!["corge"]);
-        assert_eq!(collect_tree_values(corge.next_siblings()), vec![] as Vec<&str>);
+        assert_iterator(root.next_siblings(), &[]);
+        assert_iterator(foo.next_siblings(), &[&bar, &baz, &qux, &quux, &corge]);
+        assert_iterator(bar.next_siblings(), &[&baz, &qux, &quux, &corge]);
+        assert_iterator(baz.next_siblings(), &[&qux, &quux, &corge]);
+        assert_iterator(qux.next_siblings(), &[&quux, &corge]);
+        assert_iterator(quux.next_siblings(), &[&corge]);
+        assert_iterator(corge.next_siblings(), &[]);
     }
 
-    fn collect_tree_values<T: Clone>(iter: impl Iterator<Item = Tree<T>>) -> Vec<T> {
-        iter.map(|tree| tree.get().clone()).collect::<Vec<_>>()
+    fn assert_tree<T: PartialEq + fmt::Debug>(
+        tree: &Tree<T>,
+        expeted_data: &T,
+        expeted_first_child: Option<&Tree<T>>,
+        expeted_last_child: Option<&Tree<T>>,
+        expeted_parent: Option<&Tree<T>>,
+        expeted_prev_sibling: Option<&Tree<T>>,
+        expeted_next_sibling: Option<&Tree<T>>
+    ) {
+        assert_eq!(tree.data(), expeted_data, "data");
+        assert_eq!(tree.first_child().as_ref(), expeted_first_child, "first_child");
+        assert_eq!(tree.last_child().as_ref(), expeted_last_child, "last_child");
+        assert_eq!(tree.parent().as_ref(), expeted_parent, "parent");
+        assert_eq!(tree.prev_sibling().as_ref(), expeted_prev_sibling, "prev_sibling");
+        assert_eq!(tree.next_sibling().as_ref(), expeted_next_sibling, "next_sibling");
+    }
+
+    fn assert_iterator<T: PartialEq + fmt::Debug>(iter: impl Iterator<Item = T>, expeted_data: &[&T]) {
+        assert_eq!(&to_vec_ref(&iter.collect()), expeted_data);
+    }
+
+    fn to_vec_ref<T>(xs: &Vec<T>) -> Vec<&T> {
+        let mut ys = Vec::with_capacity(xs.len());
+
+        for x in xs {
+            ys.push(x);
+        }
+
+        ys
     }
 }
