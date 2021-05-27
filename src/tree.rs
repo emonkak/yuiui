@@ -237,17 +237,15 @@ impl<T> Link<T> {
         }
     }
 
-    pub fn children_rev(&self) -> impl DoubleEndedIterator<Item = Tree<T>> {
-        Siblings {
-            next: self.last_child(),
-        }.rev()
-    }
-
-    pub fn descendants(&self) -> impl Iterator<Item = Tree<T>> + '_ {
-        Descendants {
+    pub fn pre_ordered_descendants(&self) -> impl Iterator<Item = Tree<T>> + '_ {
+        PreOrderedDescendants {
             next: self.first_child(),
             root: &self.current,
         }
+    }
+
+    pub fn post_ordered_descendants(&self) -> impl Iterator<Item = Tree<T>> + '_ {
+        PostOrderedDescendants::new(&self.current)
     }
 
     pub fn next_sibling(&self) -> Option<Tree<T>> {
@@ -350,7 +348,8 @@ impl<T: fmt::Debug> ToString for Link<T> {
 
 impl<T: fmt::Debug> fmt::Debug for Link<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("Link")
+        formatter
+            .debug_struct("Link")
             .field("current", &self.current)
             .field("parent", &clone_cell_inner(&self.parent))
             .field("next_sibling", &clone_cell_inner(&self.next_sibling))
@@ -367,11 +366,24 @@ impl<T> Node<T> {
             last_child: Cell::new(Weak::new()),
         }
     }
+
+    pub fn data(&self) -> &T {
+        &self.data
+    }
+
+    pub fn first_child(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.first_child)
+    }
+
+    pub fn last_child(&self) -> Option<Tree<T>> {
+        clone_cell_inner(&self.last_child).upgrade().map(Tree)
+    }
 }
 
 impl<T: fmt::Debug> fmt::Debug for Node<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("Node")
+        formatter
+            .debug_struct("Node")
             .field("data", &self.data)
             .field("first_child", &clone_cell_inner(&self.first_child))
             .field("last_child", &clone_cell_inner(&self.last_child))
@@ -409,35 +421,89 @@ impl<T> DoubleEndedIterator for Siblings<T> {
     }
 }
 
-pub struct Descendants<'a, T> {
+pub struct PreOrderedDescendants<'a, T> {
     next: Option<Tree<T>>,
     root: &'a Node<T>,
 }
 
-impl<'a, T> Iterator for Descendants<'a, T> {
+impl<'a, T> Iterator for PreOrderedDescendants<'a, T> {
     type Item = Tree<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next.take().map(|current| {
-            self.next = current.first_child()
-                .or_else(|| current.next_sibling())
-                .or_else(|| {
-                    let mut current = current.parent();
-                    loop {
-                        match current {
-                            Some(parent) if !ptr::eq(&parent.current, self.root) => {
-                                if let Some(next_sibling) = parent.next_sibling() {
-                                    return Some(next_sibling);
-                                }
-                                current = parent.parent();
-                            }
-                            _ => break
-                        }
+        let current = self.next.take();
+
+        self.next = current.as_ref().and_then(|current| {
+            if let Some(first_child) = current.first_child() {
+                Some(first_child)
+            } else if let Some(next_sibling) = current.next_sibling() {
+                Some(next_sibling)
+            } else {
+                let mut next = current.parent();
+                while let Some(parent) = next {
+                    if ptr::eq(&parent.current, self.root) {
+                        break;
                     }
-                    None
-                });
-            current
-        })
+                    if let Some(next_sibling) = parent.next_sibling() {
+                        return Some(next_sibling);
+                    }
+                    next = parent.parent();
+                }
+                None
+            }
+        });
+
+        current
+    }
+}
+
+pub struct PostOrderedDescendants<'a, T> {
+    next: Option<Tree<T>>,
+    root: &'a Node<T>,
+}
+
+impl<'a, T> PostOrderedDescendants<'a, T> {
+    fn new(root: &'a Node<T>) -> PostOrderedDescendants<'a, T> {
+        let mut next = root.first_child();
+        let mut grand_child = None;
+
+        while let Some(child) = next {
+            next = child.first_child();
+            grand_child = Some(child);
+        }
+
+        PostOrderedDescendants {
+            next: grand_child,
+            root,
+        }
+    }
+}
+
+impl<'a, T> Iterator for PostOrderedDescendants<'a, T> {
+    type Item = Tree<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.next.take();
+
+        self.next = current.as_ref().and_then(|current| {
+            if let Some(next_sibling) = current.next_sibling() {
+                let mut next = next_sibling.first_child();
+                let mut grand_child = next_sibling;
+
+                while let Some(child) = next {
+                    next = child.first_child();
+                    grand_child = child;
+                }
+
+                Some(grand_child)
+            } else {
+                match current.parent() {
+                    Some(parent) if !ptr::eq(&parent.current, self.root) => Some(parent),
+                    _ => None,
+                }
+            }
+        });
+
+        current
     }
 }
 
@@ -468,12 +534,9 @@ mod tests {
     use super::*;
 
     impl<T> PartialEq for Tree<T> {
-        fn eq(&self, other: &Self) -> bool {
+        fn eq(&self, other: &Tree<T>) -> bool {
             Rc::ptr_eq(&self.0, &other.0)
         }
-    }
-
-    impl<T> Eq for Tree<T> {
     }
 
     #[test]
@@ -657,40 +720,42 @@ mod tests {
         let corge = baz.append(Node::new("corge"));
 
         assert_iterator(root.children(), &[&foo, &bar]);
-
         assert_iterator(foo.children(), &[&baz]);
         assert_iterator(bar.children(), &[]);
         assert_iterator(baz.children(), &[&qux, &corge]);
         assert_iterator(qux.children(), &[&quux]);
         assert_iterator(quux.children(), &[]);
         assert_iterator(corge.children(), &[]);
-
-        assert_iterator(root.children_rev(), &[&bar, &foo]);
-        assert_iterator(foo.children_rev(), &[&baz]);
-        assert_iterator(bar.children_rev(), &[]);
-        assert_iterator(baz.children_rev(), &[&corge, &qux]);
-        assert_iterator(qux.children_rev(), &[&quux]);
-        assert_iterator(quux.children_rev(), &[]);
-        assert_iterator(corge.children_rev(), &[]);
     }
 
     #[test]
-    fn test_descendants() {
-        let root = Tree::from(Node::new("root"));
-        let foo = root.append(Node::new("foo"));
-        let bar = root.append(Node::new("bar"));
-        let baz = foo.append(Node::new("baz"));
-        let qux = baz.append(Node::new("qux"));
-        let quux = qux.append(Node::new("quux"));
-        let corge = baz.append(Node::new("corge"));
+    fn test_pre_ordered_descendants() {
+        let node_1 = Tree::from(Node::new(1));
+        let node_2 = node_1.append(Node::new(2));
+        let node_3 = node_2.append(Node::new(3));
+        let node_4 = node_2.append(Node::new(4));
+        let node_5 = node_1.append(Node::new(2));
 
-        assert_iterator(root.descendants(), &[&foo, &baz, &qux, &quux, &corge, &bar]);
-        assert_iterator(foo.descendants(), &[&baz, &qux, &quux, &corge]);
-        assert_iterator(bar.descendants(), &[]);
-        assert_iterator(baz.descendants(), &[&qux, &quux, &corge]);
-        assert_iterator(qux.descendants(), &[&quux]);
-        assert_iterator(quux.descendants(), &[]);
-        assert_iterator(corge.descendants(), &[]);
+        assert_iterator(node_1.pre_ordered_descendants(), &[&node_2, &node_3, &node_4, &node_5]);
+        assert_iterator(node_2.pre_ordered_descendants(), &[&node_3, &node_4]);
+        assert_iterator(node_3.pre_ordered_descendants(), &[]);
+        assert_iterator(node_4.pre_ordered_descendants(), &[]);
+        assert_iterator(node_5.pre_ordered_descendants(), &[]);
+    }
+
+    #[test]
+    fn test_post_ordered_descendants() {
+        let node_5 = Tree::from(Node::new(5));
+        let node_3 = node_5.append(Node::new(3));
+        let node_4 = node_5.append(Node::new(4));
+        let node_1 = node_3.append(Node::new(1));
+        let node_2 = node_3.append(Node::new(2));
+
+        assert_iterator(node_5.post_ordered_descendants(), &[&node_1, &node_2, &node_3, &node_4]);
+        assert_iterator(node_3.post_ordered_descendants(), &[&node_1, &node_2]);
+        assert_iterator(node_4.post_ordered_descendants(), &[]);
+        assert_iterator(node_1.post_ordered_descendants(), &[]);
+        assert_iterator(node_2.post_ordered_descendants(), &[]);
     }
 
     #[test]
