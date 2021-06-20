@@ -1,0 +1,18 @@
+[package]
+name = "ui"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+
+[features]
+default = ["xlib"]
+xlib = []
+
+[dependencies]
+libc = "0.2.87"
+nix = "0.20"
+servo-fontconfig = "0.5.1"
+x11 = { version = "2.18.2", features = ["xft", "xinerama", "xlib"] }
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
