@@ -1,22 +1,22 @@
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BoxConstraints {
     pub min: Size,
     pub max: Size,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct Rectangle {
     pub point: Point,
     pub size: Size,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct Size {
     pub width: f32,
     pub height: f32,
