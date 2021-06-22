@@ -1,5 +1,4 @@
 use geometrics::Size;
-use std::any::Any;
 
 pub mod x11;
 
@@ -11,14 +10,8 @@ pub trait WindowHandler<WindowHandle, PaintContext> {
 
     fn paint(&self, paint_context: &mut PaintContext);
 
-    /// Called when the resources need to be rebuilt.
-    fn rebuild_resources(&self) {
-    }
-
     fn destroy(&self) {
     }
-
-    fn as_any(&self) -> &dyn Any;
 }
 
 pub trait WindowHandle: Clone {

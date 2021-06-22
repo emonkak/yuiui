@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::cell::RefCell;
 
 use geometrics::{BoxConstraints, Rectangle, Point, Size};
@@ -75,10 +74,6 @@ impl<WindowHandle: self::WindowHandle + 'static, PaintContext: 'static> WindowHa
     fn destroy(&self) {
         let state = self.state.borrow();
         state.root_handle.close();
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 
