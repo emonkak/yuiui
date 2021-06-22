@@ -137,6 +137,9 @@ impl<T> Tree<T> {
         let new_node_id = self.arena.next_slot_index();
         let new_node = {
             let target = &mut self.arena[target_id];
+            if target_id == target.parent {
+                panic!("Only one element on root allowed.");
+            }
             let new_node = Node {
                 data,
                 parent: target.parent,
@@ -165,6 +168,9 @@ impl<T> Tree<T> {
         let new_node_id = self.arena.next_slot_index();
         let new_node = {
             let target = &mut self.arena[target_id];
+            if target_id == target.parent {
+                panic!("Only one element on root allowed.");
+            }
             let new_node = Node {
                 data,
                 parent: target.parent,
@@ -740,6 +746,14 @@ mod tests {
         });
     }
 
+    #[should_panic]
+    #[test]
+    fn test_insert_before_should_panic() {
+        let mut tree = Tree::new();
+        let root = tree.attach("root");
+        tree.insert_before(root, "foo");
+    }
+
     #[test]
     fn test_insert_after() {
         let mut tree = Tree::new();
@@ -789,6 +803,14 @@ mod tests {
             prev_sibling: Some(bar),
             next_sibling: Some(baz),
         });
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_insert_after_should_panic() {
+        let mut tree = Tree::new();
+        let root = tree.attach("root");
+        tree.insert_after(root, "foo");
     }
 
     #[test]
