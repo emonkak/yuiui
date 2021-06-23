@@ -48,42 +48,11 @@ impl<T> Tree<T> {
         self.arena.insert(node)
     }
 
-    pub fn detach(&mut self, target_id: NodeId) -> DetachedNode<T> {
-        let node = self.arena.remove(target_id);
-        // The root node cannot be detach.
-        if node.parent != target_id {
-            self.detach_node(&node);
-        }
+    pub fn detach(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, Node<T>)> + '_ {
         DetachedNode {
-            arena: &mut self.arena,
-            next: node.first_child,
             root_id: target_id,
-            node,
-        }
-    }
-
-    fn detach_node(&mut self, node: &Node<T>) {
-        match (node.prev_sibling, node.next_sibling) {
-            (Some(prev_sibling_id), Some(next_sibling_id)) => {
-                self.arena[next_sibling_id].prev_sibling = Some(prev_sibling_id);
-                self.arena[prev_sibling_id].next_sibling = Some(next_sibling_id);
-            }
-            (Some(prev_sibling_id), None) => {
-                let parent_id = node.parent;
-                self.arena[parent_id].last_child = Some(prev_sibling_id);
-                self.arena[prev_sibling_id].next_sibling = None;
-            }
-            (None, Some(next_sibling_id)) => {
-                let parent_id = node.parent;
-                self.arena[parent_id].first_child = Some(next_sibling_id);
-                self.arena[next_sibling_id].prev_sibling = None;
-            }
-            (None, None) => {
-                let parent_id = node.parent;
-                let parent = &mut self.arena[parent_id];
-                parent.first_child = None;
-                parent.last_child = None;
-            }
+            next: Some(grandest_child(&self.arena, &self.arena[target_id]).unwrap_or(target_id)),
+            arena: &mut self.arena,
         }
     }
 
@@ -195,14 +164,15 @@ impl<T> Tree<T> {
         self.arena.insert(new_node)
     }
 
-    pub fn to_string(&self, target_id: NodeId) -> String where T: ToString {
-        fn step<T>(arena: &SlotVec<Node<T>>, node_id: NodeId, level: usize) -> String where T: ToString {
+    pub fn to_string(&self, target_id: NodeId, get_name: impl Fn(&T) -> String) -> String {
+        fn step<T>(arena: &SlotVec<Node<T>>, node_id: NodeId, get_name: &impl Fn(&T) -> String, level: usize) -> String {
             let node = &arena[node_id];
             let indent_string = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
+            let name = get_name(&node.data);
             let children_string = node.first_child
                 .map(|first_child_id| format!(
                     "\n{}\n{}",
-                    step(arena, first_child_id, level + 1),
+                    step(arena, first_child_id, get_name, level + 1),
                     indent_string
                 ))
                 .unwrap_or_default();
@@ -210,23 +180,23 @@ impl<T> Tree<T> {
                 node.next_sibling
                     .map(|next_sibling_id| format!(
                         "\n{}",
-                        step(arena, next_sibling_id, level)
+                        step(arena, next_sibling_id, get_name, level)
                     ))
                     .unwrap_or_default()
             } else {
                 Default::default()
             };
             format!(
-                "{}<{} data=\"{}\">{}</{}>{}",
+                "{}<{} id=\"{}\">{}</{}>{}",
                 indent_string,
+                name,
                 node_id,
-                node.data.to_string().replace('"', "\\\""),
                 children_string,
-                node_id,
+                name,
                 next_sibling_string
             )
         }
-        step(&self.arena, target_id, 0)
+        step(&self.arena, target_id, &get_name, 0)
     }
 
     pub fn parent(&self, target_id: NodeId) -> Option<NodeId> {
@@ -238,14 +208,14 @@ impl<T> Tree<T> {
         }
     }
 
-    pub fn ancestors(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)>{
+    pub fn ancestors(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Ancestors {
             arena: &self.arena,
             next: self.parent(target_id),
         }
     }
 
-    pub fn ancestors_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)>{
+    pub fn ancestors_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         AncestorsMut {
             next: self.parent(target_id),
             arena: &mut self.arena,
@@ -294,18 +264,34 @@ impl<T> Tree<T> {
         }.rev()
     }
 
-    pub fn descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
-        Descendants {
+    pub fn pre_ordered_descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+        PreOrderedDescendants {
             arena: &self.arena,
             root_id: target_id,
             next: self.arena[target_id].first_child
         }
     }
 
-    pub fn descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
-        DescendantsMut {
+    pub fn pre_ordered_descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+        PreOrderedDescendantsMut {
             root_id: target_id,
             next: self.arena[target_id].first_child,
+            arena: &mut self.arena,
+        }
+    }
+
+    pub fn post_ordered_descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+        PostOrderedDescendants {
+            arena: &self.arena,
+            root_id: target_id,
+            next: grandest_child(&self.arena, &self.arena[target_id]),
+        }
+    }
+
+    pub fn post_ordered_descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+        PostOrderedDescendantsMut {
+            root_id: target_id,
+            next: grandest_child(&self.arena, &self.arena[target_id]),
             arena: &mut self.arena,
         }
     }
@@ -465,31 +451,31 @@ impl<'a, T> DoubleEndedIterator for SiblingsMut<'a, T> {
     }
 }
 
-pub struct Descendants<'a, T> {
+pub struct PreOrderedDescendants<'a, T> {
     arena: &'a SlotVec<Node<T>>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
-impl<'a, T> Iterator for Descendants<'a, T> {
+impl<'a, T> Iterator for PreOrderedDescendants<'a, T> {
     type Item = (NodeId, &'a Node<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
             let node = &self.arena[node_id];
-            self.next = next_descendant(self.arena, self.root_id, node);
+            self.next = pre_ordered_next_descendant(self.arena, self.root_id, node);
             (node_id, node)
         })
     }
 }
 
-pub struct DescendantsMut<'a, T> {
+pub struct PreOrderedDescendantsMut<'a, T> {
     arena: &'a mut SlotVec<Node<T>>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
-impl<'a, T> Iterator for DescendantsMut<'a, T> {
+impl<'a, T> Iterator for PreOrderedDescendantsMut<'a, T> {
     type Item = (NodeId, &'a mut Node<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -497,7 +483,45 @@ impl<'a, T> Iterator for DescendantsMut<'a, T> {
             let node = unsafe {
                 (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
             };
-            self.next = next_descendant(self.arena, self.root_id, node);
+            self.next = pre_ordered_next_descendant(self.arena, self.root_id, node);
+            (node_id, node)
+        })
+    }
+}
+
+pub struct PostOrderedDescendants<'a, T> {
+    arena: &'a SlotVec<Node<T>>,
+    root_id: NodeId,
+    next: Option<NodeId>,
+}
+
+impl<'a, T> Iterator for PostOrderedDescendants<'a, T> {
+    type Item = (NodeId, &'a Node<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node_id| {
+            let node = &self.arena[node_id];
+            self.next = post_ordered_next_descendant(self.arena, self.root_id, node);
+            (node_id, node)
+        })
+    }
+}
+
+pub struct PostOrderedDescendantsMut<'a, T> {
+    arena: &'a mut SlotVec<Node<T>>,
+    root_id: NodeId,
+    next: Option<NodeId>,
+}
+
+impl<'a, T> Iterator for PostOrderedDescendantsMut<'a, T> {
+    type Item = (NodeId, &'a mut Node<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node_id| {
+            let node = unsafe {
+                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            };
+            self.next = post_ordered_next_descendant(self.arena, self.root_id, node);
             (node_id, node)
         })
     }
@@ -505,9 +529,8 @@ impl<'a, T> Iterator for DescendantsMut<'a, T> {
 
 pub struct DetachedNode<'a, T> {
     arena: &'a mut SlotVec<Node<T>>,
-    next: Option<NodeId>,
     root_id: NodeId,
-    pub node: Node<T>,
+    next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for DetachedNode<'a, T> {
@@ -516,7 +539,15 @@ impl<'a, T> Iterator for DetachedNode<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
             let node = self.arena.remove(node_id);
-            self.next = next_descendant(self.arena, self.root_id, &node);
+            if node_id == self.root_id {
+                // The root node cannot be detach.
+                if node.parent != node_id {
+                    detach_node(self.arena, &node);
+                }
+                self.next = None;
+            } else {
+                self.next = Some(post_ordered_next_descendant(self.arena, self.root_id, &node).unwrap_or(self.root_id));
+            }
             (node_id, node)
         })
     }
@@ -529,7 +560,7 @@ impl<'a, T> Drop for DetachedNode<'a, T> {
     }
 }
 
-fn next_descendant<T>(arena: &SlotVec<Node<T>>, root_id: NodeId, node: &Node<T>) -> Option<NodeId> {
+fn pre_ordered_next_descendant<T>(arena: &SlotVec<Node<T>>, root_id: NodeId, node: &Node<T>) -> Option<NodeId> {
     if let Some(first_child) = node.first_child {
         Some(first_child)
     } else if let Some(next_sibling) = node.next_sibling {
@@ -546,6 +577,60 @@ fn next_descendant<T>(arena: &SlotVec<Node<T>>, root_id: NodeId, node: &Node<T>)
             parent_id = parent.parent;
         }
         result
+    }
+}
+
+fn post_ordered_next_descendant<T>(arena: &SlotVec<Node<T>>, root_id: NodeId, node: &Node<T>) -> Option<NodeId> {
+    if let Some(next_sibling_id) = node.next_sibling() {
+        if let Some(grandest_child_id) = grandest_child(arena, &arena[next_sibling_id]) {
+            Some(grandest_child_id)
+        } else {
+            Some(next_sibling_id)
+        }
+    } else {
+        let parent = node.parent();
+        if parent != root_id {
+            Some(parent)
+        } else {
+            None
+        }
+    }
+}
+
+fn grandest_child<T>(arena: &SlotVec<Node<T>>, node: &Node<T>) -> Option<NodeId> {
+    let mut next = node.first_child();
+    let mut grandest_child = None;
+
+    while let Some(child_id) = next {
+        next = arena[child_id].first_child();
+        grandest_child = Some(child_id);
+    }
+
+    grandest_child
+}
+
+fn detach_node<T>(arena: &mut SlotVec<Node<T>>, node: &Node<T>) {
+    match (node.prev_sibling, node.next_sibling) {
+        (Some(prev_sibling_id), Some(next_sibling_id)) => {
+            arena[next_sibling_id].prev_sibling = Some(prev_sibling_id);
+            arena[prev_sibling_id].next_sibling = Some(next_sibling_id);
+        }
+        (Some(prev_sibling_id), None) => {
+            let parent_id = node.parent;
+            arena[parent_id].last_child = Some(prev_sibling_id);
+            arena[prev_sibling_id].next_sibling = None;
+        }
+        (None, Some(next_sibling_id)) => {
+            let parent_id = node.parent;
+            arena[parent_id].first_child = Some(next_sibling_id);
+            arena[next_sibling_id].prev_sibling = None;
+        }
+        (None, None) => {
+            let parent_id = node.parent;
+            let parent = &mut arena[parent_id];
+            parent.first_child = None;
+            parent.last_child = None;
+        }
     }
 }
 
@@ -819,111 +904,79 @@ mod tests {
         let root = tree.attach("root");
         let foo = tree.append_child(root, "foo");
         let bar = tree.append_child(foo, "bar");
-        let baz = tree.append_child(foo, "baz");
-        let qux = tree.append_child(root, "qux");
+        let baz = tree.append_child(bar, "baz");
+        let qux = tree.append_child(foo, "qux");
         let quux = tree.append_child(root, "quux");
 
-        let detached_node = tree.detach(foo);
-        assert_eq!(detached_node.node, Node {
-            data: "foo",
-            parent: root,
-            first_child: Some(bar),
-            last_child: Some(baz),
-            prev_sibling: None,
-            next_sibling: Some(qux),
-        });
-        assert_eq!(detached_node.collect::<Vec<_>>(), [
-            (bar, Node {
-                data: "bar",
-                parent: foo,
+        assert_eq!(tree.detach(foo).collect::<Vec<_>>(), [
+            (baz, Node {
+                data: "baz",
+                parent: bar,
                 first_child: None,
                 last_child: None,
                 prev_sibling: None,
-                next_sibling: Some(baz),
+                next_sibling: None,
             }),
-            (baz, Node {
-                data: "baz",
+            (bar, Node {
+                data: "bar",
+                parent: foo,
+                first_child: Some(baz),
+                last_child: Some(baz),
+                prev_sibling: None,
+                next_sibling: Some(qux),
+            }),
+            (qux, Node {
+                data: "qux",
                 parent: foo,
                 first_child: None,
                 last_child: None,
                 prev_sibling: Some(bar),
                 next_sibling: None,
             }),
+            (foo, Node {
+                data: "foo",
+                parent: root,
+                first_child: Some(bar),
+                last_child: Some(qux),
+                prev_sibling: None,
+                next_sibling: Some(quux),
+            }),
         ]);
         assert_eq!(tree[root], Node {
             data: "root",
             parent: root,
-            first_child: Some(qux),
+            first_child: Some(quux),
             last_child: Some(quux),
             prev_sibling: None,
             next_sibling: None,
-        });
-        assert_eq!(tree[qux], Node {
-            data: "qux",
-            parent: root,
-            first_child: None,
-            last_child: None,
-            prev_sibling: None,
-            next_sibling: Some(quux),
         });
         assert_eq!(tree[quux], Node {
             data: "quux",
             parent: root,
             first_child: None,
             last_child: None,
-            prev_sibling: Some(qux),
+            prev_sibling: None,
             next_sibling: None,
         });
         assert!(!tree.is_attached(foo));
         assert!(!tree.is_attached(bar));
         assert!(!tree.is_attached(baz));
+        assert!(!tree.is_attached(qux));
 
-        let detached_node = tree.detach(quux);
-        assert_eq!(detached_node.node, Node {
+        assert_eq!(tree.detach(root).collect::<Vec<_>>(), [
+            (quux, Node {
                 data: "quux",
                 parent: root,
                 first_child: None,
                 last_child: None,
-                prev_sibling: Some(qux),
+                prev_sibling: None,
                 next_sibling: None,
-        });
-        assert_eq!(detached_node.collect::<Vec<_>>(), []);
-        assert_eq!(tree[root], Node {
-            data: "root",
-            parent: root,
-            first_child: Some(qux),
-            last_child: Some(qux),
-            prev_sibling: None,
-            next_sibling: None,
-        });
-        assert_eq!(tree[qux], Node {
-            data: "qux",
-            parent: root,
-            first_child: None,
-            last_child: None,
-            prev_sibling: None,
-            next_sibling: None,
-        });
-        assert!(!tree.is_attached(foo));
-        assert!(!tree.is_attached(bar));
-        assert!(!tree.is_attached(baz));
-        assert!(!tree.is_attached(quux));
-
-        let detached_node = tree.detach(root);
-        assert_eq!(detached_node.node, Node {
-            data: "root",
-            parent: root,
-            first_child: Some(qux),
-            last_child: Some(qux),
-            prev_sibling: None,
-            next_sibling: None,
-        });
-        assert_eq!(detached_node.collect::<Vec<_>>(), [
-            (qux, Node {
-                data: "qux",
+            }),
+            (root, Node {
+                data: "root",
                 parent: root,
-                first_child: None,
-                last_child: None,
+                first_child: Some(quux),
+                last_child: Some(quux),
                 prev_sibling: None,
                 next_sibling: None,
             }),
@@ -1021,24 +1074,51 @@ mod tests {
     }
 
     #[test]
-    fn test_descendants() {
+    fn test_pre_ordered_descendants() {
         let mut tree = Tree::new();
         let root = tree.attach("root");
         let foo = tree.append_child(root, "foo");
         let bar = tree.append_child(foo, "bar");
-        let baz = tree.append_child(foo, "baz");
-        let qux = tree.append_child(root, "qux");
+        let baz = tree.append_child(bar, "baz");
+        let qux = tree.append_child(foo, "qux");
+        let quux = tree.append_child(root, "qux");
 
-        assert_eq!(tree.descendants(root).collect::<Vec<_>>(), &[(foo, &tree[foo]), (bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux])]);
-        assert_eq!(tree.descendants(foo).collect::<Vec<_>>(), &[(bar, &tree[bar]), (baz, &tree[baz])]);
-        assert_eq!(tree.descendants(bar).collect::<Vec<_>>(), &[]);
-        assert_eq!(tree.descendants(baz).collect::<Vec<_>>(), &[]);
-        assert_eq!(tree.descendants(qux).collect::<Vec<_>>(), &[]);
+        assert_eq!(tree.pre_ordered_descendants(root).collect::<Vec<_>>(), &[(foo, &tree[foo]), (bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux]), (quux, &tree[quux])]);
+        assert_eq!(tree.pre_ordered_descendants(foo).collect::<Vec<_>>(), &[(bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux])]);
+        assert_eq!(tree.pre_ordered_descendants(bar).collect::<Vec<_>>(), &[(baz, &tree[baz])]);
+        assert_eq!(tree.pre_ordered_descendants(baz).collect::<Vec<_>>(), &[]);
+        assert_eq!(tree.pre_ordered_descendants(qux).collect::<Vec<_>>(), &[]);
+        assert_eq!(tree.pre_ordered_descendants(quux).collect::<Vec<_>>(), &[]);
 
-        for node_id in &[root, foo, bar, baz, qux] {
+        for node_id in &[root, foo, bar, baz, qux, quux] {
             assert_eq!(
-                tree.descendants(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.descendants_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.pre_ordered_descendants(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
+                tree.pre_ordered_descendants_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_post_ordered_descendants() {
+        let mut tree = Tree::new();
+        let root = tree.attach("root");
+        let foo = tree.append_child(root, "foo");
+        let bar = tree.append_child(foo, "bar");
+        let baz = tree.append_child(bar, "baz");
+        let qux = tree.append_child(foo, "qux");
+        let quux = tree.append_child(root, "qux");
+
+        assert_eq!(tree.post_ordered_descendants(root).collect::<Vec<_>>(), &[(baz, &tree[baz]), (bar, &tree[bar]), (qux, &tree[qux]), (foo, &tree[foo]), (quux, &tree[quux])]);
+        assert_eq!(tree.post_ordered_descendants(foo).collect::<Vec<_>>(), &[(baz, &tree[baz]), (bar, &tree[bar]), (qux, &tree[qux])]);
+        assert_eq!(tree.post_ordered_descendants(bar).collect::<Vec<_>>(), &[(baz, &tree[baz])]);
+        assert_eq!(tree.post_ordered_descendants(baz).collect::<Vec<_>>(), &[]);
+        assert_eq!(tree.post_ordered_descendants(qux).collect::<Vec<_>>(), &[]);
+        assert_eq!(tree.post_ordered_descendants(quux).collect::<Vec<_>>(), &[]);
+
+        for node_id in &[root, foo, bar, baz, qux, quux] {
+            assert_eq!(
+                tree.post_ordered_descendants(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
+                tree.post_ordered_descendants_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
             );
         }
     }
