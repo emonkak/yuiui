@@ -1,5 +1,7 @@
-use slot_vec::SlotVec;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::borrow::Borrow;
+
+use slot_vec::SlotVec;
 
 #[derive(Debug)]
 pub struct Tree<T> {
@@ -9,11 +11,27 @@ pub struct Tree<T> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct Node<T> {
     data: T,
-    parent: NodeId,
     first_child: Option<NodeId>,
     last_child: Option<NodeId>,
     prev_sibling: Option<NodeId>,
     next_sibling: Option<NodeId>,
+    parent: NodeId,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DetachedNode<T> {
+    data: T,
+    first_child: Option<NodeId>,
+    last_child: Option<NodeId>,
+}
+
+pub struct TreeFormatter {
+    open_tag: String,
+    close_tag: String,
+}
+
+pub trait DebugTreeData {
+    fn format(&self, id: NodeId, formatter: &mut TreeFormatter);
 }
 
 pub type NodeId = usize;
@@ -35,60 +53,54 @@ impl<T> Tree<T> {
             .map_or(false, |node| node.parent == target_id)
     }
 
-    pub fn attach(&mut self, data: T) -> NodeId {
+    pub fn attach(&mut self, node: impl Into<DetachedNode<T>>) -> NodeId {
         let root_id = self.arena.next_slot_index();
-        let node = Node {
-            data,
-            parent: root_id,
-            first_child: None,
-            last_child: None,
-            prev_sibling: None,
-            next_sibling: None,
-        };
-        self.arena.insert(node)
+        let node = Node::new(node.into(), None, None, root_id);
+        self.register(node)
     }
 
-    pub fn detach(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, Node<T>)> + '_ {
+    pub fn detach(&mut self, target_id: NodeId) -> DetachedNode<T> {
+        let node = self.arena.remove(target_id);
+        if node.parent != target_id {
+            // The root node cannot be detach.
+            detach_node(&mut self.arena, &node);
+        }
         DetachedNode {
+            data: node.data,
+            first_child: node.first_child,
+            last_child: node.last_child,
+        }
+    }
+
+    pub fn detach_subtree(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, Node<T>)> + '_ {
+        DetachSubtree {
             root_id: target_id,
             next: Some(grandest_child(&self.arena, &self.arena[target_id]).unwrap_or(target_id)),
             arena: &mut self.arena,
         }
     }
 
-    pub fn append_child(&mut self, target_id: NodeId, data: T) -> NodeId {
+    pub fn append_child(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
         let last_child = self.arena[target_id].last_child;
-        let new_node_id = self.arena.insert(Node {
-            data,
-            parent: target_id,
-            first_child: None,
-            last_child: None,
-            prev_sibling: last_child,
-            next_sibling: None,
-        });
+        let child = Node::new(node.into(), last_child, None, target_id);
+        let child_id = self.register(child);
 
         let target = &mut self.arena[target_id];
-        target.last_child = Some(new_node_id);
+        target.last_child = Some(child_id);
 
         if let Some(last_child_id) = last_child {
-            self.arena[last_child_id].next_sibling = Some(new_node_id);
+            self.arena[last_child_id].next_sibling = Some(child_id);
         } else {
-            target.first_child = Some(new_node_id);
+            target.first_child = Some(child_id);
         }
 
-        new_node_id
+        child_id
     }
 
-    pub fn prepend_child(&mut self, target_id: NodeId, data: T) -> NodeId {
+    pub fn prepend_child(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
         let first_child = self.arena[target_id].first_child;
-        let child_id = self.arena.insert(Node {
-            data,
-            parent: target_id,
-            first_child: None,
-            last_child: None,
-            prev_sibling: None,
-            next_sibling: first_child,
-        });
+        let child = Node::new(node.into(), None, first_child, target_id);
+        let child_id = self.register(child);
 
         let target = &mut self.arena[target_id];
         target.first_child = Some(child_id);
@@ -102,21 +114,19 @@ impl<T> Tree<T> {
         child_id
     }
 
-    pub fn insert_before(&mut self, target_id: NodeId, data: T) -> NodeId {
+    pub fn insert_before(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
         let new_node_id = self.arena.next_slot_index();
         let new_node = {
             let target = &mut self.arena[target_id];
             if target_id == target.parent {
                 panic!("Only one element on root allowed.");
             }
-            let new_node = Node {
-                data,
-                parent: target.parent,
-                first_child: None,
-                last_child: None,
-                prev_sibling: target.prev_sibling,
-                next_sibling: Some(target_id),
-            };
+            let new_node = Node::new(
+                node.into(),
+                target.prev_sibling,
+                Some(target_id),
+                target.parent
+            );
             target.prev_sibling = Some(new_node_id);
             new_node
         };
@@ -130,24 +140,22 @@ impl<T> Tree<T> {
             }
         };
 
-        self.arena.insert(new_node)
+        self.register(new_node)
     }
 
-    pub fn insert_after(&mut self, target_id: NodeId, data: T) -> NodeId {
+    pub fn insert_after(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
         let new_node_id = self.arena.next_slot_index();
         let new_node = {
             let target = &mut self.arena[target_id];
             if target_id == target.parent {
                 panic!("Only one element on root allowed.");
             }
-            let new_node = Node {
-                data,
-                parent: target.parent,
-                first_child: None,
-                last_child: None,
-                prev_sibling: Some(target_id),
-                next_sibling: target.next_sibling,
-            };
+            let new_node = Node::new(
+                node.into(),
+                Some(target_id),
+                target.next_sibling,
+                target.parent
+            );
             target.next_sibling = Some(new_node_id);
             new_node
         };
@@ -161,42 +169,44 @@ impl<T> Tree<T> {
             }
         };
 
-        self.arena.insert(new_node)
+        self.register(new_node)
     }
 
-    pub fn to_string(&self, target_id: NodeId, get_name: impl Fn(&T) -> String) -> String {
-        fn step<T>(arena: &SlotVec<Node<T>>, node_id: NodeId, get_name: &impl Fn(&T) -> String, level: usize) -> String {
-            let node = &arena[node_id];
-            let indent_string = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
-            let name = get_name(&node.data);
-            let children_string = node.first_child
-                .map(|first_child_id| format!(
-                    "\n{}\n{}",
-                    step(arena, first_child_id, get_name, level + 1),
-                    indent_string
+    pub fn to_string(&self, target_id: NodeId) -> String where T: DebugTreeData {
+        self.to_string_rec(target_id, 0)
+    }
+
+    fn to_string_rec(&self, node_id: NodeId, level: usize) -> String where T: DebugTreeData {
+        let node = &self.arena[node_id];
+        let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
+        let children_str = node.first_child
+            .map(|first_child_id| format!(
+                "\n{}\n{}",
+                self.to_string_rec(first_child_id, level + 1),
+                indent_str
+            ))
+            .unwrap_or_default();
+        let next_sibling_string = if level > 0 {
+            node.next_sibling
+                .map(|next_sibling_id| format!(
+                    "\n{}",
+                    self.to_string_rec(next_sibling_id, level)
                 ))
-                .unwrap_or_default();
-            let next_sibling_string = if level > 0 {
-                node.next_sibling
-                    .map(|next_sibling_id| format!(
-                        "\n{}",
-                        step(arena, next_sibling_id, get_name, level)
-                    ))
-                    .unwrap_or_default()
-            } else {
-                Default::default()
-            };
-            format!(
-                "{}<{} id=\"{}\">{}</{}>{}",
-                indent_string,
-                name,
-                node_id,
-                children_string,
-                name,
-                next_sibling_string
-            )
-        }
-        step(&self.arena, target_id, &get_name, 0)
+                .unwrap_or_default()
+        } else {
+            Default::default()
+        };
+        let mut formatter = TreeFormatter::new();
+        node.data.format(node_id, &mut formatter);
+
+        format!(
+            "{}{}{}{}{}",
+            indent_str,
+            formatter.open_tag,
+            children_str,
+            formatter.close_tag,
+            next_sibling_string
+        )
     }
 
     pub fn parent(&self, target_id: NodeId) -> Option<NodeId> {
@@ -295,6 +305,15 @@ impl<T> Tree<T> {
             arena: &mut self.arena,
         }
     }
+
+    fn register(&mut self, node: Node<T>) -> NodeId {
+        assert!(node.first_child.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
+        assert!(node.last_child.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
+        assert!(node.prev_sibling.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
+        assert!(node.next_sibling.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
+        assert!(self.arena.next_slot_index() == node.parent || self.arena.has(node.parent));
+        self.arena.insert(node)
+    }
 }
 
 impl<T> Index<usize> for Tree<T> {
@@ -314,8 +333,15 @@ impl<T> IndexMut<usize> for Tree<T> {
 }
 
 impl<T> Node<T> {
-    pub fn parent(&self) -> NodeId {
-        self.parent
+    fn new(detached_node: DetachedNode<T>, prev_sibling: Option<NodeId>, next_sibling: Option<NodeId>, parent: NodeId) -> Node<T> {
+        Node {
+            data: detached_node.data,
+            first_child: detached_node.first_child,
+            last_child: detached_node.last_child,
+            prev_sibling,
+            next_sibling,
+            parent,
+        }
     }
 
     pub fn first_child(&self) -> Option<NodeId> {
@@ -333,6 +359,10 @@ impl<T> Node<T> {
     pub fn prev_sibling(&self) -> Option<NodeId> {
         self.prev_sibling
     }
+
+    pub fn parent(&self) -> NodeId {
+        self.parent
+    }
 }
 
 impl<T> Deref for Node<T> {
@@ -346,6 +376,48 @@ impl<T> Deref for Node<T> {
 impl<T> DerefMut for Node<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+impl<T> From<T> for DetachedNode<T> {
+    fn from(data: T) -> DetachedNode<T> {
+        DetachedNode {
+            data,
+            first_child: None,
+            last_child: None,
+        }
+    }
+}
+
+impl TreeFormatter {
+    pub fn new() -> TreeFormatter {
+        TreeFormatter {
+            open_tag: "".to_string(),
+            close_tag: "".to_string(),
+        }
+    }
+
+    pub fn begin(&mut self, tag_name: &str) -> &mut Self {
+        self.open_tag = format!("<{}", tag_name);
+        self.close_tag = format!("</{}>", tag_name);
+        self
+    }
+
+    pub fn push_attribute(&mut self, name: &str, value: impl Borrow<String>) -> &mut Self {
+        self.open_tag.push_str(&format!(" {}=\"{}\"", name, value.borrow().replace('"', "\\\"")));
+        self
+    }
+
+    pub fn push_empty_attribute(&mut self, name: &str, value: bool) -> &mut Self {
+        if value {
+            self.open_tag.push_str(&format!(" {}", name));
+        }
+        self
+    }
+
+    pub fn end(&mut self) -> &mut Self {
+        self.open_tag.push('>');
+        self
     }
 }
 
@@ -527,21 +599,21 @@ impl<'a, T> Iterator for PostOrderedDescendantsMut<'a, T> {
     }
 }
 
-pub struct DetachedNode<'a, T> {
+pub struct DetachSubtree<'a, T> {
     arena: &'a mut SlotVec<Node<T>>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
-impl<'a, T> Iterator for DetachedNode<'a, T> {
+impl<'a, T> Iterator for DetachSubtree<'a, T> {
     type Item = (NodeId, Node<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
             let node = self.arena.remove(node_id);
             if node_id == self.root_id {
-                // The root node cannot be detach.
                 if node.parent != node_id {
+                    // The root node cannot be detach.
                     detach_node(self.arena, &node);
                 }
                 self.next = None;
@@ -553,7 +625,7 @@ impl<'a, T> Iterator for DetachedNode<'a, T> {
     }
 }
 
-impl<'a, T> Drop for DetachedNode<'a, T> {
+impl<'a, T> Drop for DetachSubtree<'a, T> {
     fn drop(&mut self) {
         while self.next().is_some() {
         }
@@ -899,7 +971,7 @@ mod tests {
     }
 
     #[test]
-    fn test_detach() {
+    fn test_detach_subtree() {
         let mut tree = Tree::new();
         let root = tree.attach("root");
         let foo = tree.append_child(root, "foo");
@@ -908,7 +980,7 @@ mod tests {
         let qux = tree.append_child(foo, "qux");
         let quux = tree.append_child(root, "quux");
 
-        assert_eq!(tree.detach(foo).collect::<Vec<_>>(), [
+        assert_eq!(tree.detach_subtree(foo).collect::<Vec<_>>(), [
             (baz, Node {
                 data: "baz",
                 parent: bar,
@@ -963,7 +1035,7 @@ mod tests {
         assert!(!tree.is_attached(baz));
         assert!(!tree.is_attached(qux));
 
-        assert_eq!(tree.detach(root).collect::<Vec<_>>(), [
+        assert_eq!(tree.detach_subtree(root).collect::<Vec<_>>(), [
             (quux, Node {
                 data: "quux",
                 parent: root,

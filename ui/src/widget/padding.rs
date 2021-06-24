@@ -1,7 +1,9 @@
-use geometrics::{BoxConstraints, Point, Rectangle, Size};
-use graph::NodeId;
-use ui::{LayoutResult, LayoutContext, UIState};
-use widget::Widget;
+use std::any::Any;
+
+use geometrics::{Point, Size};
+use layout::{BoxConstraints, LayoutResult};
+use tree::NodeId;
+use widget::{RenderingTree, Widget};
 
 /// A padding widget. Is expected to have exactly one child.
 pub struct Padding {
@@ -21,27 +23,26 @@ impl Padding {
             bottom: padding,
         }
     }
-
-    pub fn ui<WidgetState: Clone, PaintContext>(self, child: NodeId, context: &mut UIState<WidgetState, PaintContext>) -> NodeId {
-        context.add(self, &[child])
-    }
 }
 
-impl<WindowHandle: Clone, PaintContext> Widget<WindowHandle, PaintContext> for Padding {
+impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Padding {
     fn layout(
         &mut self,
+        node_id: NodeId,
+        response: Option<(NodeId, Size)>,
         box_constraints: &BoxConstraints,
-        children: &[NodeId],
-        size: Option<Size>,
-        layout_context: &mut LayoutContext
+        rendering_tree: &mut RenderingTree<WindowHandle, PaintContext>,
     ) -> LayoutResult {
-        if let Some(size) = size {
-            layout_context.position_child(children[0], Point { x: self.left, y: self.top });
+        if let Some((child_id, size)) = response {
+            rendering_tree[child_id].arrange(Point { x: self.left, y: self.top });
             LayoutResult::Size(Size {
                 width: size.width + self.left + self.right,
                 height: size.height + self.top + self.bottom
             })
         } else {
+            let child_id = rendering_tree[node_id].first_child()
+                    .filter(|&child| rendering_tree[child].next_sibling().is_none())
+                    .expect("Padding expected to receive a single element child.");
             let child_box_constraints = BoxConstraints {
                 min: Size {
                     width: box_constraints.min.width - (self.left + self.right),
@@ -52,11 +53,11 @@ impl<WindowHandle: Clone, PaintContext> Widget<WindowHandle, PaintContext> for P
                     height: box_constraints.max.height - (self.top + self.bottom),
                 }
             };
-            LayoutResult::RequestChild(children[0], child_box_constraints)
+            LayoutResult::RequestChild(child_id, child_box_constraints)
         }
     }
 
-    fn connect(&mut self, parent_handle: &WindowHandle, _rectangle: &Rectangle, _paint_context: &mut PaintContext) -> WindowHandle {
-        parent_handle.clone()
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

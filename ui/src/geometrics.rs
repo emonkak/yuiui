@@ -1,8 +1,4 @@
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct BoxConstraints {
-    pub min: Size,
-    pub max: Size,
-}
+use std::ops::{Add, Sub};
 
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct Rectangle {
@@ -22,27 +18,55 @@ pub struct Size {
     pub height: f32,
 }
 
-impl BoxConstraints {
-    pub fn tight(size: &Size) -> BoxConstraints {
-        BoxConstraints {
-            min: *size,
-            max: *size,
-        }
-    }
-
-    pub fn constrain(&self, size: &Size) -> Size {
-        Size {
-            width: size.width.clamp(self.min.width, self.max.width),
-            height: size.height.clamp(self.min.height, self.max.height),
+impl Point {
+    pub fn offset(&self, offset: Point) -> Self {
+        Self {
+            x: self.x + offset.x,
+            y: self.y + offset.y,
         }
     }
 }
 
-impl Point {
-    pub fn offset(&self, offset: Point) -> Point {
-        Point {
-            x: self.x + offset.x,
-            y: self.y + offset.y,
+impl Add for Point {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y
+        }
+    }
+}
+
+impl Sub for Point {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y
+        }
+    }
+}
+
+impl Add for Size {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            width: self.width + other.width,
+            height: self.height + other.height
+        }
+    }
+}
+
+impl Sub for Size {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self {
+            width: self.width - other.width,
+            height: self.height - other.height
         }
     }
 }

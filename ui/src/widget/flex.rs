@@ -1,21 +1,19 @@
-use std::collections::BTreeMap;
+use std::any::Any;
 
-use geometrics::{BoxConstraints, Point, Rectangle, Size};
-use graph::{NodeId};
-use ui::{LayoutContext, LayoutResult, UIState};
-use widget::Widget;
+use geometrics::{Point, Size};
+use layout::{BoxConstraints, LayoutResult};
+use tree::NodeId;
+use widget::{RenderingNode, RenderingTree, Widget, WidgetPod};
 
 pub struct Row;
+
 pub struct Column;
 
 pub struct Flex {
-    params: BTreeMap<NodeId, Params>,
     direction: Axis,
 
     // layout continuation state
-
     phase: Phase,
-    ix: usize,
     minor: f32,
 
     // the total measure of non-flex children
@@ -23,6 +21,10 @@ pub struct Flex {
 
     // the sum of flex parameters of all children
     flex_sum: f32,
+}
+
+pub struct FlexItem {
+    params: Params,
 }
 
 pub enum Axis {
@@ -88,10 +90,8 @@ impl Axis {
 impl Row {
     pub fn new() -> Flex {
         Flex {
-            params: BTreeMap::new(),
             direction: Axis::Horizontal,
             phase: Phase::NonFlex,
-            ix: 0,
             minor: 0.0,
             total_non_flex: 0.0,
             flex_sum: 0.0,
@@ -102,11 +102,8 @@ impl Row {
 impl Column {
     pub fn new() -> Flex {
         Flex {
-            params: BTreeMap::new(),
             direction: Axis::Vertical,
-
             phase: Phase::NonFlex,
-            ix: 0,
             minor: 0.0,
             total_non_flex: 0.0,
             flex_sum: 0.0,
@@ -115,106 +112,110 @@ impl Column {
 }
 
 impl Flex {
-    /// Add to UI with children.
-    pub fn ui<WindowHandle: Clone, PaintContext>(self, children: &[NodeId], context: &mut UIState<WindowHandle, PaintContext>) -> NodeId {
-        context.add(self, children)
-    }
-
-    /// Set the flex for a child widget.
-    ///
-    /// This function is used to set flex for a child widget, and is done while
-    /// building, before adding to the UI. Likely we will need to think of other
-    /// mechanisms to change parameters dynamically after building.
-    pub fn set_flex(&mut self, child: NodeId, flex: f32) {
-        let params = self.get_params_mut(child);
-        params.flex = flex;
-    }
-
-    fn get_params_mut(&mut self, child: NodeId) -> &mut Params {
-        self.params.entry(child).or_default()
-    }
-
-    fn get_params(&self, child: NodeId) -> Params {
-        self.params.get(&child).cloned().unwrap_or(Default::default())
+    fn get_params<WindowHandle, PaintContext>(
+        &self,
+        widget_pod: &WidgetPod<WindowHandle, PaintContext>
+    ) -> Params {
+        widget_pod.as_widget::<FlexItem>()
+            .map(|flex_item| flex_item.params)
+            .unwrap_or_default()
     }
 
     /// Return the index (within `children`) of the next child that belongs in
     /// the specified phase.
-    fn get_next_child(&self, children: &[NodeId], start: usize, phase: Phase) -> Option<usize> {
-        for ix in start..children.len() {
-            if self.get_params(children[ix]).get_flex_phase() == phase {
-                return Some(ix);
+    fn get_next_child<'a, WindowHandle: 'a, PaintContext: 'a>(
+        &self,
+        children: impl Iterator<Item = (NodeId, &'a RenderingNode<WindowHandle, PaintContext>)>,
+        phase: Phase,
+    ) -> Option<NodeId> {
+        for (child_id, child) in children {
+            if self.get_params(&**child).get_flex_phase() == phase {
+                return Some(child_id);
             }
         }
         None
     }
 
-    /// Position all children, after the children have all been measured.
-    fn finish_layout(&self, box_constraints: &BoxConstraints, children: &[NodeId], layout_context: &mut LayoutContext)
-        -> LayoutResult
-    {
+    fn finish_layout<WindowHandle, PaintContext>(
+        &self,
+        node_id: NodeId,
+        box_constraints: &BoxConstraints,
+        rendering_tree: &mut RenderingTree<WindowHandle, PaintContext>
+    ) -> LayoutResult {
         let mut major = 0.0;
-        for &child in children {
+        for (_, child) in rendering_tree.children_mut(node_id) {
             // top-align, could do center etc. based on child height
-            layout_context.position_child(child, self.direction.pack_point(major, 0.0));
-            major += self.direction.major(layout_context.get_child_size(child));
+            child.arrange(self.direction.pack_point(major, 0.0));
+            major += self.direction.major(child.rectangle.size);
         }
         let total_major = self.direction.major(box_constraints.max);
         LayoutResult::Size(self.direction.pack_size(total_major, self.minor))
     }
 }
 
-impl<WindowHandle: Clone, PaintContext> Widget<WindowHandle, PaintContext> for Flex {
-    fn layout(&mut self, box_constraints: &BoxConstraints, children: &[NodeId], size: Option<Size>,
-        ctx: &mut LayoutContext) -> LayoutResult
-    {
-        if let Some(size) = size {
+impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Flex {
+    fn layout(
+        &mut self,
+        node_id: NodeId,
+        response: Option<(NodeId, Size)>,
+        box_constraints: &BoxConstraints,
+        rendering_tree: &mut RenderingTree<WindowHandle, PaintContext>,
+    ) -> LayoutResult {
+        let next_child_id = if let Some((child_id, size)) = response {
             let minor = self.direction.minor(size);
             self.minor = self.minor.max(minor);
+
             if self.phase == Phase::NonFlex {
                 self.total_non_flex += self.direction.major(size);
             }
 
             // Advance to the next child; finish non-flex phase if at end.
-            if let Some(ix) = self.get_next_child(children, self.ix + 1, self.phase) {
-                self.ix = ix;
+            if let Some(id) = self.get_next_child(rendering_tree.next_siblings(child_id), self.phase) {
+                id
             } else if self.phase == Phase::NonFlex {
-                if let Some(ix) = self.get_next_child(children, 0, Phase::Flex) {
-                    self.ix = ix;
+                if let Some(id) = self.get_next_child(rendering_tree.next_siblings(child_id), Phase::Flex) {
                     self.phase = Phase::Flex;
+                    id
                 } else {
-                    return self.finish_layout(box_constraints, children, ctx);
+                    return self.finish_layout(node_id, box_constraints, rendering_tree);
                 }
             } else {
-                return self.finish_layout(box_constraints, children, ctx)
+                return self.finish_layout(node_id, box_constraints, rendering_tree)
             }
         } else {
             // Start layout process, no children measured yet.
-            if children.is_empty() {
+            if let Some(first_child_id) = rendering_tree[node_id].first_child() {
+                self.total_non_flex = 0.0;
+                self.flex_sum = rendering_tree
+                    .children(node_id)
+                    .map(|(_, node)| self.get_params(&**node).flex)
+                    .sum();
+                self.minor = self.direction.minor(box_constraints.min);
+
+                if let Some(id) = self.get_next_child(rendering_tree.children(node_id), Phase::NonFlex) {
+                    self.phase = Phase::NonFlex;
+                    id
+                } else {
+                    // All children are flex, skip non-flex pass.
+                    self.phase = Phase::Flex;
+                    first_child_id
+                }
+            } else {
                 return LayoutResult::Size(box_constraints.min);
             }
-            if let Some(ix) = self.get_next_child(children, 0, Phase::NonFlex) {
-                self.ix = ix;
-                self.phase = Phase::NonFlex;
-            } else {
-                // All children are flex, skip non-flex pass.
-                self.ix = 0;
-                self.phase = Phase::Flex;
-            }
-            self.total_non_flex = 0.0;
-            self.flex_sum = children.iter().map(|id| self.get_params(*id).flex).sum();
-            self.minor = self.direction.minor(box_constraints.min);
-        }
+        };
+
         let (min_major, max_major) = if self.phase == Phase::NonFlex {
             (0.0, ::std::f32::INFINITY)
         } else {
             let total_major = self.direction.major(box_constraints.max);
             // TODO: should probably max with 0.0 to avoid negative sizes
             let remaining = total_major - self.total_non_flex;
-            let major = remaining * self.get_params(children[self.ix]).flex / self.flex_sum;
+            let major = remaining * self.get_params(&*rendering_tree[next_child_id]).flex / self.flex_sum;
             (major, major)
         };
-        let child_bc = match self.direction {
+
+        let child_box_constraints = match self.direction {
             Axis::Horizontal => BoxConstraints {
                 min: Size {
                     width: min_major,
@@ -236,14 +237,27 @@ impl<WindowHandle: Clone, PaintContext> Widget<WindowHandle, PaintContext> for F
                 }
             },
         };
-        LayoutResult::RequestChild(children[self.ix], child_bc)
+
+        LayoutResult::RequestChild(next_child_id, child_box_constraints)
     }
 
-    fn connect(&mut self, parent_handle: &WindowHandle, _rectangle: &Rectangle, _paint_context: &mut PaintContext) -> WindowHandle {
-        parent_handle.clone()
+    fn as_any(&self) -> &dyn Any {
+        self
     }
+}
 
-    fn on_child_removed(&mut self, child: NodeId) {
-        self.params.remove(&child);
+impl FlexItem {
+    pub fn new(flex: f32) -> FlexItem {
+        FlexItem {
+            params: Params {
+                flex
+            }
+        }
+    }
+}
+
+impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for FlexItem {
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

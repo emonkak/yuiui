@@ -9,7 +9,7 @@ pub struct SlotVec<T> {
     free_indexes: Vec<usize>,
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 struct Slot(isize);
 
 impl<T> SlotVec<T> {
@@ -46,9 +46,28 @@ impl<T> SlotVec<T> {
         slot_index
     }
 
+    pub fn insert_at(&mut self, slot_index: usize, value: T) {
+        if let Some(slot) = self.slots.get(slot_index) {
+            if slot.is_filled() {
+                panic!("Alreadly used slot at {}", slot_index);
+            }
+
+            let free_position = slot.force_free();
+            let free_slot_index = self.take_free_index(free_position);
+            debug_assert_eq!(free_slot_index, slot_index);
+
+            self.slots[slot_index] = Slot::filled(self.entries.len());
+        } else {
+            self.extend_until(slot_index);
+            self.slots.push(Slot::filled(self.entries.len()));
+        }
+
+        self.entries.push((slot_index, value));
+    }
+
     pub fn remove(&mut self, slot_index: usize) -> T {
         let entry_index = self.slots[slot_index].as_filled()
-            .expect("already removed entry");
+            .unwrap_or_else(|| panic!("Already removed entry at index: {}", slot_index));
 
         if slot_index == self.slots.len().saturating_sub(1) {
             self.slots.pop();
@@ -150,27 +169,41 @@ impl<T> SlotVec<T> {
     fn truncate_to_fit(&mut self) {
         let mut removable_len = 0;
 
-        for i in (0..self.slots.len()).rev() {
-            let slot = &self.slots[i];
+        for slot_index in (0..self.slots.len()).rev() {
+            let slot = &self.slots[slot_index];
             if slot.is_filled() {
                 break;
             }
 
-            let index = slot.force_free();
-            if index == self.free_indexes.len().saturating_sub(1) {
-                self.free_indexes.pop();
-            } else {
-                let free_slot_index = self.free_indexes.swap_remove(index);
-                debug_assert_eq!(free_slot_index, i);
-                let slot_index = self.free_indexes[index];
-                self.slots[slot_index] = slot.clone();
-            }
+            let free_position = slot.force_free();
+            let free_slot_index = self.take_free_index(free_position);
+            debug_assert_eq!(free_slot_index, slot_index);
 
             removable_len += 1;
         }
 
         if removable_len > 0 {
             self.slots.truncate(self.slots.len() - removable_len);
+        }
+    }
+
+    fn extend_until(&mut self, slot_index: usize) {
+        for _ in self.slots.len()..slot_index {
+            let slot_index = self.slots.len();
+            self.slots.push(Slot::free(self.free_indexes.len()));
+            self.free_indexes.push(slot_index);
+        }
+        debug_assert_eq!(slot_index, self.slots.len());
+    }
+
+    fn take_free_index(&mut self, position: usize) -> usize {
+        if position == self.free_indexes.len().saturating_sub(1) {
+            self.free_indexes.pop().unwrap()
+        } else {
+            let free_slot_index = self.free_indexes.swap_remove(position);
+            let swap_slot_index = self.free_indexes[position];
+            self.slots[swap_slot_index] = Slot::free(position);
+            free_slot_index
         }
     }
 }
@@ -181,7 +214,7 @@ impl<T> Index<usize> for SlotVec<T> {
     #[inline]
     fn index(&self, index: usize) -> &T {
         let entry_index = self.slots[index].as_filled()
-            .expect("already removed entry");
+            .unwrap_or_else(|| panic!("Already removed entry at index: {}", index));
         &self.entries[entry_index].1
     }
 }
@@ -190,7 +223,7 @@ impl<T> IndexMut<usize> for SlotVec<T> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut T {
         let entry_index = self.slots[index].as_filled()
-            .expect("already removed entry");
+            .unwrap_or_else(|| panic!("Already removed entry at index: {}", index));
         &mut self.entries[entry_index].1
     }
 }
@@ -252,11 +285,12 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test_insert_and_remove() {
+    fn test_insert_and_remove() {
         let mut xs = SlotVec::new();
 
         assert_eq!(xs.next_slot_index(), 0);
         assert_eq!(xs.entries, []);
+        assert_eq!(xs.free_indexes, []);
         assert_eq!(xs.slots, []);
 
         assert_eq!(xs.insert("foo"), 0);
@@ -333,7 +367,57 @@ mod tests {
     }
 
     #[test]
-    pub fn test_get() {
+    fn test_insert_at() {
+        let mut xs = SlotVec::new();
+
+        xs.insert_at(5, "foo");
+
+        assert_eq!(xs.entries, [(5, "foo")]);
+        assert_eq!(xs.free_indexes, [0, 1, 2, 3, 4]);
+        assert_eq!(xs.slots, [Slot::free(0), Slot::free(1), Slot::free(2), Slot::free(3), Slot::free(4), Slot::filled(0)]);
+
+        xs.insert_at(2, "bar");
+
+        assert_eq!(xs.entries, [(5, "foo"), (2, "bar")]);
+        assert_eq!(xs.free_indexes, [0, 1, 4, 3]);
+        assert_eq!(xs.slots, [Slot::free(0), Slot::free(1), Slot::filled(1), Slot::free(3), Slot::free(2), Slot::filled(0)]);
+
+        xs.insert_at(0, "baz");
+
+        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz")]);
+        assert_eq!(xs.free_indexes, [3, 1, 4]);
+        assert_eq!(xs.slots, [Slot::filled(2), Slot::free(1), Slot::filled(1), Slot::free(0), Slot::free(2), Slot::filled(0)]);
+
+        xs.insert_at(1, "qux");
+
+        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux")]);
+        assert_eq!(xs.free_indexes, [3, 4]);
+        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::free(0), Slot::free(1), Slot::filled(0)]);
+
+        xs.insert_at(4, "quux");
+
+        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux")]);
+        assert_eq!(xs.free_indexes, [3]);
+        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::free(0), Slot::filled(4), Slot::filled(0)]);
+
+        xs.insert_at(3, "corge");
+
+        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux"), (3, "corge")]);
+        assert_eq!(xs.free_indexes, []);
+        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::filled(5), Slot::filled(4), Slot::filled(0)]);
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_insert_at_should_panic() {
+        let mut xs = SlotVec::new();
+
+        xs.insert_at(5, "foo");
+        xs.insert_at(5, "foo");
+    }
+
+    #[test]
+    fn test_get() {
         let mut xs = SlotVec::new();
         let foo = xs.insert("foo");
         let bar = xs.insert("bar");
@@ -400,7 +484,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_iterator() {
+    fn test_iterator() {
         let mut xs = SlotVec::new();
         let foo = xs.insert("foo");
         let bar = xs.insert("bar");
