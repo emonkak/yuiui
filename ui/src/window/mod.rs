@@ -1,14 +1,15 @@
 use geometrics::Size;
+use paint::PaintContext;
 
 pub mod x11;
 
-pub trait WindowHandler<WindowHandle, PaintContext> {
-    fn connect(&self, handle: &WindowHandle);
+pub trait WindowHandler<Window> {
+    fn connect(&self, handle: &Window);
 
     fn size(&self, _width: u32, _height: u32) {
     }
 
-    fn paint(&self, paint_context: &mut PaintContext);
+    fn paint(&self, paint_context: &mut PaintContext<Window>);
 
     fn destroy(&self) {
     }

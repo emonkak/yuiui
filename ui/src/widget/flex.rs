@@ -1,9 +1,9 @@
 use std::any::Any;
 
 use geometrics::{Point, Size};
-use layout::{BoxConstraints, LayoutResult};
+use layout::{BoxConstraints, LayoutContext, LayoutNode, LayoutResult};
 use tree::NodeId;
-use widget::{RenderingNode, RenderingTree, Widget, WidgetPod};
+use widget::widget::{Widget, WidgetMaker};
 
 pub struct Row;
 
@@ -112,35 +112,32 @@ impl Column {
 }
 
 impl Flex {
-    fn get_params<WindowHandle, PaintContext>(
-        &self,
-        widget_pod: &WidgetPod<WindowHandle, PaintContext>
-    ) -> Params {
-        widget_pod.as_widget::<FlexItem>()
+    fn get_params<Window>(&self, node: &LayoutNode<Window>) -> Params {
+        node.as_widget::<FlexItem>()
             .map(|flex_item| flex_item.params)
             .unwrap_or_default()
     }
 
     /// Return the index (within `children`) of the next child that belongs in
     /// the specified phase.
-    fn get_next_child<'a, WindowHandle: 'a, PaintContext: 'a>(
+    fn get_next_child<'a, Window: 'a>(
         &self,
-        children: impl Iterator<Item = (NodeId, &'a RenderingNode<WindowHandle, PaintContext>)>,
+        children: impl Iterator<Item = (NodeId, &'a LayoutNode<Window>)>,
         phase: Phase,
     ) -> Option<NodeId> {
         for (child_id, child) in children {
-            if self.get_params(&**child).get_flex_phase() == phase {
+            if self.get_params(&*child).get_flex_phase() == phase {
                 return Some(child_id);
             }
         }
         None
     }
 
-    fn finish_layout<WindowHandle, PaintContext>(
+    fn finish_layout<Window>(
         &self,
         node_id: NodeId,
         box_constraints: &BoxConstraints,
-        rendering_tree: &mut RenderingTree<WindowHandle, PaintContext>
+        rendering_tree: LayoutContext<'_, Window>
     ) -> LayoutResult {
         let mut major = 0.0;
         for (_, child) in rendering_tree.children_mut(node_id) {
@@ -153,13 +150,13 @@ impl Flex {
     }
 }
 
-impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Flex {
+impl<Window> Widget<Window> for Flex {
     fn layout(
         &mut self,
         node_id: NodeId,
         response: Option<(NodeId, Size)>,
         box_constraints: &BoxConstraints,
-        rendering_tree: &mut RenderingTree<WindowHandle, PaintContext>,
+        layout_context: LayoutContext<'_, Window>,
     ) -> LayoutResult {
         let next_child_id = if let Some((child_id, size)) = response {
             let minor = self.direction.minor(size);
@@ -170,29 +167,29 @@ impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Flex {
             }
 
             // Advance to the next child; finish non-flex phase if at end.
-            if let Some(id) = self.get_next_child(rendering_tree.next_siblings(child_id), self.phase) {
+            if let Some(id) = self.get_next_child(layout_context.next_siblings(child_id), self.phase) {
                 id
             } else if self.phase == Phase::NonFlex {
-                if let Some(id) = self.get_next_child(rendering_tree.next_siblings(child_id), Phase::Flex) {
+                if let Some(id) = self.get_next_child(layout_context.next_siblings(child_id), Phase::Flex) {
                     self.phase = Phase::Flex;
                     id
                 } else {
-                    return self.finish_layout(node_id, box_constraints, rendering_tree);
+                    return self.finish_layout(node_id, box_constraints, layout_context);
                 }
             } else {
-                return self.finish_layout(node_id, box_constraints, rendering_tree)
+                return self.finish_layout(node_id, box_constraints, layout_context)
             }
         } else {
             // Start layout process, no children measured yet.
-            if let Some(first_child_id) = rendering_tree[node_id].first_child() {
+            if let Some(first_child_id) = layout_context[node_id].first_child() {
                 self.total_non_flex = 0.0;
-                self.flex_sum = rendering_tree
+                self.flex_sum = layout_context
                     .children(node_id)
-                    .map(|(_, node)| self.get_params(&**node).flex)
+                    .map(|(_, node)| self.get_params(&*node).flex)
                     .sum();
                 self.minor = self.direction.minor(box_constraints.min);
 
-                if let Some(id) = self.get_next_child(rendering_tree.children(node_id), Phase::NonFlex) {
+                if let Some(id) = self.get_next_child(layout_context.children(node_id), Phase::NonFlex) {
                     self.phase = Phase::NonFlex;
                     id
                 } else {
@@ -211,7 +208,7 @@ impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Flex {
             let total_major = self.direction.major(box_constraints.max);
             // TODO: should probably max with 0.0 to avoid negative sizes
             let remaining = total_major - self.total_non_flex;
-            let major = remaining * self.get_params(&*rendering_tree[next_child_id]).flex / self.flex_sum;
+            let major = remaining * self.get_params(&layout_context[next_child_id]).flex / self.flex_sum;
             (major, major)
         };
 
@@ -246,6 +243,9 @@ impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Flex {
     }
 }
 
+impl WidgetMaker for Flex {
+}
+
 impl FlexItem {
     pub fn new(flex: f32) -> FlexItem {
         FlexItem {
@@ -256,8 +256,11 @@ impl FlexItem {
     }
 }
 
-impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for FlexItem {
+impl<Window> Widget<Window> for FlexItem {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+impl WidgetMaker for FlexItem {
 }

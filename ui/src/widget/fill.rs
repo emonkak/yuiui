@@ -1,8 +1,9 @@
 use std::any::Any;
 
 use geometrics::Rectangle;
-use widget::{Element, Widget};
-use window::x11::{XWindowHandle, XPaintContext};
+use paint::PaintContext;
+use widget::widget::{Element, Widget, WidgetMaker};
+use window::x11::{XWindowHandle};
 
 #[derive(PartialEq, Eq)]
 pub struct Fill {
@@ -17,17 +18,20 @@ impl Fill {
     }
 }
 
-impl Widget<XWindowHandle, XPaintContext> for Fill {
-    fn paint(&mut self, handle: &XWindowHandle, rectangle: &Rectangle, paint_context: &mut XPaintContext) {
+impl Widget<XWindowHandle> for Fill {
+    fn paint(&mut self, handle: &XWindowHandle, rectangle: &Rectangle, paint_context: &mut PaintContext<XWindowHandle>) {
         paint_context.fill_rectangle(self.color, rectangle);
-        paint_context.copy_to(handle.window, rectangle);
+        paint_context.commit(handle, rectangle);
     }
 
-    fn should_rerender(&self, next_widget: &Box<dyn Widget<XWindowHandle, XPaintContext>>, _next_children: &Box<[Element<XWindowHandle, XPaintContext>]>) -> bool {
-        !self.same_widget(next_widget)
+    fn should_update(&self, element: &Element<XWindowHandle>) -> bool {
+        !self.same_widget(&*element.instance)
     }
 
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+impl WidgetMaker for Fill {
 }

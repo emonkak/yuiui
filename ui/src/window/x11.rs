@@ -4,10 +4,11 @@ use std::mem;
 use x11::xlib;
 
 use geometrics::{Size, Rectangle};
+use paint::{PaintContext, Painter};
 use window::{WindowHandle, WindowHandler, WindowProcedure};
 
 pub struct XWindowProcedure {
-    pub handler: Box<dyn WindowHandler<XWindowHandle, XPaintContext>>,
+    pub handler: Box<dyn WindowHandler<XWindowHandle>>,
     pub handle: XWindowHandle,
 }
 
@@ -17,7 +18,7 @@ pub struct XWindowHandle {
     pub window: xlib::Window
 }
 
-pub struct XPaintContext {
+pub struct XPainter {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
@@ -88,11 +89,11 @@ impl XWindowProcedure {
             xlib::XCreateGC(self.handle.display, pixmap, 0, ptr::null_mut())
         };
 
-        let mut paint_context = XPaintContext {
+        let mut paint_context = PaintContext::new(XPainter {
             display: self.handle.display,
             pixmap,
             gc
-        };
+        });
 
         self.handler.paint(&mut paint_context);
     }
@@ -195,40 +196,7 @@ impl WindowHandle for XWindowHandle {
     }
 }
 
-impl XPaintContext {
-    pub fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
-        unsafe {
-            let color = self.alloc_color(color);
-            xlib::XSetForeground(self.display, self.gc, color.pixel);
-            xlib::XFillRectangle(
-                self.display,
-                self.pixmap,
-                self.gc,
-                rectangle.point.x as _,
-                rectangle.point.y as _,
-                rectangle.size.width as _,
-                rectangle.size.height as _
-            );
-        }
-    }
-
-    pub fn copy_to(&mut self, window: xlib::Window, rectangle: &Rectangle) {
-        unsafe {
-            xlib::XCopyArea(
-                self.display,
-                self.pixmap,
-                window,
-                self.gc,
-                rectangle.point.x as _,
-                rectangle.point.y as _,
-                rectangle.size.width as _,
-                rectangle.size.height as _,
-                rectangle.point.x as _,
-                rectangle.point.y as _,
-            );
-        }
-    }
-
+impl XPainter {
     fn alloc_color(&self, rgba: u32) -> xlib::XColor {
         let mut color = xlib::XColor {
             pixel: 0,
@@ -250,7 +218,42 @@ impl XPaintContext {
     }
 }
 
-impl Drop for XPaintContext {
+impl Painter<XWindowHandle> for XPainter  {
+    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
+        unsafe {
+            let color = self.alloc_color(color);
+            xlib::XSetForeground(self.display, self.gc, color.pixel);
+            xlib::XFillRectangle(
+                self.display,
+                self.pixmap,
+                self.gc,
+                rectangle.point.x as _,
+                rectangle.point.y as _,
+                rectangle.size.width as _,
+                rectangle.size.height as _
+            );
+        }
+    }
+
+    fn commit(&mut self, window: &XWindowHandle, rectangle: &Rectangle) {
+        unsafe {
+            xlib::XCopyArea(
+                self.display,
+                self.pixmap,
+                window.window,
+                self.gc,
+                rectangle.point.x as _,
+                rectangle.point.y as _,
+                rectangle.size.width as _,
+                rectangle.size.height as _,
+                rectangle.point.x as _,
+                rectangle.point.y as _,
+            );
+        }
+    }
+}
+
+impl Drop for XPainter {
     fn drop(&mut self) {
         unsafe {
             xlib::XFreeGC(self.display, self.gc);

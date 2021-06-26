@@ -1,15 +1,20 @@
 use geometrics::{Size};
 use tree::NodeId;
+use fiber::{RenderingTree, RenderingNode};
+
+pub type LayoutContext<'a, Window> = &'a mut RenderingTree<Window>;
+
+pub type LayoutNode<Window> = RenderingNode<Window>;
+
+pub enum LayoutResult {
+    Size(Size),
+    RequestChild(NodeId, BoxConstraints),
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BoxConstraints {
     pub min: Size,
     pub max: Size,
-}
-
-pub enum LayoutResult {
-    Size(Size),
-    RequestChild(NodeId, BoxConstraints),
 }
 
 impl BoxConstraints {

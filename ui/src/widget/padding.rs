@@ -1,9 +1,9 @@
 use std::any::Any;
 
 use geometrics::{Point, Size};
-use layout::{BoxConstraints, LayoutResult};
+use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use tree::NodeId;
-use widget::{RenderingTree, Widget};
+use widget::widget::{Widget, WidgetMaker};
 
 /// A padding widget. Is expected to have exactly one child.
 pub struct Padding {
@@ -25,23 +25,23 @@ impl Padding {
     }
 }
 
-impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Padding {
+impl<Window> Widget<Window> for Padding {
     fn layout(
         &mut self,
         node_id: NodeId,
         response: Option<(NodeId, Size)>,
         box_constraints: &BoxConstraints,
-        rendering_tree: &mut RenderingTree<WindowHandle, PaintContext>,
+        layout_context: LayoutContext<'_, Window>,
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
-            rendering_tree[child_id].arrange(Point { x: self.left, y: self.top });
+            layout_context[child_id].arrange(Point { x: self.left, y: self.top });
             LayoutResult::Size(Size {
                 width: size.width + self.left + self.right,
                 height: size.height + self.top + self.bottom
             })
         } else {
-            let child_id = rendering_tree[node_id].first_child()
-                    .filter(|&child| rendering_tree[child].next_sibling().is_none())
+            let child_id = layout_context[node_id].first_child()
+                    .filter(|&child| layout_context[child].next_sibling().is_none())
                     .expect("Padding expected to receive a single element child.");
             let child_box_constraints = BoxConstraints {
                 min: Size {
@@ -60,4 +60,7 @@ impl<WindowHandle, PaintContext> Widget<WindowHandle, PaintContext> for Padding 
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+impl WidgetMaker for Padding {
 }
