@@ -5,10 +5,6 @@ use layout::{BoxConstraints, LayoutContext, LayoutResult};
 use tree::NodeId;
 use widget::widget::{FiberNode, FiberTree, Widget, WidgetMaker};
 
-pub struct Row;
-
-pub struct Column;
-
 pub struct Flex {
     direction: Axis,
 
@@ -87,9 +83,9 @@ impl Axis {
     }
 }
 
-impl Row {
-    pub fn new() -> Flex {
-        Flex {
+impl Flex {
+    pub fn row() -> Self {
+        Self {
             direction: Axis::Horizontal,
             phase: Phase::NonFlex,
             minor: 0.0,
@@ -97,11 +93,9 @@ impl Row {
             flex_sum: 0.0,
         }
     }
-}
 
-impl Column {
-    pub fn new() -> Flex {
-        Flex {
+    pub fn column() -> Self {
+        Self {
             direction: Axis::Vertical,
             phase: Phase::NonFlex,
             minor: 0.0,
@@ -109,11 +103,9 @@ impl Column {
             flex_sum: 0.0,
         }
     }
-}
 
-impl Flex {
     fn get_params<Window>(&self, node: &FiberNode<Window>) -> Params {
-        node.get_widget::<FlexItem>()
+        node.coerce_widget::<FlexItem>()
             .map(|flex_item| flex_item.params)
             .unwrap_or_default()
     }
@@ -126,7 +118,7 @@ impl Flex {
         phase: Phase,
     ) -> Option<NodeId> {
         for (child_id, child) in children {
-            if self.get_params(&*child).get_flex_phase() == phase {
+            if self.get_params(child).get_flex_phase() == phase {
                 return Some(child_id);
             }
         }
@@ -155,8 +147,8 @@ impl<Window> Widget<Window> for Flex {
     fn layout(
         &mut self,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        box_constraints: &BoxConstraints,
         fiber_tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext
     ) -> LayoutResult {
@@ -176,10 +168,10 @@ impl<Window> Widget<Window> for Flex {
                     self.phase = Phase::Flex;
                     id
                 } else {
-                    return self.finish_layout(node_id, box_constraints, fiber_tree, layout_context);
+                    return self.finish_layout(node_id, &box_constraints, fiber_tree, layout_context);
                 }
             } else {
-                return self.finish_layout(node_id, box_constraints, fiber_tree, layout_context)
+                return self.finish_layout(node_id, &box_constraints, fiber_tree, layout_context)
             }
         } else {
             // Start layout process, no children measured yet.
@@ -187,7 +179,7 @@ impl<Window> Widget<Window> for Flex {
                 self.total_non_flex = 0.0;
                 self.flex_sum = fiber_tree
                     .children(node_id)
-                    .map(|(_, node)| self.get_params(&*node).flex)
+                    .map(|(_, node)| self.get_params(node).flex)
                     .sum();
                 self.minor = self.direction.minor(&box_constraints.min);
 

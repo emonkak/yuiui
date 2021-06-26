@@ -53,25 +53,25 @@ impl<Window> UIUpdater<Window> {
         let mut requests = vec![(self.root_id, box_constraints)];
         let mut response = None;
 
-        while let Some(&(child_id, box_constraints)) = requests.last() {
-            let mut widget = mem::replace(&mut self.fiber_tree[child_id].widget, Box::new(Null));
+        while let Some(&(request_id, box_constraints)) = requests.last() {
+            let mut widget = mem::replace(&mut self.fiber_tree[request_id].widget, Box::new(Null));
             let result = widget.layout(
-                child_id,
+                request_id,
+                box_constraints,
                 response,
-                &box_constraints,
                 &self.fiber_tree,
                 &mut self.layout_context
             );
-            self.fiber_tree[child_id].widget = widget;
+            self.fiber_tree[request_id].widget = widget;
 
             match result {
                 LayoutResult::Size(size) => {
-                    self.layout_context.resize(child_id, size);
+                    self.layout_context.resize(request_id, size);
                     if requests.len() == 1 {
                         return size;
                     }
                     requests.pop();
-                    response = Some((child_id, size));
+                    response = Some((request_id, size));
                 }
                 LayoutResult::RequestChild(child_id, child_box_constraints) => {
                     let child = &self.fiber_tree[child_id];

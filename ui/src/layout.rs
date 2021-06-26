@@ -59,6 +59,7 @@ impl LayoutContext {
 }
 
 impl BoxConstraints {
+    #[inline]
     pub fn tight(size: &Size) -> BoxConstraints {
         BoxConstraints {
             min: *size,
@@ -66,6 +67,7 @@ impl BoxConstraints {
         }
     }
 
+    #[inline]
     pub fn constrain(&self, size: &Size) -> Size {
         Size {
             width: size.width.clamp(self.min.width, self.max.width),

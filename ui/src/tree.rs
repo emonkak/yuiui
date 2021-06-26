@@ -25,12 +25,6 @@ pub struct DetachedNode<T> {
     last_child: Option<NodeId>,
 }
 
-pub trait DisplayTreeData {
-    fn fmt_start(&self, f: &mut fmt::Formatter, node_id: NodeId) -> fmt::Result;
-
-    fn fmt_end(&self, f: &mut fmt::Formatter, node_id: NodeId) -> fmt::Result;
-}
-
 pub type NodeId = usize;
 
 impl<T> Tree<T> {
@@ -264,17 +258,16 @@ impl<T> Tree<T> {
     }
 
     pub fn fmt(&self, f: &mut fmt::Formatter, node_id: NodeId) -> fmt::Result
-        where T: DisplayTreeData {
+        where T: fmt::Display {
         self.fmt_rec(f, node_id, 0)
     }
 
     fn fmt_rec(&self, f: &mut fmt::Formatter, node_id: NodeId, level: usize) -> fmt::Result
-        where T: DisplayTreeData {
+        where T: fmt::Display {
         let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
         let node = &self.arena[node_id];
 
-        write!(f, "{}", indent_str)?;
-        node.data.fmt_start(f, node_id)?;
+        write!(f, "{}<{} id=\"{}\">", indent_str, node.data, node_id)?;
 
         if let Some(child_id) = node.first_child {
             write!(f, "\n")?;
@@ -282,7 +275,7 @@ impl<T> Tree<T> {
             write!(f, "\n{}", indent_str)?;
         }
 
-        node.data.fmt_end(f, node_id)?;
+        write!(f, "</{}>", node.data)?;
 
         if let Some(child_id) = node.next_sibling {
             write!(f, "\n")?;

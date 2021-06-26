@@ -19,6 +19,7 @@ pub struct Size {
 }
 
 impl Point {
+    #[inline]
     pub fn offset(&self, offset: Point) -> Self {
         Self {
             x: self.x + offset.x,
@@ -30,6 +31,7 @@ impl Point {
 impl Add for Point {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
@@ -41,6 +43,7 @@ impl Add for Point {
 impl Sub for Point {
     type Output = Self;
 
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
@@ -52,6 +55,7 @@ impl Sub for Point {
 impl Add for Size {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             width: self.width + other.width,
@@ -63,6 +67,7 @@ impl Add for Size {
 impl Sub for Size {
     type Output = Self;
 
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             width: self.width - other.width,

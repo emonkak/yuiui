@@ -5,7 +5,7 @@ use std::fmt;
 use geometrics::{Rectangle, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use paint::PaintContext;
-use tree::{DisplayTreeData, Node, NodeId, Tree};
+use tree::{Node, NodeId, Tree};
 
 pub trait Widget<Window>: WidgetMaker {
     fn name(&self) -> &'static str {
@@ -26,8 +26,8 @@ pub trait Widget<Window>: WidgetMaker {
     fn layout(
         &mut self,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        box_constraints: &BoxConstraints,
         fiber_tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext,
     ) -> LayoutResult {
@@ -36,7 +36,7 @@ pub trait Widget<Window>: WidgetMaker {
             LayoutResult::Size(size)
         } else {
             if let Some(child_id) = fiber_tree[node_id].first_child() {
-                LayoutResult::RequestChild(child_id, *box_constraints)
+                LayoutResult::RequestChild(child_id, box_constraints)
             } else {
                 LayoutResult::Size(box_constraints.max)
             }
@@ -94,12 +94,6 @@ pub enum Child<Window> {
     Empty,
 }
 
-impl<Window> fmt::Display for dyn Widget<Window> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
-    }
-}
-
 impl<Window> fmt::Debug for dyn Widget<Window> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
@@ -118,7 +112,7 @@ impl<Window> Fiber<Window> {
         }
     }
 
-    pub fn get_widget<T: Widget<Window> + 'static>(&self) -> Option<&T> {
+    pub fn coerce_widget<T: Widget<Window> + 'static>(&self) -> Option<&T> {
         self.widget.as_any().downcast_ref()
     }
 
@@ -156,19 +150,9 @@ impl<Window> Fiber<Window> {
     }
 }
 
-impl<Window> DisplayTreeData for Fiber<Window> {
-    fn fmt_start(&self, f: &mut fmt::Formatter, node_id: NodeId) -> fmt::Result {
-        write!(
-            f,
-            "<{} id=\"{}\" dirty=\"{}\">",
-            self.widget,
-            node_id,
-            self.dirty,
-        )
-    }
-
-    fn fmt_end(&self, f: &mut fmt::Formatter, _node_id: NodeId) -> fmt::Result {
-        write!(f, "</{}>", self.widget)
+impl<Window> fmt::Display for Fiber<Window> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.widget.name())
     }
 }
 

@@ -29,8 +29,8 @@ impl<Window> Widget<Window> for Padding {
     fn layout(
         &mut self,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        box_constraints: &BoxConstraints,
         fiber_tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext
     ) -> LayoutResult {
