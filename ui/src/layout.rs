@@ -1,10 +1,11 @@
-use geometrics::{Size};
+use geometrics::{Point, Rectangle, Size};
+use slot_vec::SlotVec;
 use tree::NodeId;
-use fiber::{RenderingTree, RenderingNode};
 
-pub type LayoutContext<'a, Window> = &'a mut RenderingTree<Window>;
-
-pub type LayoutNode<Window> = RenderingNode<Window>;
+#[derive(Debug)]
+pub struct LayoutContext {
+    rectangles: SlotVec<Rectangle>,
+}
 
 pub enum LayoutResult {
     Size(Size),
@@ -15,6 +16,46 @@ pub enum LayoutResult {
 pub struct BoxConstraints {
     pub min: Size,
     pub max: Size,
+}
+
+impl LayoutContext {
+    pub(crate) const fn new() -> Self {
+        Self {
+            rectangles: SlotVec::new(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn insert_at(&mut self, node_id: NodeId, rectangle: Rectangle) {
+        self.rectangles.insert_at(node_id, rectangle);
+    }
+
+    #[inline]
+    pub(crate) fn remove(&mut self, node_id: NodeId) -> Rectangle {
+        self.rectangles.remove(node_id)
+    }
+
+    #[inline]
+    pub fn get_point(&self, node_id: NodeId) -> &Point {
+        &self.rectangles[node_id].point
+    }
+
+    #[inline]
+    pub fn get_size(&self, node_id: NodeId) -> &Size {
+        &self.rectangles[node_id].size
+    }
+
+    #[inline]
+    pub fn arrange(&mut self, node_id: NodeId, point: Point) {
+        let rectange = &mut self.rectangles[node_id];
+        rectange.point = point;
+    }
+
+    #[inline]
+    pub fn resize(&mut self, node_id: NodeId, size: Size) {
+        let rectange = &mut self.rectangles[node_id];
+        rectange.size = size;
+    }
 }
 
 impl BoxConstraints {

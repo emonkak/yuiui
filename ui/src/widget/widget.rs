@@ -5,20 +5,7 @@ use std::fmt;
 use geometrics::{Rectangle, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use paint::PaintContext;
-use tree::NodeId;
-
-#[derive(Debug)]
-pub struct Element<Window> {
-    pub instance: Box<dyn Widget<Window>>,
-    pub children: Box<[Element<Window>]>,
-}
-
-#[derive(Debug)]
-pub enum Child<Window> {
-    Multiple(Vec<Element<Window>>),
-    Single(Element<Window>),
-    Empty,
-}
+use tree::{DisplayTreeData, Node, NodeId, Tree};
 
 pub trait Widget<Window>: WidgetMaker {
     fn name(&self) -> &'static str {
@@ -41,14 +28,15 @@ pub trait Widget<Window>: WidgetMaker {
         node_id: NodeId,
         response: Option<(NodeId, Size)>,
         box_constraints: &BoxConstraints,
-        layout_context: LayoutContext<'_, Window>,
+        fiber_tree: &FiberTree<Window>,
+        layout_context: &mut LayoutContext,
     ) -> LayoutResult {
-        if let Some((child, size)) = response {
-            layout_context[child].arrange(Default::default());
+        if let Some((child_id, size)) = response {
+            layout_context.arrange(child_id, Default::default());
             LayoutResult::Size(size)
         } else {
-            if let Some(child) = layout_context[node_id].first_child() {
-                LayoutResult::RequestChild(child, *box_constraints)
+            if let Some(child_id) = fiber_tree[node_id].first_child() {
+                LayoutResult::RequestChild(child_id, *box_constraints)
             } else {
                 LayoutResult::Size(box_constraints.max)
             }
@@ -78,6 +66,110 @@ pub trait Widget<Window>: WidgetMaker {
 }
 
 pub trait WidgetMaker {
+}
+
+pub type FiberTree<Window> = Tree<Fiber<Window>>;
+
+pub type FiberNode<Window> = Node<Fiber<Window>>;
+
+#[derive(Debug)]
+pub struct Fiber<Window> {
+    pub(crate) widget: Box<dyn Widget<Window>>,
+    pub(crate) rendered_children: Option<Box<[Element<Window>]>>,
+    pub(crate) handle: Option<Window>,
+    pub(crate) state: Option<Box<dyn any::Any>>,
+    pub(crate) dirty: bool,
+}
+
+#[derive(Debug)]
+pub struct Element<Window> {
+    pub instance: Box<dyn Widget<Window>>,
+    pub children: Box<[Element<Window>]>,
+}
+
+#[derive(Debug)]
+pub enum Child<Window> {
+    Multiple(Vec<Element<Window>>),
+    Single(Element<Window>),
+    Empty,
+}
+
+impl<Window> fmt::Display for dyn Widget<Window> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl<Window> fmt::Debug for dyn Widget<Window> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl<Window> Fiber<Window> {
+    pub(crate) fn new(element: Element<Window>) -> Fiber<Window> {
+        let rendered_children = element.instance.render_children(element.children);
+        Fiber {
+            widget: element.instance,
+            rendered_children: Some(rendered_children),
+            handle: None,
+            state: None,
+            dirty: true,
+        }
+    }
+
+    pub fn get_widget<T: Widget<Window> + 'static>(&self) -> Option<&T> {
+        self.widget.as_any().downcast_ref()
+    }
+
+    pub fn get_state<T: 'static>(&self) -> Option<&T> {
+        self.state.as_ref().and_then(|state| state.downcast_ref())
+    }
+
+    pub fn set_state<T: 'static>(&mut self, new_state: T) {
+        self.state = Some(Box::new(new_state));
+        self.dirty = true;
+    }
+
+    pub fn update_state<T: 'static>(&mut self, updater: impl FnOnce(Option<&T>) -> T) -> &T {
+        self.state = Some(Box::new(updater(self.get_state())));
+        self.dirty = true;
+        self.get_state().unwrap()
+    }
+
+    pub(crate) fn update(&mut self, element: Element<Window>) {
+        let rendered_children = element.instance.render_children(element.children);
+        self.widget = element.instance;
+        self.dirty = true;
+        self.rendered_children = Some(rendered_children);
+    }
+
+    pub(crate) fn should_update(&mut self, element: &Element<Window>) -> bool {
+        self.widget.should_update(&element)
+    }
+
+    pub(crate) fn disconnect(&mut self) {
+        let widget = &mut self.widget;
+        if let Some(handle) = self.handle.as_ref() {
+            widget.disconnect(handle);
+        }
+    }
+}
+
+impl<Window> DisplayTreeData for Fiber<Window> {
+    fn fmt_start(&self, f: &mut fmt::Formatter, node_id: NodeId) -> fmt::Result {
+        write!(
+            f,
+            "<{} id=\"{}\" dirty=\"{}\">",
+            self.widget,
+            node_id,
+            self.dirty,
+        )
+    }
+
+    fn fmt_end(&self, f: &mut fmt::Formatter, _node_id: NodeId) -> fmt::Result {
+        write!(f, "</{}>", self.widget)
+    }
 }
 
 impl<Window> Element<Window> {
@@ -161,17 +253,5 @@ impl<Window, W: Widget<Window> + WidgetMaker + 'static> From<W> for Child<Window
             instance: Box::new(widget),
             children: Box::new([])
         })
-    }
-}
-
-impl<Window> fmt::Display for dyn Widget<Window> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
-    }
-}
-
-impl<Window> fmt::Debug for dyn Widget<Window> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
     }
 }

@@ -1,6 +1,5 @@
 extern crate x11;
 
-pub mod fiber;
 pub mod geometrics;
 pub mod layout;
 pub mod paint;

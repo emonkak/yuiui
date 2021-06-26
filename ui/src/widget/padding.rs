@@ -3,7 +3,7 @@ use std::any::Any;
 use geometrics::{Point, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use tree::NodeId;
-use widget::widget::{Widget, WidgetMaker};
+use widget::widget::{FiberTree, Widget, WidgetMaker};
 
 /// A padding widget. Is expected to have exactly one child.
 pub struct Padding {
@@ -31,17 +31,18 @@ impl<Window> Widget<Window> for Padding {
         node_id: NodeId,
         response: Option<(NodeId, Size)>,
         box_constraints: &BoxConstraints,
-        layout_context: LayoutContext<'_, Window>,
+        fiber_tree: &FiberTree<Window>,
+        layout_context: &mut LayoutContext
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
-            layout_context[child_id].arrange(Point { x: self.left, y: self.top });
+            layout_context.arrange(child_id, Point { x: self.left, y: self.top });
             LayoutResult::Size(Size {
                 width: size.width + self.left + self.right,
                 height: size.height + self.top + self.bottom
             })
         } else {
-            let child_id = layout_context[node_id].first_child()
-                    .filter(|&child| layout_context[child].next_sibling().is_none())
+            let child_id = fiber_tree[node_id].first_child()
+                    .filter(|&child| fiber_tree[child].next_sibling().is_none())
                     .expect("Padding expected to receive a single element child.");
             let child_box_constraints = BoxConstraints {
                 min: Size {

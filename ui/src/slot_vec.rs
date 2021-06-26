@@ -67,7 +67,7 @@ impl<T> SlotVec<T> {
 
     pub fn remove(&mut self, slot_index: usize) -> T {
         let entry_index = self.slots[slot_index].as_filled()
-            .unwrap_or_else(|| panic!("Already removed entry at index: {}", slot_index));
+            .unwrap_or_else(|| panic!("Already removed entry at {}", slot_index));
 
         if slot_index == self.slots.len().saturating_sub(1) {
             self.slots.pop();
@@ -214,7 +214,7 @@ impl<T> Index<usize> for SlotVec<T> {
     #[inline]
     fn index(&self, index: usize) -> &T {
         let entry_index = self.slots[index].as_filled()
-            .unwrap_or_else(|| panic!("Already removed entry at index: {}", index));
+            .unwrap_or_else(|| panic!("Already removed entry at {}", index));
         &self.entries[entry_index].1
     }
 }
@@ -223,7 +223,7 @@ impl<T> IndexMut<usize> for SlotVec<T> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut T {
         let entry_index = self.slots[index].as_filled()
-            .unwrap_or_else(|| panic!("Already removed entry at index: {}", index));
+            .unwrap_or_else(|| panic!("Already removed entry at {}", index));
         &mut self.entries[entry_index].1
     }
 }

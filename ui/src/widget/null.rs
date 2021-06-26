@@ -14,7 +14,5 @@ impl<Window> Widget<Window> for Null {
     }
 }
 
-
 impl WidgetMaker for Null {
-
 }
