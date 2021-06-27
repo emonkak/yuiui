@@ -7,15 +7,15 @@ use ui::layout::BoxConstraints;
 use ui::widget::flex::{Flex, FlexItem};
 use ui::widget::null::Null;
 use ui::widget::padding::Padding;
-use ui::widget::widget::{Element};
+use ui::widget::widget::{WidgetBase, Element};
 
 fn render() -> Element<()> {
     element!(
         Padding::uniform(2.0) => {
             Flex::column() => {
-                FlexItem::new(1.0) => { Null }
-                FlexItem::new(1.0) => { Null }
-                FlexItem::new(1.0) => { Null }
+                FlexItem::new(1.0).with_key(1) => { Null }
+                FlexItem::new(1.0).with_key(2) => { Null }
+                FlexItem::new(1.0).with_key(3) => { Null }
             }
         }
     )
@@ -28,8 +28,8 @@ fn render2() -> Element<()> {
                 FlexItem::new(1.0) => {
                     Padding::uniform(2.0) => {
                         Flex::column() => {
-                            FlexItem::new(1.0) => { Null }
-                            FlexItem::new(1.0) => { Null }
+                            FlexItem::new(1.0).with_key(3) => { Null }
+                            FlexItem::new(1.0).with_key(1) => { Null }
                         }
                     }
                 }

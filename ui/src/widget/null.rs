@@ -1,14 +1,17 @@
 use std::any::Any;
 
-use widget::widget::{Widget, WidgetMaker};
+use widget::widget::{Element, Widget, WidgetBase};
 
 pub struct Null;
 
 impl<Window> Widget<Window> for Null {
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn should_update(&self, _next_widget: &dyn Widget<Window>, _next_children: &[Element<Window>]) -> bool {
+        false
     }
 }
 
-impl WidgetMaker for Null {
+impl WidgetBase for Null {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }

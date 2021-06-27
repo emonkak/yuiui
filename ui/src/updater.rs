@@ -99,14 +99,14 @@ impl<Window> UIUpdater<Window> {
 
         loop {
             match (current_child.take(), current_element.take()) {
-                (Some(child_id), Some(element)) if same_type(self.fiber_tree[child_id].widget.as_any(), element.instance.as_any()) => {
+                (Some(child_id), Some(element)) if same_type(self.fiber_tree[child_id].widget.as_any(), element.widget.as_any()) => {
                     // Update
                     let child_node = &mut self.fiber_tree[child_id];
                     if child_node.should_update(&element) {
-                        println!("Update: <{} id=\"{}\">", element.instance.name(), child_id);
+                        println!("Update: <{} id=\"{}\">", element.widget.name(), child_id);
                         child_node.update(element);
                     } else {
-                        println!("Skip: <{} id=\"{}\">", element.instance.name(), child_id);
+                        println!("Skip: <{} id=\"{}\">", element.widget.name(), child_id);
                     }
                     current_element = child_elements.next();
                     current_child = child_node.next_sibling();
@@ -115,7 +115,7 @@ impl<Window> UIUpdater<Window> {
                     // Delete
                     for (node_id, mut detached_node) in self.fiber_tree.detach_subtree(child_id) {
                         println!("Delete: <{} id=\"{}\">", detached_node.widget.name(), node_id);
-                        detached_node.disconnect();
+                        detached_node.unmount();
                         self.layout_context.remove(node_id);
                         if node_id == child_id {
                             current_child = detached_node.next_sibling();

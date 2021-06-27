@@ -3,7 +3,7 @@ use std::any::Any;
 use geometrics::{Point, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use tree::NodeId;
-use widget::widget::{FiberTree, Widget, WidgetMaker};
+use widget::widget::{FiberTree, Widget, WidgetBase};
 
 /// A padding widget. Is expected to have exactly one child.
 pub struct Padding {
@@ -57,11 +57,10 @@ impl<Window> Widget<Window> for Padding {
             LayoutResult::RequestChild(child_id, child_box_constraints)
         }
     }
+}
 
+impl WidgetBase for Padding {
     fn as_any(&self) -> &dyn Any {
         self
     }
-}
-
-impl WidgetMaker for Padding {
 }
