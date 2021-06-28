@@ -96,11 +96,7 @@ impl<T> SlotVec<T> {
         self.slots
             .get(slot_index)
             .and_then(move |slot| {
-                if let Some(entry_index) = slot.as_filled() {
-                    Some(&entries[entry_index].1)
-                } else {
-                    None
-                }
+                slot.as_filled().map(move |entry_index| &entries[entry_index].1)
             })
     }
 
@@ -109,12 +105,37 @@ impl<T> SlotVec<T> {
         self.slots
             .get(slot_index)
             .and_then(move |slot| {
-                if let Some(entry_index) = slot.as_filled() {
-                    Some(&mut entries[entry_index].1)
-                } else {
-                    None
-                }
+                slot.as_filled().map(move |entry_index| &mut entries[entry_index].1)
             })
+    }
+
+    pub fn get_or_insert(&mut self, slot_index: usize, value: T) -> &mut T {
+        self.get_or_insert_with(slot_index, || value)
+    }
+
+    pub fn get_or_insert_default(&mut self, slot_index: usize) -> &mut T where T: Default {
+        self.get_or_insert_with(slot_index, Default::default)
+    }
+
+    pub fn get_or_insert_with(&mut self, slot_index: usize, f: impl FnOnce() -> T) -> &mut T {
+        if let Some(slot) = self.slots.get(slot_index) {
+            if slot.is_filled() {
+                let entry_index = slot.force_filled();
+                return &mut self.entries[entry_index].1;
+            }
+
+            let free_position = slot.force_free();
+            let free_slot_index = self.take_free_index(free_position);
+            debug_assert_eq!(free_slot_index, slot_index);
+
+            self.slots[slot_index] = Slot::filled(self.entries.len());
+        } else {
+            self.extend_until(slot_index);
+            self.slots.push(Slot::filled(self.entries.len()));
+        }
+
+        self.entries.push((slot_index, f()));
+        &mut self.entries.last_mut().unwrap().1
     }
 
     pub fn has(&self, slot_index: usize) -> bool {
@@ -481,6 +502,41 @@ mod tests {
         assert_eq!(xs.has(bar), false);
         assert_eq!(xs.has(baz), false);
         assert_eq!(xs.has(baz + 1), false);
+    }
+
+    #[test]
+    fn test_get_or_insert() {
+        let mut xs = SlotVec::new();
+        let mut ys = SlotVec::new();
+
+        assert_eq!(xs.get_or_insert(1, "foo"), &mut "foo");
+        assert_eq!(ys.insert_at(1, "foo"), None);
+        assert_eq!(&xs.entries, &ys.entries);
+        assert_eq!(&xs.slots, &ys.slots);
+        assert_eq!(&xs.free_indexes, &ys.free_indexes);
+
+        assert_eq!(xs.get_or_insert(0, "bar"), &mut "bar");
+        assert_eq!(ys.insert_at(0, "bar"), None);
+        assert_eq!(&xs.entries, &ys.entries);
+        assert_eq!(&xs.slots, &ys.slots);
+        assert_eq!(&xs.free_indexes, &ys.free_indexes);
+
+        assert_eq!(xs.get_or_insert(3, "baz"), &mut "baz");
+        assert_eq!(ys.insert_at(3, "baz"), None);
+        assert_eq!(&xs.entries, &ys.entries);
+        assert_eq!(&xs.slots, &ys.slots);
+        assert_eq!(&xs.free_indexes, &ys.free_indexes);
+
+        assert_eq!(xs.get_or_insert(2, "qux"), &mut "qux");
+        assert_eq!(ys.insert_at(2, "qux"), None);
+        assert_eq!(&xs.entries, &ys.entries);
+        assert_eq!(&xs.slots, &ys.slots);
+        assert_eq!(&xs.free_indexes, &ys.free_indexes);
+
+        assert_eq!(xs.get_or_insert(2, "quux"), &mut "qux");
+        assert_eq!(&xs.entries, &ys.entries);
+        assert_eq!(&xs.slots, &ys.slots);
+        assert_eq!(&xs.free_indexes, &ys.free_indexes);
     }
 
     #[test]
