@@ -25,22 +25,9 @@ fn render2() -> Element<()> {
     element!(
         Padding::uniform(2.0) => {
             Flex::column() => {
-                FlexItem::new(1.0) => {
-                    Padding::uniform(2.0) => {
-                        Flex::column() => {
-                            FlexItem::new(1.0).with_key(3) => { Null }
-                            FlexItem::new(1.0).with_key(1) => { Null }
-                        }
-                    }
-                }
-                FlexItem::new(1.0) => {
-                    Padding::uniform(2.0) => {
-                        Flex::column() => {
-                            FlexItem::new(1.0) => { Null }
-                            FlexItem::new(1.0) => { Null }
-                        }
-                    }
-                }
+                FlexItem::new(1.0).with_key(2) => { Null }
+                FlexItem::new(1.0).with_key(3) => { Null }
+                FlexItem::new(1.0).with_key(1) => { Null }
             }
         }
     )
@@ -58,7 +45,7 @@ fn main() {
     }));
     println!("{}", updater);
 
-    updater.update(render2());
+    updater.force_update(render2());
     updater.render();
     updater.layout(BoxConstraints::tight(&Size {
         width: 640.0,

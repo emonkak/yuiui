@@ -1,3 +1,5 @@
+use std::ops::{Index, IndexMut};
+
 use geometrics::{Point, Rectangle, Size};
 use slot_vec::SlotVec;
 use tree::NodeId;
@@ -16,6 +18,22 @@ pub enum LayoutResult {
 pub struct BoxConstraints {
     pub min: Size,
     pub max: Size,
+}
+
+impl Index<NodeId> for LayoutContext {
+    type Output = Rectangle;
+
+    #[inline]
+    fn index(&self, node_id: NodeId) -> &Self::Output {
+        &self.rectangles[node_id]
+    }
+}
+
+impl IndexMut<NodeId> for LayoutContext {
+    #[inline]
+    fn index_mut(&mut self, node_id: NodeId) -> &mut Self::Output {
+        &mut self.rectangles[node_id]
+    }
 }
 
 impl LayoutContext {

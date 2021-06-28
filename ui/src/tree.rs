@@ -257,29 +257,44 @@ impl<T> Tree<T> {
         self.arena.insert(node)
     }
 
-    pub fn fmt(&self, f: &mut fmt::Formatter, node_id: NodeId) -> fmt::Result
+    pub fn format(
+        &self,
+        f: &mut fmt::Formatter,
+        node_id: NodeId,
+        format_open: &impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+        format_close: &impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result
+    ) -> fmt::Result
         where T: fmt::Display {
-        self.fmt_rec(f, node_id, 0)
+        self.format_rec(f, node_id, format_open, format_close, 0)
     }
 
-    fn fmt_rec(&self, f: &mut fmt::Formatter, node_id: NodeId, level: usize) -> fmt::Result
+    fn format_rec(
+        &self,
+        f: &mut fmt::Formatter,
+        node_id: NodeId,
+        format_open: &impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+        format_close: &impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+        level: usize
+    ) -> fmt::Result
         where T: fmt::Display {
         let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
         let node = &self.arena[node_id];
 
-        write!(f, "{}<{} id=\"{}\">", indent_str, node.data, node_id)?;
+        write!(f, "{}", indent_str)?;
+
+        format_open(f, node_id, &node.data)?;
 
         if let Some(child_id) = node.first_child {
             write!(f, "\n")?;
-            self.fmt_rec(f, child_id, level + 1)?;
+            self.format_rec(f, child_id, format_open, format_close, level + 1)?;
             write!(f, "\n{}", indent_str)?;
         }
 
-        write!(f, "</{}>", node.data)?;
+        format_close(f, node_id, &node.data)?;
 
         if let Some(child_id) = node.next_sibling {
             write!(f, "\n")?;
-            self.fmt_rec(f, child_id, level)?;
+            self.format_rec(f, child_id, format_open, format_close, level)?;
         }
 
         Ok(())
@@ -360,6 +375,20 @@ impl<T> From<T> for DetachedNode<T> {
             first_child: None,
             last_child: None,
         }
+    }
+}
+
+impl<T> Deref for DetachedNode<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T> DerefMut for DetachedNode<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }
 

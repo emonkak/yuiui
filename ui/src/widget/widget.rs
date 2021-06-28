@@ -128,15 +128,16 @@ impl<Window> Fiber<Window> {
         self.get_state().unwrap()
     }
 
-    pub(crate) fn update(&mut self, element: Element<Window>) {
-        let rendered_children = element.widget.render(element.children);
-        self.widget = element.widget;
-        self.dirty = true;
-        self.rendered_children = Some(rendered_children);
-    }
-
-    pub(crate) fn should_update(&mut self, element: &Element<Window>) -> bool {
-        self.widget.should_update(&*element.widget, &*element.children)
+    pub(crate) fn update(&mut self, element: Element<Window>) -> bool {
+        if self.widget.should_update(&*element.widget, &*element.children) {
+            let rendered_children = element.widget.render(element.children);
+            self.widget = element.widget;
+            self.dirty = true;
+            self.rendered_children = Some(rendered_children);
+            true
+        } else {
+            false
+        }
     }
 
     pub(crate) fn unmount(&mut self) {
