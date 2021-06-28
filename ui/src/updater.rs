@@ -1,10 +1,10 @@
 use std::any::TypeId;
 use std::fmt;
 use std::mem;
-use std::collections::{HashMap, HashSet};
 
 use geometrics::Size;
 use layout::{BoxConstraints, LayoutContext, LayoutResult};
+use reconciler::{Commiter, reconcile};
 use tree::{NodeId, Tree};
 use widget::null::Null;
 use widget::widget::{Element, Fiber, FiberTree, Key, Widget};
@@ -134,7 +134,6 @@ impl<Window> UIUpdater<Window> {
 
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
         let mut new_elements: Vec<Option<Element<Window>>> = Vec::with_capacity(children.len());
-        let mut new_index_to_old_node_id: Vec<NodeId> = vec![Default::default(); children.len()];
 
         for (index, element) in children.into_vec().into_iter().enumerate() {
             let key = key_of(&*element.widget, index);
@@ -142,116 +141,24 @@ impl<Window> UIUpdater<Window> {
             new_elements.push(Some(element));
         }
 
-        let mut old_head = 0;
-        let mut old_edge = old_keys.len();
-        let mut new_head = 0;
-        let mut new_edge = new_keys.len();
-
-        let mut old_key_to_index_map: Option<HashMap<&TypedKey, usize>> = None;
-        let mut new_key_set: Option<HashSet<&TypedKey>> = None;
-
-        while old_head < old_edge && new_head < new_edge {
-            let old_tail = old_edge - 1;
-            let new_tail = new_edge - 1;
-
-            match (old_node_ids[old_head], old_node_ids[old_tail]) {
-                (None, _) => {
-                    old_head += 1;
-                }
-                (_, None) => {
-                    old_edge -= 1;
-                },
-                (Some(old_head_id), _) if old_keys[old_head] == new_keys[new_head] => {
-                    self.do_update(old_head_id, new_elements[new_head].take().unwrap());
-                    new_index_to_old_node_id[new_head] = old_head_id;
-                    old_head += 1;
-                    new_head += 1;
-                }
-                (_, Some(old_tail_id)) if old_keys[old_tail] == new_keys[new_tail] => {
-                    self.do_update(old_tail_id, new_elements[new_tail].take().unwrap());
-                    new_index_to_old_node_id[new_tail] = old_tail_id;
-                    old_head += 1;
-                    old_edge -= 1;
-                    new_edge -= 1;
-                }
-                (Some(old_head_id), Some(old_tail_id)) if old_keys[old_head] == new_keys[new_tail] => {
-                    self.do_update_and_move(old_head_id, old_tail_id, new_elements[new_tail].take().unwrap());
-                    new_index_to_old_node_id[new_tail] = old_head_id;
-                    old_head += 1;
-                    new_edge -= 1;
-                }
-                (Some(old_head_id), Some(old_tail_id)) if old_keys[old_tail] == new_keys[new_head] => {
-                    self.do_update_and_move(old_tail_id, old_head_id, new_elements[new_head].take().unwrap());
-                    new_index_to_old_node_id[new_head] = old_tail_id;
-                    old_edge -= 1;
-                    new_head += 1;
-                }
-                (Some(old_head_id), Some(old_tail_id)) => {
-                    let new_key_set = new_key_set.get_or_insert_with(|| {
-                        new_keys.iter().collect::<HashSet<_>>()
-                    });
-
-                    if !new_key_set.contains(&old_keys[old_head]) {
-                        self.do_delete(old_head_id);
-                        old_head += 1;
-                    } else if !new_key_set.contains(&old_keys[old_tail]) {
-                        self.do_delete(old_tail_id);
-                        old_edge -= 1;
-                    } else {
-                        let old_key_to_index_map = old_key_to_index_map.get_or_insert_with(|| {
-                            let mut map = HashMap::with_capacity(old_keys.len());
-                            for (i, key) in old_keys.iter().enumerate() {
-                                map.insert(key, i);
-                            }
-                            map
-                        });
-
-                        if let Some(old_node_id) = old_key_to_index_map
-                            .get(&new_keys[new_head])
-                            .and_then(|&old_index| old_node_ids[old_index].take()) {
-                            self.do_update_and_move(old_node_id, old_head_id, new_elements[new_tail].take().unwrap());
-                            new_index_to_old_node_id[new_tail] = old_node_id;
-                        } else {
-                            self.do_place_at(old_head_id, new_elements[new_head].take().unwrap());
-                        }
-
-                        new_head += 1;
-                    }
-                }
-            }
-        }
-
-        while new_head < new_edge {
-            if new_edge < new_elements.len() {
-                let old_node_id = new_index_to_old_node_id[new_edge];
-                self.do_place_at(old_node_id, new_elements[new_head].take().unwrap());
-            } else {
-                self.do_place(target_id, new_elements[new_head].take().unwrap());
-            }
-            new_head += 1;
-        }
-
-        while old_head < old_edge {
-            if let Some(old_node_id) = old_node_ids[old_head].take() {
-                self.do_delete(old_node_id);
-            }
-            old_head += 1;
-        }
+        reconcile(self, target_id, &old_keys, &mut old_node_ids, &new_keys, &mut new_elements);
     }
+}
 
-    fn do_place(&mut self, parent_id: NodeId, new_element: Element<Window>) {
-        println!("Place: [parent_id: {}] {}", parent_id, new_element.widget.name());
+impl<Window> Commiter<NodeId, Element<Window>> for UIUpdater<Window> {
+    fn commit_place(&mut self, ref_id: NodeId, new_element: Element<Window>) {
+        println!("Place: [ref_id: {}] {}", ref_id, new_element.widget.name());
         let new_fiber = Fiber::new(new_element);
-        self.fiber_tree.append_child(parent_id, new_fiber);
+        self.fiber_tree.append_child(ref_id, new_fiber);
     }
 
-    fn do_place_at(&mut self, ref_id: NodeId, new_element: Element<Window>) {
+    fn commit_place_at(&mut self, ref_id: NodeId, new_element: Element<Window>) {
         println!("PlaceAt: [ref_id: {}] {}", ref_id, new_element.widget.name());
         let new_fiber = Fiber::new(new_element);
         self.fiber_tree.insert_before(ref_id, new_fiber);
     }
 
-    fn do_update(&mut self, target_id: NodeId, new_element: Element<Window>) {
+    fn commit_update(&mut self, target_id: NodeId, new_element: Element<Window>) {
         let target_node = &mut self.fiber_tree[target_id];
         if target_node.update(new_element) {
             println!("Update: [target_id: {}] {}", target_id, target_node.widget.name());
@@ -260,7 +167,7 @@ impl<Window> UIUpdater<Window> {
         }
     }
 
-    fn do_update_and_move(&mut self, target_id: NodeId, ref_id: NodeId, new_element: Element<Window>) {
+    fn commit_update_and_move(&mut self, target_id: NodeId, ref_id: NodeId, new_element: Element<Window>) {
         println!("UpdateAndMove: [target_id: {}] [ref_id: {}] {}", target_id, ref_id, new_element.widget.name());
         let mut target_node = self.fiber_tree.detach(target_id);
         if target_node.update(new_element) {
@@ -271,7 +178,7 @@ impl<Window> UIUpdater<Window> {
         self.fiber_tree.insert_before(ref_id, target_node);
     }
 
-    fn do_delete(&mut self, target_id: NodeId) {
+    fn commit_delete(&mut self, target_id: NodeId) {
         println!("Delete: [target_id: {}]", target_id);
         for (node_id, mut detached_node) in self.fiber_tree.detach_subtree(target_id) {
             detached_node.unmount();
