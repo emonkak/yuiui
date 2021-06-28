@@ -20,7 +20,6 @@ pub struct Fiber<Window> {
     pub(crate) dirty: bool,
 }
 
-#[derive(Debug)]
 pub struct Element<Window> {
     pub widget: Box<dyn Widget<Window>>,
     pub children: Box<[Element<Window>]>,
@@ -213,6 +212,16 @@ impl<Window> Element<Window> {
 impl<Window> fmt::Display for Element<Window> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_rec(f, 0)
+    }
+}
+
+impl<Window> fmt::Debug for Element<Window> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Element")
+            .field("widget", &self.widget)
+            .field("children", &self.children)
+            .finish()
     }
 }
 

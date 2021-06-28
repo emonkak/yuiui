@@ -4,7 +4,7 @@ use std::mem;
 
 use geometrics::Size;
 use layout::{BoxConstraints, LayoutContext, LayoutResult};
-use reconciler::{Commiter, reconcile};
+use reconciler::{Reconciler, ReconcileResult};
 use tree::{NodeId, Tree};
 use widget::null::Null;
 use widget::widget::{Element, Fiber, FiberTree, Key, Widget};
@@ -141,48 +141,44 @@ impl<Window> UIUpdater<Window> {
             new_elements.push(Some(element));
         }
 
-        reconcile(self, target_id, &old_keys, &mut old_node_ids, &new_keys, &mut new_elements);
-    }
-}
+        let reconciler = Reconciler::new(
+            &old_keys,
+            &mut old_node_ids,
+            &new_keys,
+            &mut new_elements
+        );
 
-impl<Window> Commiter<NodeId, Element<Window>> for UIUpdater<Window> {
-    fn commit_place(&mut self, ref_id: NodeId, new_element: Element<Window>) {
-        println!("Place: [ref_id: {}] {}", ref_id, new_element.widget.name());
-        let new_fiber = Fiber::new(new_element);
-        self.fiber_tree.append_child(ref_id, new_fiber);
-    }
-
-    fn commit_place_at(&mut self, ref_id: NodeId, new_element: Element<Window>) {
-        println!("PlaceAt: [ref_id: {}] {}", ref_id, new_element.widget.name());
-        let new_fiber = Fiber::new(new_element);
-        self.fiber_tree.insert_before(ref_id, new_fiber);
-    }
-
-    fn commit_update(&mut self, target_id: NodeId, new_element: Element<Window>) {
-        let target_node = &mut self.fiber_tree[target_id];
-        if target_node.update(new_element) {
-            println!("Update: [target_id: {}] {}", target_id, target_node.widget.name());
-        } else {
-            println!("NoChanges: [target_id: {}] {}", target_id, target_node.widget.name());
+        for result in reconciler {
+            self.handle_reconcile_result(target_id, result);
         }
     }
 
-    fn commit_update_and_move(&mut self, target_id: NodeId, ref_id: NodeId, new_element: Element<Window>) {
-        println!("UpdateAndMove: [target_id: {}] [ref_id: {}] {}", target_id, ref_id, new_element.widget.name());
-        let mut target_node = self.fiber_tree.detach(target_id);
-        if target_node.update(new_element) {
-            println!("Update: [target_id: {}] {}", target_id, target_node.widget.name());
-        } else {
-            println!("NoChanges: [target_id: {}] {}", target_id, target_node.widget.name());
-        }
-        self.fiber_tree.insert_before(ref_id, target_node);
-    }
-
-    fn commit_delete(&mut self, target_id: NodeId) {
-        println!("Delete: [target_id: {}]", target_id);
-        for (node_id, mut detached_node) in self.fiber_tree.detach_subtree(target_id) {
-            detached_node.unmount();
-            self.layout_context.remove(node_id);
+    fn handle_reconcile_result(&mut self, target_id: NodeId, result: ReconcileResult<NodeId, Element<Window>>) {
+        println!("{:?}", result);
+        match result {
+            ReconcileResult::New(new_element) => {
+                let new_fiber = Fiber::new(new_element);
+                self.fiber_tree.append_child(target_id, new_fiber);
+            }
+            ReconcileResult::NewPlacement(ref_id, new_element) => {
+                let new_fiber = Fiber::new(new_element);
+                self.fiber_tree.insert_before(ref_id, new_fiber);
+            }
+            ReconcileResult::Update(target_id, new_element) => {
+                let target_node = &mut self.fiber_tree[target_id];
+                target_node.update(new_element);
+            }
+            ReconcileResult::UpdatePlacement(target_id, ref_id, new_element) => {
+                let mut target_node = self.fiber_tree.detach(target_id);
+                target_node.update(new_element);
+                self.fiber_tree.insert_before(ref_id, target_node);
+            }
+            ReconcileResult::Deletion(target_id) => {
+                for (node_id, mut detached_node) in self.fiber_tree.detach_subtree(target_id) {
+                    detached_node.unmount();
+                    self.layout_context.remove(node_id);
+                }
+            }
         }
     }
 }

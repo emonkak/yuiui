@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt;
 use std::mem;
 use std::ops::{Index, IndexMut};
 
@@ -295,8 +295,8 @@ impl Slot {
     }
 }
 
-impl Debug for Slot {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Debug for Slot {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_filled() {
             formatter
                 .debug_tuple("Slot::filled")
