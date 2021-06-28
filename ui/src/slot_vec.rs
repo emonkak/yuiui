@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
-use std::ops::{Index, IndexMut};
 use std::fmt::{self, Debug, Formatter};
+use std::mem;
+use std::ops::{Index, IndexMut};
 
 #[derive(Debug)]
 pub struct SlotVec<T> {
@@ -46,10 +47,12 @@ impl<T> SlotVec<T> {
         slot_index
     }
 
-    pub fn insert_at(&mut self, slot_index: usize, value: T) {
+    pub fn insert_at(&mut self, slot_index: usize, value: T) -> Option<T> {
         if let Some(slot) = self.slots.get(slot_index) {
             if slot.is_filled() {
-                panic!("Alreadly used slot at {}", slot_index);
+                let entry_index = slot.force_filled();
+                let old_value = mem::replace(&mut self.entries[entry_index].1, value);
+                return Some(old_value)
             }
 
             let free_position = slot.force_free();
@@ -63,6 +66,8 @@ impl<T> SlotVec<T> {
         }
 
         self.entries.push((slot_index, value));
+
+        None
     }
 
     pub fn remove(&mut self, slot_index: usize) -> T {
@@ -122,6 +127,11 @@ impl<T> SlotVec<T> {
         self.entries = Vec::new();
         self.slots = Vec::new();
         self.free_indexes = Vec::new();
+    }
+
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.entries.capacity()
     }
 
     #[inline]
@@ -370,50 +380,40 @@ mod tests {
     fn test_insert_at() {
         let mut xs = SlotVec::new();
 
-        xs.insert_at(5, "foo");
-
+        assert_eq!(xs.insert_at(5, "foo"), None);
         assert_eq!(xs.entries, [(5, "foo")]);
         assert_eq!(xs.free_indexes, [0, 1, 2, 3, 4]);
         assert_eq!(xs.slots, [Slot::free(0), Slot::free(1), Slot::free(2), Slot::free(3), Slot::free(4), Slot::filled(0)]);
 
-        xs.insert_at(2, "bar");
-
+        assert_eq!(xs.insert_at(2, "bar"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar")]);
         assert_eq!(xs.free_indexes, [0, 1, 4, 3]);
         assert_eq!(xs.slots, [Slot::free(0), Slot::free(1), Slot::filled(1), Slot::free(3), Slot::free(2), Slot::filled(0)]);
 
-        xs.insert_at(0, "baz");
-
+        assert_eq!(xs.insert_at(0, "baz"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz")]);
         assert_eq!(xs.free_indexes, [3, 1, 4]);
         assert_eq!(xs.slots, [Slot::filled(2), Slot::free(1), Slot::filled(1), Slot::free(0), Slot::free(2), Slot::filled(0)]);
 
-        xs.insert_at(1, "qux");
-
+        assert_eq!(xs.insert_at(1, "qux"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux")]);
         assert_eq!(xs.free_indexes, [3, 4]);
         assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::free(0), Slot::free(1), Slot::filled(0)]);
 
-        xs.insert_at(4, "quux");
-
+        assert_eq!(xs.insert_at(4, "quux"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux")]);
         assert_eq!(xs.free_indexes, [3]);
         assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::free(0), Slot::filled(4), Slot::filled(0)]);
 
-        xs.insert_at(3, "corge");
-
+        assert_eq!(xs.insert_at(3, "corge"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux"), (3, "corge")]);
         assert_eq!(xs.free_indexes, []);
         assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::filled(5), Slot::filled(4), Slot::filled(0)]);
-    }
 
-    #[should_panic]
-    #[test]
-    fn test_insert_at_should_panic() {
-        let mut xs = SlotVec::new();
-
-        xs.insert_at(5, "foo");
-        xs.insert_at(5, "foo");
+        assert_eq!(xs.insert_at(3, "grault"), Some("corge"));
+        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux"), (3, "grault")]);
+        assert_eq!(xs.free_indexes, []);
+        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::filled(5), Slot::filled(4), Slot::filled(0)]);
     }
 
     #[test]
