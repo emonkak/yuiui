@@ -3,7 +3,7 @@ use std::any::Any;
 use geometrics::{Point, Size};
 use layout::{BoxConstraints, LayoutContext, LayoutResult};
 use tree::NodeId;
-use widget::widget::{FiberNode, FiberTree, Widget, WidgetBase};
+use widget::widget::{FiberNode, FiberTree, Widget, WidgetMeta};
 
 pub struct Flex {
     direction: Axis,
@@ -233,7 +233,7 @@ impl<Window> Widget<Window> for Flex {
     }
 }
 
-impl WidgetBase for Flex {
+impl WidgetMeta for Flex {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -252,7 +252,7 @@ impl FlexItem {
 impl<Window> Widget<Window> for FlexItem {
 }
 
-impl WidgetBase for FlexItem {
+impl WidgetMeta for FlexItem {
     fn as_any(&self) -> &dyn Any {
         self
     }

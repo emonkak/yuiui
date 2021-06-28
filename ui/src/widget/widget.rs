@@ -33,7 +33,7 @@ pub enum Child<Window> {
     Empty,
 }
 
-pub trait Widget<Window>: WidgetBase {
+pub trait Widget<Window>: WidgetMeta {
     fn should_update(&self, _next_widget: &dyn Widget<Window>, _next_children: &[Element<Window>]) -> bool {
         true
     }
@@ -72,7 +72,7 @@ pub trait Widget<Window>: WidgetBase {
     }
 }
 
-pub trait WidgetBase {
+pub trait WidgetMeta {
     #[inline]
     fn name(&self) -> &'static str {
         let full_name = any::type_name::<Self>();
@@ -237,7 +237,7 @@ impl<Window> From<Element<Window>> for Child<Window> {
     }
 }
 
-impl<Window, W: Widget<Window> + WidgetBase + 'static> From<W> for Child<Window> {
+impl<Window, W: Widget<Window> + WidgetMeta + 'static> From<W> for Child<Window> {
     fn from(widget: W) -> Self {
         Child::Single(Element {
             widget: Box::new(widget),
@@ -291,7 +291,7 @@ impl<Window, Inner: Widget<Window> + 'static> Widget<Window> for WithKey<Inner> 
     }
 }
 
-impl<Inner: WidgetBase> WidgetBase for WithKey<Inner> {
+impl<Inner: WidgetMeta> WidgetMeta for WithKey<Inner> {
     #[inline]
     fn name(&self) -> &'static str {
         self.inner.name()

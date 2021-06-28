@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use widget::widget::{Element, Widget, WidgetBase};
+use widget::widget::{Element, Widget, WidgetMeta};
 
 pub struct Null;
 
@@ -10,7 +10,7 @@ impl<Window> Widget<Window> for Null {
     }
 }
 
-impl WidgetBase for Null {
+impl WidgetMeta for Null {
     fn as_any(&self) -> &dyn Any {
         self
     }

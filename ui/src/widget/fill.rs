@@ -2,7 +2,7 @@ use std::any::Any;
 
 use geometrics::Rectangle;
 use paint::PaintContext;
-use widget::widget::{Element, Widget, WidgetBase, same_widget};
+use widget::widget::{Element, Widget, WidgetMeta, same_widget};
 use window::x11::{XWindowHandle};
 
 #[derive(PartialEq, Eq)]
@@ -29,7 +29,7 @@ impl Widget<XWindowHandle> for Fill {
     }
 }
 
-impl WidgetBase for Fill {
+impl WidgetMeta for Fill {
     fn as_any(&self) -> &dyn Any {
         self
     }

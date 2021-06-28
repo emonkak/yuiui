@@ -7,7 +7,7 @@ use ui::layout::BoxConstraints;
 use ui::widget::flex::{Flex, FlexItem};
 use ui::widget::null::Null;
 use ui::widget::padding::Padding;
-use ui::widget::widget::{WidgetBase, Element};
+use ui::widget::widget::{WidgetMeta, Element};
 
 fn render() -> Element<()> {
     element!(
