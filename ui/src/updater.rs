@@ -25,10 +25,8 @@ enum TypedKey {
 impl<Window> UIUpdater<Window> {
     pub fn new(element: Element<Window>) -> UIUpdater<Window> {
         let mut fiber_tree = Tree::new();
-        let mut layout_context = LayoutContext::new();
-
+        let layout_context = LayoutContext::new();
         let root_id = fiber_tree.attach(Fiber::new(element));
-        layout_context.insert_at(root_id, Default::default());
 
         UIUpdater {
             layout_context,
@@ -86,7 +84,7 @@ impl<Window> UIUpdater<Window> {
                         requests.push((child_id, child_box_constraints));
                         response = None;
                     } else {
-                        response = Some((child_id, *self.layout_context.get_size(child_id)));
+                        response = Some((child_id, *self.layout_context.get_size(child_id).unwrap()));
                     }
                 }
             }
@@ -244,15 +242,13 @@ impl<Window> UIUpdater<Window> {
     fn do_place(&mut self, parent_id: NodeId, new_element: Element<Window>) {
         println!("Place: [parent_id: {}] {}", parent_id, new_element.widget.name());
         let new_fiber = Fiber::new(new_element);
-        let new_node_id = self.fiber_tree.append_child(parent_id, new_fiber);
-        self.layout_context.insert_at(new_node_id, Default::default());
+        self.fiber_tree.append_child(parent_id, new_fiber);
     }
 
     fn do_place_at(&mut self, ref_id: NodeId, new_element: Element<Window>) {
         println!("PlaceAt: [ref_id: {}] {}", ref_id, new_element.widget.name());
         let new_fiber = Fiber::new(new_element);
-        let new_node_id = self.fiber_tree.insert_before(ref_id, new_fiber);
-        self.layout_context.insert_at(new_node_id, Default::default());
+        self.fiber_tree.insert_before(ref_id, new_fiber);
     }
 
     fn do_update(&mut self, target_id: NodeId, new_element: Element<Window>) {
@@ -290,13 +286,14 @@ impl<Window: fmt::Debug> fmt::Display for UIUpdater<Window> {
             f,
             self.root_id,
             &|f, node_id, fiber| {
-                let rectangle = &self.layout_context[node_id];
                 write!(f, "<{}", fiber.widget.name())?;
                 write!(f, " id=\"{}\"", node_id)?;
-                write!(f, " x=\"{}\"", rectangle.point.x)?;
-                write!(f, " y=\"{}\"", rectangle.point.y)?;
-                write!(f, " width=\"{}\"", rectangle.size.width)?;
-                write!(f, " height=\"{}\"", rectangle.size.height)?;
+                if let Some(rectangle) = self.layout_context.get_rectangle(node_id) {
+                    write!(f, " x=\"{}\"", rectangle.point.x)?;
+                    write!(f, " y=\"{}\"", rectangle.point.y)?;
+                    write!(f, " width=\"{}\"", rectangle.size.width)?;
+                    write!(f, " height=\"{}\"", rectangle.size.height)?;
+                }
                 if fiber.dirty {
                     write!(f, " dirty")?;
                 }

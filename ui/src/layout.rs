@@ -1,5 +1,3 @@
-use std::ops::{Index, IndexMut};
-
 use geometrics::{Point, Rectangle, Size};
 use slot_vec::SlotVec;
 use tree::NodeId;
@@ -20,22 +18,6 @@ pub struct BoxConstraints {
     pub max: Size,
 }
 
-impl Index<NodeId> for LayoutContext {
-    type Output = Rectangle;
-
-    #[inline]
-    fn index(&self, node_id: NodeId) -> &Self::Output {
-        &self.rectangles[node_id]
-    }
-}
-
-impl IndexMut<NodeId> for LayoutContext {
-    #[inline]
-    fn index_mut(&mut self, node_id: NodeId) -> &mut Self::Output {
-        &mut self.rectangles[node_id]
-    }
-}
-
 impl LayoutContext {
     pub(crate) const fn new() -> Self {
         Self {
@@ -44,34 +26,38 @@ impl LayoutContext {
     }
 
     #[inline]
-    pub(crate) fn insert_at(&mut self, node_id: NodeId, rectangle: Rectangle) {
-        self.rectangles.insert_at(node_id, rectangle);
-    }
-
-    #[inline]
     pub(crate) fn remove(&mut self, node_id: NodeId) -> Rectangle {
         self.rectangles.remove(node_id)
     }
 
     #[inline]
-    pub fn get_point(&self, node_id: NodeId) -> &Point {
-        &self.rectangles[node_id].point
+    pub fn get_rectangle(&self, node_id: NodeId) -> Option<&Rectangle> {
+        self.rectangles.get(node_id)
     }
 
     #[inline]
-    pub fn get_size(&self, node_id: NodeId) -> &Size {
-        &self.rectangles[node_id].size
+    pub fn get_point(&self, node_id: NodeId) -> Option<&Point> {
+        self.rectangles
+            .get(node_id)
+            .map(|rectangle| &rectangle.point)
+    }
+
+    #[inline]
+    pub fn get_size(&self, node_id: NodeId) -> Option<&Size> {
+        self.rectangles
+            .get(node_id)
+            .map(|rectangle| &rectangle.size)
     }
 
     #[inline]
     pub fn arrange(&mut self, node_id: NodeId, point: Point) {
-        let rectange = &mut self.rectangles[node_id];
+        let rectange = self.rectangles.get_or_insert_default(node_id);
         rectange.point = point;
     }
 
     #[inline]
     pub fn resize(&mut self, node_id: NodeId, size: Size) {
-        let rectange = &mut self.rectangles[node_id];
+        let rectange = self.rectangles.get_or_insert_default(node_id);
         rectange.size = size;
     }
 }

@@ -51,13 +51,21 @@ pub trait Widget<Window>: WidgetBase {
 
     fn layout(
         &mut self,
-        _node_id: NodeId,
+        node_id: NodeId,
         box_constraints: BoxConstraints,
-        _response: Option<(NodeId, Size)>,
-        _fiber_tree: &FiberTree<Window>,
+        response: Option<(NodeId, Size)>,
+        fiber_tree: &FiberTree<Window>,
         _layout_context: &mut LayoutContext,
     ) -> LayoutResult {
-        LayoutResult::Size(box_constraints.max)
+        if let Some((_, size)) = response {
+            LayoutResult::Size(size)
+        } else {
+            if let Some(child_id) = fiber_tree[node_id].first_child() {
+                LayoutResult::RequestChild(child_id, box_constraints)
+            } else {
+                LayoutResult::Size(box_constraints.max)
+            }
+        }
     }
 
     fn paint(&mut self, _handle: &Window, _rectangle: &Rectangle, _paint_context: &mut PaintContext<Window>) {

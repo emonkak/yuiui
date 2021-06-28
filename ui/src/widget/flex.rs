@@ -136,7 +136,7 @@ impl Flex {
         for (child_id, _) in fiber_tree.children(node_id) {
             // top-align, could do center etc. based on child height
             layout_context.arrange(child_id, self.direction.pack_point(major, 0.0));
-            major += self.direction.major(layout_context.get_size(child_id));
+            major += self.direction.major(&layout_context.get_size(child_id).unwrap());
         }
         let total_major = self.direction.major(&box_constraints.max);
         LayoutResult::Size(self.direction.pack_size(total_major, self.minor))
