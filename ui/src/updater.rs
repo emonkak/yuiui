@@ -59,15 +59,22 @@ impl<Window> UIUpdater<Window> {
         let mut response = None;
 
         while let Some(&(request_id, box_constraints)) = requests.last() {
-            let mut widget = mem::replace(&mut self.tree[request_id].widget, Box::new(Null));
+            let fiber = &mut self.tree[request_id];
+            let mut widget = mem::replace(&mut fiber.widget, Box::new(Null));
+            let mut state = fiber.state.take().unwrap_or_else(|| widget.initial_state());
+
             let result = widget.layout(
                 request_id,
                 box_constraints,
                 response,
                 &self.tree,
-                &mut self.layout_context
+                &mut self.layout_context,
+                &mut *state
             );
-            self.tree[request_id].widget = widget;
+
+            let fiber = &mut self.tree[request_id];
+            fiber.widget = widget;
+            fiber.state = Some(state);
 
             match result {
                 LayoutResult::Size(size) => {

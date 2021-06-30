@@ -27,6 +27,12 @@ impl Padding {
 }
 
 impl<Window> Widget<Window> for Padding {
+    type State = ();
+
+    fn initial_state(&self) -> Self::State {
+        Default::default()
+    }
+
     fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
         self == next_widget
     }
@@ -37,7 +43,8 @@ impl<Window> Widget<Window> for Padding {
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &FiberTree<Window>,
-        layout_context: &mut LayoutContext
+        layout_context: &mut LayoutContext,
+        _state: &mut Self::State
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
             layout_context.arrange(child_id, Point { x: self.left, y: self.top });

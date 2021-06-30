@@ -34,6 +34,10 @@ pub enum Child<Window> {
 }
 
 pub trait Widget<Window>: WidgetMeta {
+    type State;
+
+    fn initial_state(&self) -> Self::State;
+
     #[inline(always)]
     fn should_update(&self, _next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
         true
@@ -48,7 +52,7 @@ pub trait Widget<Window>: WidgetMeta {
     }
 
     #[inline(always)]
-    fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]> {
+    fn render(&self, children: Box<[Element<Window>]>, _state: &mut Self::State) -> Box<[Element<Window>]> {
         children
     }
 
@@ -69,6 +73,7 @@ pub trait Widget<Window>: WidgetMeta {
         response: Option<(NodeId, Size)>,
         tree: &FiberTree<Window>,
         _layout_context: &mut LayoutContext,
+        _state: &mut Self::State
     ) -> LayoutResult {
         if let Some((_, size)) = response {
             LayoutResult::Size(size)
@@ -87,19 +92,21 @@ pub trait Widget<Window>: WidgetMeta {
 }
 
 pub trait WidgetDyn<Window>: WidgetMeta {
+    fn initial_state(&self) -> Box<dyn any::Any>;
+
     fn should_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]) -> bool;
 
     fn will_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]);
 
     fn did_update(&self, prev_widget: &dyn WidgetDyn<Window>);
 
-    fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]>;
+    fn render(&self, children: Box<[Element<Window>]>, state: &mut dyn any::Any) -> Box<[Element<Window>]>;
 
     fn mount(&mut self, parent_handle: &Window, rectangle: &Rectangle) -> Option<Window>;
 
     fn unmount(&mut self, handle: &Window);
 
-    fn layout( &mut self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, tree: &FiberTree<Window>, layout_context: &mut LayoutContext) -> LayoutResult;
+    fn layout(&mut self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, tree: &FiberTree<Window>, layout_context: &mut LayoutContext, state: &mut dyn any::Any) -> LayoutResult;
 
     fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>);
 }
@@ -139,7 +146,8 @@ pub type Key = usize;
 
 impl<Window> Fiber<Window> {
     pub(crate) fn new(element: Element<Window>) -> Fiber<Window> {
-        let rendered_children = element.widget.render(element.children);
+        let mut initial_state = element.widget.initial_state();
+        let rendered_children = element.widget.render(element.children, &mut *initial_state);
         Fiber {
             widget: element.widget,
             rendered_children: Some(rendered_children),
@@ -149,32 +157,20 @@ impl<Window> Fiber<Window> {
         }
     }
 
-    pub fn coerce_widget<T: Widget<Window> + 'static>(&self) -> Option<&T> {
+    pub fn as_widget<T: Widget<Window> + 'static>(&self) -> Option<&T> {
         self.widget.as_any().downcast_ref()
     }
 
-    pub fn get_state<T: 'static>(&self) -> Option<&T> {
-        self.state.as_ref().and_then(|state| state.downcast_ref())
-    }
-
-    pub fn set_state<T: 'static>(&mut self, new_state: T) {
-        self.state = Some(Box::new(new_state));
-        self.dirty = true;
-    }
-
-    pub fn update_state<T: 'static>(&mut self, updater: impl FnOnce(Option<&T>) -> T) -> &T {
-        self.state = Some(Box::new(updater(self.get_state())));
-        self.dirty = true;
-        self.get_state().unwrap()
-    }
-
     pub(crate) fn update(&mut self, element: Element<Window>) -> bool {
-        if element.children.len() > 0 || self.widget.should_update(&*element.widget, &element.children) {
+        if self.widget.should_update(&*element.widget, &element.children) {
             self.widget.will_update(&*element.widget, &element.children);
 
             let prev_widget = mem::replace(&mut self.widget, element.widget);
-            let rendered_children = self.widget.render(element.children);
+            let mut state = self.state.take().unwrap_or_else(|| self.widget.initial_state());
+            let rendered_children = self.widget.render(element.children, &mut *state);
+
             self.dirty = true;
+            self.state = Some(state);
             self.rendered_children = Some(rendered_children);
 
             self.widget.did_update(&*prev_widget);
@@ -199,14 +195,14 @@ impl<Window> fmt::Display for Fiber<Window> {
 }
 
 impl<Window> Element<Window> {
-    pub fn new<const N: usize>(widget: impl Widget<Window> + 'static, children: [Element<Window>; N]) -> Self {
+    pub fn new<State: 'static, const N: usize>(widget: impl Widget<Window, State=State> + 'static, children: [Element<Window>; N]) -> Self {
         Self {
             widget: Box::new(widget),
             children: Box::new(children),
         }
     }
 
-    pub fn build<const N: usize>(widget: impl Widget<Window> + 'static, children: [Child<Window>; N]) -> Self {
+    pub fn build<State: 'static, const N: usize>(widget: impl Widget<Window, State=State> + 'static, children: [Child<Window>; N]) -> Self {
         let mut flatten_children = Vec::with_capacity(N);
 
         for child in array::IntoIter::new(children) {
@@ -283,7 +279,7 @@ impl<Window> From<Element<Window>> for Child<Window> {
     }
 }
 
-impl<Window, W: Widget<Window> + WidgetMeta + 'static> From<W> for Child<Window> {
+impl<Window, State: 'static, W: Widget<Window, State=State> + WidgetMeta + 'static> From<W> for Child<Window> {
     fn from(widget: W) -> Self {
         Child::Single(Element {
             widget: Box::new(widget),
@@ -298,7 +294,12 @@ impl<Window> fmt::Debug for dyn WidgetDyn<Window> {
     }
 }
 
-impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
+impl<Window, State: 'static, T: Widget<Window, State=State> + WidgetMeta + 'static> WidgetDyn<Window> for T {
+    #[inline(always)]
+    fn initial_state(&self) -> Box<dyn any::Any> {
+        Box::new(self.initial_state())
+    }
+
     #[inline(always)]
     fn should_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]) -> bool {
         next_widget
@@ -323,8 +324,8 @@ impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
     }
 
     #[inline(always)]
-    fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]> {
-        self.render(children)
+    fn render(&self, children: Box<[Element<Window>]>, state: &mut dyn any::Any) -> Box<[Element<Window>]> {
+        self.render(children, state.downcast_mut().unwrap())
     }
 
     #[inline(always)]
@@ -345,8 +346,16 @@ impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
         response: Option<(NodeId, Size)>,
         tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext,
+        state: &mut dyn any::Any
     ) -> LayoutResult {
-        self.layout(node_id, box_constraints, response, tree, layout_context)
+        self.layout(
+            node_id,
+            box_constraints,
+            response,
+            tree,
+            layout_context,
+            state.downcast_mut::<State>().unwrap()
+        )
     }
 
     #[inline(always)]
@@ -356,6 +365,13 @@ impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
 }
 
 impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
+    type State = T::State;
+
+    #[inline(always)]
+    fn initial_state(&self) -> Self::State {
+        self.inner.initial_state()
+    }
+
     #[inline(always)]
     fn should_update(&self, next_widget: &Self, next_children: &[Element<Window>]) -> bool {
         self.inner.should_update(&next_widget.inner, next_children)
@@ -372,8 +388,8 @@ impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]> {
-        self.inner.render(children)
+    fn render(&self, children: Box<[Element<Window>]>, state: &mut Self::State) -> Box<[Element<Window>]> {
+        self.inner.render(children, state)
     }
 
     #[inline(always)]
@@ -394,8 +410,9 @@ impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
         response: Option<(NodeId, Size)>,
         tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext,
+        state: &mut Self::State
     ) -> LayoutResult {
-        self.inner.layout(node_id, box_constraints, response, tree, layout_context)
+        self.inner.layout(node_id, box_constraints, response, tree, layout_context, state)
     }
 
     #[inline(always)]

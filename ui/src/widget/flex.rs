@@ -8,7 +8,9 @@ use widget::widget::{Element, FiberNode, FiberTree, Widget, WidgetMeta};
 #[derive(PartialEq)]
 pub struct Flex {
     direction: Axis,
+}
 
+pub struct FlexState {
     // layout continuation state
     phase: Phase,
     minor: f32,
@@ -90,25 +92,17 @@ impl Flex {
     pub fn row() -> Self {
         Self {
             direction: Axis::Horizontal,
-            phase: Phase::NonFlex,
-            minor: 0.0,
-            total_non_flex: 0.0,
-            flex_sum: 0.0,
         }
     }
 
     pub fn column() -> Self {
         Self {
             direction: Axis::Vertical,
-            phase: Phase::NonFlex,
-            minor: 0.0,
-            total_non_flex: 0.0,
-            flex_sum: 0.0,
         }
     }
 
     fn get_params<Window>(&self, node: &FiberNode<Window>) -> Params {
-        node.coerce_widget::<FlexItem>()
+        node.as_widget::<FlexItem>()
             .map(|flex_item| flex_item.params)
             .unwrap_or_default()
     }
@@ -133,13 +127,9 @@ impl Flex {
         node_id: NodeId,
         box_constraints: &BoxConstraints,
         tree: &FiberTree<Window>,
-        layout_context: &mut LayoutContext
+        layout_context: &mut LayoutContext,
+        state: &mut FlexState
     ) -> LayoutResult {
-        self.phase = Phase::NonFlex;
-        self.minor = 0.0;
-        self.total_non_flex = 0.0;
-        self.flex_sum = 0.0;
-
         let mut major = 0.0;
         for (child_id, _) in tree.children(node_id) {
             // top-align, could do center etc. based on child height
@@ -147,11 +137,30 @@ impl Flex {
             major += self.direction.major(&layout_context.get_size(child_id).unwrap());
         }
         let total_major = self.direction.major(&box_constraints.max);
-        LayoutResult::Size(self.direction.pack_size(total_major, self.minor))
+        let minor = state.minor;
+        *state = Default::default();
+        LayoutResult::Size(self.direction.pack_size(total_major, minor))
+    }
+}
+
+impl Default for FlexState {
+    fn default() -> Self {
+        Self {
+            phase: Phase::NonFlex,
+            minor: 0.0,
+            total_non_flex: 0.0,
+            flex_sum: 0.0,
+        }
     }
 }
 
 impl<Window> Widget<Window> for Flex {
+    type State = FlexState;
+
+    fn initial_state(&self) -> Self::State {
+        Default::default()
+    }
+
     fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
         self == next_widget
     }
@@ -162,45 +171,47 @@ impl<Window> Widget<Window> for Flex {
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &FiberTree<Window>,
-        layout_context: &mut LayoutContext
+        layout_context: &mut LayoutContext,
+        state: &mut Self::State
     ) -> LayoutResult {
         let next_child_id = if let Some((child_id, size)) = response {
-            let minor = self.direction.minor(&size);
-            self.minor = self.minor.max(minor);
+            state.minor = self.direction.minor(&size).max(state.minor);
 
-            if self.phase == Phase::NonFlex {
-                self.total_non_flex += self.direction.major(&size);
-            }
+            if state.phase == Phase::NonFlex {
+                state.total_non_flex += self.direction.major(&size);
 
-            // Advance to the next child; finish non-flex phase if at end.
-            if let Some(id) = self.get_next_child(tree.next_siblings(child_id), self.phase) {
-                id
-            } else if self.phase == Phase::NonFlex {
-                if let Some(id) = self.get_next_child(tree.next_siblings(child_id), Phase::Flex) {
-                    self.phase = Phase::Flex;
-                    id
+                // Advance to the next child; finish non-flex phase if at end.
+                if let Some(child_id) = self.get_next_child(tree.next_siblings(child_id), Phase::NonFlex) {
+                    child_id
+                } else if let Some(child_id) = self.get_next_child(tree.next_siblings(child_id), Phase::Flex) {
+                    state.phase = Phase::Flex;
+                    child_id
                 } else {
-                    return self.finish_layout(node_id, &box_constraints, tree, layout_context);
+                    return self.finish_layout(node_id, &box_constraints, tree, layout_context, state);
                 }
             } else {
-                return self.finish_layout(node_id, &box_constraints, tree, layout_context)
+                if let Some(child_id) = self.get_next_child(tree.next_siblings(child_id), Phase::Flex) {
+                    child_id
+                } else {
+                    return self.finish_layout(node_id, &box_constraints, tree, layout_context, state);
+                }
             }
         } else {
             // Start layout process, no children measured yet.
             if let Some(first_child_id) = tree[node_id].first_child() {
-                self.total_non_flex = 0.0;
-                self.flex_sum = tree
+                state.total_non_flex = 0.0;
+                state.flex_sum = tree
                     .children(node_id)
                     .map(|(_, node)| self.get_params(node).flex)
                     .sum();
-                self.minor = self.direction.minor(&box_constraints.min);
+                state.minor = self.direction.minor(&box_constraints.min);
 
-                if let Some(id) = self.get_next_child(tree.children(node_id), Phase::NonFlex) {
-                    self.phase = Phase::NonFlex;
-                    id
+                if let Some(child_id) = self.get_next_child(tree.children(node_id), Phase::NonFlex) {
+                    state.phase = Phase::NonFlex;
+                    child_id
                 } else {
                     // All children are flex, skip non-flex pass.
-                    self.phase = Phase::Flex;
+                    state.phase = Phase::Flex;
                     first_child_id
                 }
             } else {
@@ -208,13 +219,13 @@ impl<Window> Widget<Window> for Flex {
             }
         };
 
-        let (min_major, max_major) = if self.phase == Phase::NonFlex {
+        let (min_major, max_major) = if state.phase == Phase::NonFlex {
             (0.0, ::std::f32::INFINITY)
         } else {
             let total_major = self.direction.major(&box_constraints.max);
             // TODO: should probably max with 0.0 to avoid negative sizes
-            let remaining = total_major - self.total_non_flex;
-            let major = remaining * self.get_params(&tree[next_child_id]).flex / self.flex_sum;
+            let remaining = total_major - state.total_non_flex;
+            let major = remaining * self.get_params(&tree[next_child_id]).flex / state.flex_sum;
             (major, major)
         };
 
@@ -262,6 +273,12 @@ impl FlexItem {
 }
 
 impl<Window> Widget<Window> for FlexItem {
+    type State = ();
+
+    fn initial_state(&self) -> Self::State {
+        Default::default()
+    }
+
     fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
         self == next_widget
     }

@@ -18,6 +18,12 @@ impl Fill {
 }
 
 impl<Window> Widget<Window> for Fill {
+    type State = ();
+
+    fn initial_state(&self) -> Self::State {
+        Default::default()
+    }
+
     fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
         self == next_widget
     }
