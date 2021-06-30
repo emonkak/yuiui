@@ -36,7 +36,7 @@ impl<Window> Widget<Window> for Padding {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        fiber_tree: &FiberTree<Window>,
+        tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
@@ -46,8 +46,8 @@ impl<Window> Widget<Window> for Padding {
                 height: size.height + self.top + self.bottom
             })
         } else {
-            let child_id = fiber_tree[node_id].first_child()
-                    .filter(|&child| fiber_tree[child].next_sibling().is_none())
+            let child_id = tree[node_id].first_child()
+                    .filter(|&child| tree[child].next_sibling().is_none())
                     .expect("Padding expected to receive a single element child.");
             let child_box_constraints = BoxConstraints {
                 min: Size {

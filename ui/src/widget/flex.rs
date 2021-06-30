@@ -132,7 +132,7 @@ impl Flex {
         &mut self,
         node_id: NodeId,
         box_constraints: &BoxConstraints,
-        fiber_tree: &FiberTree<Window>,
+        tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext
     ) -> LayoutResult {
         self.phase = Phase::NonFlex;
@@ -141,7 +141,7 @@ impl Flex {
         self.flex_sum = 0.0;
 
         let mut major = 0.0;
-        for (child_id, _) in fiber_tree.children(node_id) {
+        for (child_id, _) in tree.children(node_id) {
             // top-align, could do center etc. based on child height
             layout_context.arrange(child_id, self.direction.pack_point(major, 0.0));
             major += self.direction.major(&layout_context.get_size(child_id).unwrap());
@@ -161,7 +161,7 @@ impl<Window> Widget<Window> for Flex {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        fiber_tree: &FiberTree<Window>,
+        tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext
     ) -> LayoutResult {
         let next_child_id = if let Some((child_id, size)) = response {
@@ -173,29 +173,29 @@ impl<Window> Widget<Window> for Flex {
             }
 
             // Advance to the next child; finish non-flex phase if at end.
-            if let Some(id) = self.get_next_child(fiber_tree.next_siblings(child_id), self.phase) {
+            if let Some(id) = self.get_next_child(tree.next_siblings(child_id), self.phase) {
                 id
             } else if self.phase == Phase::NonFlex {
-                if let Some(id) = self.get_next_child(fiber_tree.next_siblings(child_id), Phase::Flex) {
+                if let Some(id) = self.get_next_child(tree.next_siblings(child_id), Phase::Flex) {
                     self.phase = Phase::Flex;
                     id
                 } else {
-                    return self.finish_layout(node_id, &box_constraints, fiber_tree, layout_context);
+                    return self.finish_layout(node_id, &box_constraints, tree, layout_context);
                 }
             } else {
-                return self.finish_layout(node_id, &box_constraints, fiber_tree, layout_context)
+                return self.finish_layout(node_id, &box_constraints, tree, layout_context)
             }
         } else {
             // Start layout process, no children measured yet.
-            if let Some(first_child_id) = fiber_tree[node_id].first_child() {
+            if let Some(first_child_id) = tree[node_id].first_child() {
                 self.total_non_flex = 0.0;
-                self.flex_sum = fiber_tree
+                self.flex_sum = tree
                     .children(node_id)
                     .map(|(_, node)| self.get_params(node).flex)
                     .sum();
                 self.minor = self.direction.minor(&box_constraints.min);
 
-                if let Some(id) = self.get_next_child(fiber_tree.children(node_id), Phase::NonFlex) {
+                if let Some(id) = self.get_next_child(tree.children(node_id), Phase::NonFlex) {
                     self.phase = Phase::NonFlex;
                     id
                 } else {
@@ -214,7 +214,7 @@ impl<Window> Widget<Window> for Flex {
             let total_major = self.direction.major(&box_constraints.max);
             // TODO: should probably max with 0.0 to avoid negative sizes
             let remaining = total_major - self.total_non_flex;
-            let major = remaining * self.get_params(&fiber_tree[next_child_id]).flex / self.flex_sum;
+            let major = remaining * self.get_params(&tree[next_child_id]).flex / self.flex_sum;
             (major, major)
         };
 

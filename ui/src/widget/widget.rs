@@ -67,13 +67,13 @@ pub trait Widget<Window>: WidgetMeta {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        fiber_tree: &FiberTree<Window>,
+        tree: &FiberTree<Window>,
         _layout_context: &mut LayoutContext,
     ) -> LayoutResult {
         if let Some((_, size)) = response {
             LayoutResult::Size(size)
         } else {
-            if let Some(child_id) = fiber_tree[node_id].first_child() {
+            if let Some(child_id) = tree[node_id].first_child() {
                 LayoutResult::RequestChild(child_id, box_constraints)
             } else {
                 LayoutResult::Size(box_constraints.max)
@@ -99,7 +99,7 @@ pub trait WidgetDyn<Window>: WidgetMeta {
 
     fn unmount(&mut self, handle: &Window);
 
-    fn layout( &mut self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, fiber_tree: &FiberTree<Window>, layout_context: &mut LayoutContext) -> LayoutResult;
+    fn layout( &mut self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, tree: &FiberTree<Window>, layout_context: &mut LayoutContext) -> LayoutResult;
 
     fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>);
 }
@@ -343,10 +343,10 @@ impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        fiber_tree: &FiberTree<Window>,
+        tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext,
     ) -> LayoutResult {
-        self.layout(node_id, box_constraints, response, fiber_tree, layout_context)
+        self.layout(node_id, box_constraints, response, tree, layout_context)
     }
 
     #[inline(always)]
@@ -356,66 +356,66 @@ impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
 }
 
 impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
-    #[inline]
+    #[inline(always)]
     fn should_update(&self, next_widget: &Self, next_children: &[Element<Window>]) -> bool {
         self.inner.should_update(&next_widget.inner, next_children)
     }
 
-    #[inline]
+    #[inline(always)]
     fn will_update(&self, next_widget: &Self, next_children: &[Element<Window>]) {
         self.inner.will_update(&next_widget.inner, next_children)
     }
 
-    #[inline]
+    #[inline(always)]
     fn did_update(&self, prev_widget: &Self) {
         self.inner.did_update(&prev_widget.inner)
     }
 
-    #[inline]
+    #[inline(always)]
     fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]> {
         self.inner.render(children)
     }
 
-    #[inline]
+    #[inline(always)]
     fn mount(&mut self, parent_handle: &Window, rectangle: &Rectangle) -> Option<Window> {
         self.inner.mount(parent_handle, rectangle)
     }
 
-    #[inline]
+    #[inline(always)]
     fn unmount(&mut self, handle: &Window) {
         self.inner.unmount(handle)
     }
 
-    #[inline]
+    #[inline(always)]
     fn layout(
         &mut self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        fiber_tree: &FiberTree<Window>,
+        tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext,
     ) -> LayoutResult {
-        self.inner.layout(node_id, box_constraints, response, fiber_tree, layout_context)
+        self.inner.layout(node_id, box_constraints, response, tree, layout_context)
     }
 
-    #[inline]
+    #[inline(always)]
     fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>) {
         self.inner.paint(handle, rectangle, paint_context)
     }
 }
 
 impl<T: WidgetMeta> WidgetMeta for WithKey<T> {
-    #[inline]
+    #[inline(always)]
     fn name(&self) -> &'static str {
         self.inner.name()
     }
 
-    #[inline]
+    #[inline(always)]
     fn key(&self) -> Option<Key> {
         Some(self.key)
     }
 
-    #[inline]
+    #[inline(always)]
     fn as_any(&self) -> &dyn any::Any {
         self.inner.as_any()
     }
