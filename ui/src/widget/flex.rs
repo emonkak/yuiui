@@ -3,8 +3,9 @@ use std::any::Any;
 use geometrics::{Point, Size};
 use layout::{BoxConstraints, LayoutContext, LayoutResult};
 use tree::NodeId;
-use widget::widget::{FiberNode, FiberTree, Widget, WidgetMeta};
+use widget::widget::{Element, FiberNode, FiberTree, Widget, WidgetMeta};
 
+#[derive(PartialEq)]
 pub struct Flex {
     direction: Axis,
 
@@ -19,10 +20,12 @@ pub struct Flex {
     flex_sum: f32,
 }
 
+#[derive(PartialEq)]
 pub struct FlexItem {
     params: Params,
 }
 
+#[derive(PartialEq)]
 pub enum Axis {
     Horizontal,
     Vertical,
@@ -37,7 +40,7 @@ enum Phase {
     Flex,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 struct Params {
     flex: f32,
 }
@@ -126,12 +129,17 @@ impl Flex {
     }
 
     fn finish_layout<Window>(
-        &self,
+        &mut self,
         node_id: NodeId,
         box_constraints: &BoxConstraints,
         fiber_tree: &FiberTree<Window>,
         layout_context: &mut LayoutContext
     ) -> LayoutResult {
+        self.phase = Phase::NonFlex;
+        self.minor = 0.0;
+        self.total_non_flex = 0.0;
+        self.flex_sum = 0.0;
+
         let mut major = 0.0;
         for (child_id, _) in fiber_tree.children(node_id) {
             // top-align, could do center etc. based on child height
@@ -144,6 +152,10 @@ impl Flex {
 }
 
 impl<Window> Widget<Window> for Flex {
+    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
+        self == next_widget
+    }
+
     fn layout(
         &mut self,
         node_id: NodeId,
@@ -250,6 +262,9 @@ impl FlexItem {
 }
 
 impl<Window> Widget<Window> for FlexItem {
+    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
+        self == next_widget
+    }
 }
 
 impl WidgetMeta for FlexItem {

@@ -3,9 +3,10 @@ use std::any::Any;
 use geometrics::{Point, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use tree::NodeId;
-use widget::widget::{FiberTree, Widget, WidgetMeta};
+use widget::widget::{Element, FiberTree, Widget, WidgetMeta};
 
 /// A padding widget. Is expected to have exactly one child.
+#[derive(PartialEq)]
 pub struct Padding {
     left: f32,
     right: f32,
@@ -26,6 +27,10 @@ impl Padding {
 }
 
 impl<Window> Widget<Window> for Padding {
+    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
+        self == next_widget
+    }
+
     fn layout(
         &mut self,
         node_id: NodeId,

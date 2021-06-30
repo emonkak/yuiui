@@ -7,7 +7,7 @@ use layout::{BoxConstraints, LayoutContext, LayoutResult};
 use reconciler::{Reconciler, ReconcileResult};
 use tree::{NodeId, Tree};
 use widget::null::Null;
-use widget::widget::{Element, Fiber, FiberTree, Key, Widget};
+use widget::widget::{Element, Fiber, FiberTree, Key, WidgetDyn};
 
 #[derive(Debug)]
 pub struct UIUpdater<Window> {
@@ -208,7 +208,7 @@ impl<Window: fmt::Debug> fmt::Display for UIUpdater<Window> {
     }
 }
 
-fn key_of<Window>(widget: &dyn Widget<Window>, index: usize) -> TypedKey {
+fn key_of<Window>(widget: &dyn WidgetDyn<Window>, index: usize) -> TypedKey {
     match widget.key() {
         Some(key) => TypedKey::Keyed(widget.as_any().type_id(), key),
         None => TypedKey::Indexed(widget.as_any().type_id(), index),

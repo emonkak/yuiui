@@ -1,6 +1,7 @@
 use std::any;
 use std::array;
 use std::fmt;
+use std::mem;
 
 use geometrics::{Rectangle, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
@@ -13,7 +14,7 @@ pub type FiberNode<Window> = Node<Fiber<Window>>;
 
 #[derive(Debug)]
 pub struct Fiber<Window> {
-    pub(crate) widget: Box<dyn Widget<Window>>,
+    pub(crate) widget: Box<dyn WidgetDyn<Window>>,
     pub(crate) rendered_children: Option<Box<[Element<Window>]>>,
     pub(crate) handle: Option<Window>,
     pub(crate) state: Option<Box<dyn any::Any>>,
@@ -21,7 +22,7 @@ pub struct Fiber<Window> {
 }
 
 pub struct Element<Window> {
-    pub widget: Box<dyn Widget<Window>>,
+    pub widget: Box<dyn WidgetDyn<Window>>,
     pub children: Box<[Element<Window>]>,
 }
 
@@ -33,21 +34,34 @@ pub enum Child<Window> {
 }
 
 pub trait Widget<Window>: WidgetMeta {
-    fn should_update(&self, _next_widget: &dyn Widget<Window>, _next_children: &[Element<Window>]) -> bool {
+    #[inline(always)]
+    fn should_update(&self, _next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
         true
     }
 
+    #[inline(always)]
+    fn will_update(&self, _next_widget: &Self, _next_children: &[Element<Window>]) {
+    }
+
+    #[inline(always)]
+    fn did_update(&self, _prev_widget: &Self) {
+    }
+
+    #[inline(always)]
     fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]> {
         children
     }
 
+    #[inline(always)]
     fn mount(&mut self, _parent_handle: &Window, _rectangle: &Rectangle) -> Option<Window> {
         None
     }
 
+    #[inline(always)]
     fn unmount(&mut self, _handle: &Window) {
     }
 
+    #[inline(always)]
     fn layout(
         &mut self,
         node_id: NodeId,
@@ -67,12 +81,31 @@ pub trait Widget<Window>: WidgetMeta {
         }
     }
 
+    #[inline(always)]
     fn paint(&mut self, _handle: &Window, _rectangle: &Rectangle, _paint_context: &mut PaintContext<Window>) {
     }
 }
 
+pub trait WidgetDyn<Window>: WidgetMeta {
+    fn should_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]) -> bool;
+
+    fn will_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]);
+
+    fn did_update(&self, prev_widget: &dyn WidgetDyn<Window>);
+
+    fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]>;
+
+    fn mount(&mut self, parent_handle: &Window, rectangle: &Rectangle) -> Option<Window>;
+
+    fn unmount(&mut self, handle: &Window);
+
+    fn layout( &mut self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, fiber_tree: &FiberTree<Window>, layout_context: &mut LayoutContext) -> LayoutResult;
+
+    fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>);
+}
+
 pub trait WidgetMeta {
-    #[inline]
+    #[inline(always)]
     fn name(&self) -> &'static str {
         let full_name = any::type_name::<Self>();
         full_name
@@ -81,12 +114,12 @@ pub trait WidgetMeta {
             .unwrap_or(full_name)
     }
 
-    #[inline]
+    #[inline(always)]
     fn key(&self) -> Option<Key> {
         None
     }
 
-    #[inline]
+    #[inline(always)]
     fn with_key(self, key: Key) -> WithKey<Self> where Self: Sized {
         WithKey {
             inner: self,
@@ -97,8 +130,8 @@ pub trait WidgetMeta {
     fn as_any(&self) -> &dyn any::Any;
 }
 
-pub struct WithKey<Inner> {
-    inner: Inner,
+pub struct WithKey<T> {
+    inner: T,
     key: Key,
 }
 
@@ -136,11 +169,15 @@ impl<Window> Fiber<Window> {
     }
 
     pub(crate) fn update(&mut self, element: Element<Window>) -> bool {
-        if self.widget.should_update(&*element.widget, &*element.children) {
-            let rendered_children = element.widget.render(element.children);
-            self.widget = element.widget;
+        if element.children.len() > 0 || self.widget.should_update(&*element.widget, &element.children) {
+            self.widget.will_update(&*element.widget, &element.children);
+
+            let prev_widget = mem::replace(&mut self.widget, element.widget);
+            let rendered_children = self.widget.render(element.children);
             self.dirty = true;
             self.rendered_children = Some(rendered_children);
+
+            self.widget.did_update(&*prev_widget);
             true
         } else {
             false
@@ -255,16 +292,83 @@ impl<Window, W: Widget<Window> + WidgetMeta + 'static> From<W> for Child<Window>
     }
 }
 
-impl<Window> fmt::Debug for dyn Widget<Window> {
+impl<Window> fmt::Debug for dyn WidgetDyn<Window> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
     }
 }
 
-impl<Window, Inner: Widget<Window> + 'static> Widget<Window> for WithKey<Inner> {
+impl<Window, T: Widget<Window> + WidgetMeta + 'static> WidgetDyn<Window> for T {
+    #[inline(always)]
+    fn should_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]) -> bool {
+        next_widget
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|next_widget| self.should_update(next_widget, next_children))
+            .unwrap_or(true)
+    }
+
+    #[inline(always)]
+    fn will_update(&self, next_widget: &dyn WidgetDyn<Window>, next_children: &[Element<Window>]) {
+        if let Some(next_widget) = next_widget.as_any().downcast_ref() {
+            self.will_update(next_widget, next_children)
+        }
+    }
+
+    #[inline(always)]
+    fn did_update(&self, next_widget: &dyn WidgetDyn<Window>) {
+        if let Some(next_widget) = next_widget.as_any().downcast_ref() {
+            self.did_update(next_widget)
+        }
+    }
+
+    #[inline(always)]
+    fn render(&self, children: Box<[Element<Window>]>) -> Box<[Element<Window>]> {
+        self.render(children)
+    }
+
+    #[inline(always)]
+    fn mount(&mut self, parent_handle: &Window, rectangle: &Rectangle) -> Option<Window> {
+        self.mount(parent_handle, rectangle)
+    }
+
+    #[inline(always)]
+    fn unmount(&mut self, handle: &Window) {
+        self.unmount(handle)
+    }
+
+    #[inline(always)]
+    fn layout(
+        &mut self,
+        node_id: NodeId,
+        box_constraints: BoxConstraints,
+        response: Option<(NodeId, Size)>,
+        fiber_tree: &FiberTree<Window>,
+        layout_context: &mut LayoutContext,
+    ) -> LayoutResult {
+        self.layout(node_id, box_constraints, response, fiber_tree, layout_context)
+    }
+
+    #[inline(always)]
+    fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>) {
+        self.paint(handle, rectangle, paint_context)
+    }
+}
+
+impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
     #[inline]
-    fn should_update(&self, widget: &dyn Widget<Window>, children: &[Element<Window>]) -> bool {
-        self.inner.should_update(widget, children)
+    fn should_update(&self, next_widget: &Self, next_children: &[Element<Window>]) -> bool {
+        self.inner.should_update(&next_widget.inner, next_children)
+    }
+
+    #[inline]
+    fn will_update(&self, next_widget: &Self, next_children: &[Element<Window>]) {
+        self.inner.will_update(&next_widget.inner, next_children)
+    }
+
+    #[inline]
+    fn did_update(&self, prev_widget: &Self) {
+        self.inner.did_update(&prev_widget.inner)
     }
 
     #[inline]
@@ -300,7 +404,7 @@ impl<Window, Inner: Widget<Window> + 'static> Widget<Window> for WithKey<Inner> 
     }
 }
 
-impl<Inner: WidgetMeta> WidgetMeta for WithKey<Inner> {
+impl<T: WidgetMeta> WidgetMeta for WithKey<T> {
     #[inline]
     fn name(&self) -> &'static str {
         self.inner.name()
@@ -315,26 +419,4 @@ impl<Inner: WidgetMeta> WidgetMeta for WithKey<Inner> {
     fn as_any(&self) -> &dyn any::Any {
         self.inner.as_any()
     }
-}
-
-#[inline]
-pub fn same_widget<ConcreteWidget, Window>(
-    this: &ConcreteWidget,
-    other: &dyn Widget<Window>
-) -> bool
-where ConcreteWidget: Widget<Window> + Sized + PartialEq + 'static {
-    compare_widget(this, other, PartialEq::eq)
-}
-
-#[inline]
-pub fn compare_widget<ConcreteWidget, Window>(
-    this: &ConcreteWidget,
-    other: &dyn Widget<Window>,
-    comparer: impl FnOnce(&ConcreteWidget, &ConcreteWidget) -> bool) -> bool
-where ConcreteWidget: Widget<Window> + Sized + 'static {
-    other
-        .as_any()
-        .downcast_ref::<ConcreteWidget>()
-        .map(|other| comparer(this, other))
-        .unwrap_or(false)
 }
