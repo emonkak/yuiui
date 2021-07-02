@@ -28,7 +28,7 @@ impl<Window> Widget<Window> for Fill {
         self == next_widget
     }
 
-    fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>) {
+    fn paint(&self, rectangle: &Rectangle, handle: &Window, paint_context: &mut PaintContext<Window>) {
         paint_context.fill_rectangle(self.color, rectangle);
         paint_context.commit(handle, rectangle);
     }

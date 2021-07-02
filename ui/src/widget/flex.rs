@@ -123,7 +123,7 @@ impl Flex {
     }
 
     fn finish_layout<Window>(
-        &mut self,
+        &self,
         node_id: NodeId,
         box_constraints: &BoxConstraints,
         tree: &FiberTree<Window>,
@@ -166,7 +166,7 @@ impl<Window> Widget<Window> for Flex {
     }
 
     fn layout(
-        &mut self,
+        &self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,

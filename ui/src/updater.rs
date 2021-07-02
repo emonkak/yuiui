@@ -4,6 +4,7 @@ use std::mem;
 
 use geometrics::Size;
 use layout::{BoxConstraints, LayoutContext, LayoutResult};
+use paint::PaintContext;
 use reconciler::{Reconciler, ReconcileResult};
 use tree::{NodeId, Tree};
 use widget::null::Null;
@@ -59,9 +60,9 @@ impl<Window> UIUpdater<Window> {
         let mut response = None;
 
         while let Some(&(request_id, box_constraints)) = requests.last() {
-            let fiber = &mut self.tree[request_id];
-            let mut widget = mem::replace(&mut fiber.widget, Box::new(Null));
-            let mut state = fiber.state.take().unwrap_or_else(|| widget.initial_state());
+            let node = &mut self.tree[request_id];
+            let widget = mem::replace(&mut node.widget, Box::new(Null));
+            let mut state = node.state.take().unwrap_or_else(|| widget.initial_state());
 
             let result = widget.layout(
                 request_id,
@@ -72,9 +73,9 @@ impl<Window> UIUpdater<Window> {
                 &mut *state
             );
 
-            let fiber = &mut self.tree[request_id];
-            fiber.widget = widget;
-            fiber.state = Some(state);
+            let node = &mut self.tree[request_id];
+            node.widget = widget;
+            node.state = Some(state);
 
             match result {
                 LayoutResult::Size(size) => {
@@ -98,6 +99,15 @@ impl<Window> UIUpdater<Window> {
         }
 
         unreachable!();
+    }
+
+    pub fn paint(&mut self, parent_handle: &Window, paint_context: &mut PaintContext<Window>) {
+        let mut handle = parent_handle;
+
+        for (node_id, node) in self.tree.walk_mut(self.root_id) {
+            let rectangle = self.layout_context.get_rectangle(node_id).unwrap();
+            handle = node.paint(rectangle, handle, paint_context);
+        }
     }
 
     fn next_render_node(&self, root_id: NodeId, node_id: NodeId) -> Option<NodeId> {

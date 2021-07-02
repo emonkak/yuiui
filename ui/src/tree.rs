@@ -248,6 +248,22 @@ impl<T> Tree<T> {
         }
     }
 
+    pub fn walk(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+        Walk {
+            arena: &self.arena,
+            root_id: target_id,
+            next: Some(target_id)
+        }
+    }
+
+    pub fn walk_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+        WalkMut {
+            arena: &mut self.arena,
+            root_id: target_id,
+            next: Some(target_id),
+        }
+    }
+
     fn register(&mut self, node: Node<T>) -> NodeId {
         assert!(node.first_child.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
         assert!(node.last_child.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
@@ -389,6 +405,39 @@ impl<T> Deref for DetachedNode<T> {
 impl<T> DerefMut for DetachedNode<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+pub struct DetachSubtree<'a, T> {
+    arena: &'a mut SlotVec<Node<T>>,
+    root_id: NodeId,
+    next: Option<NodeId>,
+}
+
+impl<'a, T> Iterator for DetachSubtree<'a, T> {
+    type Item = (NodeId, Node<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node_id| {
+            let node = self.arena.remove(node_id);
+            if node_id == self.root_id {
+                if !node.is_root() {
+                    // The root node cannot be detach.
+                    detach_node(self.arena, &node);
+                }
+                self.next = None;
+            } else {
+                self.next = Some(post_ordered_next_descendant(self.arena, self.root_id, &node).unwrap_or(self.root_id));
+            }
+            (node_id, node)
+        })
+    }
+}
+
+impl<'a, T> Drop for DetachSubtree<'a, T> {
+    fn drop(&mut self) {
+        while self.next().is_some() {
+        }
     }
 }
 
@@ -562,36 +611,49 @@ impl<'a, T> Iterator for PostOrderedDescendantsMut<'a, T> {
     }
 }
 
-pub struct DetachSubtree<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+pub struct Walk<'a, T> {
+    arena: &'a SlotVec<Node<T>>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
-impl<'a, T> Iterator for DetachSubtree<'a, T> {
-    type Item = (NodeId, Node<T>);
+impl<'a, T> Iterator for Walk<'a, T> {
+    type Item = (NodeId, &'a Node<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = self.arena.remove(node_id);
-            if node_id == self.root_id {
-                if !node.is_root() {
-                    // The root node cannot be detach.
-                    detach_node(self.arena, &node);
-                }
-                self.next = None;
+            let node = &self.arena[node_id];
+            self.next = if node_id == self.root_id {
+                node.first_child
             } else {
-                self.next = Some(post_ordered_next_descendant(self.arena, self.root_id, &node).unwrap_or(self.root_id));
-            }
+                pre_ordered_next_descendant(self.arena, self.root_id, node)
+            };
             (node_id, node)
         })
     }
 }
 
-impl<'a, T> Drop for DetachSubtree<'a, T> {
-    fn drop(&mut self) {
-        while self.next().is_some() {
-        }
+pub struct WalkMut<'a, T> {
+    arena: &'a mut SlotVec<Node<T>>,
+    root_id: NodeId,
+    next: Option<NodeId>,
+}
+
+impl<'a, T> Iterator for WalkMut<'a, T> {
+    type Item = (NodeId, &'a mut Node<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node_id| {
+            let node = unsafe {
+                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            };
+            self.next = if node_id == self.root_id {
+                node.first_child
+            } else {
+                pre_ordered_next_descendant(self.arena, self.root_id, node)
+            };
+            (node_id, node)
+        })
     }
 }
 
@@ -1157,6 +1219,31 @@ mod tests {
             assert_eq!(
                 tree.post_ordered_descendants(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
                 tree.post_ordered_descendants_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_walk() {
+        let mut tree = Tree::new();
+        let root = tree.attach("root");
+        let foo = tree.append_child(root, "foo");
+        let bar = tree.append_child(foo, "bar");
+        let baz = tree.append_child(bar, "baz");
+        let qux = tree.append_child(foo, "qux");
+        let quux = tree.append_child(root, "quux");
+
+        assert_eq!(tree.walk(root).collect::<Vec<_>>(), &[(root, &tree[root]), (foo, &tree[foo]), (bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux]), (quux, &tree[quux])]);
+        assert_eq!(tree.walk(foo).collect::<Vec<_>>(), &[(foo, &tree[foo]), (bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux])]);
+        assert_eq!(tree.walk(bar).collect::<Vec<_>>(), &[(bar, &tree[bar]), (baz, &tree[baz])]);
+        assert_eq!(tree.walk(baz).collect::<Vec<_>>(), &[(baz, &tree[baz])]);
+        assert_eq!(tree.walk(qux).collect::<Vec<_>>(), &[(qux, &tree[qux])]);
+        assert_eq!(tree.walk(quux).collect::<Vec<_>>(), &[(quux, &tree[quux])]);
+
+        for node_id in &[root, foo, bar, baz, qux, quux] {
+            assert_eq!(
+                tree.walk(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
+                tree.walk_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
             );
         }
     }

@@ -19,6 +19,7 @@ pub struct Fiber<Window> {
     pub(crate) handle: Option<Window>,
     pub(crate) state: Option<Box<dyn any::Any>>,
     pub(crate) dirty: bool,
+    pub(crate) mounted: bool,
 }
 
 pub struct Element<Window> {
@@ -67,7 +68,7 @@ pub trait Widget<Window>: WidgetMeta {
 
     #[inline(always)]
     fn layout(
-        &mut self,
+        &self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
@@ -87,7 +88,7 @@ pub trait Widget<Window>: WidgetMeta {
     }
 
     #[inline(always)]
-    fn paint(&mut self, _handle: &Window, _rectangle: &Rectangle, _paint_context: &mut PaintContext<Window>) {
+    fn paint(&self, _rectangle: &Rectangle, _handle: &Window, _paint_context: &mut PaintContext<Window>) {
     }
 }
 
@@ -106,9 +107,9 @@ pub trait WidgetDyn<Window>: WidgetMeta {
 
     fn unmount(&mut self, handle: &Window);
 
-    fn layout(&mut self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, tree: &FiberTree<Window>, layout_context: &mut LayoutContext, state: &mut dyn any::Any) -> LayoutResult;
+    fn layout(&self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, tree: &FiberTree<Window>, layout_context: &mut LayoutContext, state: &mut dyn any::Any) -> LayoutResult;
 
-    fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>);
+    fn paint(&self, rectangle: &Rectangle, handle: &Window, paint_context: &mut PaintContext<Window>);
 }
 
 pub trait WidgetMeta {
@@ -154,6 +155,7 @@ impl<Window> Fiber<Window> {
             handle: None,
             state: None,
             dirty: true,
+            mounted: false,
         }
     }
 
@@ -185,6 +187,20 @@ impl<Window> Fiber<Window> {
         if let Some(handle) = self.handle.as_ref() {
             widget.unmount(handle);
         }
+    }
+
+    pub(crate) fn paint<'a>(&'a mut self, rectangle: &Rectangle, parent_handle: &'a Window, paint_context: &mut PaintContext<Window>) -> &'a Window {
+        let widget = &mut self.widget;
+
+        if !self.mounted {
+            self.handle = widget.mount(&parent_handle, rectangle);
+            self.mounted = true;
+        }
+
+        let handle = self.handle.as_ref().unwrap_or(parent_handle);
+        widget.paint(rectangle, handle, paint_context);
+
+        handle
     }
 }
 
@@ -340,7 +356,7 @@ impl<Window, State: 'static, T: Widget<Window, State=State> + WidgetMeta + 'stat
 
     #[inline(always)]
     fn layout(
-        &mut self,
+        &self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
@@ -359,8 +375,8 @@ impl<Window, State: 'static, T: Widget<Window, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>) {
-        self.paint(handle, rectangle, paint_context)
+    fn paint(&self, rectangle: &Rectangle, handle: &Window, paint_context: &mut PaintContext<Window>) {
+        self.paint(rectangle, handle, paint_context)
     }
 }
 
@@ -404,7 +420,7 @@ impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
 
     #[inline(always)]
     fn layout(
-        &mut self,
+        &self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
@@ -416,8 +432,8 @@ impl<Window, T: Widget<Window> + 'static> Widget<Window> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn paint(&mut self, handle: &Window, rectangle: &Rectangle, paint_context: &mut PaintContext<Window>) {
-        self.inner.paint(handle, rectangle, paint_context)
+    fn paint(&self, rectangle: &Rectangle, handle: &Window, paint_context: &mut PaintContext<Window>) {
+        self.inner.paint(rectangle, handle, paint_context)
     }
 }
 

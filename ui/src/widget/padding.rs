@@ -38,7 +38,7 @@ impl<Window> Widget<Window> for Padding {
     }
 
     fn layout(
-        &mut self,
+        &self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
