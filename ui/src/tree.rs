@@ -35,7 +35,7 @@ impl<T> Tree<T> {
     }
 
     pub fn is_attached(&self, target_id: NodeId) -> bool {
-        self.arena.has(target_id)
+        self.arena.contains(target_id)
     }
 
     pub fn attach(&mut self, node: impl Into<DetachedNode<T>>) -> NodeId {
@@ -265,11 +265,11 @@ impl<T> Tree<T> {
     }
 
     fn register(&mut self, node: Node<T>) -> NodeId {
-        assert!(node.first_child.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
-        assert!(node.last_child.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
-        assert!(node.prev_sibling.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
-        assert!(node.next_sibling.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
-        assert!(node.parent.map(|node_id| self.arena.has(node_id)).unwrap_or(true));
+        assert!(node.first_child.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
+        assert!(node.last_child.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
+        assert!(node.prev_sibling.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
+        assert!(node.next_sibling.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
+        assert!(node.parent.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
         self.arena.insert(node)
     }
 

@@ -138,7 +138,7 @@ impl<T> SlotVec<T> {
         &mut self.entries.last_mut().unwrap().1
     }
 
-    pub fn has(&self, slot_index: usize) -> bool {
+    pub fn contains(&self, slot_index: usize) -> bool {
         self.slots
             .get(slot_index)
             .map_or(false, |slot| slot.is_filled())
@@ -457,10 +457,10 @@ mod tests {
         assert_eq!(xs.get_mut(baz), Some(&mut "baz"));
         assert_eq!(xs.get_mut(baz + 1), None);
 
-        assert_eq!(xs.has(foo), true);
-        assert_eq!(xs.has(bar), true);
-        assert_eq!(xs.has(baz), true);
-        assert_eq!(xs.has(baz + 1), false);
+        assert_eq!(xs.contains(foo), true);
+        assert_eq!(xs.contains(bar), true);
+        assert_eq!(xs.contains(baz), true);
+        assert_eq!(xs.contains(baz + 1), false);
 
         xs.remove(foo);
         xs.remove(bar);
@@ -478,10 +478,10 @@ mod tests {
         assert_eq!(xs.get_mut(baz), Some(&mut "baz"));
         assert_eq!(xs.get_mut(baz + 1), None);
 
-        assert_eq!(xs.has(foo), false);
-        assert_eq!(xs.has(bar), false);
-        assert_eq!(xs.has(baz), true);
-        assert_eq!(xs.has(baz + 1), false);
+        assert_eq!(xs.contains(foo), false);
+        assert_eq!(xs.contains(bar), false);
+        assert_eq!(xs.contains(baz), true);
+        assert_eq!(xs.contains(baz + 1), false);
 
         xs.clear();
 
@@ -498,10 +498,10 @@ mod tests {
         assert_eq!(xs.get_mut(baz), None);
         assert_eq!(xs.get_mut(baz + 1), None);
 
-        assert_eq!(xs.has(foo), false);
-        assert_eq!(xs.has(bar), false);
-        assert_eq!(xs.has(baz), false);
-        assert_eq!(xs.has(baz + 1), false);
+        assert_eq!(xs.contains(foo), false);
+        assert_eq!(xs.contains(bar), false);
+        assert_eq!(xs.contains(baz), false);
+        assert_eq!(xs.contains(baz + 1), false);
     }
 
     #[test]
