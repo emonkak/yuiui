@@ -5,21 +5,19 @@ use slot_vec::SlotVec;
 
 #[derive(Debug)]
 pub struct Tree<T> {
-    arena: SlotVec<Node<T>>,
+    arena: SlotVec<Link<T>>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub struct Node<T> {
-    data: T,
-    first_child: Option<NodeId>,
-    last_child: Option<NodeId>,
+#[derive(Debug)]
+pub struct Link<T> {
+    current: Node<T>,
     prev_sibling: Option<NodeId>,
     next_sibling: Option<NodeId>,
     parent: Option<NodeId>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub struct DetachedNode<T> {
+#[derive(Debug)]
+pub struct Node<T> {
     data: T,
     first_child: Option<NodeId>,
     last_child: Option<NodeId>,
@@ -38,239 +36,225 @@ impl<T> Tree<T> {
         self.arena.contains(target_id)
     }
 
-    pub fn attach(&mut self, node: impl Into<DetachedNode<T>>) -> NodeId {
-        let node = Node::new(node.into(), None, None, None);
-        self.register(node)
+    pub fn attach(&mut self, node: impl Into<Node<T>>) -> NodeId {
+        let node = Link {
+            current: node.into(),
+            prev_sibling: None,
+            next_sibling: None,
+            parent: None
+        };
+        self.arena.insert(node)
     }
 
-    pub fn detach(&mut self, target_id: NodeId) -> DetachedNode<T> {
-        let node = self.arena.remove(target_id);
-        if !node.is_root() {
-            // The root node cannot be detach.
-            detach_node(&mut self.arena, &node);
-        }
-        DetachedNode {
-            data: node.data,
-            first_child: node.first_child,
-            last_child: node.last_child,
-        }
-    }
+    pub fn append_child(&mut self, parent_id: NodeId, node: impl Into<Node<T>>) -> NodeId {
+        let new_node_id = self.arena.next_slot_index();
+        let parent_link = &mut self.arena[parent_id];
 
-    pub fn detach_subtree(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, Node<T>)> + '_ {
-        DetachSubtree {
-            root_id: target_id,
-            next: Some(grandest_child(&self.arena, &self.arena[target_id]).unwrap_or(target_id)),
-            arena: &mut self.arena,
-        }
-    }
+        let new_link = Link {
+            current: node.into(),
+            prev_sibling: parent_link.current.last_child,
+            next_sibling: None,
+            parent: Some(parent_id)
+        };
 
-    pub fn append_child(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
-        let last_child = self.arena[target_id].last_child;
-        let new_node = Node::new(node.into(), last_child, None, Some(target_id));
-        let new_node_id = self.register(new_node);
-
-        let target = &mut self.arena[target_id];
-        target.last_child = Some(new_node_id);
-
-        if let Some(child_id) = last_child {
+        if let Some(child_id) = parent_link.current.last_child.replace(new_node_id) {
             self.arena[child_id].next_sibling = Some(new_node_id);
         } else {
-            target.first_child = Some(new_node_id);
+            parent_link.current.first_child = Some(new_node_id);
         }
 
-        new_node_id
+        self.arena.insert(new_link)
     }
 
-    pub fn prepend_child(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
-        let first_child = self.arena[target_id].first_child;
-        let new_node = Node::new(node.into(), None, first_child, Some(target_id));
-        let new_node_id = self.register(new_node);
+    pub fn prepend_child(&mut self, parent_id: NodeId, node: impl Into<Node<T>>) -> NodeId {
+        let new_node_id = self.arena.next_slot_index();
+        let parent_link = &mut self.arena[parent_id];
 
-        let target = &mut self.arena[target_id];
-        target.first_child = Some(new_node_id);
+        let new_link = Link {
+            current: node.into(),
+            prev_sibling: None,
+            next_sibling: parent_link.current.first_child,
+            parent: Some(parent_id)
+        };
 
-        if let Some(child_id) = first_child {
+        if let Some(child_id) = parent_link.current.first_child.replace(new_node_id) {
             self.arena[child_id].prev_sibling = Some(new_node_id);
         } else {
-            target.last_child = Some(new_node_id);
+            parent_link.current.last_child = Some(new_node_id);
         }
 
-        new_node_id
+        self.arena.insert(new_link)
     }
 
-    pub fn insert_before(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
+    pub fn insert_before(&mut self, ref_id: NodeId, node: impl Into<Node<T>>) -> NodeId {
         let new_node_id = self.arena.next_slot_index();
-        let new_node = {
-            let target = &mut self.arena[target_id];
-            if target.is_root() {
-                panic!("Only one element on root allowed.");
-            }
-            let new_node = Node::new(
-                node.into(),
-                target.prev_sibling,
-                Some(target_id),
-                target.parent
-            );
-            target.prev_sibling = Some(new_node_id);
-            new_node
+        let ref_link = &mut self.arena[ref_id];
+
+        if ref_link.is_root() {
+            panic!("The reference node is the root node.");
+        }
+
+        let new_link = Link {
+            current: node.into(),
+            prev_sibling: ref_link.prev_sibling,
+            next_sibling: Some(ref_id),
+            parent: ref_link.parent
         };
 
-        match new_node.prev_sibling {
-            Some(sibling_id) => {
-                self.arena[sibling_id].next_sibling = Some(new_node_id);
+        if let Some(sibling_id) = ref_link.prev_sibling.replace(new_node_id) {
+            self.arena[sibling_id].next_sibling = Some(new_node_id);
+        } else {
+            if let Some(parent_id) = new_link.parent {
+                self.arena[parent_id].current.first_child = Some(new_node_id);
             }
-            None => {
-                if let Some(parent_id) = new_node.parent {
-                    self.arena[parent_id].first_child = Some(new_node_id);
-                }
-            }
-        };
+        }
 
-        self.register(new_node)
+        self.arena.insert(new_link)
     }
 
-    pub fn insert_after(&mut self, target_id: NodeId, node: impl Into<DetachedNode<T>>) -> NodeId {
+    pub fn insert_after(&mut self, ref_id: NodeId, node: impl Into<Node<T>>) -> NodeId {
         let new_node_id = self.arena.next_slot_index();
-        let new_node = {
-            let target = &mut self.arena[target_id];
-            if target.is_root() {
-                panic!("Only one element on root allowed.");
-            }
-            let new_node = Node::new(
-                node.into(),
-                Some(target_id),
-                target.next_sibling,
-                target.parent
-            );
-            target.next_sibling = Some(new_node_id);
-            new_node
+        let ref_link = &mut self.arena[ref_id];
+
+        if ref_link.is_root() {
+            panic!("The reference node is the root node.");
+        }
+
+        let new_link = Link {
+            current: node.into(),
+            prev_sibling: Some(ref_id),
+            next_sibling: ref_link.next_sibling,
+            parent: ref_link.parent
         };
 
-        match new_node.next_sibling {
-            Some(next_sibling_id) => {
-                self.arena[next_sibling_id].prev_sibling = Some(new_node_id);
+        if let Some(sibling_id) = ref_link.next_sibling.replace(new_node_id) {
+            self.arena[sibling_id].prev_sibling = Some(new_node_id);
+        } else {
+            if let Some(parent_id) = ref_link.parent {
+                self.arena[parent_id].current.last_child = Some(new_node_id);
             }
-            None => {
-                if let Some(parent_id) = new_node.parent {
-                    self.arena[parent_id].last_child = Some(new_node_id);
-                }
-            }
-        };
+        }
 
-        self.register(new_node)
+        self.arena.insert(new_link)
     }
 
-    pub fn ancestors(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn move_position(&mut self, target_id: NodeId) -> MovePosition<'_, T> {
+        MovePosition {
+            tree: self,
+            target_id: target_id,
+        }
+    }
+
+    pub fn detach_subtree(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, Link<T>)> + '_ {
+        DetachSubtree {
+            root_id: target_id,
+            next: Some(self.grandest_child(target_id).unwrap_or(target_id)),
+            tree: self,
+        }
+    }
+
+    pub fn ancestors(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>)> {
         Ancestors {
-            arena: &self.arena,
+            tree: self,
             next: self.arena[target_id].parent,
         }
     }
 
-    pub fn ancestors_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn ancestors_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Link<T>)> {
         AncestorsMut {
             next: self.arena[target_id].parent,
-            arena: &mut self.arena,
+            tree: self,
         }
     }
 
-    pub fn children(&self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &Node<T>)> {
+    pub fn children(&self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &Link<T>)> {
         Siblings {
-            arena: &self.arena,
-            next: self.arena[target_id].first_child,
+            tree: self,
+            next: self.arena[target_id].current.first_child,
         }
     }
 
-    pub fn children_mut(&mut self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn children_mut(&mut self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &mut Link<T>)> {
         SiblingsMut {
-            next: self.arena[target_id].first_child,
-            arena: &mut self.arena,
+            next: self.arena[target_id].current.first_child,
+            tree: self,
         }
     }
 
-    pub fn next_siblings(&self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &Node<T>)> {
+    pub fn next_siblings(&self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &Link<T>)> {
         Siblings {
-            arena: &self.arena,
+            tree: self,
             next: self.arena[target_id].next_sibling,
         }
     }
 
-    pub fn next_siblings_mut(&mut self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn next_siblings_mut(&mut self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &mut Link<T>)> {
         SiblingsMut {
             next: self.arena[target_id].next_sibling,
-            arena: &mut self.arena,
+            tree: self,
         }
     }
 
-    pub fn prev_siblings(&self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &Node<T>)> {
+    pub fn prev_siblings(&self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &Link<T>)> {
         Siblings {
-            arena: &self.arena,
+            tree: self,
             next: self.arena[target_id].prev_sibling,
         }.rev()
     }
 
-    pub fn prev_siblings_mut(&mut self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn prev_siblings_mut(&mut self, target_id: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, &mut Link<T>)> {
         SiblingsMut {
             next: self.arena[target_id].prev_sibling,
-            arena: &mut self.arena,
+            tree: self
         }.rev()
     }
 
-    pub fn pre_ordered_descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn pre_ordered_descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>)> {
         PreOrderedDescendants {
-            arena: &self.arena,
+            tree: self,
             root_id: target_id,
-            next: self.arena[target_id].first_child
+            next: self.arena[target_id].current.first_child
         }
     }
 
-    pub fn pre_ordered_descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn pre_ordered_descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Link<T>)> {
         PreOrderedDescendantsMut {
             root_id: target_id,
-            next: self.arena[target_id].first_child,
-            arena: &mut self.arena,
+            next: self.arena[target_id].current.first_child,
+            tree: self,
         }
     }
 
-    pub fn post_ordered_descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn post_ordered_descendants(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>)> {
         PostOrderedDescendants {
-            arena: &self.arena,
+            tree: &self,
             root_id: target_id,
-            next: grandest_child(&self.arena, &self.arena[target_id]),
+            next: self.grandest_child(target_id),
         }
     }
 
-    pub fn post_ordered_descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn post_ordered_descendants_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Link<T>)> {
         PostOrderedDescendantsMut {
             root_id: target_id,
-            next: grandest_child(&self.arena, &self.arena[target_id]),
-            arena: &mut self.arena,
+            next: self.grandest_child(target_id),
+            tree: self,
         }
     }
 
-    pub fn walk(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn walk(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>)> {
         Walk {
-            arena: &self.arena,
+            tree: self,
             root_id: target_id,
             next: Some(target_id)
         }
     }
 
-    pub fn walk_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn walk_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Link<T>)> {
         WalkMut {
-            arena: &mut self.arena,
+            tree: self,
             root_id: target_id,
             next: Some(target_id),
         }
-    }
-
-    fn register(&mut self, node: Node<T>) -> NodeId {
-        assert!(node.first_child.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
-        assert!(node.last_child.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
-        assert!(node.prev_sibling.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
-        assert!(node.next_sibling.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
-        assert!(node.parent.map(|node_id| self.arena.contains(node_id)).unwrap_or(true));
-        self.arena.insert(node)
     }
 
     pub fn format(
@@ -291,34 +275,108 @@ impl<T> Tree<T> {
         format_open: &impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
         format_close: &impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
         level: usize
-    ) -> fmt::Result
-        where T: fmt::Display {
+    ) -> fmt::Result where T: fmt::Display {
         let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
-        let node = &self.arena[node_id];
+        let link = &self.arena[node_id];
 
         write!(f, "{}", indent_str)?;
 
-        format_open(f, node_id, &node.data)?;
+        format_open(f, node_id, &link.current.data)?;
 
-        if let Some(child_id) = node.first_child {
+        if let Some(child_id) = link.current.first_child {
             write!(f, "\n")?;
             self.format_rec(f, child_id, format_open, format_close, level + 1)?;
             write!(f, "\n{}", indent_str)?;
         }
 
-        format_close(f, node_id, &node.data)?;
+        format_close(f, node_id, &link.current.data)?;
 
-        if let Some(child_id) = node.next_sibling {
+        if let Some(child_id) = link.next_sibling {
             write!(f, "\n")?;
             self.format_rec(f, child_id, format_open, format_close, level)?;
         }
 
         Ok(())
     }
+
+    fn pre_ordered_next_descendant(&self, root_id: NodeId, link: &Link<T>) -> Option<NodeId> {
+        if let Some(first_child) = link.current.first_child {
+            Some(first_child)
+        } else if let Some(next_sibling) = link.next_sibling {
+            Some(next_sibling)
+        } else {
+            let mut parent = link.parent;
+            let mut result = None;
+            while let Some(parent_id) = parent {
+                if parent_id == root_id {
+                    break;
+                }
+                let parent_node = &self.arena[parent_id];
+                if let Some(sibling_id) = parent_node.next_sibling {
+                    result = Some(sibling_id);
+                    break;
+                }
+                parent = parent_node.parent;
+            }
+            result
+        }
+    }
+
+    fn post_ordered_next_descendant(&self, root_id: NodeId, link: &Link<T>) -> Option<NodeId> {
+        if let Some(next_sibling_id) = link.next_sibling() {
+            if let Some(grandest_child_id) = self.grandest_child(next_sibling_id) {
+                Some(grandest_child_id)
+            } else {
+                Some(next_sibling_id)
+            }
+        } else {
+            link.parent.filter(|&parent_id| parent_id != root_id)
+        }
+    }
+
+    fn grandest_child(&self, node_id: NodeId) -> Option<NodeId> {
+        let mut next = self.arena[node_id].first_child();
+        let mut grandest_child = None;
+
+        while let Some(child_id) = next {
+            next = self.arena[child_id].first_child();
+            grandest_child = Some(child_id);
+        }
+
+        grandest_child
+    }
+
+    fn detach_link(&mut self, link: &Link<T>) {
+        match (link.prev_sibling, link.next_sibling) {
+            (Some(prev_sibling_id), Some(next_sibling_id)) => {
+                self.arena[next_sibling_id].prev_sibling = Some(prev_sibling_id);
+                self.arena[prev_sibling_id].next_sibling = Some(next_sibling_id);
+            }
+            (Some(prev_sibling_id), None) => {
+                if let Some(parent_id) = link.parent {
+                    self.arena[parent_id].current.last_child = Some(prev_sibling_id);
+                }
+                self.arena[prev_sibling_id].next_sibling = None;
+            }
+            (None, Some(next_sibling_id)) => {
+                if let Some(parent_id) = link.parent {
+                    self.arena[parent_id].current.first_child = Some(next_sibling_id);
+                }
+                self.arena[next_sibling_id].prev_sibling = None;
+            }
+            (None, None) => {
+                if let Some(parent_id) = link.parent {
+                    let parent = &mut self.arena[parent_id];
+                    parent.current.first_child = None;
+                    parent.current.last_child = None;
+                }
+            }
+        }
+    }
 }
 
 impl<T> Index<usize> for Tree<T> {
-    type Output = Node<T>;
+    type Output = Link<T>;
 
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
@@ -333,28 +391,17 @@ impl<T> IndexMut<usize> for Tree<T> {
     }
 }
 
-impl<T> Node<T> {
-    fn new(detached_node: DetachedNode<T>, prev_sibling: Option<NodeId>, next_sibling: Option<NodeId>, parent: Option<NodeId>) -> Node<T> {
-        Node {
-            data: detached_node.data,
-            first_child: detached_node.first_child,
-            last_child: detached_node.last_child,
-            prev_sibling,
-            next_sibling,
-            parent,
-        }
-    }
-
+impl<T> Link<T> {
     pub fn is_root(&self) -> bool {
         self.parent.is_none()
     }
 
     pub fn first_child(&self) -> Option<NodeId> {
-        self.first_child
+        self.current.first_child
     }
 
     pub fn last_child(&self) -> Option<NodeId> {
-        self.last_child
+        self.current.last_child
     }
 
     pub fn next_sibling(&self) -> Option<NodeId> {
@@ -370,23 +417,23 @@ impl<T> Node<T> {
     }
 }
 
-impl<T> Deref for Node<T> {
+impl<T> Deref for Link<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        &self.current.data
     }
 }
 
-impl<T> DerefMut for Node<T> {
+impl<T> DerefMut for Link<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        &mut self.current.data
     }
 }
 
-impl<T> From<T> for DetachedNode<T> {
-    fn from(data: T) -> DetachedNode<T> {
-        DetachedNode {
+impl<T> From<T> for Node<T> {
+    fn from(data: T) -> Node<T> {
+        Node {
             data,
             first_child: None,
             last_child: None,
@@ -394,42 +441,71 @@ impl<T> From<T> for DetachedNode<T> {
     }
 }
 
-impl<T> Deref for DetachedNode<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
+pub struct MovePosition<'a, T> {
+    tree: &'a mut Tree<T>,
+    target_id: NodeId,
 }
 
-impl<T> DerefMut for DetachedNode<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+impl<'a, T> MovePosition<'a, T> {
+    #[inline]
+    pub fn append_child(self, parent_id: NodeId) -> NodeId {
+        self.ensure_valid(parent_id);
+        let target_link = self.tree.arena.remove(self.target_id);
+        self.tree.detach_link(&target_link);
+        self.tree.append_child(parent_id, target_link.current)
+    }
+
+    #[inline]
+    pub fn prepend_child(self, parent_id: NodeId) -> NodeId {
+        self.ensure_valid(parent_id);
+        let target_link = self.tree.arena.remove(self.target_id);
+        self.tree.detach_link(&target_link);
+        self.tree.prepend_child(parent_id, target_link.current)
+    }
+
+    #[inline]
+    pub fn insert_before(self, ref_id: NodeId) -> NodeId {
+        self.ensure_valid(ref_id);
+        let target_link = self.tree.arena.remove(self.target_id);
+        self.tree.detach_link(&target_link);
+        self.tree.insert_before(ref_id, target_link.current)
+    }
+
+    #[inline]
+    pub fn insert_after(self, ref_id: NodeId) -> NodeId {
+        self.ensure_valid(ref_id);
+        let target_link = self.tree.arena.remove(self.target_id);
+        self.tree.detach_link(&target_link);
+        self.tree.insert_after(ref_id, target_link.current)
+    }
+
+    fn ensure_valid(&self, ref_id: NodeId) {
+        assert_ne!(self.target_id, ref_id, "The target node and the reference node are same.");
+        for (parent_id, _) in self.tree.ancestors(ref_id) {
+            assert_eq!(self.target_id, parent_id, "The target node is a parent of reference node.");
+        }
     }
 }
 
 pub struct DetachSubtree<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+    tree: &'a mut Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for DetachSubtree<'a, T> {
-    type Item = (NodeId, Node<T>);
+    type Item = (NodeId, Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = self.arena.remove(node_id);
+            let link = self.tree.arena.remove(node_id);
             if node_id == self.root_id {
-                if !node.is_root() {
-                    // The root node cannot be detach.
-                    detach_node(self.arena, &node);
-                }
+                self.tree.detach_link(&link);
                 self.next = None;
             } else {
-                self.next = Some(post_ordered_next_descendant(self.arena, self.root_id, &node).unwrap_or(self.root_id));
+                self.next = Some(self.tree.post_ordered_next_descendant(self.root_id, &link).unwrap_or(self.root_id));
             }
-            (node_id, node)
+            (node_id, link)
         })
     }
 }
@@ -442,54 +518,54 @@ impl<'a, T> Drop for DetachSubtree<'a, T> {
 }
 
 struct Ancestors<'a, T> {
-    arena: &'a SlotVec<Node<T>>,
+    tree: &'a Tree<T>,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for Ancestors<'a, T> {
-    type Item = (NodeId, &'a Node<T>);
+    type Item = (NodeId, &'a Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = &self.arena[node_id];
-            self.next = node.parent;
-            (node_id, node)
+            let link = &self.tree.arena[node_id];
+            self.next = link.parent;
+            (node_id, link)
         })
     }
 }
 
 struct AncestorsMut<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+    tree: &'a mut Tree<T>,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for AncestorsMut<'a, T> {
-    type Item = (NodeId, &'a mut Node<T>);
+    type Item = (NodeId, &'a mut Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = unsafe {
-                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            let link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
-            self.next = node.parent;
-            (node_id, node)
+            self.next = link.parent;
+            (node_id, link)
         })
     }
 }
 
 struct Siblings<'a, T> {
-    arena: &'a SlotVec<Node<T>>,
+    tree: &'a Tree<T>,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for Siblings<'a, T> {
-    type Item = (NodeId, &'a Node<T>);
+    type Item = (NodeId, &'a Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = &self.arena[node_id];
-            self.next = node.next_sibling;
-            (node_id, node)
+            let link = &self.tree.arena[node_id];
+            self.next = link.next_sibling;
+            (node_id, link)
         })
     }
 }
@@ -497,28 +573,28 @@ impl<'a, T> Iterator for Siblings<'a, T> {
 impl<'a, T> DoubleEndedIterator for Siblings<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.next.map(|node_id| {
-            let node = &self.arena[node_id];
-            self.next = node.prev_sibling;
-            (node_id, node)
+            let link = &self.tree.arena[node_id];
+            self.next = link.prev_sibling;
+            (node_id, link)
         })
     }
 }
 
 struct SiblingsMut<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+    tree: &'a mut Tree<T>,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for SiblingsMut<'a, T> {
-    type Item = (NodeId, &'a mut Node<T>);
+    type Item = (NodeId, &'a mut Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = unsafe {
-                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            let link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
-            self.next = node.next_sibling;
-            (node_id, node)
+            self.next = link.next_sibling;
+            (node_id, link)
         })
     }
 }
@@ -526,209 +602,134 @@ impl<'a, T> Iterator for SiblingsMut<'a, T> {
 impl<'a, T> DoubleEndedIterator for SiblingsMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.next.map(|node_id| {
-            let node = unsafe {
-                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            let link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
-            self.next = node.prev_sibling;
-            (node_id, node)
+            self.next = link.prev_sibling;
+            (node_id, link)
         })
     }
 }
 
 pub struct PreOrderedDescendants<'a, T> {
-    arena: &'a SlotVec<Node<T>>,
+    tree: &'a Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for PreOrderedDescendants<'a, T> {
-    type Item = (NodeId, &'a Node<T>);
+    type Item = (NodeId, &'a Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = &self.arena[node_id];
-            self.next = pre_ordered_next_descendant(self.arena, self.root_id, node);
-            (node_id, node)
+            let link = &self.tree.arena[node_id];
+            self.next = self.tree.pre_ordered_next_descendant(self.root_id, link);
+            (node_id, link)
         })
     }
 }
 
 pub struct PreOrderedDescendantsMut<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+    tree: &'a mut Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for PreOrderedDescendantsMut<'a, T> {
-    type Item = (NodeId, &'a mut Node<T>);
+    type Item = (NodeId, &'a mut Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = unsafe {
-                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            let link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
-            self.next = pre_ordered_next_descendant(self.arena, self.root_id, node);
-            (node_id, node)
+            self.next = self.tree.pre_ordered_next_descendant(self.root_id, link);
+            (node_id, link)
         })
     }
 }
 
 pub struct PostOrderedDescendants<'a, T> {
-    arena: &'a SlotVec<Node<T>>,
+    tree: &'a Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for PostOrderedDescendants<'a, T> {
-    type Item = (NodeId, &'a Node<T>);
+    type Item = (NodeId, &'a Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = &self.arena[node_id];
-            self.next = post_ordered_next_descendant(self.arena, self.root_id, node);
-            (node_id, node)
+            let link = &self.tree.arena[node_id];
+            self.next = self.tree.post_ordered_next_descendant(self.root_id, link);
+            (node_id, link)
         })
     }
 }
 
 pub struct PostOrderedDescendantsMut<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+    tree: &'a mut Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for PostOrderedDescendantsMut<'a, T> {
-    type Item = (NodeId, &'a mut Node<T>);
+    type Item = (NodeId, &'a mut Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = unsafe {
-                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            let link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
-            self.next = post_ordered_next_descendant(self.arena, self.root_id, node);
-            (node_id, node)
+            self.next = self.tree.post_ordered_next_descendant(self.root_id, link);
+            (node_id, link)
         })
     }
 }
 
 pub struct Walk<'a, T> {
-    arena: &'a SlotVec<Node<T>>,
+    tree: &'a Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for Walk<'a, T> {
-    type Item = (NodeId, &'a Node<T>);
+    type Item = (NodeId, &'a Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = &self.arena[node_id];
+            let link = &self.tree.arena[node_id];
             self.next = if node_id == self.root_id {
-                node.first_child
+                link.current.first_child
             } else {
-                pre_ordered_next_descendant(self.arena, self.root_id, node)
+                self.tree.pre_ordered_next_descendant(self.root_id, link)
             };
-            (node_id, node)
+            (node_id, link)
         })
     }
 }
 
 pub struct WalkMut<'a, T> {
-    arena: &'a mut SlotVec<Node<T>>,
+    tree: &'a mut Tree<T>,
     root_id: NodeId,
     next: Option<NodeId>,
 }
 
 impl<'a, T> Iterator for WalkMut<'a, T> {
-    type Item = (NodeId, &'a mut Node<T>);
+    type Item = (NodeId, &'a mut Link<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
-            let node = unsafe {
-                (&mut self.arena[node_id] as *mut Node<T>).as_mut().unwrap()
+            let link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
             self.next = if node_id == self.root_id {
-                node.first_child
+                link.current.first_child
             } else {
-                pre_ordered_next_descendant(self.arena, self.root_id, node)
+                self.tree.pre_ordered_next_descendant(self.root_id, link)
             };
-            (node_id, node)
+            (node_id, link)
         })
-    }
-}
-
-fn pre_ordered_next_descendant<T>(arena: &SlotVec<Node<T>>, root_id: NodeId, node: &Node<T>) -> Option<NodeId> {
-    if let Some(first_child) = node.first_child {
-        Some(first_child)
-    } else if let Some(next_sibling) = node.next_sibling {
-        Some(next_sibling)
-    } else {
-        let mut parent = node.parent;
-        let mut result = None;
-        while let Some(parent_id) = parent {
-            if parent_id == root_id {
-                break;
-            }
-            let parent_node = &arena[parent_id];
-            if let Some(sibling_id) = parent_node.next_sibling {
-                result = Some(sibling_id);
-                break;
-            }
-            parent = parent_node.parent;
-        }
-        result
-    }
-}
-
-fn post_ordered_next_descendant<T>(arena: &SlotVec<Node<T>>, root_id: NodeId, node: &Node<T>) -> Option<NodeId> {
-    if let Some(next_sibling_id) = node.next_sibling() {
-        if let Some(grandest_child_id) = grandest_child(arena, &arena[next_sibling_id]) {
-            Some(grandest_child_id)
-        } else {
-            Some(next_sibling_id)
-        }
-    } else {
-        node.parent.filter(|&parent_id| parent_id != root_id)
-    }
-}
-
-fn grandest_child<T>(arena: &SlotVec<Node<T>>, node: &Node<T>) -> Option<NodeId> {
-    let mut next = node.first_child();
-    let mut grandest_child = None;
-
-    while let Some(child_id) = next {
-        next = arena[child_id].first_child();
-        grandest_child = Some(child_id);
-    }
-
-    grandest_child
-}
-
-fn detach_node<T>(arena: &mut SlotVec<Node<T>>, node: &Node<T>) {
-    match (node.prev_sibling, node.next_sibling) {
-        (Some(prev_sibling_id), Some(next_sibling_id)) => {
-            arena[next_sibling_id].prev_sibling = Some(prev_sibling_id);
-            arena[prev_sibling_id].next_sibling = Some(next_sibling_id);
-        }
-        (Some(prev_sibling_id), None) => {
-            if let Some(parent_id) = node.parent {
-                arena[parent_id].last_child = Some(prev_sibling_id);
-            }
-            arena[prev_sibling_id].next_sibling = None;
-        }
-        (None, Some(next_sibling_id)) => {
-            if let Some(parent_id) = node.parent {
-                arena[parent_id].first_child = Some(next_sibling_id);
-            }
-            arena[next_sibling_id].prev_sibling = None;
-        }
-        (None, None) => {
-            if let Some(parent_id) = node.parent {
-                let parent = &mut arena[parent_id];
-                parent.first_child = None;
-                parent.last_child = None;
-            }
-        }
     }
 }
 
@@ -763,10 +764,12 @@ mod tests {
         let mut tree = Tree::new();
         let root = tree.attach("root");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
@@ -774,18 +777,22 @@ mod tests {
 
         let foo = tree.append_child(root, "foo");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(foo),
-            last_child: Some(foo),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(foo),
+                last_child: Some(foo),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[foo], Node {
-            data: "foo",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[foo], Link {
+            current: Node {
+                data: "foo",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: Some(root),
@@ -793,26 +800,32 @@ mod tests {
 
         let bar = tree.append_child(root, "bar");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(foo),
-            last_child: Some(bar),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(foo),
+                last_child: Some(bar),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[foo], Node {
-            data: "foo",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[foo], Link {
+            current: Node {
+                data: "foo",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: Some(bar),
             parent: Some(root),
         });
-        assert_eq!(tree[bar], Node {
-            data: "bar",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[bar], Link {
+            current: Node {
+                data: "bar",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(foo),
             next_sibling: None,
             parent: Some(root),
@@ -824,10 +837,12 @@ mod tests {
         let mut tree = Tree::new();
         let root = tree.attach("root");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
@@ -835,18 +850,22 @@ mod tests {
 
         let foo = tree.prepend_child(root, "foo");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(foo),
-            last_child: Some(foo),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(foo),
+                last_child: Some(foo),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[foo], Node {
-            data: "foo",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[foo], Link {
+            current: Node {
+                data: "foo",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: Some(root),
@@ -854,26 +873,32 @@ mod tests {
 
         let bar = tree.prepend_child(root, "bar");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(bar),
-            last_child: Some(foo),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(bar),
+                last_child: Some(foo),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[foo], Node {
-            data: "foo",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[foo], Link {
+            current: Node {
+                data: "foo",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(bar),
             next_sibling: None,
             parent: Some(root),
         });
-        assert_eq!(tree[bar], Node {
-            data: "bar",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[bar], Link {
+            current: Node {
+                data: "bar",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: Some(foo),
             parent: Some(root),
@@ -889,42 +914,52 @@ mod tests {
         let baz = tree.insert_before(foo, "baz");
         let qux = tree.insert_before(foo, "qux");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(baz),
-            last_child: Some(bar),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(baz),
+                last_child: Some(bar),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[foo], Node {
-            data: "foo",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[foo], Link {
+            current: Node {
+                data: "foo",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(qux),
             next_sibling: Some(bar),
             parent: Some(root),
         });
-        assert_eq!(tree[bar], Node {
-            data: "bar",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[bar], Link {
+            current: Node {
+                data: "bar",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(foo),
             next_sibling: None,
             parent: Some(root),
         });
-        assert_eq!(tree[baz], Node {
-            data: "baz",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[baz], Link {
+            current: Node {
+                data: "baz",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: Some(qux),
             parent: Some(root),
         });
-        assert_eq!(tree[qux], Node {
-            data: "qux",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[qux], Link {
+            current: Node {
+                data: "qux",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(baz),
             next_sibling: Some(foo),
             parent: Some(root),
@@ -948,42 +983,52 @@ mod tests {
         let baz = tree.insert_after(bar, "baz");
         let qux = tree.insert_after(bar, "qux");
 
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(foo),
-            last_child: Some(baz),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(foo),
+                last_child: Some(baz),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[foo], Node {
-            data: "foo",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[foo], Link {
+            current: Node {
+                data: "foo",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: Some(bar),
             parent: Some(root),
         });
-        assert_eq!(tree[bar], Node {
-            data: "bar",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[bar], Link {
+            current: Node {
+                data: "bar",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(foo),
             next_sibling: Some(qux),
             parent: Some(root),
         });
-        assert_eq!(tree[baz], Node {
-            data: "baz",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[baz], Link {
+            current: Node {
+                data: "baz",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(qux),
             next_sibling: None,
             parent: Some(root),
         });
-        assert_eq!(tree[qux], Node {
-            data: "qux",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[qux], Link {
+            current: Node {
+                data: "qux",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: Some(bar),
             next_sibling: Some(baz),
             parent: Some(root),
@@ -999,7 +1044,7 @@ mod tests {
     }
 
     #[test]
-    fn test_detach_subtree() {
+    fn test_detach() {
         let mut tree = Tree::new();
         let root = tree.attach("root");
         let foo = tree.append_child(root, "foo");
@@ -1009,51 +1054,63 @@ mod tests {
         let quux = tree.append_child(root, "quux");
 
         assert_eq!(tree.detach_subtree(foo).collect::<Vec<_>>(), [
-            (baz, Node {
-                data: "baz",
-                first_child: None,
-                last_child: None,
+            (baz, Link {
+                current: Node {
+                    data: "baz",
+                    first_child: None,
+                    last_child: None,
+                },
                 prev_sibling: None,
                 next_sibling: None,
                 parent: Some(bar),
             }),
-            (bar, Node {
-                data: "bar",
-                first_child: Some(baz),
-                last_child: Some(baz),
+            (bar, Link {
+                current: Node {
+                    data: "bar",
+                    first_child: Some(baz),
+                    last_child: Some(baz),
+                },
                 prev_sibling: None,
                 next_sibling: Some(qux),
                 parent: Some(foo),
             }),
-            (qux, Node {
-                data: "qux",
-                first_child: None,
-                last_child: None,
+            (qux, Link {
+                current: Node {
+                    data: "qux",
+                    first_child: None,
+                    last_child: None,
+                },
                 prev_sibling: Some(bar),
                 next_sibling: None,
                 parent: Some(foo),
             }),
-            (foo, Node {
-                data: "foo",
-                first_child: Some(bar),
-                last_child: Some(qux),
+            (foo, Link {
+                current: Node {
+                    data: "foo",
+                    first_child: Some(bar),
+                    last_child: Some(qux),
+                },
                 prev_sibling: None,
                 next_sibling: Some(quux),
                 parent: Some(root),
             }),
         ]);
-        assert_eq!(tree[root], Node {
-            data: "root",
-            first_child: Some(quux),
-            last_child: Some(quux),
+        assert_eq!(tree[root], Link {
+            current: Node {
+                data: "root",
+                first_child: Some(quux),
+                last_child: Some(quux),
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: None,
         });
-        assert_eq!(tree[quux], Node {
-            data: "quux",
-            first_child: None,
-            last_child: None,
+        assert_eq!(tree[quux], Link {
+            current: Node {
+                data: "quux",
+                first_child: None,
+                last_child: None,
+            },
             prev_sibling: None,
             next_sibling: None,
             parent: Some(root),
@@ -1064,18 +1121,22 @@ mod tests {
         assert!(!tree.is_attached(qux));
 
         assert_eq!(tree.detach_subtree(root).collect::<Vec<_>>(), [
-            (quux, Node {
-                data: "quux",
-                first_child: None,
-                last_child: None,
+            (quux, Link {
+                current: Node {
+                    data: "quux",
+                    first_child: None,
+                    last_child: None,
+                },
                 prev_sibling: None,
                 next_sibling: None,
                 parent: Some(root),
             }),
-            (root, Node {
-                data: "root",
-                first_child: Some(quux),
-                last_child: Some(quux),
+            (root, Link {
+                current: Node {
+                    data: "root",
+                    first_child: Some(quux),
+                    last_child: Some(quux),
+                },
                 prev_sibling: None,
                 next_sibling: None,
                 parent: None,
@@ -1110,8 +1171,8 @@ mod tests {
 
         for node_id in &[root, foo, bar, baz, qux, quux, corge] {
             assert_eq!(
-                tree.ancestors(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.ancestors_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.ancestors(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.ancestors_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
         }
     }
@@ -1137,8 +1198,8 @@ mod tests {
 
         for node_id in &[root, foo, bar, baz, qux, quux, corge] {
             assert_eq!(
-                tree.children(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.children_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.children(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.children_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
         }
     }
@@ -1163,12 +1224,12 @@ mod tests {
 
         for node_id in &[root, foo, bar, baz] {
             assert_eq!(
-                tree.prev_siblings(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.prev_siblings_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.prev_siblings(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.prev_siblings_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
             assert_eq!(
-                tree.next_siblings(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.next_siblings_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.next_siblings(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.next_siblings_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
         }
     }
@@ -1192,8 +1253,8 @@ mod tests {
 
         for node_id in &[root, foo, bar, baz, qux, quux] {
             assert_eq!(
-                tree.pre_ordered_descendants(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.pre_ordered_descendants_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.pre_ordered_descendants(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.pre_ordered_descendants_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
         }
     }
@@ -1217,8 +1278,8 @@ mod tests {
 
         for node_id in &[root, foo, bar, baz, qux, quux] {
             assert_eq!(
-                tree.post_ordered_descendants(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.post_ordered_descendants_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.post_ordered_descendants(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.post_ordered_descendants_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
         }
     }
@@ -1242,8 +1303,8 @@ mod tests {
 
         for node_id in &[root, foo, bar, baz, qux, quux] {
             assert_eq!(
-                tree.walk(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>(),
-                tree.walk_mut(*node_id).map(|(index, node)| (index, node as *const _)).collect::<Vec<_>>()
+                tree.walk(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
+                tree.walk_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
             );
         }
     }

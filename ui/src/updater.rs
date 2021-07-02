@@ -186,9 +186,9 @@ impl<Window> UIUpdater<Window> {
                 target_node.update(new_element);
             }
             ReconcileResult::UpdatePlacement(target_id, ref_id, new_element) => {
-                let mut target_node = self.tree.detach(target_id);
+                let target_node = &mut self.tree[target_id];
                 target_node.update(new_element);
-                self.tree.insert_before(ref_id, target_node);
+                self.tree.move_position(target_id).insert_before(ref_id);
             }
             ReconcileResult::Deletion(target_id) => {
                 for (node_id, mut detached_node) in self.tree.detach_subtree(target_id) {

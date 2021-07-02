@@ -6,11 +6,11 @@ use std::mem;
 use geometrics::{Rectangle, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use paint::PaintContext;
-use tree::{Node, NodeId, Tree};
+use tree::{Link, NodeId, Tree};
 
 pub type FiberTree<Window> = Tree<Fiber<Window>>;
 
-pub type FiberNode<Window> = Node<Fiber<Window>>;
+pub type FiberNode<Window> = Link<Fiber<Window>>;
 
 #[derive(Debug)]
 pub struct Fiber<Window> {
