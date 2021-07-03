@@ -6,6 +6,33 @@ pub struct Walk<'a, T> {
     pub(super) next: Option<(NodeId, WalkDirection)>,
 }
 
+pub struct WalkMut<'a, T> {
+    pub(super) tree: &'a mut Tree<T>,
+    pub(super) root_id: NodeId,
+    pub(super) next: Option<(NodeId, WalkDirection)>,
+}
+
+pub struct WalkFilter<'a, T, F: Fn(NodeId, &Link<T>) -> bool> {
+    pub(super) tree: &'a Tree<T>,
+    pub(super) root_id: NodeId,
+    pub(super) next: Option<(NodeId, WalkDirection)>,
+    pub(super) predicate: F,
+}
+
+pub struct WalkFilterMut<'a, T, F: Fn(NodeId, &mut Link<T>) -> bool> {
+    pub(super) tree: &'a mut Tree<T>,
+    pub(super) root_id: NodeId,
+    pub(super) next: Option<(NodeId, WalkDirection)>,
+    pub(super) predicate: F,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum WalkDirection {
+    Downward,
+    Sideward,
+    Upward,
+}
+
 impl<'a, T> Iterator for Walk<'a, T> {
     type Item = (NodeId, &'a Link<T>, WalkDirection);
 
@@ -16,12 +43,6 @@ impl<'a, T> Iterator for Walk<'a, T> {
             (node_id, link, direction)
         })
     }
-}
-
-pub struct WalkMut<'a, T> {
-    pub(super) tree: &'a mut Tree<T>,
-    pub(super) root_id: NodeId,
-    pub(super) next: Option<(NodeId, WalkDirection)>,
 }
 
 impl<'a, T> Iterator for WalkMut<'a, T> {
@@ -38,11 +59,56 @@ impl<'a, T> Iterator for WalkMut<'a, T> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum WalkDirection {
-    Downward,
-    Sideward,
-    Upward,
+impl<'a, T, F: Fn(NodeId, &Link<T>) -> bool> Iterator for WalkFilter<'a, T, F> {
+    type Item = (NodeId, &'a Link<T>, WalkDirection);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().and_then(|(mut node_id, mut direction)| {
+            let mut link = &self.tree.arena[node_id];
+            while match direction {
+                WalkDirection::Downward | WalkDirection::Sideward => !(self.predicate)(node_id, link),
+                WalkDirection::Upward => false,
+            } {
+                if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward) {
+                    node_id = next_node_id;
+                    direction = next_direction;
+                    link = &self.tree.arena[node_id];
+                } else {
+                    return None;
+                }
+            }
+            self.next = walk_next_node(node_id, self.root_id, link, &direction);
+            Some((node_id, link, direction))
+        })
+    }
+}
+
+impl<'a, T, F: Fn(NodeId, &mut Link<T>) -> bool> Iterator for WalkFilterMut<'a, T, F> {
+    type Item = (NodeId, &'a mut Link<T>, WalkDirection);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().and_then(|(mut node_id, mut direction)| {
+            let mut link = unsafe {
+                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
+            };
+            while match direction {
+                WalkDirection::Downward | WalkDirection::Sideward => !(self.predicate)(node_id, link),
+                WalkDirection::Upward => false,
+            } {
+                if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward) {
+                    node_id = next_node_id;
+                    direction = next_direction;
+                    link = unsafe {
+                        (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
+                    };
+                } else {
+                    return None;
+                }
+            }
+            self.next = walk_next_node(node_id, self.root_id, link, &direction);
+            Some((node_id, link, direction))
+        })
+    }
 }
 
 fn walk_next_node<T>(node_id: NodeId, root_id: NodeId, link: &Link<T>, direction: &WalkDirection) -> Option<(NodeId, WalkDirection)> {

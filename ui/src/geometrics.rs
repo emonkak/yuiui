@@ -12,10 +12,18 @@ pub struct Point {
     pub y: f32,
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Size {
     pub width: f32,
     pub height: f32,
+}
+
+impl Rectangle {
+    pub const ZERO: Self = Self { point: Point::ZERO, size: Size::ZERO };
+}
+
+impl Point {
+    pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
 }
 
 impl Add for Point {
@@ -58,6 +66,10 @@ impl SubAssign for Point {
             y: self.y - other.y,
         };
     }
+}
+
+impl Size {
+    pub const ZERO: Self = Self { width: 0.0, height: 0.0 };
 }
 
 impl Add for Size {

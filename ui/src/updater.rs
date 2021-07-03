@@ -75,6 +75,9 @@ impl<Window> Updater<Window> {
             match result {
                 LayoutResult::Size(size) => {
                     self.layout_context.resize(request_id, size);
+                    if size == Size::ZERO {
+                        node.dirty = false;
+                    }
                     if requests.len() == 1 {
                         return size;
                     }
@@ -101,7 +104,7 @@ impl<Window> Updater<Window> {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
 
-        for (node_id, node, direction) in self.tree.walk_mut(self.root_id) {
+        for (node_id, node, direction) in self.tree.walk_filter_mut(self.root_id, |_, node| node.dirty) {
             let rectangle = self.layout_context.get_rectangle(node_id).unwrap();
             match direction {
                 WalkDirection::Downward => {

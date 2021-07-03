@@ -18,7 +18,7 @@ use self::post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescenda
 use self::detach_subtree::DetachSubtree;
 use self::move_position::MovePosition;
 use self::siblings::{Siblings, SiblingsMut};
-use self::walk::{Walk, WalkMut};
+use self::walk::{Walk, WalkMut, WalkFilter, WalkFilterMut};
 use self::formatter::{TreeFormatter};
 
 pub use self::walk::WalkDirection;
@@ -276,6 +276,28 @@ impl<T> Tree<T> {
             tree: self,
             root_id: target_id,
             next: Some((target_id, WalkDirection::Downward)),
+        }
+    }
+
+    pub fn walk_filter<F>(&self, target_id: NodeId, predicate: F) -> impl Iterator<Item = (NodeId, &Link<T>, WalkDirection)>
+    where
+        F: Fn(NodeId, &Link<T>) -> bool {
+        WalkFilter {
+            tree: self,
+            root_id: target_id,
+            next: Some((target_id, WalkDirection::Downward)),
+            predicate,
+        }
+    }
+
+    pub fn walk_filter_mut<F>(&mut self, target_id: NodeId, predicate: F) -> impl Iterator<Item = (NodeId, &mut Link<T>, WalkDirection)>
+    where
+        F: Fn(NodeId, &mut Link<T>) -> bool {
+        WalkFilterMut {
+            tree: self,
+            root_id: target_id,
+            next: Some((target_id, WalkDirection::Downward)),
+            predicate,
         }
     }
 
@@ -1041,6 +1063,56 @@ mod tests {
             assert_eq!(
                 tree.walk(*node_id).map(|(index, link, direction)| (index, link as *const _, direction)).collect::<Vec<_>>(),
                 tree.walk_mut(*node_id).map(|(index, link, direction)| (index, link as *const _, direction)).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_walk_filter() {
+        //           root
+        //          /   \
+        //       foo    quux
+        //      /   \
+        //   bar    qux
+        //   /
+        // baz
+        let mut tree = Tree::new();
+        let root = tree.attach("root");
+        let foo = tree.append_child(root, "foo");
+        let bar = tree.append_child(foo, "bar");
+        let baz = tree.append_child(bar, "baz");
+        let qux = tree.append_child(foo, "qux");
+        let quux = tree.append_child(root, "quux");
+
+        assert_eq!(tree.walk_filter(root, |node_id, _| node_id != bar).collect::<Vec<_>>(), &[
+            (root, &tree[root], WalkDirection::Downward),
+            (foo, &tree[foo], WalkDirection::Downward),
+            (qux, &tree[qux], WalkDirection::Sideward),
+            (foo, &tree[foo], WalkDirection::Upward),
+            (quux, &tree[quux], WalkDirection::Sideward),
+            (root, &tree[root], WalkDirection::Upward),
+        ]);
+        assert_eq!(tree.walk_filter(foo, |node_id, _| node_id != bar).collect::<Vec<_>>(), &[
+            (foo, &tree[foo], WalkDirection::Downward),
+            (qux, &tree[qux], WalkDirection::Sideward),
+            (foo, &tree[foo], WalkDirection::Upward),
+        ]);
+        assert_eq!(tree.walk_filter(bar, |node_id, _| node_id != bar).collect::<Vec<_>>(), &[
+        ]);
+        assert_eq!(tree.walk_filter(baz, |node_id, _| node_id != bar).collect::<Vec<_>>(), &[
+            (baz, &tree[baz], WalkDirection::Downward),
+        ]);
+        assert_eq!(tree.walk_filter(qux, |node_id, _| node_id != bar).collect::<Vec<_>>(), &[
+            (qux, &tree[qux], WalkDirection::Downward),
+        ]);
+        assert_eq!(tree.walk_filter(quux, |node_id, _| node_id != bar).collect::<Vec<_>>(), &[
+            (quux, &tree[quux], WalkDirection::Downward),
+        ]);
+
+        for node_id in &[root, foo, bar, baz, qux, quux] {
+            assert_eq!(
+                tree.walk_filter(*node_id, |node_id, _| node_id != bar).map(|(index, link, direction)| (index, link as *const _, direction)).collect::<Vec<_>>(),
+                tree.walk_filter_mut(*node_id, |node_id, _| node_id != bar).map(|(index, link, direction)| (index, link as *const _, direction)).collect::<Vec<_>>()
             );
         }
     }
