@@ -231,25 +231,28 @@ impl<Window> Updater<Window> {
 
 impl<Window: fmt::Debug> fmt::Display for Updater<Window> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.tree.format(
+        write!(
             f,
-            self.root_id,
-            &|f, node_id, fiber| {
-                write!(f, "<{}", fiber.widget.name())?;
-                write!(f, " id=\"{}\"", node_id)?;
-                if let Some(rectangle) = self.layout_context.get_rectangle(node_id) {
-                    write!(f, " x=\"{}\"", rectangle.point.x)?;
-                    write!(f, " y=\"{}\"", rectangle.point.y)?;
-                    write!(f, " width=\"{}\"", rectangle.size.width)?;
-                    write!(f, " height=\"{}\"", rectangle.size.height)?;
-                }
-                if fiber.dirty {
-                    write!(f, " dirty")?;
-                }
-                write!(f, ">")?;
-                Ok(())
-            },
-            &|f, _, fiber| write!(f, "</{}>", fiber.widget.name())
+            "{}",
+            self.tree.format(
+                self.root_id,
+                |f, node_id, fiber| {
+                    write!(f, "<{}", fiber.widget.name())?;
+                    write!(f, " id=\"{}\"", node_id)?;
+                    if let Some(rectangle) = self.layout_context.get_rectangle(node_id) {
+                        write!(f, " x=\"{}\"", rectangle.point.x)?;
+                        write!(f, " y=\"{}\"", rectangle.point.y)?;
+                        write!(f, " width=\"{}\"", rectangle.size.width)?;
+                        write!(f, " height=\"{}\"", rectangle.size.height)?;
+                    }
+                    if fiber.dirty {
+                        write!(f, " dirty")?;
+                    }
+                    write!(f, ">")?;
+                    Ok(())
+                },
+                |f, _, fiber| write!(f, "</{}>", fiber.widget.name())
+            )
         )
     }
 }
