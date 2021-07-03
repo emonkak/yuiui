@@ -146,11 +146,11 @@ pub struct WithKey<T> {
 pub type Key = usize;
 
 impl<Window> Fiber<Window> {
-    pub(crate) fn new(element: Element<Window>) -> Fiber<Window> {
-        let mut initial_state = element.widget.initial_state();
-        let rendered_children = element.widget.render(element.children, &mut *initial_state);
+    pub(crate) fn new(widget: Box<dyn WidgetDyn<Window>>, children: Box<[Element<Window>]>) -> Fiber<Window> {
+        let mut initial_state = widget.initial_state();
+        let rendered_children = widget.render(children, &mut *initial_state);
         Fiber {
-            widget: element.widget,
+            widget,
             rendered_children: Some(rendered_children),
             handle: None,
             state: None,
@@ -197,10 +197,18 @@ impl<Window> Fiber<Window> {
             self.mounted = true;
         }
 
+        self.dirty = false;
+
         let handle = self.handle.as_ref().unwrap_or(parent_handle);
         widget.paint(rectangle, handle, paint_context);
 
         handle
+    }
+}
+
+impl<Window> From<Element<Window>> for Fiber<Window> {
+    fn from(element: Element<Window>) -> Fiber<Window> {
+        Fiber::new(element.widget, element.children)
     }
 }
 

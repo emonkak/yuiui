@@ -1,20 +1,22 @@
 use std::any::TypeId;
+use std::collections::VecDeque;
 use std::fmt;
 use std::mem;
 
-use geometrics::Size;
+use geometrics::{Point, Rectangle, Size};
 use layout::{BoxConstraints, LayoutContext, LayoutResult};
 use paint::PaintContext;
 use reconciler::{Reconciler, ReconcileResult};
-use tree::{NodeId, Tree};
+use tree::{NodeId, Tree, WalkDirection};
 use widget::null::Null;
 use widget::widget::{Element, Fiber, FiberTree, Key, WidgetDyn};
 
 #[derive(Debug)]
-pub struct UIUpdater<Window> {
-    layout_context: LayoutContext,
+pub struct Updater<Window> {
     tree: FiberTree<Window>,
     root_id: NodeId,
+    layout_context: LayoutContext,
+    update_queue: VecDeque<NodeId>,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -23,17 +25,22 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-impl<Window> UIUpdater<Window> {
-    pub fn new(element: Element<Window>) -> UIUpdater<Window> {
+impl<Window> Updater<Window> {
+    pub fn new() -> Self {
         let mut tree = Tree::new();
+        let root_id = tree.attach(Fiber::new(Box::new(Null), Box::new([])));
         let layout_context = LayoutContext::new();
-        let root_id = tree.attach(Fiber::new(element));
 
-        UIUpdater {
-            layout_context,
+        Self {
             tree,
             root_id,
+            layout_context,
+            update_queue: VecDeque::new(),
         }
+    }
+
+    pub fn update(&mut self, element: Element<Window>) {
+        self.tree[self.root_id].update(Element::new(Null, [element]));
     }
 
     pub fn render(&mut self) {
@@ -41,18 +48,6 @@ impl<Window> UIUpdater<Window> {
         while let Some(next) = self.render_step(current) {
             current = next;
         }
-    }
-
-    fn render_step(&mut self, node_id: NodeId) -> Option<NodeId> {
-        let target = &mut self.tree[node_id];
-        if let Some(rendered_children) = target.rendered_children.take() {
-            self.reconcile_children(node_id, rendered_children);
-        }
-        self.next_render_node(self.root_id, node_id)
-    }
-
-    pub fn force_update(&mut self, element: Element<Window>) {
-        self.tree[self.root_id].update(element);
     }
 
     pub fn layout(&mut self, box_constraints: BoxConstraints) -> Size {
@@ -103,14 +98,44 @@ impl<Window> UIUpdater<Window> {
 
     pub fn paint(&mut self, parent_handle: &Window, paint_context: &mut PaintContext<Window>) {
         let mut handle = parent_handle;
+        let mut absolute_point = Point { x: 0.0, y: 0.0 };
+        let mut latest_point = Point { x: 0.0, y: 0.0 };
 
-        for (node_id, node) in self.tree.walk_mut(self.root_id) {
+        for (node_id, node, direction) in self.tree.walk_mut(self.root_id) {
             let rectangle = self.layout_context.get_rectangle(node_id).unwrap();
-            handle = node.paint(rectangle, handle, paint_context);
+            match direction {
+                WalkDirection::Downward => {
+                    absolute_point += latest_point;
+                    let paint_rectangle = Rectangle {
+                        point: absolute_point + rectangle.point,
+                        size: rectangle.size
+                    };
+                    handle = node.paint(&paint_rectangle, handle, paint_context);
+                }
+                WalkDirection::Sideward => {
+                    let paint_rectangle = Rectangle {
+                        point: absolute_point + rectangle.point,
+                        size: rectangle.size,
+                    };
+                    handle = node.paint(&paint_rectangle, handle, paint_context);
+                }
+                WalkDirection::Upward => {
+                    absolute_point -= rectangle.point;
+                }
+            }
+            latest_point = rectangle.point;
         }
     }
 
-    fn next_render_node(&self, root_id: NodeId, node_id: NodeId) -> Option<NodeId> {
+    fn render_step(&mut self, node_id: NodeId) -> Option<NodeId> {
+        let target = &mut self.tree[node_id];
+        if let Some(rendered_children) = target.rendered_children.take() {
+            self.reconcile_children(node_id, rendered_children);
+        }
+        self.next_render_step(node_id)
+    }
+
+    fn next_render_step(&self, node_id: NodeId) -> Option<NodeId> {
         if let Some(first_child) = self.tree[node_id].first_child() {
             return Some(first_child);
         }
@@ -125,7 +150,7 @@ impl<Window> UIUpdater<Window> {
 
             if let Some(parent_id) = current_node
                 .parent()
-                .filter(|&parent_id| parent_id != root_id) {
+                .filter(|&parent_id| parent_id != self.root_id) {
                 currnet_node_id = parent_id;
             } else {
                 break;
@@ -170,15 +195,19 @@ impl<Window> UIUpdater<Window> {
         }
     }
 
-    fn handle_reconcile_result(&mut self, target_id: NodeId, result: ReconcileResult<NodeId, Element<Window>>) {
+    fn handle_reconcile_result(
+        &mut self,
+        target_id: NodeId,
+        result: ReconcileResult<NodeId, Element<Window>>
+    ) {
         println!("{:?}", result);
         match result {
             ReconcileResult::New(new_element) => {
-                let new_fiber = Fiber::new(new_element);
+                let new_fiber = Fiber::from(new_element);
                 self.tree.append_child(target_id, new_fiber);
             }
             ReconcileResult::NewPlacement(ref_id, new_element) => {
-                let new_fiber = Fiber::new(new_element);
+                let new_fiber = Fiber::from(new_element);
                 self.tree.insert_before(ref_id, new_fiber);
             }
             ReconcileResult::Update(target_id, new_element) => {
@@ -200,7 +229,7 @@ impl<Window> UIUpdater<Window> {
     }
 }
 
-impl<Window: fmt::Debug> fmt::Display for UIUpdater<Window> {
+impl<Window: fmt::Debug> fmt::Display for Updater<Window> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.tree.format(
             f,

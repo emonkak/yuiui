@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use widget::widget::{Element, Widget, WidgetMeta};
+use widget::widget::{Widget, WidgetMeta};
 
 pub struct Null;
 
@@ -9,10 +9,6 @@ impl<Window> Widget<Window> for Null {
 
     fn initial_state(&self) -> Self::State {
         Default::default()
-    }
-
-    fn should_update(&self, _next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
-        false
     }
 }
 

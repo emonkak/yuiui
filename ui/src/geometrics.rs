@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
 pub struct Rectangle {
@@ -18,16 +18,6 @@ pub struct Size {
     pub height: f32,
 }
 
-impl Point {
-    #[inline]
-    pub fn offset(&self, offset: Point) -> Self {
-        Self {
-            x: self.x + offset.x,
-            y: self.y + offset.y,
-        }
-    }
-}
-
 impl Add for Point {
     type Output = Self;
 
@@ -37,6 +27,15 @@ impl Add for Point {
             x: self.x + other.x,
             y: self.y + other.y
         }
+    }
+}
+
+impl AddAssign for Point {
+    fn add_assign(&mut self, other: Self) {
+        *self = Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        };
     }
 }
 
@@ -52,6 +51,15 @@ impl Sub for Point {
     }
 }
 
+impl SubAssign for Point {
+    fn sub_assign(&mut self, other: Self) {
+        *self = Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        };
+    }
+}
+
 impl Add for Size {
     type Output = Self;
 
@@ -64,14 +72,12 @@ impl Add for Size {
     }
 }
 
-impl Sub for Size {
-    type Output = Self;
-
+impl AddAssign for Size {
     #[inline]
-    fn sub(self, other: Self) -> Self {
-        Self {
-            width: self.width - other.width,
-            height: self.height - other.height
-        }
+    fn add_assign(&mut self, other: Self) {
+        *self = Self {
+            width: self.width + other.width,
+            height: self.height + other.height
+        };
     }
 }

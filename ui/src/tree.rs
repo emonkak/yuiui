@@ -8,7 +8,7 @@ pub struct Tree<T> {
     arena: SlotVec<Link<T>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Link<T> {
     current: Node<T>,
     prev_sibling: Option<NodeId>,
@@ -16,7 +16,7 @@ pub struct Link<T> {
     parent: Option<NodeId>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Node<T> {
     data: T,
     first_child: Option<NodeId>,
@@ -241,19 +241,19 @@ impl<T> Tree<T> {
         }
     }
 
-    pub fn walk(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>)> {
+    pub fn walk(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>, WalkDirection)> {
         Walk {
             tree: self,
             root_id: target_id,
-            next: Some(target_id)
+            next: Some((target_id, WalkDirection::Downward)),
         }
     }
 
-    pub fn walk_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Link<T>)> {
+    pub fn walk_mut(&mut self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &mut Link<T>, WalkDirection)> {
         WalkMut {
             tree: self,
             root_id: target_id,
-            next: Some(target_id),
+            next: Some((target_id, WalkDirection::Downward)),
         }
     }
 
@@ -300,10 +300,10 @@ impl<T> Tree<T> {
     }
 
     fn pre_ordered_next_descendant(&self, root_id: NodeId, link: &Link<T>) -> Option<NodeId> {
-        if let Some(first_child) = link.current.first_child {
-            Some(first_child)
-        } else if let Some(next_sibling) = link.next_sibling {
-            Some(next_sibling)
+        if let Some(child_id) = link.current.first_child {
+            Some(child_id)
+        } else if let Some(sibling_id) = link.next_sibling {
+            Some(sibling_id)
         } else {
             let mut parent = link.parent;
             let mut result = None;
@@ -323,14 +323,48 @@ impl<T> Tree<T> {
     }
 
     fn post_ordered_next_descendant(&self, root_id: NodeId, link: &Link<T>) -> Option<NodeId> {
-        if let Some(next_sibling_id) = link.next_sibling() {
-            if let Some(grandest_child_id) = self.grandest_child(next_sibling_id) {
+        if let Some(sibling_id) = link.next_sibling() {
+            if let Some(grandest_child_id) = self.grandest_child(sibling_id) {
                 Some(grandest_child_id)
             } else {
-                Some(next_sibling_id)
+                Some(sibling_id)
             }
         } else {
             link.parent.filter(|&parent_id| parent_id != root_id)
+        }
+    }
+
+    fn walk_next_node(&self, node_id: NodeId, root_id: NodeId, link: &Link<T>, direction: &WalkDirection) -> Option<(NodeId, WalkDirection)> {
+        if node_id == root_id {
+            match direction {
+                WalkDirection::Downward => {
+                    link.first_child().map(|child_id| (child_id, WalkDirection::Downward))
+                }
+                _ => None,
+            }
+        } else {
+            match direction {
+                WalkDirection::Downward | WalkDirection::Sideward => {
+                    if let Some(child_id) = link.current.first_child {
+                        Some((child_id, WalkDirection::Downward))
+                    } else if let Some(sibling_id) = link.next_sibling {
+                        Some((sibling_id, WalkDirection::Sideward))
+                    } else if let Some(parent_id) = link.parent {
+                        Some((parent_id, WalkDirection::Upward))
+                    } else {
+                        None
+                    }
+                },
+                WalkDirection::Upward => {
+                    if let Some(sibling_id) = link.next_sibling {
+                        Some((sibling_id, WalkDirection::Sideward))
+                    } else if let Some(parent_id) = link.parent {
+                        Some((parent_id, WalkDirection::Upward))
+                    } else {
+                        None
+                    }
+                }
+            }
         }
     }
 
@@ -482,7 +516,7 @@ impl<'a, T> MovePosition<'a, T> {
     fn ensure_valid(&self, ref_id: NodeId) {
         assert_ne!(self.target_id, ref_id, "The target node and the reference node are same.");
         for (parent_id, _) in self.tree.ancestors(ref_id) {
-            assert_eq!(self.target_id, parent_id, "The target node is a parent of reference node.");
+            assert_ne!(self.target_id, parent_id, "The target node is a parent of reference node.");
         }
     }
 }
@@ -690,21 +724,17 @@ impl<'a, T> Iterator for PostOrderedDescendantsMut<'a, T> {
 pub struct Walk<'a, T> {
     tree: &'a Tree<T>,
     root_id: NodeId,
-    next: Option<NodeId>,
+    next: Option<(NodeId, WalkDirection)>,
 }
 
 impl<'a, T> Iterator for Walk<'a, T> {
-    type Item = (NodeId, &'a Link<T>);
+    type Item = (NodeId, &'a Link<T>, WalkDirection);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next.take().map(|node_id| {
+        self.next.take().map(|(node_id, direction)| {
             let link = &self.tree.arena[node_id];
-            self.next = if node_id == self.root_id {
-                link.current.first_child
-            } else {
-                self.tree.pre_ordered_next_descendant(self.root_id, link)
-            };
-            (node_id, link)
+            self.next = self.tree.walk_next_node(node_id, self.root_id, link, &direction);
+            (node_id, link, direction)
         })
     }
 }
@@ -712,25 +742,28 @@ impl<'a, T> Iterator for Walk<'a, T> {
 pub struct WalkMut<'a, T> {
     tree: &'a mut Tree<T>,
     root_id: NodeId,
-    next: Option<NodeId>,
+    next: Option<(NodeId, WalkDirection)>,
 }
 
 impl<'a, T> Iterator for WalkMut<'a, T> {
-    type Item = (NodeId, &'a mut Link<T>);
+    type Item = (NodeId, &'a mut Link<T>, WalkDirection);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next.take().map(|node_id| {
+        self.next.take().map(|(node_id, direction)| {
             let link = unsafe {
                 (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
-            self.next = if node_id == self.root_id {
-                link.current.first_child
-            } else {
-                self.tree.pre_ordered_next_descendant(self.root_id, link)
-            };
-            (node_id, link)
+            self.next = self.tree.walk_next_node(node_id, self.root_id, link, &direction);
+            (node_id, link, direction)
         })
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum WalkDirection {
+    Downward,
+    Sideward,
+    Upward,
 }
 
 #[cfg(test)]
@@ -1286,6 +1319,13 @@ mod tests {
 
     #[test]
     fn test_walk() {
+        //           root
+        //          /   \
+        //       foo    quux
+        //      /   \
+        //   bar    qux
+        //   /
+        // baz
         let mut tree = Tree::new();
         let root = tree.attach("root");
         let foo = tree.append_child(root, "foo");
@@ -1294,17 +1334,44 @@ mod tests {
         let qux = tree.append_child(foo, "qux");
         let quux = tree.append_child(root, "quux");
 
-        assert_eq!(tree.walk(root).collect::<Vec<_>>(), &[(root, &tree[root]), (foo, &tree[foo]), (bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux]), (quux, &tree[quux])]);
-        assert_eq!(tree.walk(foo).collect::<Vec<_>>(), &[(foo, &tree[foo]), (bar, &tree[bar]), (baz, &tree[baz]), (qux, &tree[qux])]);
-        assert_eq!(tree.walk(bar).collect::<Vec<_>>(), &[(bar, &tree[bar]), (baz, &tree[baz])]);
-        assert_eq!(tree.walk(baz).collect::<Vec<_>>(), &[(baz, &tree[baz])]);
-        assert_eq!(tree.walk(qux).collect::<Vec<_>>(), &[(qux, &tree[qux])]);
-        assert_eq!(tree.walk(quux).collect::<Vec<_>>(), &[(quux, &tree[quux])]);
+        assert_eq!(tree.walk(root).collect::<Vec<_>>(), &[
+            (root, &tree[root], WalkDirection::Downward),
+            (foo, &tree[foo], WalkDirection::Downward),
+            (bar, &tree[bar], WalkDirection::Downward),
+            (baz, &tree[baz], WalkDirection::Downward),
+            (bar, &tree[bar], WalkDirection::Upward),
+            (qux, &tree[qux], WalkDirection::Sideward),
+            (foo, &tree[foo], WalkDirection::Upward),
+            (quux, &tree[quux], WalkDirection::Sideward),
+            (root, &tree[root], WalkDirection::Upward),
+        ]);
+        assert_eq!(tree.walk(foo).collect::<Vec<_>>(), &[
+            (foo, &tree[foo], WalkDirection::Downward),
+            (bar, &tree[bar], WalkDirection::Downward),
+            (baz, &tree[baz], WalkDirection::Downward),
+            (bar, &tree[bar], WalkDirection::Upward),
+            (qux, &tree[qux], WalkDirection::Sideward),
+            (foo, &tree[foo], WalkDirection::Upward),
+        ]);
+        assert_eq!(tree.walk(bar).collect::<Vec<_>>(), &[
+            (bar, &tree[bar], WalkDirection::Downward),
+            (baz, &tree[baz], WalkDirection::Downward),
+            (bar, &tree[bar], WalkDirection::Upward),
+        ]);
+        assert_eq!(tree.walk(baz).collect::<Vec<_>>(), &[
+            (baz, &tree[baz], WalkDirection::Downward),
+        ]);
+        assert_eq!(tree.walk(qux).collect::<Vec<_>>(), &[
+            (qux, &tree[qux], WalkDirection::Downward),
+        ]);
+        assert_eq!(tree.walk(quux).collect::<Vec<_>>(), &[
+            (quux, &tree[quux], WalkDirection::Downward),
+        ]);
 
         for node_id in &[root, foo, bar, baz, qux, quux] {
             assert_eq!(
-                tree.walk(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>(),
-                tree.walk_mut(*node_id).map(|(index, link)| (index, link as *const _)).collect::<Vec<_>>()
+                tree.walk(*node_id).map(|(index, link, direction)| (index, link as *const _, direction)).collect::<Vec<_>>(),
+                tree.walk_mut(*node_id).map(|(index, link, direction)| (index, link as *const _, direction)).collect::<Vec<_>>()
             );
         }
     }
