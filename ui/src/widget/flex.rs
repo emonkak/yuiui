@@ -101,17 +101,15 @@ impl Flex {
         }
     }
 
-    fn get_params<Window>(&self, node: &FiberNode<Window>) -> Params {
+    fn get_params<Handle>(&self, node: &FiberNode<Handle>) -> Params {
         node.as_widget::<FlexItem>()
             .map(|flex_item| flex_item.params)
             .unwrap_or_default()
     }
 
-    /// Return the index (within `children`) of the next child that belongs in
-    /// the specified phase.
-    fn get_next_child<'a, Window: 'a>(
+    fn get_next_child<'a, Handle: 'a>(
         &self,
-        children: impl Iterator<Item = (NodeId, &'a FiberNode<Window>)>,
+        children: impl Iterator<Item = (NodeId, &'a FiberNode<Handle>)>,
         phase: Phase,
     ) -> Option<NodeId> {
         for (child_id, child) in children {
@@ -122,11 +120,11 @@ impl Flex {
         None
     }
 
-    fn finish_layout<Window>(
+    fn finish_layout<Handle>(
         &self,
         node_id: NodeId,
         box_constraints: &BoxConstraints,
-        tree: &FiberTree<Window>,
+        tree: &FiberTree<Handle>,
         layout_context: &mut LayoutContext,
         state: &mut FlexState
     ) -> LayoutResult {
@@ -154,14 +152,14 @@ impl Default for FlexState {
     }
 }
 
-impl<Window> Widget<Window> for Flex {
+impl<Handle> Widget<Handle> for Flex {
     type State = FlexState;
 
     fn initial_state(&self) -> Self::State {
         Default::default()
     }
 
-    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
+    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
         self == next_widget
     }
 
@@ -170,7 +168,7 @@ impl<Window> Widget<Window> for Flex {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        tree: &FiberTree<Window>,
+        tree: &FiberTree<Handle>,
         layout_context: &mut LayoutContext,
         state: &mut Self::State
     ) -> LayoutResult {
@@ -272,14 +270,14 @@ impl FlexItem {
     }
 }
 
-impl<Window> Widget<Window> for FlexItem {
+impl<Handle> Widget<Handle> for FlexItem {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
         Default::default()
     }
 
-    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
+    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
         self == next_widget
     }
 }

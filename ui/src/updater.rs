@@ -12,8 +12,8 @@ use widget::null::Null;
 use widget::widget::{Element, Fiber, FiberTree, Key, WidgetDyn};
 
 #[derive(Debug)]
-pub struct Updater<Window> {
-    tree: FiberTree<Window>,
+pub struct Updater<Handle> {
+    tree: FiberTree<Handle>,
     root_id: NodeId,
     layout_context: LayoutContext,
     update_queue: VecDeque<NodeId>,
@@ -25,7 +25,7 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-impl<Window> Updater<Window> {
+impl<Handle> Updater<Handle> {
     pub fn new() -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(Fiber::new(Box::new(Null), Box::new([])));
@@ -39,7 +39,7 @@ impl<Window> Updater<Window> {
         }
     }
 
-    pub fn update(&mut self, element: Element<Window>) {
+    pub fn update(&mut self, element: Element<Handle>) {
         self.tree[self.root_id].update(Element::new(Null, [element]));
     }
 
@@ -99,7 +99,7 @@ impl<Window> Updater<Window> {
         unreachable!();
     }
 
-    pub fn paint(&mut self, parent_handle: &Window, paint_context: &mut PaintContext<Window>) {
+    pub fn paint(&mut self, parent_handle: &Handle, paint_context: &mut PaintContext<Handle>) {
         let mut handle = parent_handle;
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
@@ -166,7 +166,7 @@ impl<Window> Updater<Window> {
     fn reconcile_children(
         &mut self,
         target_id: NodeId,
-        children: Box<[Element<Window>]>,
+        children: Box<[Element<Handle>]>,
     ) {
         let mut old_keys: Vec<TypedKey> = Vec::new();
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
@@ -178,7 +178,7 @@ impl<Window> Updater<Window> {
         }
 
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
-        let mut new_elements: Vec<Option<Element<Window>>> = Vec::with_capacity(children.len());
+        let mut new_elements: Vec<Option<Element<Handle>>> = Vec::with_capacity(children.len());
 
         for (index, element) in children.into_vec().into_iter().enumerate() {
             let key = key_of(&*element.widget, index);
@@ -201,7 +201,7 @@ impl<Window> Updater<Window> {
     fn handle_reconcile_result(
         &mut self,
         target_id: NodeId,
-        result: ReconcileResult<NodeId, Element<Window>>
+        result: ReconcileResult<NodeId, Element<Handle>>
     ) {
         println!("{:?}", result);
         match result {
@@ -232,7 +232,7 @@ impl<Window> Updater<Window> {
     }
 }
 
-impl<Window: fmt::Debug> fmt::Display for Updater<Window> {
+impl<Handle: fmt::Debug> fmt::Display for Updater<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -260,7 +260,7 @@ impl<Window: fmt::Debug> fmt::Display for Updater<Window> {
     }
 }
 
-fn key_of<Window>(widget: &dyn WidgetDyn<Window>, index: usize) -> TypedKey {
+fn key_of<Handle>(widget: &dyn WidgetDyn<Handle>, index: usize) -> TypedKey {
     match widget.key() {
         Some(key) => TypedKey::Keyed(widget.as_any().type_id(), key),
         None => TypedKey::Indexed(widget.as_any().type_id(), index),

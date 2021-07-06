@@ -5,7 +5,6 @@ use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use tree::NodeId;
 use widget::widget::{Element, FiberTree, Widget, WidgetMeta};
 
-/// A padding widget. Is expected to have exactly one child.
 #[derive(PartialEq)]
 pub struct Padding {
     left: f32,
@@ -26,14 +25,14 @@ impl Padding {
     }
 }
 
-impl<Window> Widget<Window> for Padding {
+impl<Handle> Widget<Handle> for Padding {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
         Default::default()
     }
 
-    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Window>]) -> bool {
+    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
         self == next_widget
     }
 
@@ -42,7 +41,7 @@ impl<Window> Widget<Window> for Padding {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
-        tree: &FiberTree<Window>,
+        tree: &FiberTree<Handle>,
         layout_context: &mut LayoutContext,
         _state: &mut Self::State
     ) -> LayoutResult {

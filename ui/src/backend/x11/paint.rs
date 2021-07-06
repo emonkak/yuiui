@@ -75,12 +75,12 @@ impl Painter<XWindowHandle> for XPainter  {
         }
     }
 
-    fn commit(&mut self, window: &XWindowHandle, rectangle: &Rectangle) {
+    fn commit(&mut self, handle: &XWindowHandle, rectangle: &Rectangle) {
         unsafe {
             xlib::XCopyArea(
                 self.display,
                 self.pixmap,
-                window.window,
+                handle.window,
                 self.gc,
                 rectangle.point.x as _,
                 rectangle.point.y as _,

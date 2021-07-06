@@ -4,7 +4,7 @@ use widget::widget::{Widget, WidgetMeta};
 
 pub struct Null;
 
-impl<Window> Widget<Window> for Null {
+impl<Handle> Widget<Handle> for Null {
     type State = ();
 
     fn initial_state(&self) -> Self::State {

@@ -1,17 +1,17 @@
 use geometrics::{Rectangle};
 
-pub trait Painter<Window> {
+pub trait Painter<Handle> {
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle);
 
-    fn commit(&mut self, window: &Window, rectangle: &Rectangle);
+    fn commit(&mut self, handle: &Handle, rectangle: &Rectangle);
 }
 
-pub struct PaintContext<Window> {
-    painter: Box<dyn Painter<Window>>,
+pub struct PaintContext<Handle> {
+    painter: Box<dyn Painter<Handle>>,
 }
 
-impl<Window> PaintContext<Window> {
-    pub fn new(painter: impl Painter<Window> + 'static) -> Self {
+impl<Handle> PaintContext<Handle> {
+    pub fn new(painter: impl Painter<Handle> + 'static) -> Self {
         PaintContext {
             painter: Box::new(painter)
         }
@@ -21,7 +21,7 @@ impl<Window> PaintContext<Window> {
         self.painter.fill_rectangle(color, rectangle);
     }
 
-    pub fn commit(&mut self, window: &Window, rectangle: &Rectangle) {
-        self.painter.commit(window, rectangle);
+    pub fn commit(&mut self, handle: &Handle, rectangle: &Rectangle) {
+        self.painter.commit(handle, rectangle);
     }
 }
