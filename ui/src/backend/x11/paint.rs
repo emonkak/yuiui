@@ -1,6 +1,7 @@
 use std::ptr;
 use x11::xlib;
 
+use backend::WindowHandle;
 use geometrics::Rectangle;
 use paint::Painter;
 use super::window::XWindowHandle;
@@ -13,27 +14,44 @@ pub struct XPainter {
 
 impl XPainter {
     pub fn new(handle: &XWindowHandle) -> Self {
-        let size = handle.get_size();
-        let pixmap = unsafe {
-            let screen = xlib::XDefaultScreenOfDisplay(handle.display);
-            let screen_number = xlib::XScreenNumberOfScreen(screen);
-            let depth = xlib::XDefaultDepth(handle.display, screen_number);
-            xlib::XCreatePixmap(
-                handle.display,
-                handle.window,
-                size.width as _,
-                size.height as _,
-                depth as _
-            )
-        };
-        let gc = unsafe {
-            xlib::XCreateGC(handle.display, pixmap, 0, ptr::null_mut())
-        };
+        let rectangle = handle.get_window_rectangle();
+        unsafe {
+            let pixmap = {
+                let screen = xlib::XDefaultScreenOfDisplay(handle.display);
+                let screen_number = xlib::XScreenNumberOfScreen(screen);
+                let depth = xlib::XDefaultDepth(handle.display, screen_number);
+                xlib::XCreatePixmap(
+                    handle.display,
+                    handle.window,
+                    rectangle.size.width as _,
+                    rectangle.size.height as _,
+                    depth as _
+                )
+            };
+            let gc = xlib::XCreateGC(handle.display, pixmap, 0, ptr::null_mut());
 
-        Self {
-            display: handle.display,
-            pixmap,
-            gc
+            {
+                let screen = xlib::XDefaultScreenOfDisplay(handle.display);
+                let screen_number = xlib::XScreenNumberOfScreen(screen);
+                let color = xlib::XWhitePixel(handle.display, screen_number);
+
+                xlib::XSetForeground(handle.display, gc, color);
+                xlib::XFillRectangle(
+                    handle.display,
+                    pixmap,
+                    gc,
+                    0,
+                    0,
+                    rectangle.size.width as _,
+                    rectangle.size.height as _
+                );
+            }
+
+            Self {
+                display: handle.display,
+                pixmap,
+                gc
+            }
         }
     }
 
@@ -82,12 +100,12 @@ impl Painter<XWindowHandle> for XPainter  {
                 self.pixmap,
                 handle.window,
                 self.gc,
-                rectangle.point.x as _,
-                rectangle.point.y as _,
+                0,
+                0,
                 rectangle.size.width as _,
                 rectangle.size.height as _,
-                rectangle.point.x as _,
-                rectangle.point.y as _,
+                0,
+                0,
             );
         }
     }

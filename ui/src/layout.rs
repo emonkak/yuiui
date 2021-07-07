@@ -56,18 +56,28 @@ impl LayoutContext {
     }
 
     #[inline]
-    pub fn resize(&mut self, node_id: NodeId, size: Size) {
+    pub fn resize(&mut self, node_id: NodeId, size: Size) -> bool {
         let rectange = self.rectangles.get_or_insert_default(node_id);
-        rectange.size = size;
+        if rectange.size != size {
+            rectange.size = size;
+            true
+        } else {
+            false
+        }
     }
 }
 
 impl BoxConstraints {
+    pub const NONE: Self = Self {
+        min: Size::ZERO,
+        max: Size::ZERO
+    };
+
     #[inline]
-    pub fn tight(size: &Size) -> BoxConstraints {
+    pub fn tight(size: Size) -> BoxConstraints {
         BoxConstraints {
-            min: *size,
-            max: *size,
+            min: size,
+            max: size,
         }
     }
 

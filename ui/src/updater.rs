@@ -50,9 +50,10 @@ impl<Handle> Updater<Handle> {
         }
     }
 
-    pub fn layout(&mut self, box_constraints: BoxConstraints) -> Size {
-        let mut requests = vec![(self.root_id, box_constraints)];
+    pub fn layout(&mut self, viewport_size: Size, force_layout: bool) -> Size {
+        let mut requests = vec![(self.root_id, BoxConstraints::tight(viewport_size))];
         let mut response = None;
+        let mut should_layout_child = force_layout;
 
         while let Some(&(request_id, box_constraints)) = requests.last() {
             let node = &mut self.tree[request_id];
@@ -74,8 +75,10 @@ impl<Handle> Updater<Handle> {
 
             match result {
                 LayoutResult::Size(size) => {
-                    self.layout_context.resize(request_id, size);
-                    if size == Size::ZERO {
+                    if self.layout_context.resize(request_id, size) {
+                        should_layout_child = true;
+                        node.dirty = size != Size::ZERO;
+                    } else if size == Size::ZERO {
                         node.dirty = false;
                     }
                     if requests.len() == 1 {
@@ -86,7 +89,7 @@ impl<Handle> Updater<Handle> {
                 }
                 LayoutResult::RequestChild(child_id, child_box_constraints) => {
                     let child = &self.tree[child_id];
-                    if child.dirty {
+                    if should_layout_child || child.dirty {
                         requests.push((child_id, child_box_constraints));
                         response = None;
                     } else {
@@ -203,7 +206,6 @@ impl<Handle> Updater<Handle> {
         target_id: NodeId,
         result: ReconcileResult<NodeId, Element<Handle>>
     ) {
-        println!("{:?}", result);
         match result {
             ReconcileResult::New(new_element) => {
                 let new_fiber = Fiber::from(new_element);

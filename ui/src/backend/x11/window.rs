@@ -1,9 +1,10 @@
 use std::mem;
 use x11::xlib;
 
-use geometrics::Size;
+use backend::WindowHandle;
+use geometrics::{Point, Rectangle, Size};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct XWindowHandle {
     pub display: *mut xlib::Display,
     pub window: xlib::Window
@@ -16,21 +17,10 @@ impl XWindowHandle {
             window,
         }
     }
+}
 
-    pub fn show(&self) {
-        unsafe {
-            xlib::XMapWindow(self.display, self.window);
-            xlib::XFlush(self.display);
-        }
-    }
-
-    pub fn close(&self) {
-        unsafe {
-            xlib::XDestroyWindow(self.display, self.window);
-        }
-    }
-
-    pub fn get_size(&self) -> Size {
+impl WindowHandle for XWindowHandle {
+    fn get_window_rectangle(&self) -> Rectangle {
         let mut attributes: xlib::XWindowAttributes = unsafe { mem::MaybeUninit::zeroed().assume_init() };
         unsafe {
             xlib::XGetWindowAttributes(
@@ -39,9 +29,28 @@ impl XWindowHandle {
                 &mut attributes
             );
         }
-        Size {
-            width: attributes.width as _,
-            height: attributes.height as _
+        Rectangle {
+            point: Point {
+                x: attributes.x as _,
+                y: attributes.y as _,
+            },
+            size: Size {
+                width: attributes.width as _,
+                height: attributes.height as _
+            }
+        }
+    }
+
+    fn show_window(&self) {
+        unsafe {
+            xlib::XMapWindow(self.display, self.window);
+            xlib::XFlush(self.display);
+        }
+    }
+
+    fn close_window(&self) {
+        unsafe {
+            xlib::XDestroyWindow(self.display, self.window);
         }
     }
 }
@@ -72,9 +81,8 @@ pub unsafe fn create_window(display: *mut xlib::Display, width: u32, height: u32
     xlib::XSelectInput(
         display,
         window,
-        xlib::ExposureMask
+        xlib::ExposureMask | xlib::StructureNotifyMask
     );
 
     window
 }
-

@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any;
 
 use geometrics::Rectangle;
 use paint::PaintContext;
@@ -28,14 +28,13 @@ impl<Handle> Widget<Handle> for Fill {
         self == next_widget
     }
 
-    fn paint(&self, rectangle: &Rectangle, handle: &Handle, paint_context: &mut PaintContext<Handle>) {
+    fn paint(&self, rectangle: &Rectangle, _handle: &Handle, paint_context: &mut PaintContext<Handle>) {
         paint_context.fill_rectangle(self.color, rectangle);
-        paint_context.commit(handle, rectangle);
     }
 }
 
 impl WidgetMeta for Fill {
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn any::Any {
         self
     }
 }
