@@ -3,8 +3,14 @@ use slot_vec::SlotVec;
 use tree::NodeId;
 
 #[derive(Debug)]
-pub struct LayoutContext {
-    rectangles: SlotVec<Rectangle>,
+pub struct LayoutContext<'a> {
+    states: &'a mut SlotVec<LayoutState>,
+}
+
+#[derive(Debug)]
+pub struct LayoutState {
+    pub rectangle: Rectangle,
+    pub deleted_children: Vec<NodeId>,
 }
 
 pub enum LayoutResult {
@@ -18,52 +24,40 @@ pub struct BoxConstraints {
     pub max: Size,
 }
 
-impl LayoutContext {
-    pub(crate) const fn new() -> Self {
+impl Default for LayoutState {
+    fn default() -> Self {
         Self {
-            rectangles: SlotVec::new(),
+            rectangle: Rectangle::ZERO,
+            deleted_children: Vec::new(),
+        }
+    }
+}
+
+impl<'a> LayoutContext<'a> {
+    pub fn new(states: &'a mut SlotVec<LayoutState>) -> Self {
+        Self {
+            states
         }
     }
 
     #[inline]
-    pub(crate) fn remove(&mut self, node_id: NodeId) -> Rectangle {
-        self.rectangles.remove(node_id)
+    pub fn get_rectangle(&self, node_id: NodeId) -> &Rectangle {
+        &self.states[node_id].rectangle
     }
 
     #[inline]
-    pub fn get_rectangle(&self, node_id: NodeId) -> Option<&Rectangle> {
-        self.rectangles.get(node_id)
+    pub fn get_point(&self, node_id: NodeId) -> &Point {
+        &self.states[node_id].rectangle.point
     }
 
     #[inline]
-    pub fn get_point(&self, node_id: NodeId) -> Option<&Point> {
-        self.rectangles
-            .get(node_id)
-            .map(|rectangle| &rectangle.point)
-    }
-
-    #[inline]
-    pub fn get_size(&self, node_id: NodeId) -> Option<&Size> {
-        self.rectangles
-            .get(node_id)
-            .map(|rectangle| &rectangle.size)
+    pub fn get_size(&self, node_id: NodeId) -> &Size {
+        &self.states[node_id].rectangle.size
     }
 
     #[inline]
     pub fn arrange(&mut self, node_id: NodeId, point: Point) {
-        let rectange = self.rectangles.get_or_insert_default(node_id);
-        rectange.point = point;
-    }
-
-    #[inline]
-    pub fn resize(&mut self, node_id: NodeId, size: Size) -> bool {
-        let rectange = self.rectangles.get_or_insert_default(node_id);
-        if rectange.size != size {
-            rectange.size = size;
-            true
-        } else {
-            false
-        }
+        self.states[node_id].rectangle.point = point;
     }
 }
 
@@ -89,3 +83,4 @@ impl BoxConstraints {
         }
     }
 }
+

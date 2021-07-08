@@ -63,6 +63,9 @@ fn main() {
 
     updater.update(render());
     updater.render();
+
+    println!("{}", updater);
+
     updater.layout(Size { width: window_width as _, height: window_height as _ }, false);
 
     updater.update(render2());

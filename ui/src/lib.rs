@@ -1,3 +1,4 @@
+extern crate nix;
 extern crate x11;
 
 pub mod backend;

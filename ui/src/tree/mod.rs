@@ -58,6 +58,10 @@ impl<T> Tree<T> {
         self.arena.contains(target_id)
     }
 
+    pub fn next_node_id(&self) -> NodeId {
+        self.arena.next_slot_index()
+    }
+
     pub fn attach(&mut self, node: impl Into<Node<T>>) -> NodeId {
         let node = Link {
             current: node.into(),

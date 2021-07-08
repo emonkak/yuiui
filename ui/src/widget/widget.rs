@@ -1,24 +1,27 @@
 use std::any;
 use std::array;
 use std::fmt;
-use std::mem;
 
 use geometrics::{Rectangle, Size};
 use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use paint::PaintContext;
 use tree::{Link, NodeId, Tree};
 
-pub type FiberTree<Handle> = Tree<Fiber<Handle>>;
+pub type WidgetTree<Handle> = Tree<Box<dyn WidgetDyn<Handle>>>;
 
-pub type FiberNode<Handle> = Link<Fiber<Handle>>;
+pub type WidgetNode<Handle> = Link<Box<dyn WidgetDyn<Handle>>>;
 
 #[derive(Debug)]
-pub struct Fiber<Handle> {
-    pub(crate) widget: Box<dyn WidgetDyn<Handle>>,
+pub struct RenderState<Handle> {
     pub(crate) rendered_children: Option<Box<[Element<Handle>]>>,
-    pub(crate) handle: Option<Handle>,
-    pub(crate) state: Option<Box<dyn any::Any>>,
+    pub(crate) deleted_children: Vec<NodeId>,
+    pub(crate) state: Box<dyn any::Any>,
     pub(crate) dirty: bool,
+}
+
+#[derive(Debug)]
+pub struct PaintState<Handle> {
+    pub(crate) handle: Option<Handle>,
     pub(crate) mounted: bool,
 }
 
@@ -58,33 +61,17 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline(always)]
-    fn mount(&mut self, _parent_handle: &Handle, _rectangle: &Rectangle) -> Option<Handle> {
+    fn mount(&self, _parent_handle: &Handle, _rectangle: &Rectangle) -> Option<Handle> {
         None
     }
 
     #[inline(always)]
-    fn unmount(&mut self, _handle: &Handle) {
+    fn unmount(&self, _handle: Handle) {
     }
 
     #[inline(always)]
-    fn layout(
-        &self,
-        node_id: NodeId,
-        box_constraints: BoxConstraints,
-        response: Option<(NodeId, Size)>,
-        tree: &FiberTree<Handle>,
-        _layout_context: &mut LayoutContext,
-        _state: &mut Self::State
-    ) -> LayoutResult {
-        if let Some((_, size)) = response {
-            LayoutResult::Size(size)
-        } else {
-            if let Some(child_id) = tree[node_id].first_child() {
-                LayoutResult::RequestChild(child_id, box_constraints)
-            } else {
-                LayoutResult::Size(box_constraints.max)
-            }
-        }
+    fn layout(&self) -> Box<dyn Layout<Handle>> {
+        Box::new(DefaultLayout)
     }
 
     #[inline(always)]
@@ -103,11 +90,11 @@ pub trait WidgetDyn<Handle>: WidgetMeta {
 
     fn render(&self, children: Box<[Element<Handle>]>, state: &mut dyn any::Any) -> Box<[Element<Handle>]>;
 
-    fn mount(&mut self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle>;
+    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle>;
 
-    fn unmount(&mut self, handle: &Handle);
+    fn unmount(&self, handle: Handle);
 
-    fn layout(&self, node_id: NodeId, box_constraints: BoxConstraints, response: Option<(NodeId, Size)>, tree: &FiberTree<Handle>, layout_context: &mut LayoutContext, state: &mut dyn any::Any) -> LayoutResult;
+    fn layout(&self) -> Box<dyn Layout<Handle>>;
 
     fn paint(&self, rectangle: &Rectangle, handle: &Handle, paint_context: &mut PaintContext<Handle>);
 }
@@ -138,6 +125,28 @@ pub trait WidgetMeta {
     fn as_any(&self) -> &dyn any::Any;
 }
 
+pub trait Layout<Handle> {
+    fn measure(
+        &mut self,
+        node_id: NodeId,
+        box_constraints: BoxConstraints,
+        response: Option<(NodeId, Size)>,
+        tree: &WidgetTree<Handle>,
+        _layout_context: &mut LayoutContext) -> LayoutResult {
+        if let Some((_, size)) = response {
+            LayoutResult::Size(size)
+        } else {
+            if let Some(child_id) = tree[node_id].first_child() {
+                LayoutResult::RequestChild(child_id, box_constraints)
+            } else {
+                LayoutResult::Size(box_constraints.max)
+            }
+        }
+    }
+}
+
+pub struct DefaultLayout;
+
 pub struct WithKey<T> {
     inner: T,
     key: Key,
@@ -145,76 +154,40 @@ pub struct WithKey<T> {
 
 pub type Key = usize;
 
-impl<Handle> Fiber<Handle> {
-    pub(crate) fn new(widget: Box<dyn WidgetDyn<Handle>>, children: Box<[Element<Handle>]>) -> Fiber<Handle> {
+impl<Handle> RenderState<Handle> {
+    pub fn new(widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) -> Self {
         let mut initial_state = widget.initial_state();
         let rendered_children = widget.render(children, &mut *initial_state);
-        Fiber {
-            widget,
+        Self {
             rendered_children: Some(rendered_children),
-            handle: None,
-            state: None,
+            deleted_children: Vec::new(),
+            state: initial_state,
             dirty: true,
+        }
+    }
+
+    pub fn root<S: 'static, W: Widget<Handle, State=S>>(widget: W) -> Self {
+        Self {
+            rendered_children: None,
+            deleted_children: Vec::new(),
+            state: Box::new(widget.initial_state()),
+            dirty: true,
+        }
+    }
+
+    pub fn update(&mut self, widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) {
+        let rendered_children = widget.render(children, &mut *self.state);
+        self.dirty = true;
+        self.rendered_children = Some(rendered_children);
+    }
+}
+
+impl<Handle> Default for PaintState<Handle> {
+    fn default() -> Self {
+        Self {
+            handle: None,
             mounted: false,
         }
-    }
-
-    pub fn as_widget<T: Widget<Handle> + 'static>(&self) -> Option<&T> {
-        self.widget.as_any().downcast_ref()
-    }
-
-    pub(crate) fn update(&mut self, element: Element<Handle>) -> bool {
-        if self.widget.should_update(&*element.widget, &element.children) {
-            self.widget.will_update(&*element.widget, &element.children);
-
-            let prev_widget = mem::replace(&mut self.widget, element.widget);
-            let mut state = self.state.take().unwrap_or_else(|| self.widget.initial_state());
-            let rendered_children = self.widget.render(element.children, &mut *state);
-
-            self.dirty = true;
-            self.state = Some(state);
-            self.rendered_children = Some(rendered_children);
-
-            self.widget.did_update(&*prev_widget);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub(crate) fn unmount(&mut self) {
-        let widget = &mut self.widget;
-        if let Some(handle) = self.handle.as_ref() {
-            widget.unmount(handle);
-        }
-    }
-
-    pub(crate) fn paint<'a>(&'a mut self, rectangle: &Rectangle, parent_handle: &'a Handle, paint_context: &mut PaintContext<Handle>) -> &'a Handle {
-        let widget = &mut self.widget;
-
-        if !self.mounted {
-            self.handle = widget.mount(&parent_handle, rectangle);
-            self.mounted = true;
-        }
-
-        self.dirty = false;
-
-        let handle = self.handle.as_ref().unwrap_or(parent_handle);
-        widget.paint(rectangle, handle, paint_context);
-
-        handle
-    }
-}
-
-impl<Handle> From<Element<Handle>> for Fiber<Handle> {
-    fn from(element: Element<Handle>) -> Fiber<Handle> {
-        Fiber::new(element.widget, element.children)
-    }
-}
-
-impl<Handle> fmt::Display for Fiber<Handle> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.widget.name())
     }
 }
 
@@ -318,6 +291,12 @@ impl<Handle> fmt::Debug for dyn WidgetDyn<Handle> {
     }
 }
 
+impl<Handle> fmt::Display for dyn WidgetDyn<Handle> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'static> WidgetDyn<Handle> for T {
     #[inline(always)]
     fn initial_state(&self) -> Box<dyn any::Any> {
@@ -353,33 +332,18 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn mount(&mut self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle> {
+    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle> {
         self.mount(parent_handle, rectangle)
     }
 
     #[inline(always)]
-    fn unmount(&mut self, handle: &Handle) {
+    fn unmount(&self, handle: Handle) {
         self.unmount(handle)
     }
 
     #[inline(always)]
-    fn layout(
-        &self,
-        node_id: NodeId,
-        box_constraints: BoxConstraints,
-        response: Option<(NodeId, Size)>,
-        tree: &FiberTree<Handle>,
-        layout_context: &mut LayoutContext,
-        state: &mut dyn any::Any
-    ) -> LayoutResult {
-        self.layout(
-            node_id,
-            box_constraints,
-            response,
-            tree,
-            layout_context,
-            state.downcast_mut::<State>().unwrap()
-        )
+    fn layout(&self) -> Box<dyn Layout<Handle>> {
+        self.layout()
     }
 
     #[inline(always)]
@@ -417,26 +381,18 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn mount(&mut self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle> {
+    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle> {
         self.inner.mount(parent_handle, rectangle)
     }
 
     #[inline(always)]
-    fn unmount(&mut self, handle: &Handle) {
+    fn unmount(&self, handle: Handle) {
         self.inner.unmount(handle)
     }
 
     #[inline(always)]
-    fn layout(
-        &self,
-        node_id: NodeId,
-        box_constraints: BoxConstraints,
-        response: Option<(NodeId, Size)>,
-        tree: &FiberTree<Handle>,
-        layout_context: &mut LayoutContext,
-        state: &mut Self::State
-    ) -> LayoutResult {
-        self.inner.layout(node_id, box_constraints, response, tree, layout_context, state)
+    fn layout(&self) -> Box<dyn Layout<Handle>> {
+        self.inner.layout()
     }
 
     #[inline(always)]
@@ -460,4 +416,7 @@ impl<T: WidgetMeta> WidgetMeta for WithKey<T> {
     fn as_any(&self) -> &dyn any::Any {
         self.inner.as_any()
     }
+}
+
+impl<Handle> Layout<Handle> for DefaultLayout {
 }
