@@ -3,14 +3,14 @@ use std::fmt;
 use std::mem;
 
 use geometrics::{Point, Rectangle, Size};
-use layout::{DefaultLayout, BoxConstraints, Layout, LayoutResult, Layouter};
+use layout::{DefaultLayout, BoxConstraints, LayoutResult, Layouter};
 use paint::PaintContext;
 use reconciler::{Reconciler, ReconcileResult};
 use slot_vec::SlotVec;
 use tree::walk::{WalkDirection, walk_next_node};
 use tree::{NodeId, Tree};
 use widget::null::Null;
-use widget::{Element, Key, WidgetDyn, WidgetInstance, WidgetTree};
+use widget::{Element, Key, WidgetDyn, WidgetLayout, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {
@@ -69,7 +69,7 @@ impl<Handle> Updater<Handle> {
     }
 
     pub fn layout(&mut self, viewport_size: Size, force_layout: bool) -> Size {
-        let mut requests: Vec<(NodeId, BoxConstraints, Box<dyn Layout<WidgetInstance<Handle>>>)> = vec![
+        let mut requests: Vec<(NodeId, BoxConstraints, WidgetLayout<Handle>)> = vec![
             (self.root_id, BoxConstraints::tight(viewport_size), Box::new(DefaultLayout))
         ];
         let mut response = None;

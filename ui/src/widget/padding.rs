@@ -4,7 +4,7 @@ use geometrics::{Point, Size};
 use layout::{BoxConstraints, Layout, LayoutResult, Layouter};
 use tree::NodeId;
 
-use super::{Widget, WidgetInstance, WidgetMeta, WidgetTree};
+use super::{Widget, WidgetInstance, WidgetLayout, WidgetMeta, WidgetTree};
 
 #[derive(Clone)]
 pub struct Padding {
@@ -32,7 +32,7 @@ impl<Handle> Widget<Handle> for Padding {
         Default::default()
     }
 
-    fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>> {
+    fn layout(&self) -> WidgetLayout<Handle> {
         Box::new(self.clone())
     }
 }

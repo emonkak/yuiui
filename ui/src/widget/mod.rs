@@ -16,6 +16,8 @@ pub type WidgetTree<Handle> = Tree<WidgetInstance<Handle>>;
 
 pub type WidgetNode<Handle> = Link<WidgetInstance<Handle>>;
 
+pub type WidgetLayout<Handle> = Box<dyn Layout<WidgetInstance<Handle>>>;
+
 pub type WidgetInstance<Handle> = Box<dyn WidgetDyn<Handle>>;
 
 pub type Key = usize;
@@ -89,7 +91,7 @@ pub trait WidgetDyn<Handle>: WidgetMeta {
 
     fn unmount(&self, handle: Handle);
 
-    fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>>;
+    fn layout(&self) -> WidgetLayout<Handle>;
 
     fn paint(&self, rectangle: &Rectangle, handle: &Handle, paint_context: &mut PaintContext<Handle>);
 }
@@ -276,7 +278,7 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>> {
+    fn layout(&self) -> WidgetLayout<Handle> {
         self.layout()
     }
 
@@ -325,7 +327,7 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>> {
+    fn layout(&self) -> WidgetLayout<Handle> {
         self.inner.layout()
     }
 

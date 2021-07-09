@@ -4,7 +4,7 @@ use geometrics::{Point, Size};
 use layout::{BoxConstraints, Layout, LayoutResult, Layouter};
 use tree::NodeId;
 
-use super::{Widget, WidgetInstance, WidgetMeta, WidgetNode, WidgetTree};
+use super::{Widget, WidgetInstance, WidgetLayout, WidgetMeta, WidgetNode, WidgetTree};
 
 pub struct Flex {
     direction: Axis,
@@ -104,7 +104,7 @@ impl FlexLayout {
         }
     }
 
-    fn get_params<Handle>(&self, widget: &WidgetNode<Handle>) -> Params {
+    fn get_params<Handle>(&self, widget: &WidgetInstance<Handle>) -> Params {
         widget.as_any()
             .downcast_ref::<FlexItem>()
             .map(|flex_item| flex_item.params)
@@ -149,7 +149,7 @@ impl<Handle> Widget<Handle> for Flex {
         Default::default()
     }
 
-    fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>> {
+    fn layout(&self) -> WidgetLayout<Handle> {
         Box::new(FlexLayout::new(self.direction))
     }
 }
