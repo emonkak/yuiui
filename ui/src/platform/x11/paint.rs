@@ -1,7 +1,7 @@
 use std::ptr;
 use x11::xlib;
 
-use backend::WindowHandle;
+use platform::WindowHandle;
 use geometrics::Rectangle;
 use paint::Painter;
 use super::window::XWindowHandle;

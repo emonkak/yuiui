@@ -353,7 +353,7 @@ impl<Handle> Updater<Handle> {
     }
 }
 
-impl<Handle: fmt::Debug> fmt::Display for Updater<Handle> {
+impl<Handle> fmt::Display for Updater<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

@@ -1,7 +1,7 @@
 use std::mem;
 use x11::xlib;
 
-use backend::WindowHandle;
+use platform::WindowHandle;
 use geometrics::{Point, Rectangle, Size};
 
 #[derive(Clone, Debug)]

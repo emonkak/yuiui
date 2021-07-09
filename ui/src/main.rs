@@ -7,12 +7,12 @@ use std::mem;
 use std::ptr;
 use x11::xlib;
 
-use ui::backend::WindowHandle;
-use ui::backend::x11::event::XEvent;
-use ui::backend::x11::paint::XPainter;
-use ui::backend::x11::window::{self, XWindowHandle};
 use ui::geometrics::{Point, Rectangle, Size};
 use ui::paint::PaintContext;
+use ui::platform::WindowHandle;
+use ui::platform::x11::event::XEvent;
+use ui::platform::x11::paint::XPainter;
+use ui::platform::x11::window::{self, XWindowHandle};
 use ui::updater::Updater;
 use ui::widget::fill::Fill;
 use ui::widget::flex::{Flex, FlexItem};
