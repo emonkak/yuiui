@@ -40,16 +40,16 @@ pub trait Widget<Handle>: WidgetMeta {
     fn initial_state(&self) -> Self::State;
 
     #[inline(always)]
-    fn should_update(&self, _next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
+    fn should_render(&self, _next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
         true
     }
 
     #[inline(always)]
-    fn will_update(&self, _next_widget: &Self, _next_children: &[Element<Handle>], _state: &mut Self::State) {
+    fn will_render(&self, _next_widget: &Self, _next_children: &[Element<Handle>], _state: &mut Self::State) {
     }
 
     #[inline(always)]
-    fn did_update(&self, _prev_widget: &Self) {
+    fn did_render(&self, _prev_widget: &Self, _state: &mut Self::State) {
     }
 
     #[inline(always)]
@@ -58,47 +58,48 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline(always)]
-    fn mount(&self, _parent_handle: &Handle, _rectangle: &Rectangle) -> Option<Handle> {
-        None
-    }
-
-    #[inline(always)]
-    fn unmount(&self, _handle: Handle) {
-    }
-
-    #[inline(always)]
     fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>> {
         Box::new(DefaultLayout)
     }
 
     #[inline(always)]
-    fn paint(&self, _rectangle: &Rectangle, _handle: &Handle, _paint_context: &mut PaintContext<Handle>) {
+    fn mount(&self, _parent_handle: &Handle, _rectangle: &Rectangle, _state: &mut Self::State) -> Option<Handle> {
+        None
+    }
+
+    #[inline(always)]
+    fn unmount(&self, _handle: Handle, _rectangle: &Rectangle, _state: &mut Self::State) {
+    }
+
+    #[inline(always)]
+    fn paint(&self, _handle: &Handle, _rectangle: &Rectangle, _state: &mut Self::State, _paint_context: &mut PaintContext<Handle>) {
     }
 }
 
 pub trait WidgetDyn<Handle>: WidgetMeta {
     fn initial_state(&self) -> Box<dyn any::Any>;
 
-    fn should_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]) -> bool;
+    fn should_render(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]) -> bool;
 
-    fn will_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>], state: &mut dyn any::Any);
+    fn will_render(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>], state: &mut dyn any::Any);
 
-    fn did_update(&self, prev_widget: &dyn WidgetDyn<Handle>);
+    fn did_render(&self, prev_widget: &dyn WidgetDyn<Handle>, state: &mut dyn any::Any);
 
     fn render(&self, children: Box<[Element<Handle>]>, state: &mut dyn any::Any) -> Box<[Element<Handle>]>;
 
-    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle>;
-
-    fn unmount(&self, handle: Handle);
-
     fn layout(&self) -> WidgetLayout<Handle>;
 
-    fn paint(&self, rectangle: &Rectangle, handle: &Handle, paint_context: &mut PaintContext<Handle>);
+    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any) -> Option<Handle>;
+
+    fn unmount(&self, handle: Handle, rectangle: &Rectangle, state: &mut dyn any::Any);
+
+    fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any, paint_context: &mut PaintContext<Handle>);
 }
 
 pub trait WidgetMeta {
     #[inline(always)]
     fn name(&self) -> &'static str {
+        // TODO:
         let full_name = any::type_name::<Self>();
         full_name
             .rsplit_once("::")
@@ -240,25 +241,25 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn should_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]) -> bool {
+    fn should_render(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]) -> bool {
         next_widget
             .as_any()
             .downcast_ref::<Self>()
-            .map(|next_widget| self.should_update(next_widget, next_children))
+            .map(|next_widget| self.should_render(next_widget, next_children))
             .unwrap_or(true)
     }
 
     #[inline(always)]
-    fn will_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>], state: &mut dyn any::Any) {
+    fn will_render(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>], state: &mut dyn any::Any) {
         if let Some(next_widget) = next_widget.as_any().downcast_ref() {
-            self.will_update(next_widget, next_children, state.downcast_mut().unwrap())
+            self.will_render(next_widget, next_children, state.downcast_mut().unwrap())
         }
     }
 
     #[inline(always)]
-    fn did_update(&self, next_widget: &dyn WidgetDyn<Handle>) {
-        if let Some(next_widget) = next_widget.as_any().downcast_ref() {
-            self.did_update(next_widget)
+    fn did_render(&self, prev_widget: &dyn WidgetDyn<Handle>, state: &mut dyn any::Any) {
+        if let Some(prev_widget) = prev_widget.as_any().downcast_ref() {
+            self.did_render(prev_widget, state.downcast_mut().unwrap())
         }
     }
 
@@ -268,23 +269,23 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle> {
-        self.mount(parent_handle, rectangle)
-    }
-
-    #[inline(always)]
-    fn unmount(&self, handle: Handle) {
-        self.unmount(handle)
-    }
-
-    #[inline(always)]
     fn layout(&self) -> WidgetLayout<Handle> {
         self.layout()
     }
 
     #[inline(always)]
-    fn paint(&self, rectangle: &Rectangle, handle: &Handle, paint_context: &mut PaintContext<Handle>) {
-        self.paint(rectangle, handle, paint_context)
+    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any) -> Option<Handle> {
+        self.mount(parent_handle, rectangle, state.downcast_mut().unwrap())
+    }
+
+    #[inline(always)]
+    fn unmount(&self, handle: Handle, rectangle: &Rectangle, state: &mut dyn any::Any) {
+        self.unmount(handle, rectangle, state.downcast_mut().unwrap())
+    }
+
+    #[inline(always)]
+    fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any, paint_context: &mut PaintContext<Handle>) {
+        self.paint(handle, rectangle, state.downcast_mut().unwrap(), paint_context)
     }
 }
 
@@ -297,18 +298,18 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn should_update(&self, next_widget: &Self, next_children: &[Element<Handle>]) -> bool {
-        self.inner.should_update(&next_widget.inner, next_children)
+    fn should_render(&self, next_widget: &Self, next_children: &[Element<Handle>]) -> bool {
+        self.inner.should_render(&next_widget.inner, next_children)
     }
 
     #[inline(always)]
-    fn will_update(&self, next_widget: &Self, next_children: &[Element<Handle>], state: &mut Self::State) {
-        self.inner.will_update(&next_widget.inner, next_children, state)
+    fn will_render(&self, next_widget: &Self, next_children: &[Element<Handle>], state: &mut Self::State) {
+        self.inner.will_render(&next_widget.inner, next_children, state)
     }
 
     #[inline(always)]
-    fn did_update(&self, prev_widget: &Self) {
-        self.inner.did_update(&prev_widget.inner)
+    fn did_render(&self, prev_widget: &Self, state: &mut Self::State) {
+        self.inner.did_render(&prev_widget.inner, state)
     }
 
     #[inline(always)]
@@ -317,23 +318,23 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle) -> Option<Handle> {
-        self.inner.mount(parent_handle, rectangle)
-    }
-
-    #[inline(always)]
-    fn unmount(&self, handle: Handle) {
-        self.inner.unmount(handle)
-    }
-
-    #[inline(always)]
     fn layout(&self) -> WidgetLayout<Handle> {
         self.inner.layout()
     }
 
     #[inline(always)]
-    fn paint(&self, rectangle: &Rectangle, handle: &Handle, paint_context: &mut PaintContext<Handle>) {
-        self.inner.paint(rectangle, handle, paint_context)
+    fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle, state: &mut Self::State) -> Option<Handle> {
+        self.inner.mount(parent_handle, rectangle, state)
+    }
+
+    #[inline(always)]
+    fn unmount(&self, handle: Handle, rectangle: &Rectangle, state: &mut Self::State) {
+        self.inner.unmount(handle, rectangle, state)
+    }
+
+    #[inline(always)]
+    fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut Self::State, paint_context: &mut PaintContext<Handle>) {
+        self.inner.paint(handle, rectangle, state, paint_context)
     }
 }
 

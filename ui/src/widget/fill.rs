@@ -25,11 +25,11 @@ impl<Handle> Widget<Handle> for Fill {
         Default::default()
     }
 
-    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
+    fn should_render(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
         self != next_widget
     }
 
-    fn paint(&self, rectangle: &Rectangle, _handle: &Handle, paint_context: &mut PaintContext<Handle>) {
+    fn paint(&self, _handle: &Handle, rectangle: &Rectangle, _state: &mut Self::State, paint_context: &mut PaintContext<Handle>) {
         paint_context.fill_rectangle(self.color, rectangle);
     }
 }

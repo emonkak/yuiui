@@ -1,6 +1,7 @@
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::mem;
+use std::ptr;
 
 use geometrics::{Point, Rectangle, Size};
 use layout::{DefaultLayout, BoxConstraints, LayoutResult, Layouter};
@@ -157,7 +158,7 @@ impl<Handle> Updater<Handle> {
                 }
             }
 
-            let rectangle = &render_state.rectangle;
+            let rectangle = render_state.rectangle;
 
             match direction {
                 WalkDirection::Downward => {
@@ -180,37 +181,46 @@ impl<Handle> Updater<Handle> {
                     .copied()
                     .flatten()
                     .and_then(|node_id| self.render_states[node_id].handle.as_ref())
-                    .unwrap_or(&root_handle);
+                    .map_or(ptr::null(), |handle| handle as *const Handle);
                 let absolute_rectangle = Rectangle {
                     point: absolute_point + rectangle.point,
                     size: rectangle.size
                 };
 
-                let mounted_handle = if !render_state.mounted {
-                    widget.mount(parent_handle, rectangle)
-                } else {
-                    None
-                };
-
-                if let Some(handle) = mounted_handle.as_ref().or(render_state.handle.as_ref()) {
-                    widget.paint(&absolute_rectangle, handle, paint_context);
-                    handle_stack.push(Some(node_id));
-                } else {
-                    widget.paint(&absolute_rectangle, parent_handle, paint_context);
-                    handle_stack.push(handle_stack.last().copied().flatten());
-                }
-
                 let mut render_state = &mut self.render_states[node_id];
 
                 if !render_state.mounted {
+                    let handle = unsafe { parent_handle.as_ref().unwrap_or(root_handle) };
+                    render_state.handle = widget.mount(handle, &rectangle, &mut *render_state.state);
                     render_state.mounted = true;
-                    render_state.handle = mounted_handle;
                 }
 
+                let paint_handle = if let Some(handle) = render_state.handle.as_ref() {
+                    handle_stack.push(Some(node_id));
+                    handle
+                } else if let Some(handle) = unsafe { parent_handle.as_ref() } {
+                    handle_stack.push(handle_stack.last().copied().flatten());
+                    handle
+                } else {
+                    handle_stack.push(None);
+                    root_handle
+                };
+
+                widget.paint(
+                    paint_handle,
+                    &absolute_rectangle,
+                    &mut *render_state.state,
+                    paint_context
+                );
+
                 for child_id in mem::take(&mut render_state.deleted_children) {
-                    let deleted_render_state = self.render_states.remove(child_id);
+                    let mut deleted_render_state = self.render_states.remove(child_id);
                     if let Some(handle) = deleted_render_state.handle {
-                        widget.unmount(handle);
+                        widget.unmount(
+                            handle,
+                            &deleted_render_state.rectangle,
+                            &mut *deleted_render_state.state
+                        );
                     }
                 }
             }
@@ -327,20 +337,20 @@ impl<Handle> Updater<Handle> {
         }
     }
 
-    fn update_render_state(&mut self, node_id: NodeId, widget: Box<dyn WidgetDyn<Handle>>, children: Box<[Element<Handle>]>) {
+    fn update_render_state(&mut self, node_id: NodeId, next_widget: Box<dyn WidgetDyn<Handle>>, children: Box<[Element<Handle>]>) {
         let current_widget = &mut *self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
 
-        if widget.should_update(&**current_widget, &children) {
-            let prev_widget = mem::replace(current_widget, widget);
+        if next_widget.should_render(&**current_widget, &children) {
+            let prev_widget = mem::replace(current_widget, next_widget);
 
-            current_widget.will_update(&*prev_widget, &children, &mut *render_state.state);
+            current_widget.will_render(&*prev_widget, &children, &mut *render_state.state);
 
             let rendered_children = current_widget.render(children, &mut *render_state.state);
             render_state.dirty = true;
             render_state.rendered_children = Some(rendered_children);
 
-            current_widget.did_update(&**current_widget);
+            current_widget.did_render(&**current_widget, &mut *render_state.state);
         }
 
         for (parent_id, _) in self.tree.ancestors(node_id) {
