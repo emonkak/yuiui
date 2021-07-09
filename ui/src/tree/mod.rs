@@ -1,11 +1,11 @@
-mod ancestors;
-mod detach_subtree;
-mod formatter;
-mod move_position;
-mod post_ordered_descendants;
-mod pre_ordered_descendants;
-mod siblings;
-mod walk;
+pub mod ancestors;
+pub mod detach_subtree;
+pub mod formatter;
+pub mod move_position;
+pub mod post_ordered_descendants;
+pub mod pre_ordered_descendants;
+pub mod siblings;
+pub mod walk;
 
 use std::fmt;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
@@ -18,10 +18,8 @@ use self::post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescenda
 use self::detach_subtree::DetachSubtree;
 use self::move_position::MovePosition;
 use self::siblings::{Siblings, SiblingsMut};
-use self::walk::{Walk, WalkMut, WalkFilter, WalkFilterMut};
+use self::walk::{Walk, WalkDirection, WalkFilter, WalkFilterMut, WalkMut};
 use self::formatter::{TreeFormatter};
-
-pub use self::walk::WalkDirection;
 
 #[derive(Debug)]
 pub struct Tree<T> {
@@ -283,25 +281,25 @@ impl<T> Tree<T> {
         }
     }
 
-    pub fn walk_filter<F>(&self, target_id: NodeId, predicate: F) -> impl Iterator<Item = (NodeId, &Link<T>, WalkDirection)>
+    pub fn walk_filter<F>(&self, target_id: NodeId, f: F) -> impl Iterator<Item = (NodeId, &Link<T>, WalkDirection)>
     where
         F: Fn(NodeId, &Link<T>) -> bool {
         WalkFilter {
             tree: self,
             root_id: target_id,
             next: Some((target_id, WalkDirection::Downward)),
-            predicate,
+            f,
         }
     }
 
-    pub fn walk_filter_mut<F>(&mut self, target_id: NodeId, predicate: F) -> impl Iterator<Item = (NodeId, &mut Link<T>, WalkDirection)>
+    pub fn walk_filter_mut<F>(&mut self, target_id: NodeId, f: F) -> impl Iterator<Item = (NodeId, &mut Link<T>, WalkDirection)>
     where
         F: Fn(NodeId, &mut Link<T>) -> bool {
         WalkFilterMut {
             tree: self,
             root_id: target_id,
             next: Some((target_id, WalkDirection::Downward)),
-            predicate,
+            f,
         }
     }
 

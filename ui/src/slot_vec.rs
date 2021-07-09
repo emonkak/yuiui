@@ -70,25 +70,31 @@ impl<T> SlotVec<T> {
         None
     }
 
+    pub fn try_remove(&mut self, slot_index: usize) -> Option<T> {
+        if let Some(entry_index) = self.slots[slot_index].as_filled() {
+            if slot_index == self.slots.len().saturating_sub(1) {
+                self.slots.pop();
+                self.truncate_to_fit();
+            } else {
+                self.slots[slot_index] = Slot::free(self.free_indexes.len());
+                self.free_indexes.push(slot_index);
+            }
+
+            if entry_index == self.entries.len().saturating_sub(1) {
+                Some(self.entries.pop().unwrap().1)
+            } else {
+                let swap_slot_index = self.entries[self.entries.len() - 1].0;
+                self.slots[swap_slot_index] = Slot::filled(entry_index);
+                Some(self.entries.swap_remove(entry_index).1)
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn remove(&mut self, slot_index: usize) -> T {
-        let entry_index = self.slots[slot_index].as_filled()
-            .unwrap_or_else(|| panic!("Already removed entry at {}", slot_index));
-
-        if slot_index == self.slots.len().saturating_sub(1) {
-            self.slots.pop();
-            self.truncate_to_fit();
-        } else {
-            self.slots[slot_index] = Slot::free(self.free_indexes.len());
-            self.free_indexes.push(slot_index);
-        }
-
-        if entry_index == self.entries.len().saturating_sub(1) {
-            self.entries.pop().unwrap().1
-        } else {
-            let swap_slot_index = self.entries[self.entries.len() - 1].0;
-            self.slots[swap_slot_index] = Slot::filled(entry_index);
-            self.entries.swap_remove(entry_index).1
-        }
+        self.try_remove(slot_index)
+            .unwrap_or_else(|| panic!("Already removed entry at {}", slot_index))
     }
 
     pub fn get(&self, slot_index: usize) -> Option<&T> {

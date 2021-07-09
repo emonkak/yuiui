@@ -1,9 +1,9 @@
 use std::any::Any;
 
 use geometrics::{Point, Size};
-use layout::{BoxConstraints, LayoutContext, LayoutResult};
+use layout::{BoxConstraints, LayoutResult};
 use tree::NodeId;
-use widget::widget::{Element, Layout, Widget, WidgetMeta, WidgetNode, WidgetTree};
+use widget::widget::{Element, Layout, LayoutContext, Widget, WidgetMeta, WidgetNode, WidgetTree};
 
 #[derive(PartialEq)]
 pub struct Flex {
@@ -140,7 +140,7 @@ impl FlexLayout {
         node_id: NodeId,
         box_constraints: &BoxConstraints,
         tree: &WidgetTree<Handle>,
-        layout_context: &mut LayoutContext
+        layout_context: &mut LayoutContext<'_, Handle>
     ) -> LayoutResult {
         let mut major = 0.0;
         for (child_id, _) in tree.children(node_id) {
@@ -211,7 +211,7 @@ impl<Handle> Layout<Handle> for FlexLayout {
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
-        layout_context: &mut LayoutContext
+        layout_context: &mut LayoutContext<'_, Handle>
     ) -> LayoutResult {
         let next_child_id = if let Some((child_id, size)) = response {
             self.minor = self.direction.minor(&size).max(self.minor);

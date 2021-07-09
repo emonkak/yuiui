@@ -3,21 +3,20 @@ use std::fmt;
 use std::mem;
 
 use geometrics::{Point, Rectangle, Size};
-use layout::{BoxConstraints, LayoutState, LayoutContext, LayoutResult};
+use layout::{BoxConstraints, LayoutResult};
 use paint::PaintContext;
 use reconciler::{Reconciler, ReconcileResult};
 use slot_vec::SlotVec;
-use tree::{NodeId, Tree, WalkDirection};
+use tree::walk::{WalkDirection, walk_next_node};
+use tree::{NodeId, Tree};
 use widget::null::Null;
-use widget::widget::{DefaultLayout, Element, Key, Layout, PaintState, RenderState, WidgetDyn, WidgetTree};
+use widget::widget::{DefaultLayout, Element, Key, Layout, LayoutContext, RenderState, WidgetDyn, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {
     tree: WidgetTree<Handle>,
     root_id: NodeId,
     render_states: SlotVec<RenderState<Handle>>,
-    layout_states: SlotVec<LayoutState>,
-    paint_states: SlotVec<PaintState<Handle>>,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -26,42 +25,24 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-// Render:
-//  - &mut WidgetTree
-//  - &mut RenderStates
-// Layout:
-//  - &WidgetTree
-//  - &mut RenderStates
-//  - &mut LayoutStates
-// Paint:
-//  - &WidgetTree
-//  - &RenderStates
-//  - &LayoutStates
-//  - &mut PaintStates
 impl<Handle> Updater<Handle> {
     pub fn new() -> Self {
         let mut tree = Tree::new();
         let mut render_states = SlotVec::new();
-        let mut layout_states = SlotVec::new();
-        let mut paint_states = SlotVec::new();
 
         let root_id = tree.attach(Box::new(Null) as Box<dyn WidgetDyn<Handle>>);
 
         render_states.insert_at(root_id, RenderState::new(&Null, Box::new([])));
-        layout_states.insert_at(root_id, Default::default());
-        paint_states.insert_at(root_id, Default::default());
 
         Self {
             tree,
             root_id,
             render_states,
-            layout_states,
-            paint_states,
         }
     }
 
     pub fn update(&mut self, element: Element<Handle>) {
-        self.update_state(self.root_id, Element::new(Null, [element]));
+        self.update_render_state(self.root_id, Box::new(Null), Box::new([element]));
     }
 
     pub fn render(&mut self) {
@@ -83,7 +64,7 @@ impl<Handle> Updater<Handle> {
                     *box_constraints,
                     response,
                     &self.tree,
-                    &mut LayoutContext::new(&mut self.layout_states)
+                    &mut LayoutContext::new(&mut self.render_states)
                 );
                 (*request_id, result)
             } else {
@@ -93,21 +74,9 @@ impl<Handle> Updater<Handle> {
             match result {
                 LayoutResult::Size(size) => {
                     let render_state = &mut self.render_states[request_id];
-                    let mut deleted_children = mem::take(&mut render_state.deleted_children);
 
-                    for &child_id in deleted_children.iter() {
-                        self.layout_states.remove(child_id);
-                    }
-
-                    let layout_state = self.layout_states.get_or_insert_default(request_id);
-                    if layout_state.deleted_children.len() > 0 {
-                        layout_state.deleted_children.append(&mut deleted_children);
-                    } else {
-                        layout_state.deleted_children = deleted_children;
-                    }
-
-                    if layout_state.rectangle.size != size {
-                        layout_state.rectangle.size = size;
+                    if render_state.rectangle.size != size {
+                        render_state.rectangle.size = size;
                         render_state.dirty = size != Size::ZERO;
                         should_layout_child = true;
                     }
@@ -125,8 +94,8 @@ impl<Handle> Updater<Handle> {
                         requests.push((child_id, child_box_constraints, child_layout));
                         response = None;
                     } else {
-                        let child_layout_state = &self.layout_states[child_id];
-                        response = Some((child_id, child_layout_state.rectangle.size));
+                        let child_render_state = &self.render_states[child_id];
+                        response = Some((child_id, child_render_state.rectangle.size));
                     }
                 }
             }
@@ -135,59 +104,103 @@ impl<Handle> Updater<Handle> {
         unreachable!();
     }
 
-    pub fn paint(&mut self, parent_handle: &Handle, paint_context: &mut PaintContext<Handle>) where Handle: Clone {
-        let mut handle = parent_handle.clone();
+    pub fn paint(&mut self, root_handle: &Handle, paint_context: &mut PaintContext<Handle>) where Handle: Clone {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
-        let render_states = &self.render_states;
+        let mut handle_stack: Vec<Option<NodeId>> = vec![];
 
-        for (node_id, node, direction) in self.tree.walk_filter(
-            self.root_id,
-            |node_id, _| render_states[node_id].dirty,
-        ) {
-            let widget = &**node;
-            let layout_state = &mut self.layout_states[node_id];
-            let rectangle = &layout_state.rectangle;
+        let mut node_id = self.root_id;
+        let mut direction = WalkDirection::Downward;
 
-            for child_id in mem::take(&mut layout_state.deleted_children) {
-                let paint_state = self.paint_states.remove(child_id);
-                if let Some(handle) = paint_state.handle {
-                    widget.unmount(handle);
+        loop {
+            let mut node = &self.tree[node_id];
+            let mut render_state;
+
+            loop {
+                render_state = &self.render_states[node_id];
+
+                match direction {
+                    WalkDirection::Downward | WalkDirection::Sideward => {
+                        if render_state.dirty {
+                            break;
+                        }
+                    }
+                    WalkDirection::Upward => break,
+                }
+
+                if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, node, &WalkDirection::Upward) {
+                    node_id = next_node_id;
+                    direction = next_direction;
+                    node = &self.tree[node_id];
+                } else {
+                    break;
                 }
             }
+
+            let rectangle = &render_state.rectangle;
 
             match direction {
                 WalkDirection::Downward => {
                     absolute_point += latest_point;
-                    let paint_rectangle = Rectangle {
-                        point: absolute_point + rectangle.point,
-                        size: rectangle.size
-                    };
-                    let paint_state = self.paint_states.get_or_insert_default(node_id);
-                    if !paint_state.mounted {
-                        paint_state.handle = widget.mount(&handle, rectangle);
-                    }
-                    widget.paint(&paint_rectangle, &handle, paint_context);
-                    if let Some(next_handle) = paint_state.handle.as_ref() {
-                        handle = next_handle.clone();
-                    }
                 }
                 WalkDirection::Sideward => {
-                    let paint_rectangle = Rectangle {
-                        point: absolute_point + rectangle.point,
-                        size: rectangle.size,
-                    };
-                    let paint_state = self.paint_states.get_or_insert_default(node_id);
-                    if !paint_state.mounted {
-                        paint_state.handle = widget.mount(&handle, rectangle);
-                    }
-                    widget.paint(&paint_rectangle, &handle, paint_context);
+                    handle_stack.pop();
                 }
                 WalkDirection::Upward => {
                     absolute_point -= rectangle.point;
+                    handle_stack.pop();
+                }
+            };
+
+            latest_point = rectangle.point;
+
+            if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
+                let widget = &**node;
+                let parent_handle = handle_stack.last()
+                    .copied()
+                    .flatten()
+                    .and_then(|node_id| self.render_states[node_id].handle.as_ref())
+                    .unwrap_or(&root_handle);
+                let absolute_rectangle = Rectangle {
+                    point: absolute_point + rectangle.point,
+                    size: rectangle.size
+                };
+
+                let mounted_handle = if !render_state.mounted {
+                    widget.mount(parent_handle, rectangle)
+                } else {
+                    None
+                };
+
+                if let Some(handle) = mounted_handle.as_ref().or(render_state.handle.as_ref()) {
+                    widget.paint(&absolute_rectangle, handle, paint_context);
+                    handle_stack.push(Some(node_id));
+                } else {
+                    widget.paint(&absolute_rectangle, parent_handle, paint_context);
+                    handle_stack.push(handle_stack.last().copied().flatten());
+                }
+
+                let mut render_state = &mut self.render_states[node_id];
+
+                if !render_state.mounted {
+                    render_state.mounted = true;
+                    render_state.handle = mounted_handle;
+                }
+
+                for child_id in mem::take(&mut render_state.deleted_children) {
+                    let deleted_render_state = self.render_states.remove(child_id);
+                    if let Some(handle) = deleted_render_state.handle {
+                        widget.unmount(handle);
+                    }
                 }
             }
-            latest_point = rectangle.point;
+
+            if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, node, &direction) {
+                node_id = next_node_id;
+                direction = next_direction;
+            } else {
+                break;
+            }
         }
     }
 
@@ -224,11 +237,7 @@ impl<Handle> Updater<Handle> {
         None
     }
 
-    fn reconcile_children(
-        &mut self,
-        target_id: NodeId,
-        children: Box<[Element<Handle>]>,
-    ) {
+    fn reconcile_children(&mut self, target_id: NodeId, children: Box<[Element<Handle>]>) {
         let mut old_keys: Vec<TypedKey> = Vec::new();
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
 
@@ -266,18 +275,20 @@ impl<Handle> Updater<Handle> {
     ) {
         match result {
             ReconcileResult::New(new_element) => {
-                self.init_state(self.tree.next_node_id(), &*new_element.widget, new_element.children);
-                self.tree.append_child(target_id, new_element.widget);
+                let render_state = RenderState::new(&*new_element.widget, new_element.children);
+                let node_id = self.tree.append_child(target_id, new_element.widget);
+                self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::NewPlacement(ref_id, new_element) => {
-                self.init_state(self.tree.next_node_id(), &*new_element.widget, new_element.children);
-                self.tree.insert_before(ref_id, new_element.widget);
+                let render_state = RenderState::new(&*new_element.widget, new_element.children);
+                let node_id = self.tree.insert_before(ref_id, new_element.widget);
+                self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::Update(target_id, new_element) => {
-                self.update_state(target_id, new_element);
+                self.update_render_state(target_id, new_element.widget, new_element.children);
             }
             ReconcileResult::UpdatePlacement(target_id, ref_id, new_element) => {
-                self.update_state(target_id, new_element);
+                self.update_render_state(target_id, new_element.widget, new_element.children);
                 self.tree.move_position(target_id).insert_before(ref_id);
             }
             ReconcileResult::Deletion(target_id) => {
@@ -296,22 +307,18 @@ impl<Handle> Updater<Handle> {
         }
     }
 
-    fn init_state(&mut self, node_id: NodeId, widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) {
-        self.render_states.insert_at(node_id, RenderState::new(widget, children));
-        self.layout_states.insert_at(node_id, Default::default());
-        self.paint_states.insert_at(node_id, Default::default());
-    }
-
-    fn update_state(&mut self, node_id: NodeId, element: Element<Handle>) {
+    fn update_render_state(&mut self, node_id: NodeId, widget: Box<dyn WidgetDyn<Handle>>, children: Box<[Element<Handle>]>) {
         let current_widget = &mut *self.tree[node_id];
-        let state = &mut self.render_states[node_id];
+        let render_state = &mut self.render_states[node_id];
 
-        if element.widget.should_update(&**current_widget, &element.children) {
-            let prev_widget = mem::replace(current_widget, element.widget);
+        if widget.should_update(&**current_widget, &children) {
+            let prev_widget = mem::replace(current_widget, widget);
 
-            current_widget.will_update(&*prev_widget, &element.children);
+            current_widget.will_update(&*prev_widget, &children);
 
-            state.update(&**current_widget, element.children);
+            let rendered_children = current_widget.render(children, &mut *render_state.state);
+            render_state.dirty = true;
+            render_state.rendered_children = Some(rendered_children);
 
             current_widget.did_update(&**current_widget);
         }
@@ -335,13 +342,12 @@ impl<Handle: fmt::Debug> fmt::Display for Updater<Handle> {
                 self.root_id,
                 |f, node_id, node| {
                     let render_state = &self.render_states[node_id];
-                    let layout_state = &self.layout_states[node_id];
                     write!(f, "<{}", node.name())?;
                     write!(f, " id=\"{}\"", node_id)?;
-                    write!(f, " x=\"{}\"", layout_state.rectangle.point.x)?;
-                    write!(f, " y=\"{}\"", layout_state.rectangle.point.y)?;
-                    write!(f, " width=\"{}\"", layout_state.rectangle.size.width)?;
-                    write!(f, " height=\"{}\"", layout_state.rectangle.size.height)?;
+                    write!(f, " x=\"{}\"", render_state.rectangle.point.x)?;
+                    write!(f, " y=\"{}\"", render_state.rectangle.point.y)?;
+                    write!(f, " width=\"{}\"", render_state.rectangle.size.width)?;
+                    write!(f, " height=\"{}\"", render_state.rectangle.size.height)?;
                     if render_state.dirty {
                         write!(f, " dirty")?;
                     }

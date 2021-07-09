@@ -1,9 +1,9 @@
 use std::any::Any;
 
 use geometrics::{Point, Size};
-use layout::{BoxConstraints, LayoutResult, LayoutContext};
+use layout::{BoxConstraints, LayoutResult};
 use tree::NodeId;
-use widget::widget::{Element, Layout, WidgetTree, Widget, WidgetMeta};
+use widget::widget::{Element, Layout, LayoutContext, WidgetTree, Widget, WidgetMeta};
 
 #[derive(Clone, PartialEq)]
 pub struct Padding {
@@ -54,7 +54,7 @@ impl<Handle> Layout<Handle> for Padding {
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
-        layout_context: &mut LayoutContext
+        layout_context: &mut LayoutContext<'_, Handle>
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
             layout_context.arrange(child_id, Point { x: self.left, y: self.top });

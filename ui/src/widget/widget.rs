@@ -2,10 +2,11 @@ use std::any;
 use std::array;
 use std::fmt;
 
-use geometrics::{Rectangle, Size};
-use layout::{BoxConstraints, LayoutResult, LayoutContext};
+use geometrics::{Point, Rectangle, Size};
+use layout::{BoxConstraints, LayoutResult};
 use paint::PaintContext;
 use tree::{Link, NodeId, Tree};
+use slot_vec::SlotVec;
 
 pub type WidgetTree<Handle> = Tree<Box<dyn WidgetDyn<Handle>>>;
 
@@ -17,10 +18,7 @@ pub struct RenderState<Handle> {
     pub(crate) deleted_children: Vec<NodeId>,
     pub(crate) state: Box<dyn any::Any>,
     pub(crate) dirty: bool,
-}
-
-#[derive(Debug)]
-pub struct PaintState<Handle> {
+    pub(crate) rectangle: Rectangle,
     pub(crate) handle: Option<Handle>,
     pub(crate) mounted: bool,
 }
@@ -132,7 +130,7 @@ pub trait Layout<Handle> {
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
-        _layout_context: &mut LayoutContext) -> LayoutResult {
+        _layout_context: &mut LayoutContext<'_, Handle>) -> LayoutResult {
         if let Some((_, size)) = response {
             LayoutResult::Size(size)
         } else {
@@ -143,6 +141,11 @@ pub trait Layout<Handle> {
             }
         }
     }
+}
+
+#[derive(Debug)]
+pub struct LayoutContext<'a, Handle> {
+    render_states: &'a mut SlotVec<RenderState<Handle>>,
 }
 
 pub struct DefaultLayout;
@@ -163,15 +166,9 @@ impl<Handle> RenderState<Handle> {
             deleted_children: Vec::new(),
             state: initial_state,
             dirty: true,
-        }
-    }
-
-    pub fn root<S: 'static, W: Widget<Handle, State=S>>(widget: W) -> Self {
-        Self {
-            rendered_children: None,
-            deleted_children: Vec::new(),
-            state: Box::new(widget.initial_state()),
-            dirty: true,
+            rectangle: Rectangle::ZERO,
+            handle: None,
+            mounted: false,
         }
     }
 
@@ -179,15 +176,6 @@ impl<Handle> RenderState<Handle> {
         let rendered_children = widget.render(children, &mut *self.state);
         self.dirty = true;
         self.rendered_children = Some(rendered_children);
-    }
-}
-
-impl<Handle> Default for PaintState<Handle> {
-    fn default() -> Self {
-        Self {
-            handle: None,
-            mounted: false,
-        }
     }
 }
 
@@ -419,4 +407,32 @@ impl<T: WidgetMeta> WidgetMeta for WithKey<T> {
 }
 
 impl<Handle> Layout<Handle> for DefaultLayout {
+}
+
+impl<'a, Handle> LayoutContext<'a, Handle> {
+    pub fn new(render_states: &'a mut SlotVec<RenderState<Handle>>) -> Self {
+        Self {
+            render_states
+        }
+    }
+
+    #[inline]
+    pub fn get_rectangle(&self, node_id: NodeId) -> &Rectangle {
+        &self.render_states[node_id].rectangle
+    }
+
+    #[inline]
+    pub fn get_point(&self, node_id: NodeId) -> &Point {
+        &self.render_states[node_id].rectangle.point
+    }
+
+    #[inline]
+    pub fn get_size(&self, node_id: NodeId) -> &Size {
+        &self.render_states[node_id].rectangle.size
+    }
+
+    #[inline]
+    pub fn arrange(&mut self, node_id: NodeId, point: Point) {
+        self.render_states[node_id].rectangle.point = point;
+    }
 }

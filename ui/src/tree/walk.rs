@@ -16,14 +16,14 @@ pub struct WalkFilter<'a, T, F: Fn(NodeId, &Link<T>) -> bool> {
     pub(super) tree: &'a Tree<T>,
     pub(super) root_id: NodeId,
     pub(super) next: Option<(NodeId, WalkDirection)>,
-    pub(super) predicate: F,
+    pub(super) f: F,
 }
 
 pub struct WalkFilterMut<'a, T, F: Fn(NodeId, &mut Link<T>) -> bool> {
     pub(super) tree: &'a mut Tree<T>,
     pub(super) root_id: NodeId,
     pub(super) next: Option<(NodeId, WalkDirection)>,
-    pub(super) predicate: F,
+    pub(super) f: F,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -66,7 +66,7 @@ impl<'a, T, F: Fn(NodeId, &Link<T>) -> bool> Iterator for WalkFilter<'a, T, F> {
         self.next.take().and_then(|(mut node_id, mut direction)| {
             let mut link = &self.tree.arena[node_id];
             while match direction {
-                WalkDirection::Downward | WalkDirection::Sideward => !(self.predicate)(node_id, link),
+                WalkDirection::Downward | WalkDirection::Sideward => !(self.f)(node_id, link),
                 WalkDirection::Upward => false,
             } {
                 if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward) {
@@ -92,7 +92,7 @@ impl<'a, T, F: Fn(NodeId, &mut Link<T>) -> bool> Iterator for WalkFilterMut<'a, 
                 (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
             };
             while match direction {
-                WalkDirection::Downward | WalkDirection::Sideward => !(self.predicate)(node_id, link),
+                WalkDirection::Downward | WalkDirection::Sideward => !(self.f)(node_id, link),
                 WalkDirection::Upward => false,
             } {
                 if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward) {
@@ -111,7 +111,7 @@ impl<'a, T, F: Fn(NodeId, &mut Link<T>) -> bool> Iterator for WalkFilterMut<'a, 
     }
 }
 
-fn walk_next_node<T>(node_id: NodeId, root_id: NodeId, link: &Link<T>, direction: &WalkDirection) -> Option<(NodeId, WalkDirection)> {
+pub fn walk_next_node<T>(node_id: NodeId, root_id: NodeId, link: &Link<T>, direction: &WalkDirection) -> Option<(NodeId, WalkDirection)> {
     if node_id == root_id {
         match direction {
             WalkDirection::Downward => {
