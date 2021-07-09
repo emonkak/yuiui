@@ -17,7 +17,7 @@ use ui::updater::Updater;
 use ui::widget::fill::Fill;
 use ui::widget::flex::{Flex, FlexItem};
 use ui::widget::padding::Padding;
-use ui::widget::widget::{WidgetMeta, Element};
+use ui::widget::{WidgetMeta, Element};
 
 fn render() -> Element<XWindowHandle> {
     element!(

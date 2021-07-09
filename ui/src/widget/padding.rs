@@ -1,11 +1,12 @@
 use std::any::Any;
 
 use geometrics::{Point, Size};
-use layout::{BoxConstraints, LayoutResult};
+use layout::{BoxConstraints, Layout, LayoutResult, Layouter};
 use tree::NodeId;
-use widget::widget::{Element, Layout, LayoutContext, WidgetTree, Widget, WidgetMeta};
 
-#[derive(Clone, PartialEq)]
+use super::{Widget, WidgetInstance, WidgetMeta, WidgetTree};
+
+#[derive(Clone)]
 pub struct Padding {
     left: f32,
     right: f32,
@@ -14,7 +15,6 @@ pub struct Padding {
 }
 
 impl Padding {
-    /// Create widget with uniform padding.
     pub fn uniform(padding: f32) -> Padding {
         Padding {
             left: padding,
@@ -32,11 +32,7 @@ impl<Handle> Widget<Handle> for Padding {
         Default::default()
     }
 
-    fn should_update(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
-        self == next_widget
-    }
-
-    fn layout(&self) -> Box<dyn Layout<Handle>> {
+    fn layout(&self) -> Box<dyn Layout<WidgetInstance<Handle>>> {
         Box::new(self.clone())
     }
 }
@@ -47,17 +43,17 @@ impl WidgetMeta for Padding {
     }
 }
 
-impl<Handle> Layout<Handle> for Padding {
+impl<Handle> Layout<WidgetInstance<Handle>> for Padding {
     fn measure(
         &mut self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
-        layout_context: &mut LayoutContext<'_, Handle>
+        layouter: &mut dyn Layouter
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
-            layout_context.arrange(child_id, Point { x: self.left, y: self.top });
+            layouter.arrange(child_id, Point { x: self.left, y: self.top });
             LayoutResult::Size(Size {
                 width: size.width + self.left + self.right,
                 height: size.height + self.top + self.bottom

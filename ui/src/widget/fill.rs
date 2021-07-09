@@ -2,7 +2,8 @@ use std::any;
 
 use geometrics::Rectangle;
 use paint::PaintContext;
-use widget::widget::{Element, Widget, WidgetMeta};
+
+use super::{Element, Widget, WidgetMeta};
 
 #[derive(PartialEq, Eq)]
 pub struct Fill {
@@ -25,7 +26,7 @@ impl<Handle> Widget<Handle> for Fill {
     }
 
     fn should_update(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
-        self == next_widget
+        self != next_widget
     }
 
     fn paint(&self, rectangle: &Rectangle, _handle: &Handle, paint_context: &mut PaintContext<Handle>) {

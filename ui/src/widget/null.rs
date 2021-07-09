@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use widget::widget::{Widget, WidgetMeta};
+use super::{Widget, WidgetMeta};
 
 pub struct Null;
 

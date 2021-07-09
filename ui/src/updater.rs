@@ -1,22 +1,38 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::fmt;
 use std::mem;
 
 use geometrics::{Point, Rectangle, Size};
-use layout::{BoxConstraints, LayoutResult};
+use layout::{DefaultLayout, BoxConstraints, Layout, LayoutResult, Layouter};
 use paint::PaintContext;
 use reconciler::{Reconciler, ReconcileResult};
 use slot_vec::SlotVec;
 use tree::walk::{WalkDirection, walk_next_node};
 use tree::{NodeId, Tree};
 use widget::null::Null;
-use widget::widget::{DefaultLayout, Element, Key, Layout, LayoutContext, RenderState, WidgetDyn, WidgetTree};
+use widget::{Element, Key, WidgetDyn, WidgetInstance, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {
     tree: WidgetTree<Handle>,
     root_id: NodeId,
     render_states: SlotVec<RenderState<Handle>>,
+}
+
+#[derive(Debug)]
+pub struct RenderState<Handle> {
+    pub(crate) rendered_children: Option<Box<[Element<Handle>]>>,
+    pub(crate) deleted_children: Vec<NodeId>,
+    pub(crate) state: Box<dyn Any>,
+    pub(crate) dirty: bool,
+    pub(crate) rectangle: Rectangle,
+    pub(crate) handle: Option<Handle>,
+    pub(crate) mounted: bool,
+}
+
+#[derive(Debug)]
+pub struct LayoutContext<'a, Handle> {
+    render_states: &'a mut SlotVec<RenderState<Handle>>,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -53,7 +69,9 @@ impl<Handle> Updater<Handle> {
     }
 
     pub fn layout(&mut self, viewport_size: Size, force_layout: bool) -> Size {
-        let mut requests: Vec<(NodeId, BoxConstraints, Box<dyn Layout<Handle>>)> = vec![(self.root_id, BoxConstraints::tight(viewport_size), Box::new(DefaultLayout))];
+        let mut requests: Vec<(NodeId, BoxConstraints, Box<dyn Layout<WidgetInstance<Handle>>>)> = vec![
+            (self.root_id, BoxConstraints::tight(viewport_size), Box::new(DefaultLayout))
+        ];
         let mut response = None;
         let mut should_layout_child = force_layout;
 
@@ -64,7 +82,9 @@ impl<Handle> Updater<Handle> {
                     *box_constraints,
                     response,
                     &self.tree,
-                    &mut LayoutContext::new(&mut self.render_states)
+                    &mut LayoutContext {
+                        render_states: &mut self.render_states
+                    }
                 );
                 (*request_id, result)
             } else {
@@ -357,6 +377,38 @@ impl<Handle: fmt::Debug> fmt::Display for Updater<Handle> {
                 |f, _, node| write!(f, "</{}>", node.name())
             )
         )
+    }
+}
+
+impl<Handle> RenderState<Handle> {
+    pub fn new(widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) -> Self {
+        let mut initial_state = widget.initial_state();
+        let rendered_children = widget.render(children, &mut *initial_state);
+        Self {
+            rendered_children: Some(rendered_children),
+            deleted_children: Vec::new(),
+            state: initial_state,
+            dirty: true,
+            rectangle: Rectangle::ZERO,
+            handle: None,
+            mounted: false,
+        }
+    }
+
+    pub fn update(&mut self, widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) {
+        let rendered_children = widget.render(children, &mut *self.state);
+        self.dirty = true;
+        self.rendered_children = Some(rendered_children);
+    }
+}
+
+impl<'a, Handle> Layouter for LayoutContext<'a, Handle> {
+    fn get_rectangle(&self, node_id: NodeId) -> &Rectangle {
+        &self.render_states[node_id].rectangle
+    }
+
+    fn get_rectangle_mut(&mut self, node_id: NodeId) -> &mut Rectangle {
+        &mut self.render_states[node_id].rectangle
     }
 }
 
