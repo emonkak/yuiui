@@ -55,6 +55,7 @@ impl BoxConstraints {
 
     #[inline]
     pub fn tight(size: Size) -> BoxConstraints {
+        let size = size.expand();
         BoxConstraints {
             min: size,
             max: size,

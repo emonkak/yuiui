@@ -39,6 +39,7 @@ impl Add for Point {
 }
 
 impl AddAssign for Point {
+    #[inline]
     fn add_assign(&mut self, other: Self) {
         *self = Self {
             x: self.x + other.x,
@@ -60,6 +61,7 @@ impl Sub for Point {
 }
 
 impl SubAssign for Point {
+    #[inline]
     fn sub_assign(&mut self, other: Self) {
         *self = Self {
             x: self.x - other.x,
@@ -70,6 +72,14 @@ impl SubAssign for Point {
 
 impl Size {
     pub const ZERO: Self = Self { width: 0.0, height: 0.0 };
+
+    #[inline]
+    pub fn expand(&self) -> Self {
+        Size {
+            width: self.width.abs().ceil().copysign(self.width),
+            height: self.height.abs().ceil().copysign(self.height),
+        }
+    }
 }
 
 impl Add for Size {
