@@ -334,7 +334,7 @@ impl<Handle> Updater<Handle> {
         if widget.should_update(&**current_widget, &children) {
             let prev_widget = mem::replace(current_widget, widget);
 
-            current_widget.will_update(&*prev_widget, &children);
+            current_widget.will_update(&*prev_widget, &children, &mut *render_state.state);
 
             let rendered_children = current_widget.render(children, &mut *render_state.state);
             render_state.dirty = true;

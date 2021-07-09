@@ -45,7 +45,7 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline(always)]
-    fn will_update(&self, _next_widget: &Self, _next_children: &[Element<Handle>]) {
+    fn will_update(&self, _next_widget: &Self, _next_children: &[Element<Handle>], _state: &mut Self::State) {
     }
 
     #[inline(always)]
@@ -81,7 +81,7 @@ pub trait WidgetDyn<Handle>: WidgetMeta {
 
     fn should_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]) -> bool;
 
-    fn will_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]);
+    fn will_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>], state: &mut dyn any::Any);
 
     fn did_update(&self, prev_widget: &dyn WidgetDyn<Handle>);
 
@@ -249,9 +249,9 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn will_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>]) {
+    fn will_update(&self, next_widget: &dyn WidgetDyn<Handle>, next_children: &[Element<Handle>], state: &mut dyn any::Any) {
         if let Some(next_widget) = next_widget.as_any().downcast_ref() {
-            self.will_update(next_widget, next_children)
+            self.will_update(next_widget, next_children, state.downcast_mut().unwrap())
         }
     }
 
@@ -302,8 +302,8 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn will_update(&self, next_widget: &Self, next_children: &[Element<Handle>]) {
-        self.inner.will_update(&next_widget.inner, next_children)
+    fn will_update(&self, next_widget: &Self, next_children: &[Element<Handle>], state: &mut Self::State) {
+        self.inner.will_update(&next_widget.inner, next_children, state)
     }
 
     #[inline(always)]
