@@ -1,6 +1,8 @@
 extern crate nix;
 extern crate x11;
 
+mod bit_flags;
+
 pub mod geometrics;
 pub mod layout;
 pub mod paint;
