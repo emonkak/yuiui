@@ -1,7 +1,6 @@
 use std::any::TypeId;
 use std::fmt;
 use std::mem;
-use std::ptr;
 
 use geometrics::{Point, Rectangle, Size};
 use layout::{DefaultLayout, BoxConstraints, LayoutResult, Layouter};
@@ -115,10 +114,9 @@ impl<Handle> Updater<Handle> {
         unreachable!();
     }
 
-    pub fn paint(&mut self, root_handle: &Handle, paint_context: &mut PaintContext<Handle>) where Handle: Clone {
+    pub fn paint(&mut self, handle: &Handle, paint_context: &mut PaintContext<Handle>) where Handle: Clone {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
-        let mut handle_stack: Vec<Option<NodeId>> = vec![];
 
         let mut node_id = self.root_id;
         let mut direction = WalkDirection::Downward;
@@ -150,28 +148,16 @@ impl<Handle> Updater<Handle> {
 
             let rectangle = render_state.rectangle;
 
-            match direction {
-                WalkDirection::Downward => {
-                    absolute_point += latest_point;
-                }
-                WalkDirection::Sideward => {
-                    handle_stack.pop();
-                }
-                WalkDirection::Upward => {
-                    absolute_point -= rectangle.point;
-                    handle_stack.pop();
-                }
-            };
+            if direction == WalkDirection::Downward {
+                absolute_point += latest_point;
+            } else if direction == WalkDirection::Upward {
+                absolute_point -= rectangle.point;
+            }
 
             latest_point = rectangle.point;
 
             if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
                 let widget = &**node;
-                let parent_handle = handle_stack.last()
-                    .copied()
-                    .flatten()
-                    .and_then(|node_id| self.render_states[node_id].handle.as_ref())
-                    .map_or(ptr::null(), |handle| handle as *const Handle);
                 let absolute_rectangle = Rectangle {
                     point: absolute_point + rectangle.point,
                     size: rectangle.size
@@ -180,24 +166,12 @@ impl<Handle> Updater<Handle> {
                 let mut render_state = &mut self.render_states[node_id];
 
                 if !render_state.mounted {
-                    let handle = unsafe { parent_handle.as_ref().unwrap_or(root_handle) };
-                    render_state.handle = widget.mount(handle, &rectangle, &mut *render_state.state);
+                    widget.mount(handle, &rectangle, &mut *render_state.state);
                     render_state.mounted = true;
                 }
 
-                let paint_handle = if let Some(handle) = render_state.handle.as_ref() {
-                    handle_stack.push(Some(node_id));
-                    handle
-                } else if let Some(handle) = unsafe { parent_handle.as_ref() } {
-                    handle_stack.push(handle_stack.last().copied().flatten());
-                    handle
-                } else {
-                    handle_stack.push(None);
-                    root_handle
-                };
-
                 widget.paint(
-                    paint_handle,
+                    handle,
                     &absolute_rectangle,
                     &mut *render_state.state,
                     paint_context
@@ -205,13 +179,11 @@ impl<Handle> Updater<Handle> {
 
                 for child_id in mem::take(&mut render_state.deleted_children) {
                     let mut deleted_render_state = self.render_states.remove(child_id);
-                    if let Some(handle) = deleted_render_state.handle {
-                        widget.unmount(
-                            handle,
-                            &deleted_render_state.rectangle,
-                            &mut *deleted_render_state.state
-                        );
-                    }
+                    widget.unmount(
+                        handle,
+                        &deleted_render_state.rectangle,
+                        &mut *deleted_render_state.state
+                    );
                 }
             }
 

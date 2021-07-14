@@ -68,7 +68,7 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline(always)]
-    fn unmount(&self, _handle: Handle, _rectangle: &Rectangle, _state: &mut Self::State) {
+    fn unmount(&self, _handle: &Handle, _rectangle: &Rectangle, _state: &mut Self::State) {
     }
 
     #[inline(always)]
@@ -91,7 +91,7 @@ pub trait WidgetDyn<Handle>: WidgetMeta {
 
     fn mount(&self, parent_handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any) -> Option<Handle>;
 
-    fn unmount(&self, handle: Handle, rectangle: &Rectangle, state: &mut dyn any::Any);
+    fn unmount(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any);
 
     fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any, paint_context: &mut PaintContext<Handle>);
 }
@@ -279,7 +279,7 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     }
 
     #[inline(always)]
-    fn unmount(&self, handle: Handle, rectangle: &Rectangle, state: &mut dyn any::Any) {
+    fn unmount(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn any::Any) {
         self.unmount(handle, rectangle, state.downcast_mut().unwrap())
     }
 
@@ -328,7 +328,7 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline(always)]
-    fn unmount(&self, handle: Handle, rectangle: &Rectangle, state: &mut Self::State) {
+    fn unmount(&self, handle: &Handle, rectangle: &Rectangle, state: &mut Self::State) {
         self.inner.unmount(handle, rectangle, state)
     }
 

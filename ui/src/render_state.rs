@@ -10,7 +10,6 @@ pub struct RenderState<Handle> {
     pub deleted_children: Vec<NodeId>,
     pub state: Box<dyn Any>,
     pub rectangle: Rectangle,
-    pub handle: Option<Handle>,
     pub dirty: bool,
     pub mounted: bool,
 }
@@ -25,7 +24,6 @@ impl<Handle> RenderState<Handle> {
             state: initial_state,
             dirty: true,
             rectangle: Rectangle::ZERO,
-            handle: None,
             mounted: false,
         }
     }
