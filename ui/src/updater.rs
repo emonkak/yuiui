@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::fmt;
 use std::mem;
 use std::ptr;
@@ -7,6 +7,7 @@ use geometrics::{Point, Rectangle, Size};
 use layout::{DefaultLayout, BoxConstraints, LayoutResult, Layouter};
 use paint::PaintContext;
 use reconciler::{Reconciler, ReconcileResult};
+use render_state::RenderState;
 use slot_vec::SlotVec;
 use tree::walk::{WalkDirection, walk_next_node};
 use tree::{NodeId, Tree};
@@ -18,17 +19,6 @@ pub struct Updater<Handle> {
     tree: WidgetTree<Handle>,
     root_id: NodeId,
     render_states: SlotVec<RenderState<Handle>>,
-}
-
-#[derive(Debug)]
-pub struct RenderState<Handle> {
-    pub(crate) rendered_children: Option<Box<[Element<Handle>]>>,
-    pub(crate) deleted_children: Vec<NodeId>,
-    pub(crate) state: Box<dyn Any>,
-    pub(crate) dirty: bool,
-    pub(crate) rectangle: Rectangle,
-    pub(crate) handle: Option<Handle>,
-    pub(crate) mounted: bool,
 }
 
 #[derive(Debug)]
@@ -387,28 +377,6 @@ impl<Handle> fmt::Display for Updater<Handle> {
                 |f, _, node| write!(f, "</{}>", node.name())
             )
         )
-    }
-}
-
-impl<Handle> RenderState<Handle> {
-    pub fn new(widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) -> Self {
-        let mut initial_state = widget.initial_state();
-        let rendered_children = widget.render(children, &mut *initial_state);
-        Self {
-            rendered_children: Some(rendered_children),
-            deleted_children: Vec::new(),
-            state: initial_state,
-            dirty: true,
-            rectangle: Rectangle::ZERO,
-            handle: None,
-            mounted: false,
-        }
-    }
-
-    pub fn update(&mut self, widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) {
-        let rendered_children = widget.render(children, &mut *self.state);
-        self.dirty = true;
-        self.rendered_children = Some(rendered_children);
     }
 }
 

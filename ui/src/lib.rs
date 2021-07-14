@@ -8,6 +8,7 @@ pub mod layout;
 pub mod paint;
 pub mod platform;
 pub mod reconciler;
+pub mod render_state;
 pub mod slot_vec;
 pub mod tree;
 pub mod updater;
