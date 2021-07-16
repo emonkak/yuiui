@@ -1,19 +1,15 @@
-extern crate fontconfig;
-extern crate libc;
-extern crate nix;
 extern crate x11;
 
-pub mod config;
-pub mod context;
-pub mod font;
-pub mod task;
-pub mod tray;
+mod bit_flags;
 
-mod error_handler;
-mod icon;
-mod layout;
-mod utils;
-mod xembed;
-
-#[allow(dead_code)]
+pub mod geometrics;
+pub mod layout;
+pub mod lifecycle;
+pub mod paint;
+pub mod platform;
+pub mod reconciler;
+pub mod render_state;
+pub mod slot_vec;
 pub mod tree;
+pub mod updater;
+pub mod widget;

@@ -1,94 +1,59 @@
-use std::cmp;
-use std::slice;
+use geometrics::{Point, Rectangle, Size};
+use tree::NodeId;
 
-pub struct Layout<T: Layoutable> {
-    items: Vec<T>,
-    container_width: u32,
-    item_height: u32,
-}
+pub trait LayoutContext {
+    fn get_rectangle(&self, node_id: NodeId) -> &Rectangle;
 
-pub struct Rectangle {
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
-}
+    fn get_rectangle_mut(&mut self, node_id: NodeId) -> &mut Rectangle;
 
-impl<T: Layoutable> Layout<T> {
-    pub fn new(container_width: u32, item_height: u32) -> Self {
-        Layout {
-            items: Vec::new(),
-            container_width,
-            item_height,
-        }
+    #[inline]
+    fn get_point(&self, node_id: NodeId) -> &Point {
+        &self.get_rectangle(node_id).point
     }
 
-    pub fn width(&self) -> u32 {
-        self.container_width
+    #[inline]
+    fn get_size(&self, node_id: NodeId) -> &Size {
+        &self.get_rectangle(node_id).size
     }
 
-    pub fn height(&self) -> u32 {
-        cmp::max(self.item_height, self.item_height * self.items.len() as u32)
-    }
-
-    pub fn iter(&self) -> slice::Iter<T> {
-        self.items.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.items.len()
-    }
-
-    pub fn get_unchecked(&mut self, index: usize) -> &T {
-        &self.items[index]
-    }
-
-    pub fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
-        unsafe { self.items.get_unchecked_mut(index) }
-    }
-
-    pub fn next_item_rectange(&self) -> Rectangle {
-        let y = if self.items.len() > 0 {
-            self.item_height as i32 * self.items.len() as i32
-        } else {
-            0
-        };
-        Rectangle {
-            x: 0,
-            y,
-            width: self.container_width,
-            height: self.item_height,
-        }
-    }
-
-    pub fn add(&mut self, item: T) {
-        self.items.push(item)
-    }
-
-    pub fn remove_unchecked(&mut self, index: usize) -> T {
-        self.items.remove(index)
-    }
-
-    pub fn clear(&mut self) {
-        self.items.clear()
-    }
-
-    pub fn update(&mut self) {
-        let mut y = 0;
-
-        for item in self.items.iter_mut() {
-            item.update_layout(
-                0,
-                y,
-                self.container_width,
-                self.item_height
-            );
-
-            y += self.item_height as i32;
-        }
+    #[inline]
+    fn arrange(&mut self, node_id: NodeId, point: Point) {
+        (*self.get_rectangle_mut(node_id)).point = point;
     }
 }
 
-pub trait Layoutable {
-    fn update_layout(&mut self, x: i32, y: i32, width: u32, height: u32);
+#[derive(Debug)]
+pub enum LayoutResult {
+    Size(Size),
+    RequestChild(NodeId, BoxConstraints),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoxConstraints {
+    pub min: Size,
+    pub max: Size,
+}
+
+impl BoxConstraints {
+    pub const NONE: Self = Self {
+        min: Size::ZERO,
+        max: Size::ZERO
+    };
+
+    #[inline]
+    pub fn tight(size: Size) -> BoxConstraints {
+        let size = size.expand();
+        BoxConstraints {
+            min: size,
+            max: size,
+        }
+    }
+
+    #[inline]
+    pub fn constrain(&self, size: &Size) -> Size {
+        Size {
+            width: size.width.clamp(self.min.width, self.max.width),
+            height: size.height.clamp(self.min.height, self.max.height),
+        }
+    }
 }
