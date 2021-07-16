@@ -26,7 +26,7 @@ impl XPaintContext {
                     handle.window,
                     rectangle.size.width as _,
                     rectangle.size.height as _,
-                    depth as _
+                    depth as _,
                 )
             };
             let gc = xlib::XCreateGC(handle.display, pixmap, 0, ptr::null_mut());
@@ -44,14 +44,14 @@ impl XPaintContext {
                     0,
                     0,
                     rectangle.size.width as _,
-                    rectangle.size.height as _
+                    rectangle.size.height as _,
                 );
             }
 
             Self {
                 display: handle.display,
                 pixmap,
-                gc
+                gc,
             }
         }
     }
@@ -77,7 +77,7 @@ impl XPaintContext {
     }
 }
 
-impl PaintContext<XWindowHandle> for XPaintContext  {
+impl PaintContext<XWindowHandle> for XPaintContext {
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
         unsafe {
             let color = self.alloc_color(color);
@@ -89,7 +89,7 @@ impl PaintContext<XWindowHandle> for XPaintContext  {
                 rectangle.point.x as _,
                 rectangle.point.y as _,
                 rectangle.size.width as _,
-                rectangle.size.height as _
+                rectangle.size.height as _,
             );
         }
     }

@@ -37,7 +37,7 @@ pub struct BoxConstraints {
 impl BoxConstraints {
     pub const NONE: Self = Self {
         min: Size::ZERO,
-        max: Size::ZERO
+        max: Size::ZERO,
     };
 
     #[inline]

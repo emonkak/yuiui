@@ -6,13 +6,13 @@ use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutContext, LayoutResult};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::paint::PaintContext;
-use crate::reconciler::{Reconciler, ReconcileResult};
+use crate::reconciler::{ReconcileResult, Reconciler};
 use crate::render_state::RenderState;
 use crate::slot_vec::SlotVec;
-use crate::tree::walk::{WalkDirection, walk_next_node};
+use crate::tree::walk::{walk_next_node, WalkDirection};
 use crate::tree::{NodeId, Tree};
 use crate::widget::null::Null;
-use crate::widget::{Element, Key, DynamicWidget, WidgetTree};
+use crate::widget::{DynamicWidget, Element, Key, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {
@@ -66,20 +66,21 @@ impl<Handle> Updater<Handle> {
         let mut layout_state = LayoutState::new();
 
         loop {
-            let (request_id, result) = if let Some((request_id, box_constraints)) = requests.last_mut() {
-                let render_state = &mut self.render_states[*request_id];
-                let result = self.tree[*request_id].layout(
-                    *request_id,
-                    *box_constraints,
-                    response,
-                    &self.tree,
-                    &mut *render_state.state,
-                    &mut layout_state
-                );
-                (*request_id, result)
-            } else {
-                break;
-            };
+            let (request_id, result) =
+                if let Some((request_id, box_constraints)) = requests.last_mut() {
+                    let render_state = &mut self.render_states[*request_id];
+                    let result = self.tree[*request_id].layout(
+                        *request_id,
+                        *box_constraints,
+                        response,
+                        &self.tree,
+                        &mut *render_state.state,
+                        &mut layout_state,
+                    );
+                    (*request_id, result)
+                } else {
+                    break;
+                };
 
             match result {
                 LayoutResult::Size(size) => {
@@ -113,7 +114,10 @@ impl<Handle> Updater<Handle> {
         unreachable!();
     }
 
-    pub fn paint(&mut self, handle: &Handle, paint_context: &mut dyn PaintContext<Handle>) where Handle: Clone {
+    pub fn paint(&mut self, handle: &Handle, paint_context: &mut dyn PaintContext<Handle>)
+    where
+        Handle: Clone,
+    {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
 
@@ -136,7 +140,9 @@ impl<Handle> Updater<Handle> {
                     WalkDirection::Upward => break,
                 }
 
-                if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, node, &WalkDirection::Upward) {
+                if let Some((next_node_id, next_direction)) =
+                    walk_next_node(node_id, self.root_id, node, &WalkDirection::Upward)
+                {
                     node_id = next_node_id;
                     direction = next_direction;
                     node = &self.tree[node_id];
@@ -159,7 +165,7 @@ impl<Handle> Updater<Handle> {
                 let widget = &**node;
                 let absolute_rectangle = Rectangle {
                     point: absolute_point + rectangle.point,
-                    size: rectangle.size
+                    size: rectangle.size,
                 };
 
                 let mut render_state = &mut self.render_states[node_id];
@@ -168,7 +174,7 @@ impl<Handle> Updater<Handle> {
                     widget.lifecycle(
                         Lifecycle::DidMount,
                         &mut *render_state.state,
-                        &mut LifecycleContext
+                        &mut LifecycleContext,
                     );
                     render_state.mounted = true;
                 }
@@ -177,7 +183,7 @@ impl<Handle> Updater<Handle> {
                     handle,
                     &absolute_rectangle,
                     &mut *render_state.state,
-                    paint_context
+                    paint_context,
                 );
 
                 for child_id in mem::take(&mut render_state.deleted_children) {
@@ -185,12 +191,14 @@ impl<Handle> Updater<Handle> {
                     widget.lifecycle(
                         Lifecycle::DidUnmount,
                         &mut *deleted_render_state.state,
-                        &mut LifecycleContext
+                        &mut LifecycleContext,
                     );
                 }
             }
 
-            if let Some((next_node_id, next_direction)) = walk_next_node(node_id, self.root_id, node, &direction) {
+            if let Some((next_node_id, next_direction)) =
+                walk_next_node(node_id, self.root_id, node, &direction)
+            {
                 node_id = next_node_id;
                 direction = next_direction;
             } else {
@@ -222,7 +230,8 @@ impl<Handle> Updater<Handle> {
 
             if let Some(parent_id) = current_node
                 .parent()
-                .filter(|&parent_id| parent_id != self.root_id) {
+                .filter(|&parent_id| parent_id != self.root_id)
+            {
                 currnet_node_id = parent_id;
             } else {
                 break;
@@ -251,12 +260,8 @@ impl<Handle> Updater<Handle> {
             new_elements.push(Some(element));
         }
 
-        let reconciler = Reconciler::new(
-            &old_keys,
-            &mut old_node_ids,
-            &new_keys,
-            &mut new_elements
-        );
+        let reconciler =
+            Reconciler::new(&old_keys, &mut old_node_ids, &new_keys, &mut new_elements);
 
         for result in reconciler {
             self.handle_reconcile_result(target_id, result);
@@ -266,7 +271,7 @@ impl<Handle> Updater<Handle> {
     fn handle_reconcile_result(
         &mut self,
         target_id: NodeId,
-        result: ReconcileResult<NodeId, Element<Handle>>
+        result: ReconcileResult<NodeId, Element<Handle>>,
     ) {
         match result {
             ReconcileResult::New(new_element) => {
@@ -302,7 +307,12 @@ impl<Handle> Updater<Handle> {
         }
     }
 
-    fn update_render_state(&mut self, node_id: NodeId, next_widget: Box<dyn DynamicWidget<Handle>>, children: Box<[Element<Handle>]>) {
+    fn update_render_state(
+        &mut self,
+        node_id: NodeId,
+        next_widget: Box<dyn DynamicWidget<Handle>>,
+        children: Box<[Element<Handle>]>,
+    ) {
         let current_widget = &mut *self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
 
@@ -312,7 +322,7 @@ impl<Handle> Updater<Handle> {
             current_widget.lifecycle(
                 Lifecycle::WillUpdate(&*prev_widget),
                 &mut *render_state.state,
-                &mut LifecycleContext
+                &mut LifecycleContext,
             );
 
             let rendered_children = current_widget.render(children, &mut *render_state.state);

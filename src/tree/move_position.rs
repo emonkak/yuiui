@@ -39,9 +39,15 @@ impl<'a, T> MovePosition<'a, T> {
     }
 
     fn ensure_valid(&self, ref_id: NodeId) {
-        assert_ne!(self.target_id, ref_id, "The target node and the reference node are same.");
+        assert_ne!(
+            self.target_id, ref_id,
+            "The target node and the reference node are same."
+        );
         for (parent_id, _) in self.tree.ancestors(ref_id) {
-            assert_ne!(self.target_id, parent_id, "The target node is a parent of reference node.");
+            assert_ne!(
+                self.target_id, parent_id,
+                "The target node is a parent of reference node."
+            );
         }
     }
 }

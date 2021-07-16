@@ -19,7 +19,10 @@ pub struct Size {
 }
 
 impl Rectangle {
-    pub const ZERO: Self = Self { point: Point::ZERO, size: Size::ZERO };
+    pub const ZERO: Self = Self {
+        point: Point::ZERO,
+        size: Size::ZERO,
+    };
 }
 
 impl Point {
@@ -33,7 +36,7 @@ impl Add for Point {
     fn add(self, other: Self) -> Self {
         Self {
             x: self.x + other.x,
-            y: self.y + other.y
+            y: self.y + other.y,
         }
     }
 }
@@ -55,7 +58,7 @@ impl Sub for Point {
     fn sub(self, other: Self) -> Self {
         Self {
             x: self.x - other.x,
-            y: self.y - other.y
+            y: self.y - other.y,
         }
     }
 }
@@ -71,7 +74,10 @@ impl SubAssign for Point {
 }
 
 impl Size {
-    pub const ZERO: Self = Self { width: 0.0, height: 0.0 };
+    pub const ZERO: Self = Self {
+        width: 0.0,
+        height: 0.0,
+    };
 
     #[inline]
     pub fn expand(&self) -> Self {
@@ -89,7 +95,7 @@ impl Add for Size {
     fn add(self, other: Self) -> Self {
         Self {
             width: self.width + other.width,
-            height: self.height + other.height
+            height: self.height + other.height,
         }
     }
 }
@@ -99,7 +105,7 @@ impl AddAssign for Size {
     fn add_assign(&mut self, other: Self) {
         *self = Self {
             width: self.width + other.width,
-            height: self.height + other.height
+            height: self.height + other.height,
         };
     }
 }

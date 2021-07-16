@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::geometrics::Rectangle;
 use crate::tree::NodeId;
-use crate::widget::{Element, DynamicWidget};
+use crate::widget::{DynamicWidget, Element};
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {

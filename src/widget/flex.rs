@@ -4,7 +4,7 @@ use crate::geometrics::{Point, Size};
 use crate::layout::{BoxConstraints, LayoutContext, LayoutResult};
 use crate::tree::NodeId;
 
-use super::{Widget, BoxedWidget, WidgetMeta, WidgetNode, WidgetTree};
+use super::{BoxedWidget, Widget, WidgetMeta, WidgetNode, WidgetTree};
 
 pub struct Flex {
     direction: Axis,
@@ -72,8 +72,14 @@ impl Axis {
 
     fn pack_size(&self, major: f32, minor: f32) -> Size {
         match self {
-            Axis::Horizontal => Size { width: major, height: minor },
-            Axis::Vertical => Size { width: minor, height: major },
+            Axis::Horizontal => Size {
+                width: major,
+                height: minor,
+            },
+            Axis::Vertical => Size {
+                width: minor,
+                height: major,
+            },
         }
     }
 }
@@ -120,7 +126,7 @@ impl FlexState {
         node_id: NodeId,
         box_constraints: &BoxConstraints,
         tree: &WidgetTree<Handle>,
-        context: &mut dyn LayoutContext
+        context: &mut dyn LayoutContext,
     ) -> LayoutResult {
         let mut major = 0.0;
         for (child_id, _) in tree.children(node_id) {
@@ -160,7 +166,7 @@ impl<Handle> Widget<Handle> for Flex {
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
         state: &mut Self::State,
-        context: &mut dyn LayoutContext
+        context: &mut dyn LayoutContext,
     ) -> LayoutResult {
         let next_child_id = if let Some((child_id, size)) = response {
             state.minor = self.direction.minor(&size).max(state.minor);
@@ -168,19 +174,37 @@ impl<Handle> Widget<Handle> for Flex {
             if state.phase == Phase::NonFlex {
                 state.total_non_flex += self.direction.major(&size);
 
-                if let Some(child_id) = state.get_next_child(tree.next_siblings(child_id), Phase::NonFlex) {
+                if let Some(child_id) =
+                    state.get_next_child(tree.next_siblings(child_id), Phase::NonFlex)
+                {
                     child_id
-                } else if let Some(child_id) = state.get_next_child(tree.next_siblings(child_id), Phase::Flex) {
+                } else if let Some(child_id) =
+                    state.get_next_child(tree.next_siblings(child_id), Phase::Flex)
+                {
                     state.phase = Phase::Flex;
                     child_id
                 } else {
-                    return state.finish_layout(&self.direction, node_id, &box_constraints, tree, context);
+                    return state.finish_layout(
+                        &self.direction,
+                        node_id,
+                        &box_constraints,
+                        tree,
+                        context,
+                    );
                 }
             } else {
-                if let Some(child_id) = state.get_next_child(tree.next_siblings(child_id), Phase::Flex) {
+                if let Some(child_id) =
+                    state.get_next_child(tree.next_siblings(child_id), Phase::Flex)
+                {
                     child_id
                 } else {
-                    return state.finish_layout(&self.direction, node_id, &box_constraints, tree, context);
+                    return state.finish_layout(
+                        &self.direction,
+                        node_id,
+                        &box_constraints,
+                        tree,
+                        context,
+                    );
                 }
             }
         } else {
@@ -192,7 +216,8 @@ impl<Handle> Widget<Handle> for Flex {
                     .sum();
                 state.minor = self.direction.minor(&box_constraints.min);
 
-                if let Some(child_id) = state.get_next_child(tree.children(node_id), Phase::NonFlex) {
+                if let Some(child_id) = state.get_next_child(tree.children(node_id), Phase::NonFlex)
+                {
                     state.phase = Phase::NonFlex;
                     child_id
                 } else {
@@ -222,7 +247,7 @@ impl<Handle> Widget<Handle> for Flex {
                 max: Size {
                     width: max_major,
                     height: box_constraints.max.height,
-                }
+                },
             },
             Axis::Vertical => BoxConstraints {
                 min: Size {
@@ -232,7 +257,7 @@ impl<Handle> Widget<Handle> for Flex {
                 max: Size {
                     width: box_constraints.max.width,
                     height: max_major,
-                }
+                },
             },
         };
 
@@ -249,9 +274,7 @@ impl WidgetMeta for Flex {
 impl FlexItem {
     pub fn new(flex: f32) -> FlexItem {
         FlexItem {
-            params: Params {
-                flex
-            }
+            params: Params { flex },
         }
     }
 }

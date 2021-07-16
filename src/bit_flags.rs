@@ -59,7 +59,7 @@ impl<T: Into<usize>> From<T> for BitFlags<T> {
 }
 
 impl<T: Into<usize>> FromIterator<T> for BitFlags<T> {
-    fn from_iter<I: IntoIterator<Item=T>>(values: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         Self {
             flags: values
                 .into_iter()
@@ -182,18 +182,15 @@ mod tests {
             true
         );
         assert_eq!(
-            BitFlags::from_iter([Button::Left, Button::Right])
-                .intersects(BitFlags::new()),
+            BitFlags::from_iter([Button::Left, Button::Right]).intersects(BitFlags::new()),
             true
         );
         assert_eq!(
-            BitFlags::from_iter([Button::Left])
-                .intersects(BitFlags::new()),
+            BitFlags::from_iter([Button::Left]).intersects(BitFlags::new()),
             true
         );
         assert_eq!(
-            BitFlags::from_iter([] as [Button; 0])
-                .intersects(BitFlags::new()),
+            BitFlags::from_iter([] as [Button; 0]).intersects(BitFlags::new()),
             true
         );
 
@@ -208,13 +205,11 @@ mod tests {
             true
         );
         assert_eq!(
-            BitFlags::from_iter([Button::Left])
-                .intersects(BitFlags::from_iter([Button::Left])),
+            BitFlags::from_iter([Button::Left]).intersects(BitFlags::from_iter([Button::Left])),
             true
         );
         assert_eq!(
-            BitFlags::from_iter([])
-                .intersects(BitFlags::from_iter([Button::Left])),
+            BitFlags::from_iter([]).intersects(BitFlags::from_iter([Button::Left])),
             false
         );
 

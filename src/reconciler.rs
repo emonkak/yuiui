@@ -31,7 +31,7 @@ impl<'a, Key, OldNode: Default + Clone, NewNode> Reconciler<'a, Key, OldNode, Ne
         old_keys: &'a [Key],
         old_nodes: &'a mut [Option<OldNode>],
         new_keys: &'a [Key],
-        new_nodes: &'a mut [Option<NewNode>]
+        new_nodes: &'a mut [Option<NewNode>],
     ) -> Self {
         Self {
             old_keys,
@@ -51,12 +51,17 @@ impl<'a, Key, OldNode: Default + Clone, NewNode> Reconciler<'a, Key, OldNode, Ne
     }
 }
 
-impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator for Reconciler<'a, Key, OldNode, NewNode> {
+impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator
+    for Reconciler<'a, Key, OldNode, NewNode>
+{
     type Item = ReconcileResult<OldNode, NewNode>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.old_head < self.old_edge && self.new_head < self.new_edge {
-            let result = match (self.old_nodes[self.old_head].as_ref(), self.old_nodes[self.old_edge - 1].as_ref()) {
+            let result = match (
+                self.old_nodes[self.old_head].as_ref(),
+                self.old_nodes[self.old_edge - 1].as_ref(),
+            ) {
                 (None, _) => {
                     self.old_head += 1;
                     continue;
@@ -64,43 +69,51 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator for Reconciler<'a, Key
                 (_, None) => {
                     self.old_edge -= 1;
                     continue;
-                },
-                (Some(&old_head_node), _) if self.old_keys[self.old_head] == self.new_keys[self.new_head] => {
+                }
+                (Some(&old_head_node), _)
+                    if self.old_keys[self.old_head] == self.new_keys[self.new_head] =>
+                {
                     let result = ReconcileResult::Update(
                         old_head_node,
-                        self.new_nodes[self.new_head].take().unwrap()
+                        self.new_nodes[self.new_head].take().unwrap(),
                     );
                     self.new_index_to_old_node[self.new_head] = old_head_node;
                     self.old_head += 1;
                     self.new_head += 1;
                     result
                 }
-                (_, Some(&old_tail_node)) if self.old_keys[self.old_edge - 1] == self.new_keys[self.new_edge - 1] => {
+                (_, Some(&old_tail_node))
+                    if self.old_keys[self.old_edge - 1] == self.new_keys[self.new_edge - 1] =>
+                {
                     let result = ReconcileResult::Update(
                         old_tail_node,
-                        self.new_nodes[self.new_edge - 1].take().unwrap()
+                        self.new_nodes[self.new_edge - 1].take().unwrap(),
                     );
                     self.new_index_to_old_node[self.new_edge - 1] = old_tail_node;
                     self.old_edge -= 1;
                     self.new_edge -= 1;
                     result
                 }
-                (Some(&old_head_node), Some(&old_tail_node)) if self.old_keys[self.old_head] == self.new_keys[self.new_edge - 1] => {
+                (Some(&old_head_node), Some(&old_tail_node))
+                    if self.old_keys[self.old_head] == self.new_keys[self.new_edge - 1] =>
+                {
                     let result = ReconcileResult::UpdatePlacement(
                         old_head_node,
                         old_tail_node,
-                        self.new_nodes[self.new_edge - 1].take().unwrap()
+                        self.new_nodes[self.new_edge - 1].take().unwrap(),
                     );
                     self.new_index_to_old_node[self.new_edge - 1] = old_head_node;
                     self.old_head += 1;
                     self.new_edge -= 1;
                     result
                 }
-                (Some(&old_head_node), Some(&old_tail_node)) if self.old_keys[self.old_edge - 1] == self.new_keys[self.new_head] => {
+                (Some(&old_head_node), Some(&old_tail_node))
+                    if self.old_keys[self.old_edge - 1] == self.new_keys[self.new_head] =>
+                {
                     let result = ReconcileResult::UpdatePlacement(
                         old_tail_node,
                         old_head_node,
-                        self.new_nodes[self.new_head].take().unwrap()
+                        self.new_nodes[self.new_head].take().unwrap(),
                     );
                     self.new_index_to_old_node[self.new_head] = old_tail_node;
                     self.old_edge -= 1;
@@ -140,17 +153,18 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator for Reconciler<'a, Key
                         let result = if let Some(old_node) = old_key_to_index_map
                             .get(&self.new_keys[self.new_head])
                             .copied()
-                            .and_then(|old_index| self.old_nodes[old_index].take()) {
+                            .and_then(|old_index| self.old_nodes[old_index].take())
+                        {
                             self.new_index_to_old_node[self.new_edge - 1] = old_node;
                             ReconcileResult::UpdatePlacement(
                                 old_node,
                                 old_head_node,
-                                self.new_nodes[self.new_head].take().unwrap()
+                                self.new_nodes[self.new_head].take().unwrap(),
                             )
                         } else {
                             ReconcileResult::NewPlacement(
                                 old_head_node,
-                                self.new_nodes[self.new_head].take().unwrap()
+                                self.new_nodes[self.new_head].take().unwrap(),
                             )
                         };
 
@@ -166,7 +180,10 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator for Reconciler<'a, Key
         while self.new_head < self.new_edge {
             let result = if self.new_edge < self.new_nodes.len() {
                 let old_node = self.new_index_to_old_node[self.new_edge];
-                ReconcileResult::NewPlacement(old_node, self.new_nodes[self.new_head].take().unwrap())
+                ReconcileResult::NewPlacement(
+                    old_node,
+                    self.new_nodes[self.new_head].take().unwrap(),
+                )
             } else {
                 ReconcileResult::New(self.new_nodes[self.new_head].take().unwrap())
             };

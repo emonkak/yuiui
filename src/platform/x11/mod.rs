@@ -1,4 +1,3 @@
-pub mod window;
-pub mod paint;
 pub mod event;
-
+pub mod paint;
+pub mod window;

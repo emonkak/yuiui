@@ -1,33 +1,27 @@
 use std::mem;
 use x11::xlib;
 
-use crate::platform::WindowHandle;
 use crate::geometrics::{Point, Rectangle, Size};
+use crate::platform::WindowHandle;
 
 #[derive(Clone, Debug)]
 pub struct XWindowHandle {
     pub display: *mut xlib::Display,
-    pub window: xlib::Window
+    pub window: xlib::Window,
 }
 
 impl XWindowHandle {
     pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
-        Self {
-            display,
-            window,
-        }
+        Self { display, window }
     }
 }
 
 impl WindowHandle for XWindowHandle {
     fn get_window_rectangle(&self) -> Rectangle {
-        let mut attributes: xlib::XWindowAttributes = unsafe { mem::MaybeUninit::zeroed().assume_init() };
+        let mut attributes: xlib::XWindowAttributes =
+            unsafe { mem::MaybeUninit::zeroed().assume_init() };
         unsafe {
-            xlib::XGetWindowAttributes(
-                self.display,
-                self.window,
-                &mut attributes
-            );
+            xlib::XGetWindowAttributes(self.display, self.window, &mut attributes);
         }
         Rectangle {
             point: Point {
@@ -36,8 +30,8 @@ impl WindowHandle for XWindowHandle {
             },
             size: Size {
                 width: attributes.width as _,
-                height: attributes.height as _
-            }
+                height: attributes.height as _,
+            },
         }
     }
 
@@ -75,13 +69,13 @@ pub unsafe fn create_window(display: *mut xlib::Display, width: u32, height: u32
         xlib::InputOutput as u32,
         xlib::CopyFromParent as *mut xlib::Visual,
         xlib::CWBackPixel,
-        &mut attributes
+        &mut attributes,
     );
 
     xlib::XSelectInput(
         display,
         window,
-        xlib::ExposureMask | xlib::StructureNotifyMask
+        xlib::ExposureMask | xlib::StructureNotifyMask,
     );
 
     window

@@ -16,7 +16,11 @@ impl<'a, T> Iterator for DetachSubtree<'a, T> {
                 self.tree.detach_link(&link);
                 self.next = None;
             } else {
-                self.next = Some(self.tree.next_post_ordered_descendant(self.root_id, &link).unwrap_or(self.root_id));
+                self.next = Some(
+                    self.tree
+                        .next_post_ordered_descendant(self.root_id, &link)
+                        .unwrap_or(self.root_id),
+                );
             }
             (node_id, link)
         })
@@ -25,7 +29,6 @@ impl<'a, T> Iterator for DetachSubtree<'a, T> {
 
 impl<'a, T> Drop for DetachSubtree<'a, T> {
     fn drop(&mut self) {
-        while self.next().is_some() {
-        }
+        while self.next().is_some() {}
     }
 }

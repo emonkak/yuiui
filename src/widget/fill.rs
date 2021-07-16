@@ -12,9 +12,7 @@ pub struct Fill {
 
 impl Fill {
     pub fn new(color: u32) -> Fill {
-        Fill {
-            color
-        }
+        Fill { color }
     }
 }
 
@@ -29,7 +27,13 @@ impl<Handle> Widget<Handle> for Fill {
         self != new_widget
     }
 
-    fn paint(&self, _handle: &Handle, rectangle: &Rectangle, _state: &mut Self::State, paint_context: &mut dyn PaintContext<Handle>) {
+    fn paint(
+        &self,
+        _handle: &Handle,
+        rectangle: &Rectangle,
+        _state: &mut Self::State,
+        paint_context: &mut dyn PaintContext<Handle>,
+    ) {
         paint_context.fill_rectangle(self.color, rectangle);
     }
 }

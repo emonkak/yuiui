@@ -52,7 +52,7 @@ impl<T> SlotVec<T> {
             if slot.is_filled() {
                 let entry_index = slot.force_filled();
                 let old_value = mem::replace(&mut self.entries[entry_index].1, value);
-                return Some(old_value)
+                return Some(old_value);
             }
 
             let free_position = slot.force_free();
@@ -99,27 +99,28 @@ impl<T> SlotVec<T> {
 
     pub fn get(&self, slot_index: usize) -> Option<&T> {
         let entries = &self.entries;
-        self.slots
-            .get(slot_index)
-            .and_then(move |slot| {
-                slot.as_filled().map(move |entry_index| &entries[entry_index].1)
-            })
+        self.slots.get(slot_index).and_then(move |slot| {
+            slot.as_filled()
+                .map(move |entry_index| &entries[entry_index].1)
+        })
     }
 
     pub fn get_mut(&mut self, slot_index: usize) -> Option<&mut T> {
         let entries = &mut self.entries;
-        self.slots
-            .get(slot_index)
-            .and_then(move |slot| {
-                slot.as_filled().map(move |entry_index| &mut entries[entry_index].1)
-            })
+        self.slots.get(slot_index).and_then(move |slot| {
+            slot.as_filled()
+                .map(move |entry_index| &mut entries[entry_index].1)
+        })
     }
 
     pub fn get_or_insert(&mut self, slot_index: usize, value: T) -> &mut T {
         self.get_or_insert_with(slot_index, || value)
     }
 
-    pub fn get_or_insert_default(&mut self, slot_index: usize) -> &mut T where T: Default {
+    pub fn get_or_insert_default(&mut self, slot_index: usize) -> &mut T
+    where
+        T: Default,
+    {
         self.get_or_insert_with(slot_index, Default::default)
     }
 
@@ -180,27 +181,19 @@ impl<T> SlotVec<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.entries
-            .iter()
-            .map(|entry| &entry.1)
+        self.entries.iter().map(|entry| &entry.1)
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        self.entries
-            .iter_mut()
-            .map(|entry| &mut entry.1)
+        self.entries.iter_mut().map(|entry| &mut entry.1)
     }
 
     pub fn entries(&self) -> impl Iterator<Item = (usize, &T)> {
-        self.entries
-            .iter()
-            .map(|entry| (entry.0, &entry.1))
+        self.entries.iter().map(|entry| (entry.0, &entry.1))
     }
 
     pub fn entries_mut(&mut self) -> impl Iterator<Item = (usize, &mut T)> {
-        self.entries
-            .iter_mut()
-            .map(|entry| (entry.0, &mut entry.1))
+        self.entries.iter_mut().map(|entry| (entry.0, &mut entry.1))
     }
 
     fn truncate_to_fit(&mut self) {
@@ -250,7 +243,8 @@ impl<T> Index<usize> for SlotVec<T> {
 
     #[inline]
     fn index(&self, index: usize) -> &T {
-        let entry_index = self.slots[index].as_filled()
+        let entry_index = self.slots[index]
+            .as_filled()
             .unwrap_or_else(|| panic!("Already removed entry at {}", index));
         &self.entries[entry_index].1
     }
@@ -259,7 +253,8 @@ impl<T> Index<usize> for SlotVec<T> {
 impl<T> IndexMut<usize> for SlotVec<T> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut T {
-        let entry_index = self.slots[index].as_filled()
+        let entry_index = self.slots[index]
+            .as_filled()
             .unwrap_or_else(|| panic!("Already removed entry at {}", index));
         &mut self.entries[entry_index].1
     }
@@ -346,37 +341,90 @@ mod tests {
         assert_eq!(xs.next_slot_index(), 3);
         assert_eq!(xs.entries, [(0, "foo"), (1, "bar"), (2, "baz")]);
         assert_eq!(xs.free_indexes, []);
-        assert_eq!(xs.slots, [Slot::filled(0), Slot::filled(1), Slot::filled(2)]);
+        assert_eq!(
+            xs.slots,
+            [Slot::filled(0), Slot::filled(1), Slot::filled(2)]
+        );
 
         assert_eq!(xs.insert("qux"), 3);
         assert_eq!(xs.next_slot_index(), 4);
         assert_eq!(xs.entries, [(0, "foo"), (1, "bar"), (2, "baz"), (3, "qux")]);
         assert_eq!(xs.free_indexes, []);
-        assert_eq!(xs.slots, [Slot::filled(0), Slot::filled(1), Slot::filled(2), Slot::filled(3)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(0),
+                Slot::filled(1),
+                Slot::filled(2),
+                Slot::filled(3)
+            ]
+        );
 
         assert_eq!(xs.insert("quux"), 4);
         assert_eq!(xs.next_slot_index(), 5);
-        assert_eq!(xs.entries, [(0, "foo"), (1, "bar"), (2, "baz"), (3, "qux"), (4, "quux")]);
+        assert_eq!(
+            xs.entries,
+            [(0, "foo"), (1, "bar"), (2, "baz"), (3, "qux"), (4, "quux")]
+        );
         assert_eq!(xs.free_indexes, []);
-        assert_eq!(xs.slots, [Slot::filled(0), Slot::filled(1), Slot::filled(2), Slot::filled(3), Slot::filled(4)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(0),
+                Slot::filled(1),
+                Slot::filled(2),
+                Slot::filled(3),
+                Slot::filled(4)
+            ]
+        );
 
         assert_eq!(xs.remove(3), "qux");
         assert_eq!(xs.next_slot_index(), 3);
-        assert_eq!(xs.entries, [(0, "foo"), (1, "bar"), (2, "baz"), (4, "quux")]);
+        assert_eq!(
+            xs.entries,
+            [(0, "foo"), (1, "bar"), (2, "baz"), (4, "quux")]
+        );
         assert_eq!(xs.free_indexes, [3]);
-        assert_eq!(xs.slots, [Slot::filled(0), Slot::filled(1), Slot::filled(2), Slot::free(0), Slot::filled(3)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(0),
+                Slot::filled(1),
+                Slot::filled(2),
+                Slot::free(0),
+                Slot::filled(3)
+            ]
+        );
 
         assert_eq!(xs.remove(1), "bar");
         assert_eq!(xs.next_slot_index(), 1);
         assert_eq!(xs.entries, [(0, "foo"), (4, "quux"), (2, "baz")]);
         assert_eq!(xs.free_indexes, [3, 1]);
-        assert_eq!(xs.slots, [Slot::filled(0), Slot::free(1), Slot::filled(2), Slot::free(0), Slot::filled(1)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(0),
+                Slot::free(1),
+                Slot::filled(2),
+                Slot::free(0),
+                Slot::filled(1)
+            ]
+        );
 
         assert_eq!(xs.remove(0), "foo");
         assert_eq!(xs.next_slot_index(), 0);
         assert_eq!(xs.entries, [(2, "baz"), (4, "quux")]);
         assert_eq!(xs.free_indexes, [3, 1, 0]);
-        assert_eq!(xs.slots, [Slot::free(2), Slot::free(1), Slot::filled(0), Slot::free(0), Slot::filled(1)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::free(2),
+                Slot::free(1),
+                Slot::filled(0),
+                Slot::free(0),
+                Slot::filled(1)
+            ]
+        );
 
         assert_eq!(xs.remove(4), "quux");
         assert_eq!(xs.next_slot_index(), 1);
@@ -410,37 +458,130 @@ mod tests {
         assert_eq!(xs.insert_at(5, "foo"), None);
         assert_eq!(xs.entries, [(5, "foo")]);
         assert_eq!(xs.free_indexes, [0, 1, 2, 3, 4]);
-        assert_eq!(xs.slots, [Slot::free(0), Slot::free(1), Slot::free(2), Slot::free(3), Slot::free(4), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::free(0),
+                Slot::free(1),
+                Slot::free(2),
+                Slot::free(3),
+                Slot::free(4),
+                Slot::filled(0)
+            ]
+        );
 
         assert_eq!(xs.insert_at(2, "bar"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar")]);
         assert_eq!(xs.free_indexes, [0, 1, 4, 3]);
-        assert_eq!(xs.slots, [Slot::free(0), Slot::free(1), Slot::filled(1), Slot::free(3), Slot::free(2), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::free(0),
+                Slot::free(1),
+                Slot::filled(1),
+                Slot::free(3),
+                Slot::free(2),
+                Slot::filled(0)
+            ]
+        );
 
         assert_eq!(xs.insert_at(0, "baz"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz")]);
         assert_eq!(xs.free_indexes, [3, 1, 4]);
-        assert_eq!(xs.slots, [Slot::filled(2), Slot::free(1), Slot::filled(1), Slot::free(0), Slot::free(2), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(2),
+                Slot::free(1),
+                Slot::filled(1),
+                Slot::free(0),
+                Slot::free(2),
+                Slot::filled(0)
+            ]
+        );
 
         assert_eq!(xs.insert_at(1, "qux"), None);
         assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux")]);
         assert_eq!(xs.free_indexes, [3, 4]);
-        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::free(0), Slot::free(1), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(2),
+                Slot::filled(3),
+                Slot::filled(1),
+                Slot::free(0),
+                Slot::free(1),
+                Slot::filled(0)
+            ]
+        );
 
         assert_eq!(xs.insert_at(4, "quux"), None);
-        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux")]);
+        assert_eq!(
+            xs.entries,
+            [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux")]
+        );
         assert_eq!(xs.free_indexes, [3]);
-        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::free(0), Slot::filled(4), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(2),
+                Slot::filled(3),
+                Slot::filled(1),
+                Slot::free(0),
+                Slot::filled(4),
+                Slot::filled(0)
+            ]
+        );
 
         assert_eq!(xs.insert_at(3, "corge"), None);
-        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux"), (3, "corge")]);
+        assert_eq!(
+            xs.entries,
+            [
+                (5, "foo"),
+                (2, "bar"),
+                (0, "baz"),
+                (1, "qux"),
+                (4, "quux"),
+                (3, "corge")
+            ]
+        );
         assert_eq!(xs.free_indexes, []);
-        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::filled(5), Slot::filled(4), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(2),
+                Slot::filled(3),
+                Slot::filled(1),
+                Slot::filled(5),
+                Slot::filled(4),
+                Slot::filled(0)
+            ]
+        );
 
         assert_eq!(xs.insert_at(3, "grault"), Some("corge"));
-        assert_eq!(xs.entries, [(5, "foo"), (2, "bar"), (0, "baz"), (1, "qux"), (4, "quux"), (3, "grault")]);
+        assert_eq!(
+            xs.entries,
+            [
+                (5, "foo"),
+                (2, "bar"),
+                (0, "baz"),
+                (1, "qux"),
+                (4, "quux"),
+                (3, "grault")
+            ]
+        );
         assert_eq!(xs.free_indexes, []);
-        assert_eq!(xs.slots, [Slot::filled(2), Slot::filled(3), Slot::filled(1), Slot::filled(5), Slot::filled(4), Slot::filled(0)]);
+        assert_eq!(
+            xs.slots,
+            [
+                Slot::filled(2),
+                Slot::filled(3),
+                Slot::filled(1),
+                Slot::filled(5),
+                Slot::filled(4),
+                Slot::filled(0)
+            ]
+        );
     }
 
     #[test]
@@ -553,16 +694,31 @@ mod tests {
         let baz = xs.insert("baz");
 
         assert_eq!(xs.iter().collect::<Vec<_>>(), [&"foo", &"bar", &"baz"]);
-        assert_eq!(xs.iter_mut().collect::<Vec<_>>(), [&mut "foo", &mut "bar", &mut "baz"]);
-        assert_eq!(xs.entries().collect::<Vec<_>>(), [(foo, &"foo"), (bar, &"bar"), (baz, &"baz")]);
-        assert_eq!(xs.entries_mut().collect::<Vec<_>>(), [(foo, &mut "foo"), (bar, &mut "bar"), (baz, &mut "baz")]);
+        assert_eq!(
+            xs.iter_mut().collect::<Vec<_>>(),
+            [&mut "foo", &mut "bar", &mut "baz"]
+        );
+        assert_eq!(
+            xs.entries().collect::<Vec<_>>(),
+            [(foo, &"foo"), (bar, &"bar"), (baz, &"baz")]
+        );
+        assert_eq!(
+            xs.entries_mut().collect::<Vec<_>>(),
+            [(foo, &mut "foo"), (bar, &mut "bar"), (baz, &mut "baz")]
+        );
 
         xs.remove(foo);
 
         assert_eq!(xs.iter().collect::<Vec<_>>(), [&"baz", &"bar"]);
         assert_eq!(xs.iter_mut().collect::<Vec<_>>(), [&mut "baz", &mut "bar"]);
-        assert_eq!(xs.entries().collect::<Vec<_>>(), [(baz, &"baz"), (bar, &"bar")]);
-        assert_eq!(xs.entries_mut().collect::<Vec<_>>(), [(baz, &mut "baz"), (bar, &mut "bar")]);
+        assert_eq!(
+            xs.entries().collect::<Vec<_>>(),
+            [(baz, &"baz"), (bar, &"bar")]
+        );
+        assert_eq!(
+            xs.entries_mut().collect::<Vec<_>>(),
+            [(baz, &mut "baz"), (bar, &mut "bar")]
+        );
 
         xs.remove(baz);
 
@@ -576,6 +732,9 @@ mod tests {
         assert_eq!(xs.iter().collect::<Vec<_>>(), &[] as &[&&str]);
         assert_eq!(xs.iter_mut().collect::<Vec<_>>(), &[] as &[&mut &str]);
         assert_eq!(xs.entries().collect::<Vec<_>>(), &[] as &[(usize, &&str)]);
-        assert_eq!(xs.entries_mut().collect::<Vec<_>>(), &[] as &[(usize, &mut &str)]);
+        assert_eq!(
+            xs.entries_mut().collect::<Vec<_>>(),
+            &[] as &[(usize, &mut &str)]
+        );
     }
 }

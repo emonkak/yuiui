@@ -11,7 +11,7 @@ use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutContext, LayoutResult};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::paint::PaintContext;
-use crate::tree::{NodeId, Link, Tree};
+use crate::tree::{Link, NodeId, Tree};
 
 pub type WidgetTree<Handle> = Tree<BoxedWidget<Handle>>;
 
@@ -44,11 +44,20 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline]
-    fn lifecycle(&self, _lifecycle: Lifecycle<&Self>, _state: &mut Self::State, _context: &mut LifecycleContext) {
+    fn lifecycle(
+        &self,
+        _lifecycle: Lifecycle<&Self>,
+        _state: &mut Self::State,
+        _context: &mut LifecycleContext,
+    ) {
     }
 
     #[inline]
-    fn render(&self, children: Box<[Element<Handle>]>, _state: &mut Self::State) -> Box<[Element<Handle>]> {
+    fn render(
+        &self,
+        children: Box<[Element<Handle>]>,
+        _state: &mut Self::State,
+    ) -> Box<[Element<Handle>]> {
         children
     }
 
@@ -60,7 +69,7 @@ pub trait Widget<Handle>: WidgetMeta {
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
         _state: &mut Self::State,
-        _context: &mut dyn LayoutContext
+        _context: &mut dyn LayoutContext,
     ) -> LayoutResult {
         if let Some((_, size)) = response {
             LayoutResult::Size(size)
@@ -74,7 +83,13 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline]
-    fn paint(&self, _handle: &Handle, _rectangle: &Rectangle, _state: &mut Self::State, _paint_context: &mut dyn PaintContext<Handle>) {
+    fn paint(
+        &self,
+        _handle: &Handle,
+        _rectangle: &Rectangle,
+        _state: &mut Self::State,
+        _paint_context: &mut dyn PaintContext<Handle>,
+    ) {
     }
 }
 
@@ -83,9 +98,18 @@ pub trait DynamicWidget<Handle>: WidgetMeta {
 
     fn should_update(&self, new_widget: &dyn DynamicWidget<Handle>, state: &dyn Any) -> bool;
 
-    fn lifecycle(&self, lifecycle: Lifecycle<&dyn DynamicWidget<Handle>>, state: &mut dyn Any, context: &mut LifecycleContext);
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<&dyn DynamicWidget<Handle>>,
+        state: &mut dyn Any,
+        context: &mut LifecycleContext,
+    );
 
-    fn render(&self, children: Box<[Element<Handle>]>, state: &mut dyn Any) -> Box<[Element<Handle>]>;
+    fn render(
+        &self,
+        children: Box<[Element<Handle>]>,
+        state: &mut dyn Any,
+    ) -> Box<[Element<Handle>]>;
 
     fn layout(
         &self,
@@ -94,10 +118,16 @@ pub trait DynamicWidget<Handle>: WidgetMeta {
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
         _state: &mut dyn Any,
-        _context: &mut dyn LayoutContext
+        _context: &mut dyn LayoutContext,
     ) -> LayoutResult;
 
-    fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn Any, paint_context: &mut dyn PaintContext<Handle>);
+    fn paint(
+        &self,
+        handle: &Handle,
+        rectangle: &Rectangle,
+        state: &mut dyn Any,
+        paint_context: &mut dyn PaintContext<Handle>,
+    );
 }
 
 pub trait WidgetMeta {
@@ -112,11 +142,11 @@ pub trait WidgetMeta {
     }
 
     #[inline(always)]
-    fn with_key(self, key: Key) -> WithKey<Self> where Self: Sized {
-        WithKey {
-            inner: self,
-            key
-        }
+    fn with_key(self, key: Key) -> WithKey<Self>
+    where
+        Self: Sized,
+    {
+        WithKey { inner: self, key }
     }
 
     fn as_any(&self) -> &dyn Any;
@@ -128,14 +158,20 @@ pub struct WithKey<T> {
 }
 
 impl<Handle> Element<Handle> {
-    pub fn new<State: 'static, const N: usize>(widget: impl Widget<Handle, State=State> + 'static, children: [Element<Handle>; N]) -> Self {
+    pub fn new<State: 'static, const N: usize>(
+        widget: impl Widget<Handle, State = State> + 'static,
+        children: [Element<Handle>; N],
+    ) -> Self {
         Self {
             widget: Box::new(widget),
             children: Box::new(children),
         }
     }
 
-    pub fn build<State: 'static, const N: usize>(widget: impl Widget<Handle, State=State> + 'static, children: [Child<Handle>; N]) -> Self {
+    pub fn build<State: 'static, const N: usize>(
+        widget: impl Widget<Handle, State = State> + 'static,
+        children: [Child<Handle>; N],
+    ) -> Self {
         let mut flatten_children = Vec::with_capacity(N);
 
         for child in array::IntoIter::new(children) {
@@ -145,9 +181,7 @@ impl<Handle> Element<Handle> {
                         flatten_children.push(element)
                     }
                 }
-                Child::Single(element) => {
-                    flatten_children.push(element)
-                }
+                Child::Single(element) => flatten_children.push(element),
                 _ => {}
             }
         }
@@ -222,11 +256,13 @@ impl<Handle> From<Element<Handle>> for Child<Handle> {
     }
 }
 
-impl<Handle, State: 'static, W: Widget<Handle, State=State> + WidgetMeta + 'static> From<W> for Child<Handle> {
+impl<Handle, State: 'static, W: Widget<Handle, State = State> + WidgetMeta + 'static> From<W>
+    for Child<Handle>
+{
     fn from(widget: W) -> Self {
         Child::Single(Element {
             widget: Box::new(widget),
-            children: Box::new([])
+            children: Box::new([]),
         })
     }
 }
@@ -243,7 +279,9 @@ impl<Handle> fmt::Display for dyn DynamicWidget<Handle> {
     }
 }
 
-impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'static> DynamicWidget<Handle> for T {
+impl<Handle, State: 'static, T: Widget<Handle, State = State> + WidgetMeta + 'static>
+    DynamicWidget<Handle> for T
+{
     #[inline]
     fn initial_state(&self) -> Box<dyn Any> {
         Box::new(self.initial_state())
@@ -253,21 +291,30 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
     fn should_update(&self, new_widget: &dyn DynamicWidget<Handle>, state: &dyn Any) -> bool {
         self.should_update(
             new_widget.as_any().downcast_ref::<Self>().unwrap(),
-            state.downcast_ref().unwrap()
+            state.downcast_ref().unwrap(),
         )
     }
 
     #[inline]
-    fn lifecycle(&self, lifecycle: Lifecycle<&dyn DynamicWidget<Handle>>, state: &mut dyn Any, context: &mut LifecycleContext) {
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<&dyn DynamicWidget<Handle>>,
+        state: &mut dyn Any,
+        context: &mut LifecycleContext,
+    ) {
         self.lifecycle(
             lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),
-            context
+            context,
         );
     }
 
     #[inline]
-    fn render(&self, children: Box<[Element<Handle>]>, state: &mut dyn Any) -> Box<[Element<Handle>]> {
+    fn render(
+        &self,
+        children: Box<[Element<Handle>]>,
+        state: &mut dyn Any,
+    ) -> Box<[Element<Handle>]> {
         self.render(children, state.downcast_mut().unwrap())
     }
 
@@ -279,7 +326,7 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
         state: &mut dyn Any,
-        context: &mut dyn LayoutContext
+        context: &mut dyn LayoutContext,
     ) -> LayoutResult {
         self.layout(
             node_id,
@@ -287,13 +334,24 @@ impl<Handle, State: 'static, T: Widget<Handle, State=State> + WidgetMeta + 'stat
             response,
             tree,
             state.downcast_mut().unwrap(),
-            context
+            context,
         )
     }
 
     #[inline]
-    fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut dyn Any, paint_context: &mut dyn PaintContext<Handle>) {
-        self.paint(handle, rectangle, state.downcast_mut().unwrap(), paint_context)
+    fn paint(
+        &self,
+        handle: &Handle,
+        rectangle: &Rectangle,
+        state: &mut dyn Any,
+        paint_context: &mut dyn PaintContext<Handle>,
+    ) {
+        self.paint(
+            handle,
+            rectangle,
+            state.downcast_mut().unwrap(),
+            paint_context,
+        )
     }
 }
 
@@ -311,7 +369,11 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
     }
 
     #[inline]
-    fn render(&self, children: Box<[Element<Handle>]>, state: &mut Self::State) -> Box<[Element<Handle>]> {
+    fn render(
+        &self,
+        children: Box<[Element<Handle>]>,
+        state: &mut Self::State,
+    ) -> Box<[Element<Handle>]> {
         self.inner.render(children, state)
     }
 
@@ -323,13 +385,20 @@ impl<Handle, T: Widget<Handle> + 'static> Widget<Handle> for WithKey<T> {
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
         state: &mut Self::State,
-        context: &mut dyn LayoutContext
+        context: &mut dyn LayoutContext,
     ) -> LayoutResult {
-        self.inner.layout(node_id, box_constraints, response, tree, state, context)
+        self.inner
+            .layout(node_id, box_constraints, response, tree, state, context)
     }
 
     #[inline(always)]
-    fn paint(&self, handle: &Handle, rectangle: &Rectangle, state: &mut Self::State, paint_context: &mut dyn PaintContext<Handle>) {
+    fn paint(
+        &self,
+        handle: &Handle,
+        rectangle: &Rectangle,
+        state: &mut Self::State,
+        paint_context: &mut dyn PaintContext<Handle>,
+    ) {
         self.inner.paint(handle, rectangle, state, paint_context)
     }
 }

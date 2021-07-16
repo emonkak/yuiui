@@ -30,7 +30,9 @@ impl<'a, T> Iterator for PostOrderedDescendantsMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
             let link = unsafe {
-                (&mut self.tree.arena[node_id] as *mut Link<T>).as_mut().unwrap()
+                (&mut self.tree.arena[node_id] as *mut Link<T>)
+                    .as_mut()
+                    .unwrap()
             };
             self.next = self.tree.next_post_ordered_descendant(self.root_id, link);
             (node_id, link)
