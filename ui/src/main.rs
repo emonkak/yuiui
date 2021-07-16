@@ -11,7 +11,7 @@ use ui::geometrics::{Point, Rectangle, Size};
 use ui::paint::PaintContext;
 use ui::platform::WindowHandle;
 use ui::platform::x11::event::XEvent;
-use ui::platform::x11::paint::XPainter;
+use ui::platform::x11::paint::XPaintContext;
 use ui::platform::x11::window::{self, XWindowHandle};
 use ui::updater::Updater;
 use ui::widget::fill::Fill;
@@ -70,7 +70,7 @@ fn main() {
     updater.layout(Size { width: window_width as _, height: window_height as _ }, false);
 
     let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
-    let mut paint_context = PaintContext::new(XPainter::new(&handle));
+    let mut paint_context = XPaintContext::new(&handle);
 
     updater.paint(&handle, &mut paint_context);
 
@@ -98,7 +98,7 @@ fn main() {
                         window_width = event.width as _;
                         window_height = event.height as _;
 
-                        paint_context = PaintContext::new(XPainter::new(&handle));
+                        paint_context = XPaintContext::new(&handle);
                         updater.layout(Size { width: window_width as _, height: window_height as _ }, true);
 
                         updater.paint(&handle, &mut paint_context);

@@ -3,7 +3,7 @@ use std::any;
 use geometrics::Rectangle;
 use paint::PaintContext;
 
-use super::{Element, Widget, WidgetMeta};
+use super::{Widget, WidgetMeta};
 
 #[derive(PartialEq, Eq)]
 pub struct Fill {
@@ -25,11 +25,11 @@ impl<Handle> Widget<Handle> for Fill {
         Default::default()
     }
 
-    fn should_render(&self, next_widget: &Self, _next_children: &[Element<Handle>]) -> bool {
-        self != next_widget
+    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
+        self != new_widget
     }
 
-    fn paint(&self, _handle: &Handle, rectangle: &Rectangle, _state: &mut Self::State, paint_context: &mut PaintContext<Handle>) {
+    fn paint(&self, _handle: &Handle, rectangle: &Rectangle, _state: &mut Self::State, paint_context: &mut dyn PaintContext<Handle>) {
         paint_context.fill_rectangle(self.color, rectangle);
     }
 }

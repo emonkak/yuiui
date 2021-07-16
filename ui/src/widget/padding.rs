@@ -1,10 +1,10 @@
 use std::any::Any;
 
 use geometrics::{Point, Size};
-use layout::{BoxConstraints, Layout, LayoutResult, Layouter};
+use layout::{BoxConstraints, LayoutResult, LayoutContext};
 use tree::NodeId;
 
-use super::{Widget, WidgetInstance, WidgetLayout, WidgetMeta, WidgetTree};
+use super::{Widget, WidgetMeta, WidgetTree};
 
 #[derive(Clone)]
 pub struct Padding {
@@ -32,28 +32,17 @@ impl<Handle> Widget<Handle> for Padding {
         Default::default()
     }
 
-    fn layout(&self) -> WidgetLayout<Handle> {
-        Box::new(self.clone())
-    }
-}
-
-impl WidgetMeta for Padding {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl<Handle> Layout<WidgetInstance<Handle>> for Padding {
-    fn measure(
-        &mut self,
+    fn layout(
+        &self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
         response: Option<(NodeId, Size)>,
         tree: &WidgetTree<Handle>,
-        layouter: &mut dyn Layouter
+        _state: &mut Self::State,
+        context: &mut dyn LayoutContext
     ) -> LayoutResult {
         if let Some((child_id, size)) = response {
-            layouter.arrange(child_id, Point { x: self.left, y: self.top });
+            context.arrange(child_id, Point { x: self.left, y: self.top });
             LayoutResult::Size(Size {
                 width: size.width + self.left + self.right,
                 height: size.height + self.top + self.bottom
@@ -74,5 +63,11 @@ impl<Handle> Layout<WidgetInstance<Handle>> for Padding {
             };
             LayoutResult::RequestChild(child_id, child_box_constraints)
         }
+    }
+}
+
+impl WidgetMeta for Padding {
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

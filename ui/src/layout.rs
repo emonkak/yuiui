@@ -1,18 +1,7 @@
 use geometrics::{Point, Rectangle, Size};
-use tree::{NodeId, Tree};
+use tree::NodeId;
 
-pub trait Layout<Widget> {
-    fn measure(
-        &mut self,
-        node_id: NodeId,
-        box_constraints: BoxConstraints,
-        response: Option<(NodeId, Size)>,
-        tree: &Tree<Widget>,
-        _layouter: &mut dyn Layouter
-    ) -> LayoutResult;
-}
-
-pub trait Layouter {
+pub trait LayoutContext {
     fn get_rectangle(&self, node_id: NodeId) -> &Rectangle;
 
     fn get_rectangle_mut(&mut self, node_id: NodeId) -> &mut Rectangle;
@@ -32,8 +21,6 @@ pub trait Layouter {
         (*self.get_rectangle_mut(node_id)).point = point;
     }
 }
-
-pub struct DefaultLayout;
 
 #[derive(Debug)]
 pub enum LayoutResult {
@@ -67,27 +54,6 @@ impl BoxConstraints {
         Size {
             width: size.width.clamp(self.min.width, self.max.width),
             height: size.height.clamp(self.min.height, self.max.height),
-        }
-    }
-}
-
-impl<Widget> Layout<Widget> for DefaultLayout {
-    fn measure(
-        &mut self,
-        node_id: NodeId,
-        box_constraints: BoxConstraints,
-        response: Option<(NodeId, Size)>,
-        tree: &Tree<Widget>,
-        _layouter: &mut dyn Layouter
-    ) -> LayoutResult {
-        if let Some((_, size)) = response {
-            LayoutResult::Size(size)
-        } else {
-            if let Some(child_id) = tree[node_id].first_child() {
-                LayoutResult::RequestChild(child_id, box_constraints)
-            } else {
-                LayoutResult::Size(box_constraints.max)
-            }
         }
     }
 }

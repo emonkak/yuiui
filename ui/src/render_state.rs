@@ -2,7 +2,7 @@ use std::any::Any;
 
 use geometrics::Rectangle;
 use tree::NodeId;
-use widget::{Element, WidgetDyn};
+use widget::{Element, DynamicWidget};
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {
@@ -15,7 +15,7 @@ pub struct RenderState<Handle> {
 }
 
 impl<Handle> RenderState<Handle> {
-    pub fn new(widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) -> Self {
+    pub fn new(widget: &dyn DynamicWidget<Handle>, children: Box<[Element<Handle>]>) -> Self {
         let mut initial_state = widget.initial_state();
         let rendered_children = widget.render(children, &mut *initial_state);
         Self {
@@ -28,7 +28,7 @@ impl<Handle> RenderState<Handle> {
         }
     }
 
-    pub fn update(&mut self, widget: &dyn WidgetDyn<Handle>, children: Box<[Element<Handle>]>) {
+    pub fn update(&mut self, widget: &dyn DynamicWidget<Handle>, children: Box<[Element<Handle>]>) {
         let rendered_children = widget.render(children, &mut *self.state);
         self.dirty = true;
         self.rendered_children = Some(rendered_children);

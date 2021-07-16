@@ -1,18 +1,18 @@
 use std::ptr;
 use x11::xlib;
 
-use platform::WindowHandle;
 use geometrics::Rectangle;
-use paint::Painter;
+use paint::PaintContext;
+use platform::WindowHandle;
 use super::window::XWindowHandle;
 
-pub struct XPainter {
+pub struct XPaintContext {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
 }
 
-impl XPainter {
+impl XPaintContext {
     pub fn new(handle: &XWindowHandle) -> Self {
         let rectangle = handle.get_window_rectangle();
         unsafe {
@@ -76,7 +76,7 @@ impl XPainter {
     }
 }
 
-impl Painter<XWindowHandle> for XPainter  {
+impl PaintContext<XWindowHandle> for XPaintContext  {
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
         unsafe {
             let color = self.alloc_color(color);
@@ -111,7 +111,7 @@ impl Painter<XWindowHandle> for XPainter  {
     }
 }
 
-impl Drop for XPainter {
+impl Drop for XPaintContext {
     fn drop(&mut self) {
         unsafe {
             xlib::XFreeGC(self.display, self.gc);
