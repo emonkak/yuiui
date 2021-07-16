@@ -2,17 +2,17 @@ use std::any::TypeId;
 use std::fmt;
 use std::mem;
 
-use geometrics::{Point, Rectangle, Size};
-use layout::{BoxConstraints, LayoutContext, LayoutResult};
-use lifecycle::{Lifecycle, LifecycleContext};
-use paint::PaintContext;
-use reconciler::{Reconciler, ReconcileResult};
-use render_state::RenderState;
-use slot_vec::SlotVec;
-use tree::walk::{WalkDirection, walk_next_node};
-use tree::{NodeId, Tree};
-use widget::null::Null;
-use widget::{Element, Key, DynamicWidget, WidgetTree};
+use crate::geometrics::{Point, Rectangle, Size};
+use crate::layout::{BoxConstraints, LayoutContext, LayoutResult};
+use crate::lifecycle::{Lifecycle, LifecycleContext};
+use crate::paint::PaintContext;
+use crate::reconciler::{Reconciler, ReconcileResult};
+use crate::render_state::RenderState;
+use crate::slot_vec::SlotVec;
+use crate::tree::walk::{WalkDirection, walk_next_node};
+use crate::tree::{NodeId, Tree};
+use crate::widget::null::Null;
+use crate::widget::{Element, Key, DynamicWidget, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {

@@ -1,8 +1,8 @@
 use std::any::Any;
 
-use geometrics::Rectangle;
-use tree::NodeId;
-use widget::{Element, DynamicWidget};
+use crate::geometrics::Rectangle;
+use crate::tree::NodeId;
+use crate::widget::{Element, DynamicWidget};
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {

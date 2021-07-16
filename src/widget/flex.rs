@@ -1,8 +1,8 @@
 use std::any::Any;
 
-use geometrics::{Point, Size};
-use layout::{BoxConstraints, LayoutContext, LayoutResult};
-use tree::NodeId;
+use crate::geometrics::{Point, Size};
+use crate::layout::{BoxConstraints, LayoutContext, LayoutResult};
+use crate::tree::NodeId;
 
 use super::{Widget, BoxedWidget, WidgetMeta, WidgetNode, WidgetTree};
 

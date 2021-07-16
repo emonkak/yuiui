@@ -7,11 +7,11 @@ use std::any::{self, Any};
 use std::array;
 use std::fmt;
 
-use geometrics::{Rectangle, Size};
-use layout::{BoxConstraints, LayoutContext, LayoutResult};
-use lifecycle::{Lifecycle, LifecycleContext};
-use paint::PaintContext;
-use tree::{NodeId, Link, Tree};
+use crate::geometrics::{Rectangle, Size};
+use crate::layout::{BoxConstraints, LayoutContext, LayoutResult};
+use crate::lifecycle::{Lifecycle, LifecycleContext};
+use crate::paint::PaintContext;
+use crate::tree::{NodeId, Link, Tree};
 
 pub type WidgetTree<Handle> = Tree<BoxedWidget<Handle>>;
 

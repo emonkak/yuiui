@@ -1,5 +1,5 @@
-use geometrics::{Point, Rectangle, Size};
-use tree::NodeId;
+use crate::geometrics::{Point, Rectangle, Size};
+use crate::tree::NodeId;
 
 pub trait LayoutContext {
     fn get_rectangle(&self, node_id: NodeId) -> &Rectangle;

@@ -1,8 +1,8 @@
 use std::mem;
 use x11::xlib;
 
-use platform::WindowHandle;
-use geometrics::{Point, Rectangle, Size};
+use crate::platform::WindowHandle;
+use crate::geometrics::{Point, Rectangle, Size};
 
 #[derive(Clone, Debug)]
 pub struct XWindowHandle {

@@ -1,9 +1,10 @@
 use std::ptr;
 use x11::xlib;
 
-use geometrics::Rectangle;
-use paint::PaintContext;
-use platform::WindowHandle;
+use crate::geometrics::Rectangle;
+use crate::paint::PaintContext;
+use crate::platform::WindowHandle;
+
 use super::window::XWindowHandle;
 
 pub struct XPaintContext {

@@ -1,7 +1,7 @@
 use std::any;
 
-use geometrics::Rectangle;
-use paint::PaintContext;
+use crate::geometrics::Rectangle;
+use crate::paint::PaintContext;
 
 use super::{Widget, WidgetMeta};
 

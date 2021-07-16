@@ -10,7 +10,7 @@ pub mod walk;
 use std::fmt;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-use slot_vec::SlotVec;
+use crate::slot_vec::SlotVec;
 
 use self::ancestors::{Ancestors, AncestorsMut};
 use self::pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendantsMut};

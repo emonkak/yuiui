@@ -1,6 +1,6 @@
 pub mod x11;
 
-use geometrics::Rectangle;
+use crate::geometrics::Rectangle;
 
 pub trait WindowHandle {
     fn get_window_rectangle(&self) -> Rectangle;
