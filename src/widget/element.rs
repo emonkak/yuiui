@@ -9,6 +9,10 @@ pub struct Element<Handle> {
     pub key: Option<Key>,
 }
 
+pub trait IntoElement<Handle> {
+    fn into_element(self, children: Children<Handle>) -> Element<Handle>;
+}
+
 pub type Key = usize;
 
 pub type Children<Handle> = Box<[Element<Handle>]>;
@@ -33,8 +37,8 @@ impl<Handle> Element<Handle> {
         }
     }
 
-    pub fn build<State: 'static, const N: usize>(
-        widget: impl Widget<Handle, State = State> + 'static,
+    pub fn build<const N: usize>(
+        widget: impl IntoElement<Handle> + 'static,
         children: [Child<Handle>; N],
     ) -> Self {
         let mut flatten_children = Vec::with_capacity(N);

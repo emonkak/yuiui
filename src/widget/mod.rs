@@ -4,8 +4,6 @@ pub mod flex;
 pub mod null;
 pub mod padding;
 
-mod base;
-
 use std::any::{self, Any};
 use std::fmt;
 
@@ -16,8 +14,7 @@ use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::paint::PaintContext;
 use crate::tree::{Link, NodeId, Tree};
 
-use self::base::WithKey;
-use self::element::{Children, Element, Key};
+use self::element::{Children, Element, IntoElement, Key};
 
 pub type WidgetTree<Handle> = Tree<BoxedWidget<Handle>>;
 
@@ -76,18 +73,6 @@ pub trait Widget<Handle>: WidgetMeta {
         _paint_context: &mut dyn PaintContext<Handle>,
     ) {
     }
-
-    fn into_element(self, children: Children<Handle>) -> Element<Handle>
-    where
-        Self: Sized + 'static,
-        Self::State: 'static,
-    {
-        Element {
-            widget: Box::new(self),
-            children,
-            key: None,
-        }
-    }
 }
 
 pub trait WidgetMeta {
@@ -136,6 +121,11 @@ pub trait DynamicWidget<Handle>: Any + WidgetMeta {
         state: &mut dyn Any,
         paint_context: &mut dyn PaintContext<Handle>,
     );
+}
+
+pub struct WithKey<Inner> {
+    pub(super) inner: Inner,
+    pub(super) key: Key,
 }
 
 impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
@@ -211,5 +201,40 @@ where
             state.downcast_mut().unwrap(),
             paint_context,
         )
+    }
+}
+
+impl<Handle, State: 'static, Widget> IntoElement<Handle> for Widget
+where
+    State: 'static,
+    Widget: self::Widget<Handle, State = State> + WidgetMeta + 'static,
+{
+    #[inline]
+    fn into_element(self, children: Children<Handle>) -> Element<Handle>
+    where
+        Self: Sized + 'static
+    {
+        Element {
+            widget: Box::new(self),
+            children,
+            key: None,
+        }
+    }
+}
+
+impl<Handle, State, Inner: Widget<Handle, State = State> + WidgetMeta + 'static> IntoElement<Handle> for WithKey<Inner>
+where
+    State: 'static
+{
+    #[inline]
+    fn into_element(self, children: Children<Handle>) -> Element<Handle>
+    where
+        Inner: Sized + 'static
+    {
+        Element {
+            widget: Box::new(self.inner),
+            children,
+            key: Some(self.key),
+        }
     }
 }
