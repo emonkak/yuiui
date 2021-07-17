@@ -1,31 +1,10 @@
-use crate::geometrics::{Point, Rectangle, Size};
+use crate::geometrics::{Point, Size};
 use crate::tree::NodeId;
 
-pub trait LayoutContext {
-    fn get_rectangle(&self, node_id: NodeId) -> &Rectangle;
-
-    fn get_rectangle_mut(&mut self, node_id: NodeId) -> &mut Rectangle;
-
-    #[inline]
-    fn get_point(&self, node_id: NodeId) -> &Point {
-        &self.get_rectangle(node_id).point
-    }
-
-    #[inline]
-    fn get_size(&self, node_id: NodeId) -> &Size {
-        &self.get_rectangle(node_id).size
-    }
-
-    #[inline]
-    fn arrange(&mut self, node_id: NodeId, point: Point) {
-        (*self.get_rectangle_mut(node_id)).point = point;
-    }
-}
-
 #[derive(Debug)]
-pub enum LayoutResult {
-    Size(Size),
-    RequestChild(NodeId, BoxConstraints),
+pub enum LayoutRequest {
+    ArrangeChild(NodeId, Point),
+    LayoutChild(NodeId, BoxConstraints),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -41,7 +20,7 @@ impl BoxConstraints {
     };
 
     #[inline]
-    pub fn tight(size: Size) -> BoxConstraints {
+    pub fn tight(size: &Size) -> BoxConstraints {
         let size = size.expand();
         BoxConstraints {
             min: size,

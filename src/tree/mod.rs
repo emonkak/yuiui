@@ -362,10 +362,7 @@ impl<T> Tree<T> {
         node_id: NodeId,
         format_open: impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result + 'a,
         format_close: impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result + 'a,
-    ) -> impl fmt::Display + 'a
-    where
-        T: fmt::Display,
-    {
+    ) -> impl fmt::Display + 'a {
         TreeFormatter {
             tree: self,
             node_id,

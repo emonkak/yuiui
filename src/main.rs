@@ -14,10 +14,11 @@ use rust_ui::platform::x11::paint::XPaintContext;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
 use rust_ui::platform::WindowHandle;
 use rust_ui::updater::Updater;
+use rust_ui::widget::element::Element;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
 use rust_ui::widget::padding::Padding;
-use rust_ui::widget::{Element, WidgetMeta};
+use rust_ui::widget::WidgetMeta;
 
 fn render() -> Element<XWindowHandle> {
     element!(
@@ -87,6 +88,8 @@ fn main() {
     updater.paint(&handle, &mut paint_context);
 
     handle.show_window();
+
+    println!("{}", updater);
 
     unsafe {
         xlib::XFlush(handle.display);

@@ -11,14 +11,10 @@ pub struct TreeFormatter<'a, T, FOpen, FClose> {
 
 impl<'a, T, FOpen, FClose> TreeFormatter<'a, T, FOpen, FClose>
 where
-    T: fmt::Display,
     FOpen: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
     FClose: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
 {
-    fn fmt_rec(&self, f: &mut fmt::Formatter, node_id: NodeId, level: usize) -> fmt::Result
-    where
-        T: fmt::Display,
-    {
+    fn fmt_rec(&self, f: &mut fmt::Formatter, node_id: NodeId, level: usize) -> fmt::Result {
         let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
         let link = &self.tree.arena[node_id];
 
@@ -45,7 +41,6 @@ where
 
 impl<'a, T, FOpen, FClose> fmt::Display for TreeFormatter<'a, T, FOpen, FClose>
 where
-    T: fmt::Display,
     FOpen: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
     FClose: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
 {
