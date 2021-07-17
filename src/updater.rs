@@ -386,7 +386,7 @@ impl<Handle> fmt::Display for Updater<Handle> {
                 |f, node_id, node| {
                     let render_state = &self.render_states[node_id];
                     let paint_state = &self.paint_states[node_id];
-                    write!(f, "<{}", node.name())?;
+                    write!(f, "<{:?}", node)?;
                     write!(f, " id=\"{}\"", node_id)?;
                     write!(f, " x=\"{}\"", paint_state.rectangle.point.x)?;
                     write!(f, " y=\"{}\"", paint_state.rectangle.point.y)?;

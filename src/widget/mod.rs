@@ -130,7 +130,7 @@ pub struct WithKey<Inner> {
 
 impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "{}", get_short_type_name(self.name()))
     }
 }
 
@@ -238,4 +238,29 @@ where
             key: Some(self.key),
         }
     }
+}
+
+fn get_short_type_name(full_name: &str) -> &str {
+    let mut cursor = 0;
+
+    while let Some(offset) = full_name[cursor..].find("::") {
+        let slice_name = &full_name[cursor..cursor + offset];
+        if slice_name.contains("<") {
+            break;
+        }
+        cursor += offset + 2;
+    }
+
+    &full_name[cursor..]
+}
+
+#[cfg(test)]
+#[test]
+fn test_get_short_type_name() {
+    assert_eq!(get_short_type_name("Foo"), "Foo");
+    assert_eq!(get_short_type_name("Foo<Bar>"), "Foo<Bar>");
+    assert_eq!(get_short_type_name("Foo<Bar::Baz>"), "Foo<Bar::Baz>");
+    assert_eq!(get_short_type_name("Foo::Bar"), "Bar");
+    assert_eq!(get_short_type_name("Foo::Bar<Baz>"), "Bar<Baz>");
+    assert_eq!(get_short_type_name("Foo::Bar<Baz::Qux>"), "Bar<Baz::Qux>");
 }
