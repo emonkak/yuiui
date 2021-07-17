@@ -124,8 +124,8 @@ pub trait DynamicWidget<Handle>: Any + WidgetMeta {
 }
 
 pub struct WithKey<Inner> {
-    pub(super) inner: Inner,
-    pub(super) key: Key,
+    inner: Inner,
+    key: Key,
 }
 
 impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
@@ -212,7 +212,7 @@ where
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle>
     where
-        Self: Sized + 'static
+        Self: Sized + 'static,
     {
         Element {
             widget: Box::new(self),
@@ -222,14 +222,15 @@ where
     }
 }
 
-impl<Handle, State, Inner: Widget<Handle, State = State> + WidgetMeta + 'static> IntoElement<Handle> for WithKey<Inner>
+impl<Handle, State, Inner> IntoElement<Handle> for WithKey<Inner>
 where
-    State: 'static
+    State: 'static,
+    Inner: Widget<Handle, State = State> + WidgetMeta + 'static,
 {
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle>
     where
-        Inner: Sized + 'static
+        Inner: Sized + 'static,
     {
         Element {
             widget: Box::new(self.inner),

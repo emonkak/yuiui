@@ -25,18 +25,6 @@ pub enum Child<Handle> {
 }
 
 impl<Handle> Element<Handle> {
-    pub fn new<State: 'static>(
-        widget: impl Widget<Handle, State = State> + 'static,
-        children: Children<Handle>,
-        key: Option<Key>,
-    ) -> Self {
-        Self {
-            widget: Box::new(widget),
-            children,
-            key,
-        }
-    }
-
     pub fn build<const N: usize>(
         widget: impl IntoElement<Handle> + 'static,
         children: [Child<Handle>; N],
@@ -57,27 +45,31 @@ impl<Handle> Element<Handle> {
 
         widget.into_element(flatten_children.into_boxed_slice())
     }
-
-    fn fmt_rec(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
-        let name = self.widget.name();
-        let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
-        if self.children.len() > 0 {
-            write!(f, "{}<{}>", indent_str, name)?;
-            for i in 0..self.children.len() {
-                write!(f, "\n")?;
-                self.children[i].fmt_rec(f, level + 1)?
-            }
-            write!(f, "\n{}</{}>", indent_str, name)?;
-        } else {
-            write!(f, "{}<{}></{}>", indent_str, name, name)?;
-        }
-        Ok(())
-    }
 }
 
 impl<Handle> fmt::Display for Element<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_rec(f, 0)
+        fn fmt_rec<Handle>(
+            this: &Element<Handle>,
+            f: &mut fmt::Formatter<'_>,
+            level: usize,
+        ) -> fmt::Result {
+            let name = this.widget.name();
+            let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
+            if this.children.len() > 0 {
+                write!(f, "{}<{}>", indent_str, name)?;
+                for i in 0..this.children.len() {
+                    write!(f, "\n")?;
+                    fmt_rec(&this.children[i], f, level + 1)?;
+                }
+                write!(f, "\n{}</{}>", indent_str, name)?;
+            } else {
+                write!(f, "{}<{}></{}>", indent_str, name, name)?;
+            }
+            Ok(())
+        }
+
+        fmt_rec(self, f, 0)
     }
 }
 
@@ -94,9 +86,9 @@ impl<Handle> fmt::Debug for Element<Handle> {
 impl<Handle> Into<Vec<Element<Handle>>> for Child<Handle> {
     fn into(self) -> Vec<Element<Handle>> {
         match self {
-            Child::None => Vec::new(),
             Child::Single(element) => vec![element],
             Child::Multiple(elements) => elements,
+            Child::None => Vec::new(),
         }
     }
 }
@@ -122,10 +114,12 @@ impl<Handle> From<Element<Handle>> for Child<Handle> {
     }
 }
 
-impl<Handle, State: 'static, W: Widget<Handle, State = State> + WidgetMeta + 'static> From<W>
-    for Child<Handle>
+impl<Handle, State, Widget> From<Widget> for Child<Handle>
+where
+    State: 'static,
+    Widget: self::Widget<Handle, State = State> + WidgetMeta + 'static,
 {
-    fn from(widget: W) -> Self {
+    fn from(widget: Widget) -> Self {
         Child::Single(Element {
             widget: Box::new(widget),
             children: Box::new([]),

@@ -886,4 +886,3 @@ fn test_walk_filter() {
         );
     }
 }
-

@@ -69,7 +69,7 @@ impl<Handle> Updater<Handle> {
     }
 
     pub fn update(&mut self, element: Element<Handle>) {
-        self.update_render_state(self.root_id, Element::new(Null, Box::new([element]), None));
+        self.update_render_state(self.root_id, Box::new(Null), Box::new([element]), None);
     }
 
     pub fn render(&mut self) {
@@ -306,10 +306,20 @@ impl<Handle> Updater<Handle> {
                 self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::Update(target_id, new_element) => {
-                self.update_render_state(target_id, new_element);
+                self.update_render_state(
+                    target_id,
+                    new_element.widget,
+                    new_element.children,
+                    new_element.key,
+                );
             }
             ReconcileResult::UpdatePlacement(target_id, ref_id, new_element) => {
-                self.update_render_state(target_id, new_element);
+                self.update_render_state(
+                    target_id,
+                    new_element.widget,
+                    new_element.children,
+                    new_element.key,
+                );
                 self.tree.move_position(target_id).insert_before(ref_id);
             }
             ReconcileResult::Deletion(target_id) => {
@@ -329,15 +339,18 @@ impl<Handle> Updater<Handle> {
         }
     }
 
-    fn update_render_state(&mut self, node_id: NodeId, element: Element<Handle>) {
+    pub fn update_render_state(
+        &mut self,
+        node_id: NodeId,
+        new_widget: BoxedWidget<Handle>,
+        children: Children<Handle>,
+        key: Option<Key>,
+    ) {
         let current_widget = &mut *self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
 
-        if element
-            .widget
-            .should_update(&**current_widget, &*render_state.state)
-        {
-            let prev_widget = mem::replace(current_widget, element.widget);
+        if new_widget.should_update(&**current_widget, &*render_state.state) {
+            let prev_widget = mem::replace(current_widget, new_widget);
 
             current_widget.lifecycle(
                 Lifecycle::WillUpdate(&*prev_widget),
@@ -345,11 +358,10 @@ impl<Handle> Updater<Handle> {
                 &mut LifecycleContext,
             );
 
-            let rendered_children =
-                current_widget.render(element.children, &mut *render_state.state);
+            let rendered_children = current_widget.render(children, &mut *render_state.state);
             render_state.dirty = true;
             render_state.rendered_children = Some(rendered_children);
-            render_state.key = element.key;
+            render_state.key = key;
         }
 
         for (parent_id, _) in self.tree.ancestors(node_id) {
