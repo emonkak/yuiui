@@ -57,7 +57,7 @@ impl<Handle> Updater<Handle> {
 
         let root_id = tree.attach(Box::new(Null) as BoxedWidget<Handle>);
 
-        render_states.insert_at(root_id, RenderState::new(&Null, Box::new([]), None));
+        render_states.insert_at(root_id, RenderState::new(&Null, Vec::new(), None));
         paint_states.insert_at(root_id, PaintState::default());
 
         Self {
@@ -69,7 +69,7 @@ impl<Handle> Updater<Handle> {
     }
 
     pub fn update(&mut self, element: Element<Handle>) {
-        self.update_render_state(self.root_id, Box::new(Null), Box::new([element]), None);
+        self.update_render_state(self.root_id, Box::new(Null), vec![element], None);
     }
 
     pub fn render(&mut self) {
@@ -273,7 +273,7 @@ impl<Handle> Updater<Handle> {
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
         let mut new_elements: Vec<Option<Element<Handle>>> = Vec::with_capacity(children.len());
 
-        for (index, element) in children.into_vec().into_iter().enumerate() {
+        for (index, element) in children.into_iter().enumerate() {
             let key = key_of(&*element.widget, index, element.key);
             new_keys.push(key);
             new_elements.push(Some(element));
@@ -358,7 +358,9 @@ impl<Handle> Updater<Handle> {
                 &mut LifecycleContext,
             );
 
-            let rendered_children = current_widget.render(children, &mut *render_state.state);
+            let rendered_children = current_widget
+                .render(children, &mut *render_state.state)
+                .into();
             render_state.dirty = true;
             render_state.rendered_children = Some(rendered_children);
             render_state.key = key;
@@ -409,7 +411,7 @@ impl<Handle> RenderState<Handle> {
         key: Option<Key>,
     ) -> Self {
         let mut initial_state = widget.initial_state();
-        let rendered_children = widget.render(children, &mut *initial_state);
+        let rendered_children = widget.render(children, &mut *initial_state).into();
         Self {
             rendered_children: Some(rendered_children),
             deleted_children: Vec::new(),

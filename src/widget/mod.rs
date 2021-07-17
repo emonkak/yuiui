@@ -14,7 +14,7 @@ use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::paint::PaintContext;
 use crate::tree::{Link, NodeId, Tree};
 
-use self::element::{Children, Element, IntoElement, Key};
+use self::element::{Child, Children, Element, IntoElement, Key};
 
 pub type WidgetTree<Handle> = Tree<BoxedWidget<Handle>>;
 
@@ -42,8 +42,8 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline]
-    fn render(&self, children: Children<Handle>, _state: &mut Self::State) -> Children<Handle> {
-        children
+    fn render(&self, children: Children<Handle>, _state: &mut Self::State) -> Child<Handle> {
+        Child::Multiple(children)
     }
 
     #[inline]
@@ -104,7 +104,7 @@ pub trait DynamicWidget<Handle>: Any + WidgetMeta {
         context: &mut LifecycleContext,
     );
 
-    fn render(&self, children: Children<Handle>, state: &mut dyn Any) -> Children<Handle>;
+    fn render(&self, children: Children<Handle>, state: &mut dyn Any) -> Child<Handle>;
 
     fn layout<'a>(
         &'a self,
@@ -167,7 +167,7 @@ where
     }
 
     #[inline]
-    fn render(&self, children: Children<Handle>, state: &mut dyn Any) -> Children<Handle> {
+    fn render(&self, children: Children<Handle>, state: &mut dyn Any) -> Child<Handle> {
         self.render(children, state.downcast_mut().unwrap())
     }
 

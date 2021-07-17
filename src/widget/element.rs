@@ -15,7 +15,7 @@ pub trait IntoElement<Handle> {
 
 pub type Key = usize;
 
-pub type Children<Handle> = Box<[Element<Handle>]>;
+pub type Children<Handle> = Vec<Element<Handle>>;
 
 #[derive(Debug)]
 pub enum Child<Handle> {
@@ -43,7 +43,7 @@ impl<Handle> Element<Handle> {
             }
         }
 
-        widget.into_element(flatten_children.into_boxed_slice())
+        widget.into_element(flatten_children)
     }
 }
 
@@ -122,7 +122,7 @@ where
     fn from(widget: Widget) -> Self {
         Child::Single(Element {
             widget: Box::new(widget),
-            children: Box::new([]),
+            children: Vec::new(),
             key: None,
         })
     }
