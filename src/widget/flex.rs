@@ -100,7 +100,7 @@ impl<Handle> Widget<Handle> for Flex {
 
                     let child_box_constraints =
                         self.direction
-                            .apply_to_box_constraints(&box_constraints, major, major);
+                            .adjust_box_constraints(&box_constraints, major, major);
                     let child_size = co
                         .suspend(LayoutRequest::LayoutChild(*child_id, child_box_constraints))
                         .await;
@@ -188,7 +188,7 @@ impl Axis {
         }
     }
 
-    fn apply_to_box_constraints(
+    fn adjust_box_constraints(
         &self,
         box_constraints: &BoxConstraints,
         min_major: f32,
