@@ -68,7 +68,7 @@ impl<Handle> Widget<Handle> for Flex {
         box_constraints: BoxConstraints,
         node_id: NodeId,
         tree: &'a WidgetTree<Handle>,
-        _state: &Self::State,
+        _state: &'a Self::State,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;

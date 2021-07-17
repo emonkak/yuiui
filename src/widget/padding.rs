@@ -38,8 +38,8 @@ impl<Handle> Widget<Handle> for Padding {
         box_constraints: BoxConstraints,
         node_id: NodeId,
         tree: &'a WidgetTree<Handle>,
-        _state: &Self::State,
-    ) -> Generator<'a, LayoutRequest, Size, Size> {
+        _state: &'a Self::State,
+    ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let child_id = tree[node_id]
                 .first_child()

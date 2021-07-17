@@ -42,7 +42,7 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 
     #[inline]
-    fn render(&self, children: Children<Handle>, _state: &mut Self::State) -> Child<Handle> {
+    fn render(&self, children: Children<Handle>, _state: &Self::State) -> Child<Handle> {
         Child::Multiple(children)
     }
 
@@ -52,8 +52,8 @@ pub trait Widget<Handle>: WidgetMeta {
         box_constraints: BoxConstraints,
         node_id: NodeId,
         tree: &'a WidgetTree<Handle>,
-        _state: &Self::State,
-    ) -> Generator<'a, LayoutRequest, Size, Size> {
+        _state: &'a Self::State,
+    ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = tree[node_id].first_child() {
                 co.suspend(LayoutRequest::LayoutChild(child_id, box_constraints))
@@ -104,15 +104,15 @@ pub trait DynamicWidget<Handle>: Any + WidgetMeta {
         context: &mut LifecycleContext,
     );
 
-    fn render(&self, children: Children<Handle>, state: &mut dyn Any) -> Child<Handle>;
+    fn render(&self, children: Children<Handle>, state: &dyn Any) -> Child<Handle>;
 
     fn layout<'a>(
         &'a self,
         box_constraints: BoxConstraints,
         node_id: NodeId,
         tree: &'a WidgetTree<Handle>,
-        state: &dyn Any,
-    ) -> Generator<'a, LayoutRequest, Size, Size>;
+        state: &'a dyn Any,
+    ) -> Generator<LayoutRequest, Size, Size>;
 
     fn paint(
         &self,
@@ -167,8 +167,8 @@ where
     }
 
     #[inline]
-    fn render(&self, children: Children<Handle>, state: &mut dyn Any) -> Child<Handle> {
-        self.render(children, state.downcast_mut().unwrap())
+    fn render(&self, children: Children<Handle>, state: &dyn Any) -> Child<Handle> {
+        self.render(children, state.downcast_ref().unwrap())
     }
 
     #[inline]
@@ -177,8 +177,8 @@ where
         box_constraints: BoxConstraints,
         node_id: NodeId,
         tree: &'a WidgetTree<Handle>,
-        state: &dyn Any,
-    ) -> Generator<'a, LayoutRequest, Size, Size> {
+        state: &'a dyn Any,
+    ) -> Generator<LayoutRequest, Size, Size> {
         self.layout(
             box_constraints,
             node_id,
