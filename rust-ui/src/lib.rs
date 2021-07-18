@@ -1,7 +1,9 @@
+extern crate rust_ui_derive;
 extern crate x11;
 
 mod bit_flags;
 
+pub mod event;
 pub mod generator;
 pub mod geometrics;
 pub mod layout;

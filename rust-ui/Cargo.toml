@@ -1,0 +1,19 @@
+[package]
+name = "rust-ui"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+edition = "2018"
+
+[features]
+default = ["xlib"]
+xlib = []
+
+[dependencies]
+x11 = { version = "2.18.2", features = ["xft", "xinerama", "xlib"] }
+
+[dependencies.rust-ui-derive]
+path = "../rust-ui-derive"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"

@@ -1,11 +1,11 @@
-use std::any;
+use rust_ui_derive::WidgetMeta;
 
 use crate::geometrics::Rectangle;
 use crate::paint::PaintContext;
 
 use super::{Widget, WidgetMeta};
 
-#[derive(PartialEq, Eq)]
+#[derive(Eq, PartialEq, WidgetMeta)]
 pub struct Fill {
     color: u32,
 }
@@ -31,11 +31,5 @@ impl<Handle> Widget<Handle> for Fill {
         paint_context: &mut dyn PaintContext<Handle>,
     ) {
         paint_context.fill_rectangle(self.color, rectangle);
-    }
-}
-
-impl WidgetMeta for Fill {
-    fn as_any(&self) -> &dyn any::Any {
-        self
     }
 }

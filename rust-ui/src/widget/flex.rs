@@ -1,4 +1,4 @@
-use std::any::Any;
+use rust_ui_derive::WidgetMeta;
 
 use crate::generator::{Coroutine, Generator};
 use crate::geometrics::{Point, Size};
@@ -7,10 +7,12 @@ use crate::tree::NodeId;
 
 use super::{BoxedWidget, Widget, WidgetMeta, WidgetTree};
 
+#[derive(WidgetMeta)]
 pub struct Flex {
     direction: Axis,
 }
 
+#[derive(WidgetMeta)]
 pub struct FlexItem {
     params: Params,
 }
@@ -121,12 +123,6 @@ impl<Handle> Widget<Handle> for Flex {
     }
 }
 
-impl WidgetMeta for Flex {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
 impl FlexItem {
     pub fn new(flex: f32) -> FlexItem {
         FlexItem {
@@ -137,12 +133,6 @@ impl FlexItem {
 
 impl<Handle> Widget<Handle> for FlexItem {
     type State = ();
-}
-
-impl WidgetMeta for FlexItem {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 impl Axis {

@@ -1,4 +1,4 @@
-use std::any::Any;
+use rust_ui_derive::WidgetMeta;
 
 use crate::generator::{Coroutine, Generator};
 use crate::geometrics::{Point, Size};
@@ -7,7 +7,7 @@ use crate::tree::NodeId;
 
 use super::{Widget, WidgetMeta, WidgetTree};
 
-#[derive(Clone)]
+#[derive(WidgetMeta)]
 pub struct Padding {
     left: f32,
     right: f32,
@@ -67,11 +67,5 @@ impl<Handle> Widget<Handle> for Padding {
                 height: child_size.height + self.top + self.bottom,
             }
         })
-    }
-}
-
-impl WidgetMeta for Padding {
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
