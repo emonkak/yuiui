@@ -23,9 +23,12 @@ pub type WidgetNode<Handle> = Link<BoxedWidget<Handle>>;
 pub type BoxedWidget<Handle> = Box<dyn DynamicWidget<Handle>>;
 
 pub trait Widget<Handle>: WidgetMeta {
-    type State;
+    type State: Default;
 
-    fn initial_state(&self) -> Self::State;
+    #[inline]
+    fn initial_state(&self) -> Self::State {
+        Default::default()
+    }
 
     #[inline]
     fn should_update(&self, _new_widget: &Self, _state: &Self::State) -> bool {
@@ -75,24 +78,7 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 }
 
-pub trait WidgetMeta {
-    #[inline(always)]
-    fn name(&self) -> &'static str {
-        any::type_name::<Self>()
-    }
-
-    #[inline(always)]
-    fn with_key(self, key: Key) -> WithKey<Self>
-    where
-        Self: Sized,
-    {
-        WithKey { inner: self, key }
-    }
-
-    fn as_any(&self) -> &dyn Any;
-}
-
-pub trait DynamicWidget<Handle>: Any + WidgetMeta {
+pub trait DynamicWidget<Handle>: WidgetMeta {
     fn initial_state(&self) -> Box<dyn Any>;
 
     fn should_update(&self, new_widget: &dyn DynamicWidget<Handle>, state: &dyn Any) -> bool;
@@ -123,6 +109,23 @@ pub trait DynamicWidget<Handle>: Any + WidgetMeta {
     );
 }
 
+pub trait WidgetMeta {
+    #[inline]
+    fn name(&self) -> &'static str {
+        any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn with_key(self, key: Key) -> WithKey<Self>
+    where
+        Self: Sized,
+    {
+        WithKey { inner: self, key }
+    }
+
+    fn as_any(&self) -> &dyn Any;
+}
+
 pub struct WithKey<Inner> {
     inner: Inner,
     key: Key,
@@ -134,10 +137,10 @@ impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
     }
 }
 
-impl<Handle, State: 'static, Widget> DynamicWidget<Handle> for Widget
+impl<Outer, Handle, State> DynamicWidget<Handle> for Outer
 where
+    Outer: Widget<Handle, State = State> + 'static,
     State: 'static,
-    Widget: self::Widget<Handle, State = State> + WidgetMeta + 'static,
 {
     #[inline]
     fn initial_state(&self) -> Box<dyn Any> {
@@ -204,10 +207,10 @@ where
     }
 }
 
-impl<Handle, State: 'static, Widget> IntoElement<Handle> for Widget
+impl<Outer, Handle, State: 'static> IntoElement<Handle> for Outer
 where
+    Outer: Widget<Handle, State = State> + WidgetMeta + 'static,
     State: 'static,
-    Widget: self::Widget<Handle, State = State> + WidgetMeta + 'static,
 {
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle>
@@ -222,10 +225,10 @@ where
     }
 }
 
-impl<Handle, State, Inner> IntoElement<Handle> for WithKey<Inner>
+impl<Inner, Handle, State> IntoElement<Handle> for WithKey<Inner>
 where
+    Inner: Widget<Handle, State = State> + 'static,
     State: 'static,
-    Inner: Widget<Handle, State = State> + WidgetMeta + 'static,
 {
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle>

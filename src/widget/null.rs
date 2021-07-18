@@ -6,10 +6,6 @@ pub struct Null;
 
 impl<Handle> Widget<Handle> for Null {
     type State = ();
-
-    fn initial_state(&self) -> Self::State {
-        Default::default()
-    }
 }
 
 impl WidgetMeta for Null {

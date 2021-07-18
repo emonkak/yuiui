@@ -19,10 +19,6 @@ impl Fill {
 impl<Handle> Widget<Handle> for Fill {
     type State = ();
 
-    fn initial_state(&self) -> Self::State {
-        Default::default()
-    }
-
     fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
         self != new_widget
     }

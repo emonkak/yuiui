@@ -29,10 +29,6 @@ impl Padding {
 impl<Handle> Widget<Handle> for Padding {
     type State = ();
 
-    fn initial_state(&self) -> Self::State {
-        Default::default()
-    }
-
     fn layout<'a>(
         &'a self,
         box_constraints: BoxConstraints,

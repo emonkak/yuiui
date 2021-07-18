@@ -59,10 +59,6 @@ impl Flex {
 impl<Handle> Widget<Handle> for Flex {
     type State = ();
 
-    fn initial_state(&self) -> Self::State {
-        Default::default()
-    }
-
     fn layout<'a>(
         &'a self,
         box_constraints: BoxConstraints,
@@ -141,10 +137,6 @@ impl FlexItem {
 
 impl<Handle> Widget<Handle> for FlexItem {
     type State = ();
-
-    fn initial_state(&self) -> Self::State {
-        Default::default()
-    }
 }
 
 impl WidgetMeta for FlexItem {
