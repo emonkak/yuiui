@@ -139,9 +139,6 @@ macro_rules! __element_children {
     ([$($children:expr)*] $expr:expr) => {
         __element_children!([$($children)* $crate::widget::element::Child::from($expr)])
     };
-    ([$($children:expr)*] $expr:expr) => {
-        __element_children!([$($children)* $crate::widget::element::Child::from($expr)])
-    };
     ([$($children:expr)*]) => {
         [$($children),*]
     };
