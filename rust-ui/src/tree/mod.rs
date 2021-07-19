@@ -53,14 +53,17 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn is_attached(&self, target_id: NodeId) -> bool {
         self.arena.contains(target_id)
     }
 
+    #[inline]
     pub fn next_node_id(&self) -> NodeId {
         self.arena.next_slot_index()
     }
 
+    #[inline]
     pub fn attach(&mut self, node: impl Into<Node<T>>) -> NodeId {
         self.arena.insert(Link {
             current: node.into(),
@@ -162,6 +165,7 @@ impl<T> Tree<T> {
         self.arena.insert(new_link)
     }
 
+    #[inline]
     pub fn move_position(&mut self, target_id: NodeId) -> MovePosition<'_, T> {
         MovePosition {
             tree: self,
@@ -169,6 +173,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn detach_subtree(
         &mut self,
         target_id: NodeId,
@@ -180,6 +185,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn ancestors(&self, target_id: NodeId) -> impl Iterator<Item = (NodeId, &Link<T>)> {
         Ancestors {
             tree: self,
@@ -187,6 +193,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn ancestors_mut(
         &mut self,
         target_id: NodeId,
@@ -197,6 +204,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn children(
         &self,
         target_id: NodeId,
@@ -207,6 +215,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn children_mut(
         &mut self,
         target_id: NodeId,
@@ -217,6 +226,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn next_siblings(
         &self,
         target_id: NodeId,
@@ -227,6 +237,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn next_siblings_mut(
         &mut self,
         target_id: NodeId,
@@ -237,6 +248,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn prev_siblings(
         &self,
         target_id: NodeId,
@@ -248,6 +260,7 @@ impl<T> Tree<T> {
         .rev()
     }
 
+    #[inline]
     pub fn prev_siblings_mut(
         &mut self,
         target_id: NodeId,
@@ -259,6 +272,7 @@ impl<T> Tree<T> {
         .rev()
     }
 
+    #[inline]
     pub fn pre_ordered_descendants(
         &self,
         target_id: NodeId,
@@ -270,6 +284,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn pre_ordered_descendants_mut(
         &mut self,
         target_id: NodeId,
@@ -281,6 +296,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn post_ordered_descendants(
         &self,
         target_id: NodeId,
@@ -292,6 +308,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn post_ordered_descendants_mut(
         &mut self,
         target_id: NodeId,
@@ -303,6 +320,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn walk(
         &self,
         target_id: NodeId,
@@ -314,6 +332,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn walk_mut(
         &mut self,
         target_id: NodeId,
@@ -325,6 +344,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn walk_filter<F>(
         &self,
         target_id: NodeId,
@@ -341,6 +361,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn walk_filter_mut<F>(
         &mut self,
         target_id: NodeId,
@@ -357,6 +378,7 @@ impl<T> Tree<T> {
         }
     }
 
+    #[inline]
     pub fn to_formatter<'a>(
         &'a self,
         node_id: NodeId,
@@ -464,26 +486,32 @@ impl<T> IndexMut<usize> for Tree<T> {
 }
 
 impl<T> Link<T> {
+    #[inline]
     pub fn is_root(&self) -> bool {
         self.parent.is_none()
     }
 
+    #[inline]
     pub fn first_child(&self) -> Option<NodeId> {
         self.current.first_child
     }
 
+    #[inline]
     pub fn last_child(&self) -> Option<NodeId> {
         self.current.last_child
     }
 
+    #[inline]
     pub fn next_sibling(&self) -> Option<NodeId> {
         self.next_sibling
     }
 
+    #[inline]
     pub fn prev_sibling(&self) -> Option<NodeId> {
         self.prev_sibling
     }
 
+    #[inline]
     pub fn parent(&self) -> Option<NodeId> {
         self.parent
     }
@@ -492,18 +520,21 @@ impl<T> Link<T> {
 impl<T> Deref for Link<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.current.data
     }
 }
 
 impl<T> DerefMut for Link<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.current.data
     }
 }
 
 impl<T> From<T> for Node<T> {
+    #[inline]
     fn from(data: T) -> Node<T> {
         Node {
             data,
