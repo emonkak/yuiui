@@ -3,25 +3,26 @@ use std::fmt;
 
 use super::{BoxedWidget, Widget, WidgetMeta};
 
+#[derive(Debug)]
 pub struct Element<Handle> {
     pub widget: BoxedWidget<Handle>,
     pub children: Children<Handle>,
     pub key: Option<Key>,
 }
 
-pub trait IntoElement<Handle> {
-    fn into_element(self, children: Children<Handle>) -> Element<Handle>;
+#[derive(Debug)]
+pub enum Child<Handle> {
+    Multiple(Vec<Element<Handle>>),
+    Single(Element<Handle>),
+    None,
 }
 
 pub type Key = usize;
 
 pub type Children<Handle> = Vec<Element<Handle>>;
 
-#[derive(Debug)]
-pub enum Child<Handle> {
-    Multiple(Vec<Element<Handle>>),
-    Single(Element<Handle>),
-    None,
+pub trait IntoElement<Handle> {
+    fn into_element(self, children: Children<Handle>) -> Element<Handle>;
 }
 
 impl<Handle> Element<Handle> {
@@ -70,16 +71,6 @@ impl<Handle> fmt::Display for Element<Handle> {
         }
 
         fmt_rec(self, f, 0)
-    }
-}
-
-impl<Handle> fmt::Debug for Element<Handle> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Element")
-            .field("widget", &self.widget)
-            .field("children", &self.children)
-            .finish()
     }
 }
 
