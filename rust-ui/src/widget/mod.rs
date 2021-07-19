@@ -112,7 +112,7 @@ pub trait DynamicWidget<Handle>: WidgetMeta {
 pub trait WidgetMeta {
     #[inline]
     fn name(&self) -> &'static str {
-        any::type_name::<Self>()
+        get_short_type_name(any::type_name::<Self>())
     }
 
     #[inline]
@@ -133,7 +133,7 @@ pub struct WithKey<Inner> {
 
 impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", get_short_type_name(self.name()))
+        write!(f, "{}", self.name())
     }
 }
 
