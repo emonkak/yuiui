@@ -55,17 +55,16 @@ impl<Handle> fmt::Display for Element<Handle> {
             f: &mut fmt::Formatter<'_>,
             level: usize,
         ) -> fmt::Result {
-            let name = this.widget.name();
             let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
             if this.children.len() > 0 {
-                write!(f, "{}<{}>", indent_str, name)?;
+                write!(f, "{}<{:?}>", indent_str, this.widget)?;
                 for i in 0..this.children.len() {
                     write!(f, "\n")?;
                     fmt_rec(&this.children[i], f, level + 1)?;
                 }
-                write!(f, "\n{}</{}>", indent_str, name)?;
+                write!(f, "\n{}</{:?}>", indent_str, this.widget)?;
             } else {
-                write!(f, "{}<{}></{}>", indent_str, name, name)?;
+                write!(f, "{}<{:?}></{:?}>", indent_str, this.widget, this.widget)?;
             }
             Ok(())
         }
