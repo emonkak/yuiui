@@ -132,10 +132,7 @@ impl<Handle> Updater<Handle> {
         calculated_size
     }
 
-    pub fn paint(&mut self, handle: &Handle, paint_context: &mut dyn PaintContext<Handle>)
-    where
-        Handle: Clone,
-    {
+    pub fn paint(&mut self, paint_context: &mut dyn PaintContext<Handle>) {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
 
@@ -198,7 +195,6 @@ impl<Handle> Updater<Handle> {
                 }
 
                 widget.paint(
-                    handle,
                     &absolute_rectangle,
                     &mut *render_state.state,
                     paint_context,

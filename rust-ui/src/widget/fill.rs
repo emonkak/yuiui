@@ -25,7 +25,6 @@ impl<Handle> Widget<Handle> for Fill {
 
     fn paint(
         &self,
-        _handle: &Handle,
         rectangle: &Rectangle,
         _state: &mut Self::State,
         paint_context: &mut dyn PaintContext<Handle>,

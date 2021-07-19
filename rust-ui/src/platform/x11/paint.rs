@@ -8,13 +8,13 @@ use crate::platform::WindowHandle;
 use super::window::XWindowHandle;
 
 pub struct XPaintContext {
-    display: *mut xlib::Display,
+    handle: XWindowHandle,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
 }
 
 impl XPaintContext {
-    pub fn new(handle: &XWindowHandle) -> Self {
+    pub fn new(handle: XWindowHandle) -> Self {
         let rectangle = handle.get_window_rectangle();
         unsafe {
             let pixmap = {
@@ -49,7 +49,7 @@ impl XPaintContext {
             }
 
             Self {
-                display: handle.display,
+                handle,
                 pixmap,
                 gc,
             }
@@ -67,10 +67,10 @@ impl XPaintContext {
         };
 
         unsafe {
-            let screen = xlib::XDefaultScreenOfDisplay(self.display);
+            let screen = xlib::XDefaultScreenOfDisplay(self.handle.display);
             let screen_number = xlib::XScreenNumberOfScreen(screen);
-            let colormap = xlib::XDefaultColormap(self.display, screen_number);
-            xlib::XAllocColor(self.display, colormap, &mut color);
+            let colormap = xlib::XDefaultColormap(self.handle.display, screen_number);
+            xlib::XAllocColor(self.handle.display, colormap, &mut color);
         };
 
         color
@@ -78,12 +78,16 @@ impl XPaintContext {
 }
 
 impl PaintContext<XWindowHandle> for XPaintContext {
+    fn handle(&self) -> &XWindowHandle {
+        &self.handle
+    }
+
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
         unsafe {
             let color = self.alloc_color(color);
-            xlib::XSetForeground(self.display, self.gc, color.pixel);
+            xlib::XSetForeground(self.handle.display, self.gc, color.pixel);
             xlib::XFillRectangle(
-                self.display,
+                self.handle.display,
                 self.pixmap,
                 self.gc,
                 rectangle.point.x as _,
@@ -94,12 +98,12 @@ impl PaintContext<XWindowHandle> for XPaintContext {
         }
     }
 
-    fn commit(&mut self, handle: &XWindowHandle, rectangle: &Rectangle) {
+    fn commit(&mut self, rectangle: &Rectangle) {
         unsafe {
             xlib::XCopyArea(
-                self.display,
+                self.handle.display,
                 self.pixmap,
-                handle.window,
+                self.handle.window,
                 self.gc,
                 0,
                 0,
@@ -115,8 +119,8 @@ impl PaintContext<XWindowHandle> for XPaintContext {
 impl Drop for XPaintContext {
     fn drop(&mut self) {
         unsafe {
-            xlib::XFreeGC(self.display, self.gc);
-            xlib::XFreePixmap(self.display, self.pixmap);
+            xlib::XFreeGC(self.handle.display, self.gc);
+            xlib::XFreePixmap(self.handle.display, self.pixmap);
         }
     }
 }

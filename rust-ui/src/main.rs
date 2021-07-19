@@ -83,9 +83,9 @@ fn main() {
     );
 
     let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
-    let mut paint_context = XPaintContext::new(&handle);
+    let mut paint_context = XPaintContext::new(handle.clone());
 
-    updater.paint(&handle, &mut paint_context);
+    updater.paint(&mut paint_context);
 
     handle.show_window();
 
@@ -101,7 +101,6 @@ fn main() {
             match XEvent::from(&event) {
                 XEvent::Expose(_) => {
                     paint_context.commit(
-                        &handle,
                         &Rectangle {
                             point: Point::ZERO,
                             size: Size {
@@ -116,7 +115,6 @@ fn main() {
                         window_width = event.width as _;
                         window_height = event.height as _;
 
-                        paint_context = XPaintContext::new(&handle);
                         updater.layout(
                             Size {
                                 width: window_width as _,
@@ -125,10 +123,10 @@ fn main() {
                             true,
                         );
 
-                        updater.paint(&handle, &mut paint_context);
+                        paint_context = XPaintContext::new(handle.clone());
+                        updater.paint(&mut paint_context);
 
                         paint_context.commit(
-                            &handle,
                             &Rectangle {
                                 point: Point::ZERO,
                                 size: Size {

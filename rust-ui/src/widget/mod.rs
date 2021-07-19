@@ -70,7 +70,6 @@ pub trait Widget<Handle>: WidgetMeta {
     #[inline]
     fn paint(
         &self,
-        _handle: &Handle,
         _rectangle: &Rectangle,
         _state: &mut Self::State,
         _paint_context: &mut dyn PaintContext<Handle>,
@@ -102,7 +101,6 @@ pub trait DynamicWidget<Handle>: WidgetMeta {
 
     fn paint(
         &self,
-        handle: &Handle,
         rectangle: &Rectangle,
         state: &mut dyn Any,
         paint_context: &mut dyn PaintContext<Handle>,
@@ -193,13 +191,11 @@ where
     #[inline]
     fn paint(
         &self,
-        handle: &Handle,
         rectangle: &Rectangle,
         state: &mut dyn Any,
         paint_context: &mut dyn PaintContext<Handle>,
     ) {
         self.paint(
-            handle,
             rectangle,
             state.downcast_mut().unwrap(),
             paint_context,
