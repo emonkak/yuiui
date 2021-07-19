@@ -6,7 +6,6 @@ pub struct MovePosition<'a, T> {
 }
 
 impl<'a, T> MovePosition<'a, T> {
-    #[inline]
     pub fn append_child(self, parent_id: NodeId) -> NodeId {
         self.ensure_valid(parent_id);
         let target_link = self.tree.arena.remove(self.target_id);
@@ -14,7 +13,6 @@ impl<'a, T> MovePosition<'a, T> {
         self.tree.append_child(parent_id, target_link.current)
     }
 
-    #[inline]
     pub fn prepend_child(self, parent_id: NodeId) -> NodeId {
         self.ensure_valid(parent_id);
         let target_link = self.tree.arena.remove(self.target_id);
@@ -22,7 +20,6 @@ impl<'a, T> MovePosition<'a, T> {
         self.tree.prepend_child(parent_id, target_link.current)
     }
 
-    #[inline]
     pub fn insert_before(self, ref_id: NodeId) -> NodeId {
         self.ensure_valid(ref_id);
         let target_link = self.tree.arena.remove(self.target_id);
@@ -30,7 +27,6 @@ impl<'a, T> MovePosition<'a, T> {
         self.tree.insert_before(ref_id, target_link.current)
     }
 
-    #[inline]
     pub fn insert_after(self, ref_id: NodeId) -> NodeId {
         self.ensure_valid(ref_id);
         let target_link = self.tree.arena.remove(self.target_id);

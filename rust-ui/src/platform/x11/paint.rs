@@ -48,11 +48,7 @@ impl XPaintContext {
                 );
             }
 
-            Self {
-                handle,
-                pixmap,
-                gc,
-            }
+            Self { handle, pixmap, gc }
         }
     }
 

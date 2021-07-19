@@ -100,15 +100,13 @@ fn main() {
             xlib::XNextEvent(handle.display, &mut event);
             match XEvent::from(&event) {
                 XEvent::Expose(_) => {
-                    paint_context.commit(
-                        &Rectangle {
-                            point: Point::ZERO,
-                            size: Size {
-                                width: window_width as _,
-                                height: window_height as _,
-                            },
+                    paint_context.commit(&Rectangle {
+                        point: Point::ZERO,
+                        size: Size {
+                            width: window_width as _,
+                            height: window_height as _,
                         },
-                    );
+                    });
                 }
                 XEvent::ConfigureNotify(event) => {
                     if window_width != event.width as _ || window_height != event.height as _ {
@@ -126,15 +124,13 @@ fn main() {
                         paint_context = XPaintContext::new(handle.clone());
                         updater.paint(&mut paint_context);
 
-                        paint_context.commit(
-                            &Rectangle {
-                                point: Point::ZERO,
-                                size: Size {
-                                    width: window_width as _,
-                                    height: window_height as _,
-                                },
+                        paint_context.commit(&Rectangle {
+                            point: Point::ZERO,
+                            size: Size {
+                                width: window_width as _,
+                                height: window_height as _,
                             },
-                        );
+                        });
                     }
                 }
                 _ => (),

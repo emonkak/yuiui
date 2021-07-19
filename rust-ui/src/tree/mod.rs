@@ -26,10 +26,8 @@ use self::walk::{Walk, WalkDirection, WalkFilter, WalkFilterMut, WalkMut};
 
 #[derive(Debug)]
 pub struct Tree<T> {
-    arena: Arena<T>,
+    arena: SlotVec<Link<T>>,
 }
-
-pub type Arena<T> = SlotVec<Link<T>>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Link<T> {
@@ -64,13 +62,12 @@ impl<T> Tree<T> {
     }
 
     pub fn attach(&mut self, node: impl Into<Node<T>>) -> NodeId {
-        let node = Link {
+        self.arena.insert(Link {
             current: node.into(),
             prev_sibling: None,
             next_sibling: None,
             parent: None,
-        };
-        self.arena.insert(node)
+        })
     }
 
     pub fn append_child(&mut self, parent_id: NodeId, node: impl Into<Node<T>>) -> NodeId {

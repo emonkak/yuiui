@@ -195,11 +195,7 @@ where
         state: &mut dyn Any,
         paint_context: &mut dyn PaintContext<Handle>,
     ) {
-        self.paint(
-            rectangle,
-            state.downcast_mut().unwrap(),
-            paint_context,
-        )
+        self.paint(rectangle, state.downcast_mut().unwrap(), paint_context)
     }
 }
 

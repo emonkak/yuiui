@@ -194,11 +194,7 @@ impl<Handle> Updater<Handle> {
                     render_state.mounted = true;
                 }
 
-                widget.paint(
-                    &absolute_rectangle,
-                    &mut *render_state.state,
-                    paint_context,
-                );
+                widget.paint(&absolute_rectangle, &mut *render_state.state, paint_context);
 
                 for child_id in mem::take(&mut render_state.deleted_children) {
                     let mut deleted_render_state = self.render_states.remove(child_id);
