@@ -83,8 +83,8 @@ impl<Handle> Updater<Handle> {
         let mut layout_stack = Vec::new();
         let mut current_id = self.root_id;
         let mut current_layout = self.tree[self.root_id].layout(
-            BoxConstraints::tight(&viewport_size),
             self.root_id,
+            BoxConstraints::tight(&viewport_size),
             &self.tree,
             &*self.render_states[self.root_id].state,
         );
@@ -99,8 +99,8 @@ impl<Handle> Updater<Handle> {
                     let child_render_state = &self.render_states[child_id];
                     if force_layout || child_render_state.dirty {
                         let layout = self.tree[child_id].layout(
-                            child_box_constraints,
                             child_id,
+                            child_box_constraints,
                             &self.tree,
                             &*child_render_state.state,
                         );

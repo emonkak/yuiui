@@ -63,8 +63,8 @@ impl<Handle> Widget<Handle> for Flex {
 
     fn layout<'a>(
         &'a self,
-        box_constraints: BoxConstraints,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
         _state: &'a Self::State,
     ) -> Generator<LayoutRequest, Size, Size> {

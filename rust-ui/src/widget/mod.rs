@@ -52,8 +52,8 @@ pub trait Widget<Handle>: WidgetMeta {
     #[inline]
     fn layout<'a>(
         &'a self,
-        box_constraints: BoxConstraints,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
         _state: &'a Self::State,
     ) -> Generator<LayoutRequest, Size, Size> {
@@ -94,8 +94,8 @@ pub trait DynamicWidget<Handle>: WidgetMeta {
 
     fn layout<'a>(
         &'a self,
-        box_constraints: BoxConstraints,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
         state: &'a dyn Any,
     ) -> Generator<LayoutRequest, Size, Size>;
@@ -177,14 +177,14 @@ where
     #[inline]
     fn layout<'a>(
         &'a self,
-        box_constraints: BoxConstraints,
         node_id: NodeId,
+        box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
         state: &'a dyn Any,
     ) -> Generator<LayoutRequest, Size, Size> {
         self.layout(
-            box_constraints,
             node_id,
+            box_constraints,
             tree,
             state.downcast_ref().unwrap(),
         )
