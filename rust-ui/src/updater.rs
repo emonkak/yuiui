@@ -381,7 +381,7 @@ impl<Handle> fmt::Display for Updater<Handle> {
         write!(
             f,
             "{}",
-            self.tree.format(
+            self.tree.to_formatter(
                 self.root_id,
                 |f, node_id, node| {
                     let render_state = &self.render_states[node_id];

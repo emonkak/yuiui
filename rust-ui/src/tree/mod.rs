@@ -360,7 +360,7 @@ impl<T> Tree<T> {
         }
     }
 
-    pub fn format<'a>(
+    pub fn to_formatter<'a>(
         &'a self,
         node_id: NodeId,
         format_open: impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result + 'a,
