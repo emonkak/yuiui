@@ -492,6 +492,11 @@ impl<T> Link<T> {
     }
 
     #[inline]
+    pub fn into_data(self) -> T {
+        self.current.data
+    }
+
+    #[inline]
     pub fn first_child(&self) -> Option<NodeId> {
         self.current.first_child
     }

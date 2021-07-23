@@ -3,6 +3,7 @@ pub mod fill;
 pub mod flex;
 pub mod null;
 pub mod padding;
+pub mod subscriber;
 
 use std::any::{self, Any};
 use std::fmt;
@@ -12,6 +13,7 @@ use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::paint::PaintContext;
+use crate::render::RenderContext;
 use crate::tree::{Link, NodeId, Tree};
 
 use self::element::{Child, Children, Element, IntoElement, Key};
@@ -35,12 +37,17 @@ pub trait Widget<Handle>: WidgetMeta {
         &self,
         _lifecycle: Lifecycle<&Self>,
         _state: &mut Self::State,
-        _context: &mut LifecycleContext,
+        _context: &mut LifecycleContext<Handle>,
     ) {
     }
 
     #[inline]
-    fn render(&self, children: Children<Handle>, _state: &Self::State) -> Child<Handle> {
+    fn render(
+        &self,
+        children: Children<Handle>,
+        _state: &Self::State,
+        _context: &RenderContext<Self, Handle, Self::State>,
+    ) -> Child<Handle> {
         Child::Multiple(children)
     }
 
@@ -81,10 +88,11 @@ pub trait PolymophicWidget<Handle>: WidgetMeta {
         &self,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
         state: &mut dyn Any,
-        context: &mut LifecycleContext,
+        context: &mut LifecycleContext<Handle>,
     );
 
-    fn render(&self, children: Children<Handle>, state: &dyn Any) -> Child<Handle>;
+    fn render(&self, children: Children<Handle>, state: &dyn Any, node_id: NodeId)
+        -> Child<Handle>;
 
     fn layout<'a>(
         &'a self,
@@ -154,7 +162,7 @@ where
         &self,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
         state: &mut dyn Any,
-        context: &mut LifecycleContext,
+        context: &mut LifecycleContext<Handle>,
     ) {
         self.lifecycle(
             lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
@@ -164,8 +172,17 @@ where
     }
 
     #[inline]
-    fn render(&self, children: Children<Handle>, state: &dyn Any) -> Child<Handle> {
-        self.render(children, state.downcast_ref().unwrap())
+    fn render(
+        &self,
+        children: Children<Handle>,
+        state: &dyn Any,
+        node_id: NodeId,
+    ) -> Child<Handle> {
+        self.render(
+            children,
+            state.downcast_ref().unwrap(),
+            &RenderContext::new(node_id),
+        )
     }
 
     #[inline]

@@ -1,7 +1,8 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::fmt;
 use std::mem;
 
+use crate::event::{EventContext, EventManager, EventType};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
@@ -22,6 +23,7 @@ pub struct Updater<Handle> {
     root_id: NodeId,
     render_states: SlotVec<RenderState<Handle>>,
     paint_states: SlotVec<PaintState>,
+    event_manager: EventManager<Handle>,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -38,7 +40,7 @@ impl<Handle> Updater<Handle> {
 
         let root_id = tree.attach(Box::new(Null) as BoxedWidget<Handle>);
 
-        render_states.insert_at(root_id, RenderState::new(&Null, Vec::new(), None));
+        render_states.insert_at(root_id, RenderState::new(root_id, &Null, Vec::new(), None));
         paint_states.insert_at(root_id, PaintState::default());
 
         Self {
@@ -46,6 +48,7 @@ impl<Handle> Updater<Handle> {
             root_id,
             render_states,
             paint_states,
+            event_manager: EventManager::new(),
         }
     }
 
@@ -165,24 +168,24 @@ impl<Handle> Updater<Handle> {
                 };
 
                 let mut render_state = &mut self.render_states[node_id];
+                let mut context = LifecycleContext {
+                    event_manager: &mut self.event_manager,
+                };
 
                 if !render_state.mounted {
-                    widget.lifecycle(
-                        Lifecycle::DidMount,
-                        &mut *render_state.state,
-                        &mut LifecycleContext,
-                    );
+                    widget.lifecycle(Lifecycle::DidMount, &mut *render_state.state, &mut context);
                     render_state.mounted = true;
                 }
 
                 widget.paint(&absolute_rectangle, &mut *render_state.state, paint_context);
 
-                for child_id in mem::take(&mut render_state.deleted_children) {
-                    let mut deleted_render_state = self.render_states.remove(child_id);
-                    widget.lifecycle(
+                for (child_id, child_widget) in mem::take(&mut render_state.deleted_children) {
+                    let mut render_state = self.render_states.remove(child_id);
+                    self.paint_states.remove(child_id);
+                    child_widget.lifecycle(
                         Lifecycle::DidUnmount,
-                        &mut *deleted_render_state.state,
-                        &mut LifecycleContext,
+                        &mut *render_state.state,
+                        &mut context,
                     );
                 }
             }
@@ -195,6 +198,22 @@ impl<Handle> Updater<Handle> {
             } else {
                 break;
             }
+        }
+    }
+
+    pub fn dispatch_events<EventType>(&mut self, event: EventType::Event)
+    where
+        EventType: self::EventType + 'static,
+    {
+        let boxed_event: Box<dyn Any> = Box::new(event);
+        let mut context = EventContext {};
+        for handler in self.event_manager.get::<EventType>() {
+            handler.dispatch(
+                &self.tree,
+                &mut self.render_states,
+                &boxed_event,
+                &mut context,
+            )
         }
     }
 
@@ -267,15 +286,25 @@ impl<Handle> Updater<Handle> {
     ) {
         match result {
             ReconcileResult::New(new_element) => {
-                let render_state =
-                    RenderState::new(&*new_element.widget, new_element.children, new_element.key);
-                let node_id = self.tree.append_child(target_id, new_element.widget);
+                let node_id = self.tree.next_node_id();
+                let render_state = RenderState::new(
+                    node_id,
+                    &*new_element.widget,
+                    new_element.children,
+                    new_element.key,
+                );
+                self.tree.append_child(target_id, new_element.widget);
                 self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::NewPlacement(ref_id, new_element) => {
-                let render_state =
-                    RenderState::new(&*new_element.widget, new_element.children, new_element.key);
-                let node_id = self.tree.insert_before(ref_id, new_element.widget);
+                let node_id = self.tree.next_node_id();
+                let render_state = RenderState::new(
+                    node_id,
+                    &*new_element.widget,
+                    new_element.children,
+                    new_element.key,
+                );
+                self.tree.insert_before(ref_id, new_element.widget);
                 self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::Update(target_id, new_element) => {
@@ -297,13 +326,23 @@ impl<Handle> Updater<Handle> {
             }
             ReconcileResult::Deletion(target_id) => {
                 let mut deleted_children = Vec::new();
-                let parent = self.tree[target_id].parent();
 
-                for (node_id, _) in self.tree.detach_subtree(target_id) {
-                    deleted_children.push(node_id);
-                    self.render_states.remove(node_id);
-                    self.paint_states.remove(node_id);
+                for (node_id, node) in self.tree.detach_subtree(target_id) {
+                    let render_state = &mut self.render_states[node_id];
+                    let mut context = LifecycleContext {
+                        event_manager: &mut self.event_manager,
+                    };
+
+                    node.lifecycle(
+                        Lifecycle::WillUnmount,
+                        &mut *render_state.state,
+                        &mut context,
+                    );
+
+                    deleted_children.push((node_id, node.into_data()));
                 }
+
+                let parent = self.tree[target_id].parent();
 
                 if let Some(parent_id) = parent {
                     self.render_states[parent_id].deleted_children = deleted_children;
@@ -324,15 +363,18 @@ impl<Handle> Updater<Handle> {
 
         if new_widget.should_update(&**current_widget, &*render_state.state) {
             let prev_widget = mem::replace(current_widget, new_widget);
+            let mut context = LifecycleContext {
+                event_manager: &mut self.event_manager,
+            };
 
             current_widget.lifecycle(
                 Lifecycle::WillUpdate(&*prev_widget),
                 &mut *render_state.state,
-                &mut LifecycleContext,
+                &mut context,
             );
 
             let rendered_children = current_widget
-                .render(children, &mut *render_state.state)
+                .render(children, &mut *render_state.state, node_id)
                 .into();
             render_state.dirty = true;
             render_state.rendered_children = Some(rendered_children);
