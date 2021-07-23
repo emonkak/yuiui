@@ -1,5 +1,10 @@
 use crate::geometrics::Rectangle;
 
+#[derive(Debug, Default)]
+pub struct PaintState {
+    pub rectangle: Rectangle,
+}
+
 pub trait PaintContext<Handle> {
     fn handle(&self) -> &Handle;
 

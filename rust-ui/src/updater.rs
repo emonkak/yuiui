@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::fmt;
 use std::mem;
 
@@ -6,8 +6,9 @@ use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
-use crate::paint::PaintContext;
+use crate::paint::{PaintContext, PaintState};
 use crate::reconciler::{ReconcileResult, Reconciler};
+use crate::render::RenderState;
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::{walk_next_node, WalkDirection};
 use crate::tree::{NodeId, Tree};
@@ -21,26 +22,6 @@ pub struct Updater<Handle> {
     root_id: NodeId,
     render_states: SlotVec<RenderState<Handle>>,
     paint_states: SlotVec<PaintState>,
-}
-
-#[derive(Debug)]
-pub struct RenderState<Handle> {
-    pub rendered_children: Option<Children<Handle>>,
-    pub deleted_children: Vec<NodeId>,
-    pub state: Box<dyn Any>,
-    pub dirty: bool,
-    pub mounted: bool,
-    pub key: Option<Key>,
-}
-
-#[derive(Debug, Default)]
-struct PaintState {
-    rectangle: Rectangle,
-}
-
-#[derive(Debug)]
-pub struct LayoutState {
-    rectangles: SlotVec<Rectangle>,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -393,25 +374,6 @@ impl<Handle> fmt::Display for Updater<Handle> {
                 |f, _, node| write!(f, "</{}>", node.name())
             )
         )
-    }
-}
-
-impl<Handle> RenderState<Handle> {
-    pub fn new(
-        widget: &dyn DynamicWidget<Handle>,
-        children: Children<Handle>,
-        key: Option<Key>,
-    ) -> Self {
-        let mut initial_state = widget.initial_state();
-        let rendered_children = widget.render(children, &mut *initial_state).into();
-        Self {
-            rendered_children: Some(rendered_children),
-            deleted_children: Vec::new(),
-            state: initial_state,
-            dirty: true,
-            mounted: false,
-            key,
-        }
     }
 }
 
