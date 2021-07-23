@@ -104,10 +104,10 @@ impl<Handle> From<Element<Handle>> for Child<Handle> {
     }
 }
 
-impl<Handle, State, Widget> From<Widget> for Child<Handle>
+impl<Handle, Widget> From<Widget> for Child<Handle>
 where
-    State: 'static,
-    Widget: self::Widget<Handle, State = State> + WidgetMeta + 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget::State: 'static,
 {
     fn from(widget: Widget) -> Self {
         Child::Single(Element {

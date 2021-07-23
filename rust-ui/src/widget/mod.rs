@@ -135,10 +135,10 @@ impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
     }
 }
 
-impl<Outer, Handle, State> DynamicWidget<Handle> for Outer
+impl<Widget, Handle> DynamicWidget<Handle> for Widget
 where
-    Outer: Widget<Handle, State = State> + 'static,
-    State: 'static,
+    Widget: self::Widget<Handle> + 'static,
+    Widget::State: 'static,
 {
     #[inline]
     fn initial_state(&self) -> Box<dyn Any> {
@@ -199,15 +199,15 @@ where
     }
 }
 
-impl<Outer, Handle, State: 'static> IntoElement<Handle> for Outer
+impl<Widget, Handle> IntoElement<Handle> for Widget
 where
-    Outer: Widget<Handle, State = State> + WidgetMeta + 'static,
-    State: 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget::State: 'static,
 {
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle>
     where
-        Self: Sized + 'static,
+        Self: Sized,
     {
         Element {
             widget: Box::new(self),
@@ -217,15 +217,15 @@ where
     }
 }
 
-impl<Inner, Handle, State> IntoElement<Handle> for WithKey<Inner>
+impl<Widget, Handle> IntoElement<Handle> for WithKey<Widget>
 where
-    Inner: Widget<Handle, State = State> + 'static,
-    State: 'static,
+    Widget: self::Widget<Handle> + 'static,
+    Widget::State: 'static,
 {
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle>
     where
-        Inner: Sized + 'static,
+        Widget: Sized + 'static,
     {
         Element {
             widget: Box::new(self.inner),
