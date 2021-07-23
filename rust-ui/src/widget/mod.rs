@@ -26,11 +26,6 @@ pub trait Widget<Handle>: WidgetMeta {
     type State: Default;
 
     #[inline]
-    fn initial_state(&self) -> Self::State {
-        Default::default()
-    }
-
-    #[inline]
     fn should_update(&self, _new_widget: &Self, _state: &Self::State) -> bool {
         true
     }
@@ -142,7 +137,8 @@ where
 {
     #[inline]
     fn initial_state(&self) -> Box<dyn Any> {
-        Box::new(self.initial_state())
+        let initial_state: Widget::State = Default::default();
+        Box::new(initial_state)
     }
 
     #[inline]
