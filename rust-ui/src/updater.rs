@@ -14,7 +14,7 @@ use crate::tree::walk::{walk_next_node, WalkDirection};
 use crate::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
 use crate::widget::null::Null;
-use crate::widget::{BoxedWidget, DynamicWidget, WidgetTree};
+use crate::widget::{BoxedWidget, PolymophicWidget, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {
@@ -377,7 +377,11 @@ impl<Handle> fmt::Display for Updater<Handle> {
     }
 }
 
-fn key_of<Handle>(widget: &dyn DynamicWidget<Handle>, index: usize, key: Option<Key>) -> TypedKey {
+fn key_of<Handle>(
+    widget: &dyn PolymophicWidget<Handle>,
+    index: usize,
+    key: Option<Key>,
+) -> TypedKey {
     match key {
         Some(key) => TypedKey::Keyed(widget.as_any().type_id(), key),
         None => TypedKey::Indexed(widget.as_any().type_id(), index),

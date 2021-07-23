@@ -20,7 +20,7 @@ pub type WidgetTree<Handle> = Tree<BoxedWidget<Handle>>;
 
 pub type WidgetNode<Handle> = Link<BoxedWidget<Handle>>;
 
-pub type BoxedWidget<Handle> = Box<dyn DynamicWidget<Handle>>;
+pub type BoxedWidget<Handle> = Box<dyn PolymophicWidget<Handle>>;
 
 pub trait Widget<Handle>: WidgetMeta {
     type State: Default;
@@ -77,14 +77,14 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 }
 
-pub trait DynamicWidget<Handle>: WidgetMeta {
+pub trait PolymophicWidget<Handle>: WidgetMeta {
     fn initial_state(&self) -> Box<dyn Any>;
 
-    fn should_update(&self, new_widget: &dyn DynamicWidget<Handle>, state: &dyn Any) -> bool;
+    fn should_update(&self, new_widget: &dyn PolymophicWidget<Handle>, state: &dyn Any) -> bool;
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn DynamicWidget<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext,
     );
@@ -129,13 +129,13 @@ pub struct WithKey<Inner> {
     key: Key,
 }
 
-impl<Handle> fmt::Debug for dyn DynamicWidget<Handle> {
+impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
     }
 }
 
-impl<Widget, Handle> DynamicWidget<Handle> for Widget
+impl<Widget, Handle> PolymophicWidget<Handle> for Widget
 where
     Widget: self::Widget<Handle> + 'static,
     Widget::State: 'static,
@@ -146,7 +146,7 @@ where
     }
 
     #[inline]
-    fn should_update(&self, new_widget: &dyn DynamicWidget<Handle>, state: &dyn Any) -> bool {
+    fn should_update(&self, new_widget: &dyn PolymophicWidget<Handle>, state: &dyn Any) -> bool {
         self.should_update(
             new_widget.as_any().downcast_ref::<Self>().unwrap(),
             state.downcast_ref().unwrap(),
@@ -156,7 +156,7 @@ where
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn DynamicWidget<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext,
     ) {

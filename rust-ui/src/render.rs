@@ -1,8 +1,8 @@
 use std::any::Any;
 
-use crate::tree::{NodeId};
-use crate::widget::DynamicWidget;
+use crate::tree::NodeId;
 use crate::widget::element::{Children, Key};
+use crate::widget::PolymophicWidget;
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {
@@ -16,7 +16,7 @@ pub struct RenderState<Handle> {
 
 impl<Handle> RenderState<Handle> {
     pub fn new(
-        widget: &dyn DynamicWidget<Handle>,
+        widget: &dyn PolymophicWidget<Handle>,
         children: Children<Handle>,
         key: Option<Key>,
     ) -> Self {
