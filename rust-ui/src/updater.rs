@@ -40,7 +40,11 @@ impl<Handle> Updater<Handle> {
 
         let root_id = tree.attach(Box::new(Null) as BoxedWidget<Handle>);
 
-        render_states.insert_at(root_id, RenderState::new(root_id, &Null, Vec::new(), None));
+        render_states.insert_at(root_id, RenderState::new(
+            PolymophicWidget::<Handle>::initial_state(&Null),
+            Vec::new(),
+            None
+        ));
         paint_states.insert_at(root_id, PaintState::default());
 
         Self {
@@ -218,9 +222,11 @@ impl<Handle> Updater<Handle> {
     }
 
     fn render_step(&mut self, node_id: NodeId) -> Option<NodeId> {
+        let widget = &self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
-        if let Some(rendered_children) = render_state.rendered_children.take() {
-            self.reconcile_children(node_id, rendered_children);
+        if let Some(children) = render_state.children.take(){
+            let rendered_children = widget.render(children, &mut *render_state.state, node_id);
+            self.reconcile_children(node_id, rendered_children.into());
         }
         self.next_render_step(node_id)
     }
@@ -288,8 +294,7 @@ impl<Handle> Updater<Handle> {
             ReconcileResult::New(new_element) => {
                 let node_id = self.tree.next_node_id();
                 let render_state = RenderState::new(
-                    node_id,
-                    &*new_element.widget,
+                    new_element.widget.initial_state(),
                     new_element.children,
                     new_element.key,
                 );
@@ -299,8 +304,7 @@ impl<Handle> Updater<Handle> {
             ReconcileResult::NewPlacement(ref_id, new_element) => {
                 let node_id = self.tree.next_node_id();
                 let render_state = RenderState::new(
-                    node_id,
-                    &*new_element.widget,
+                    new_element.widget.initial_state(),
                     new_element.children,
                     new_element.key,
                 );
@@ -373,11 +377,8 @@ impl<Handle> Updater<Handle> {
                 &mut context,
             );
 
-            let rendered_children = current_widget
-                .render(children, &mut *render_state.state, node_id)
-                .into();
+            render_state.children = Some(children);
             render_state.dirty = true;
-            render_state.rendered_children = Some(rendered_children);
             render_state.key = key;
         }
 

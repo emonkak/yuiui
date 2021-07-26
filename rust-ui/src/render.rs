@@ -5,11 +5,11 @@ use crate::event::handler::{GlobalHandler, WidgetHandler};
 use crate::event::{EventContext, EventType};
 use crate::tree::NodeId;
 use crate::widget::element::{Children, Key};
-use crate::widget::{BoxedWidget, PolymophicWidget};
+use crate::widget::BoxedWidget;
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {
-    pub rendered_children: Option<Children<Handle>>,
+    pub children: Option<Children<Handle>>,
     pub deleted_children: Vec<(NodeId, BoxedWidget<Handle>)>,
     pub state: Box<dyn Any>,
     pub dirty: bool,
@@ -19,17 +19,14 @@ pub struct RenderState<Handle> {
 
 impl<Handle> RenderState<Handle> {
     pub fn new(
-        node_id: NodeId,
-        widget: &dyn PolymophicWidget<Handle>,
+        state: Box<dyn Any>,
         children: Children<Handle>,
         key: Option<Key>,
     ) -> Self {
-        let mut initial_state = widget.initial_state();
-        let rendered_children = widget.render(children, &mut *initial_state, node_id).into();
         Self {
-            rendered_children: Some(rendered_children),
+            children: Some(children),
             deleted_children: Vec::new(),
-            state: initial_state,
+            state,
             dirty: true,
             mounted: false,
             key,
