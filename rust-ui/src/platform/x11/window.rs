@@ -72,11 +72,5 @@ pub unsafe fn create_window(display: *mut xlib::Display, width: u32, height: u32
         &mut attributes,
     );
 
-    xlib::XSelectInput(
-        display,
-        window,
-        xlib::ExposureMask | xlib::StructureNotifyMask,
-    );
-
     window
 }

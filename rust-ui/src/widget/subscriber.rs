@@ -7,13 +7,13 @@ use crate::lifecycle::{Lifecycle, LifecycleContext};
 
 use super::{Widget, WidgetMeta};
 
-#[derive(WidgetMeta)]
-struct Subscriber<Handle: 'static> {
+#[derive(Debug, WidgetMeta)]
+pub struct Subscriber<Handle: 'static> {
     handlers: Vec<Rc<dyn EventHandler<Handle>>>,
 }
 
 #[derive(Default)]
-struct SubscriberState {
+pub struct SubscriberState {
     registered_handler_ids: Vec<HandlerId>,
 }
 
@@ -24,7 +24,7 @@ impl<Handle> Subscriber<Handle> {
         }
     }
 
-    pub fn on<Handler>(&mut self, handler: Handler) -> &mut Self
+    pub fn on<Handler>(mut self, handler: Handler) -> Self
     where
         Handler: EventHandler<Handle> + 'static,
     {

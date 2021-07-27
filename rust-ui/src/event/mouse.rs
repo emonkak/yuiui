@@ -5,16 +5,16 @@ use super::EventType;
 
 #[derive(Debug)]
 pub struct MouseEvent {
-    point: Point,
-    button: MouseButton,
-    buttons: BitFlags<MouseButton>,
+    pub point: Point,
+    pub button: MouseButton,
+    pub buttons: BitFlags<MouseButton>,
 }
 
-struct Click;
+pub struct Click;
 
-struct MouseUp;
+pub struct MouseUp;
 
-struct MouseDown;
+pub struct MouseDown;
 
 impl EventType for Click {
     type Event = MouseEvent;

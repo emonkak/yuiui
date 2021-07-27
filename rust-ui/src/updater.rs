@@ -207,6 +207,7 @@ impl<Handle> Updater<Handle> {
 
     pub fn dispatch_events<EventType>(&mut self, event: EventType::Event)
     where
+        Handle: fmt::Debug,
         EventType: self::EventType + 'static,
     {
         let boxed_event: Box<dyn Any> = Box::new(event);
@@ -225,6 +226,13 @@ impl<Handle> Updater<Handle> {
         let widget = &self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
         if let Some(children) = render_state.children.take(){
+            if !render_state.mounted {
+                let mut context = LifecycleContext {
+                    event_manager: &mut self.event_manager,
+                };
+                widget.lifecycle(Lifecycle::WillMount, &mut *render_state.state, &mut context);
+            }
+
             let rendered_children = widget.render(children, &mut *render_state.state, node_id);
             self.reconcile_children(node_id, rendered_children.into());
         }
@@ -355,7 +363,7 @@ impl<Handle> Updater<Handle> {
         }
     }
 
-    pub fn update_render_state(
+    fn update_render_state(
         &mut self,
         node_id: NodeId,
         new_widget: BoxedWidget<Handle>,

@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 use crate::event::handler::{GlobalHandler, WidgetHandler};
 use crate::event::{EventContext, EventType};
 use crate::tree::NodeId;
-use crate::widget::element::{Children, Key};
 use crate::widget::BoxedWidget;
+use crate::widget::element::{Children, Key};
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {

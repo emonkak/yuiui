@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::event::{EventHandler, EventManager, HandlerId};
 
+#[derive(Debug)]
 pub enum Lifecycle<T> {
     WillMount,
     WillUpdate(T),
@@ -23,6 +24,17 @@ impl<T> Lifecycle<T> {
             Lifecycle::WillUnmount => Lifecycle::WillUnmount,
             Lifecycle::DidMount => Lifecycle::DidMount,
             Lifecycle::DidUpdate(widget) => Lifecycle::DidUpdate(f(widget)),
+            Lifecycle::DidUnmount => Lifecycle::DidUnmount,
+        }
+    }
+
+    pub fn without_widget(&self) -> Lifecycle<()> {
+        match self {
+            Lifecycle::WillMount => Lifecycle::WillMount,
+            Lifecycle::WillUpdate(_) => Lifecycle::WillUpdate(()),
+            Lifecycle::WillUnmount => Lifecycle::WillUnmount,
+            Lifecycle::DidMount => Lifecycle::DidMount,
+            Lifecycle::DidUpdate(_) => Lifecycle::DidUpdate(()),
             Lifecycle::DidUnmount => Lifecycle::DidUnmount,
         }
     }
