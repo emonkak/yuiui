@@ -3,39 +3,39 @@ use std::rc::Rc;
 use crate::event::{EventHandler, EventManager, HandlerId};
 
 #[derive(Debug)]
-pub enum Lifecycle<T> {
+pub enum Lifecycle<Widget, Context> {
     WillMount,
-    WillUpdate(T),
+    WillUpdate(Widget),
     WillUnmount,
-    DidMount,
-    DidUpdate(T),
-    DidUnmount,
+    DidMount(Context),
+    DidUpdate(Widget, Context),
+    DidUnmount(Context),
 }
 
 pub struct LifecycleContext<'a, Handle> {
     pub(crate) event_manager: &'a mut EventManager<Handle>,
 }
 
-impl<T> Lifecycle<T> {
-    pub fn map<U, F: Fn(&T) -> U>(&self, f: F) -> Lifecycle<U> {
+impl<Widget, Context> Lifecycle<Widget, Context> {
+    pub fn map_widget<NewWidget, F: Fn(Widget) -> NewWidget>(self, f: F) -> Lifecycle<NewWidget, Context> {
         match self {
             Lifecycle::WillMount => Lifecycle::WillMount,
             Lifecycle::WillUpdate(widget) => Lifecycle::WillUpdate(f(widget)),
             Lifecycle::WillUnmount => Lifecycle::WillUnmount,
-            Lifecycle::DidMount => Lifecycle::DidMount,
-            Lifecycle::DidUpdate(widget) => Lifecycle::DidUpdate(f(widget)),
-            Lifecycle::DidUnmount => Lifecycle::DidUnmount,
+            Lifecycle::DidMount(context) => Lifecycle::DidMount(context),
+            Lifecycle::DidUpdate(widget, context) => Lifecycle::DidUpdate(f(widget), context),
+            Lifecycle::DidUnmount(context) => Lifecycle::DidUnmount(context),
         }
     }
 
-    pub fn without_widget(&self) -> Lifecycle<()> {
+    pub fn without_params(&self) -> Lifecycle<(), ()> {
         match self {
             Lifecycle::WillMount => Lifecycle::WillMount,
             Lifecycle::WillUpdate(_) => Lifecycle::WillUpdate(()),
             Lifecycle::WillUnmount => Lifecycle::WillUnmount,
-            Lifecycle::DidMount => Lifecycle::DidMount,
-            Lifecycle::DidUpdate(_) => Lifecycle::DidUpdate(()),
-            Lifecycle::DidUnmount => Lifecycle::DidUnmount,
+            Lifecycle::DidMount(_) => Lifecycle::DidMount(()),
+            Lifecycle::DidUpdate(_, _) => Lifecycle::DidUpdate((), ()),
+            Lifecycle::DidUnmount(_) => Lifecycle::DidUnmount(()),
         }
     }
 }

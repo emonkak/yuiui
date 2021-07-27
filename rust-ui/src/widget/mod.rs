@@ -35,7 +35,7 @@ pub trait Widget<Handle>: WidgetMeta {
     #[inline]
     fn lifecycle(
         &self,
-        _lifecycle: Lifecycle<&Self>,
+        _lifecycle: Lifecycle<&Self, &mut dyn PaintContext<Handle>>,
         _state: &mut Self::State,
         _context: &mut LifecycleContext<Handle>,
     ) {
@@ -86,7 +86,7 @@ pub trait PolymophicWidget<Handle>: WidgetMeta {
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &mut dyn PaintContext<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext<Handle>,
     );
@@ -160,12 +160,12 @@ where
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &mut dyn PaintContext<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext<Handle>,
     ) {
         self.lifecycle(
-            lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
+            lifecycle.map_widget(|widget| widget.as_any().downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),
             context,
         );

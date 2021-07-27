@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use crate::event::{EventHandler, HandlerId};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
+use crate::paint::PaintContext;
 
 use super::{Widget, WidgetMeta};
 
@@ -43,7 +44,7 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&Self>,
+        lifecycle: Lifecycle<&Self, &mut dyn PaintContext<Handle>>,
         state: &mut Self::State,
         context: &mut LifecycleContext<Handle>,
     ) {

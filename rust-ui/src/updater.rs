@@ -128,7 +128,7 @@ impl<Handle> Updater<Handle> {
         let mut direction = WalkDirection::Downward;
 
         loop {
-            let mut node = &self.tree[node_id];
+            let mut node = &mut self.tree[node_id];
             let mut render_state;
 
             loop {
@@ -148,7 +148,7 @@ impl<Handle> Updater<Handle> {
                 {
                     node_id = next_node_id;
                     direction = next_direction;
-                    node = &self.tree[node_id];
+                    node = &mut self.tree[node_id];
                 } else {
                     break;
                 }
@@ -165,7 +165,7 @@ impl<Handle> Updater<Handle> {
             latest_point = rectangle.point;
 
             if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
-                let widget = &**node;
+                let widget = &mut **node;
                 let absolute_rectangle = Rectangle {
                     point: absolute_point + rectangle.point,
                     size: rectangle.size,
@@ -176,8 +176,11 @@ impl<Handle> Updater<Handle> {
                     event_manager: &mut self.event_manager,
                 };
 
-                if !render_state.mounted {
-                    widget.lifecycle(Lifecycle::DidMount, &mut *render_state.state, &mut context);
+                if let Some(pending_widget) = render_state.pending_widget.take() {
+                    let old_widget = mem::replace(widget, pending_widget);
+                    widget.lifecycle(Lifecycle::DidUpdate(&*old_widget, paint_context), &mut *render_state.state, &mut context);
+                } else {
+                    widget.lifecycle(Lifecycle::DidMount(paint_context), &mut *render_state.state, &mut context);
                     render_state.mounted = true;
                 }
 
@@ -187,7 +190,7 @@ impl<Handle> Updater<Handle> {
                     let mut render_state = self.render_states.remove(child_id);
                     self.paint_states.remove(child_id);
                     child_widget.lifecycle(
-                        Lifecycle::DidUnmount,
+                        Lifecycle::DidUnmount(paint_context),
                         &mut *render_state.state,
                         &mut context,
                     );
@@ -370,17 +373,16 @@ impl<Handle> Updater<Handle> {
         children: Children<Handle>,
         key: Option<Key>,
     ) {
-        let current_widget = &mut *self.tree[node_id];
+        let widget = &*self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
 
-        if new_widget.should_update(&**current_widget, &*render_state.state) {
-            let prev_widget = mem::replace(current_widget, new_widget);
+        if new_widget.should_update(&**widget, &*render_state.state) {
             let mut context = LifecycleContext {
                 event_manager: &mut self.event_manager,
             };
 
-            current_widget.lifecycle(
-                Lifecycle::WillUpdate(&*prev_widget),
+            widget.lifecycle(
+                Lifecycle::WillUpdate(&*new_widget),
                 &mut *render_state.state,
                 &mut context,
             );
@@ -388,6 +390,7 @@ impl<Handle> Updater<Handle> {
             render_state.children = Some(children);
             render_state.dirty = true;
             render_state.key = key;
+            render_state.pending_widget = Some(new_widget);
         }
 
         for (parent_id, _) in self.tree.ancestors(node_id) {
