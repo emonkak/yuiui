@@ -373,7 +373,27 @@ fn test_insert_after_should_panic() {
 }
 
 #[test]
-fn test_detach() {
+fn test_split_subtree() {
+    let mut tree = Tree::new();
+    let root = tree.attach("root");
+    let foo = tree.append_child(root, "foo");
+    let bar = tree.append_child(foo, "bar");
+    let baz = tree.append_child(bar, "baz");
+    let qux = tree.append_child(foo, "qux");
+    let quux = tree.append_child(root, "quux");
+
+    let subtree = tree.split_subtree(foo);
+
+    assert!(!subtree.is_attached(root));
+    assert_eq!(&subtree[foo], &tree[foo]);
+    assert_eq!(&subtree[bar], &tree[bar]);
+    assert_eq!(&subtree[baz], &tree[baz]);
+    assert_eq!(&subtree[qux], &tree[qux]);
+    assert!(!subtree.is_attached(quux));
+}
+
+#[test]
+fn test_detach_subtree() {
     let mut tree = Tree::new();
     let root = tree.attach("root");
     let foo = tree.append_child(root, "foo");

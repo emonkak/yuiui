@@ -24,12 +24,12 @@ use self::pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendants
 use self::siblings::{Siblings, SiblingsMut};
 use self::walk::{Walk, WalkDirection, WalkFilter, WalkFilterMut, WalkMut};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Tree<T> {
     arena: SlotVec<Link<T>>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Link<T> {
     current: Node<T>,
     prev_sibling: Option<NodeId>,
@@ -37,7 +37,7 @@ pub struct Link<T> {
     parent: Option<NodeId>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Node<T> {
     data: T,
     first_child: Option<NodeId>,
@@ -165,12 +165,21 @@ impl<T> Tree<T> {
         self.arena.insert(new_link)
     }
 
-    #[inline]
-    pub fn move_position(&mut self, target_id: NodeId) -> MovePosition<'_, T> {
-        MovePosition {
-            tree: self,
-            target_id: target_id,
+    pub fn split_subtree(&mut self, target_id: NodeId) -> Self
+    where
+        T: Clone,
+    {
+        let mut arena = SlotVec::new();
+        let mut current = &self.arena[target_id];
+
+        arena.insert_at(target_id, current.clone());
+
+        while let Some(child_id) = self.next_pre_ordered_descendant(target_id, current) {
+            current = &self.arena[child_id];
+            arena.insert_at(child_id, current.clone());
         }
+
+        Tree { arena }
     }
 
     #[inline]
@@ -182,6 +191,14 @@ impl<T> Tree<T> {
             root_id: target_id,
             next: Some(self.grandest_child(target_id).unwrap_or(target_id)),
             tree: self,
+        }
+    }
+
+    #[inline]
+    pub fn move_position(&mut self, target_id: NodeId) -> MovePosition<'_, T> {
+        MovePosition {
+            tree: self,
+            target_id: target_id,
         }
     }
 

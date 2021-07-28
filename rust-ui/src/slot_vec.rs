@@ -3,7 +3,7 @@ use std::fmt;
 use std::mem;
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SlotVec<T> {
     entries: Vec<(usize, T)>,
     slots: Vec<Slot>,
