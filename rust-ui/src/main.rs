@@ -8,14 +8,14 @@ use std::mem;
 use std::ptr;
 use x11::xlib;
 
+use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::event::EventContext;
-use rust_ui::event::mouse::{MouseEvent, MouseDown};
 use rust_ui::geometrics::{Point, Rectangle, Size};
 use rust_ui::paint::PaintContext;
-use rust_ui::platform::WindowHandle;
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPaintContext;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
+use rust_ui::platform::WindowHandle;
 use rust_ui::render::RenderContext;
 use rust_ui::updater::Updater;
 use rust_ui::widget::element::Element;
@@ -41,7 +41,7 @@ impl<Handle: 'static> Widget<Handle> for App {
         &self,
         _children: Children<Handle>,
         _state: &Self::State,
-        context: &RenderContext<Self, Handle, Self::State>
+        context: &RenderContext<Self, Handle, Self::State>,
     ) -> Child<Handle> {
         element!(
             Padding::uniform(32.0) => {
@@ -56,7 +56,8 @@ impl<Handle: 'static> Widget<Handle> for App {
                     FlexItem::new(1.0).with_key(4) => { Fill::new(0x00ffffff) }
                 }
             }
-        ).into()
+        )
+        .into()
     }
 }
 
@@ -87,7 +88,10 @@ fn main() {
         xlib::XSelectInput(
             display,
             window,
-            xlib::ButtonPressMask | xlib::ButtonReleaseMask | xlib::ExposureMask | xlib::StructureNotifyMask,
+            xlib::ButtonPressMask
+                | xlib::ButtonReleaseMask
+                | xlib::ExposureMask
+                | xlib::StructureNotifyMask,
         );
     }
 
@@ -133,7 +137,7 @@ fn main() {
                 }
                 XEvent::ButtonRelease(event) => {
                     updater.dispatch_events::<MouseDown>((&event).into())
-                },
+                }
                 XEvent::ConfigureNotify(event) => {
                     if window_width != event.width as _ || window_height != event.height as _ {
                         window_width = event.width as _;

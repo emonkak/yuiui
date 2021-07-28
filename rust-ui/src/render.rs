@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 use crate::event::handler::{GlobalHandler, WidgetHandler};
 use crate::event::{EventContext, EventType};
 use crate::tree::NodeId;
-use crate::widget::BoxedWidget;
 use crate::widget::element::{Children, Key};
+use crate::widget::BoxedWidget;
 
 #[derive(Debug)]
 pub struct RenderState<Handle> {
@@ -19,11 +19,7 @@ pub struct RenderState<Handle> {
 }
 
 impl<Handle> RenderState<Handle> {
-    pub fn new(
-        state: Box<dyn Any>,
-        children: Children<Handle>,
-        key: Option<Key>,
-    ) -> Self {
+    pub fn new(state: Box<dyn Any>, children: Children<Handle>, key: Option<Key>) -> Self {
         Self {
             children: Some(children),
             deleted_children: Vec::new(),

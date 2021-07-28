@@ -17,7 +17,10 @@ pub struct LifecycleContext<'a, Handle> {
 }
 
 impl<Widget, Context> Lifecycle<Widget, Context> {
-    pub fn map_widget<NewWidget, F: Fn(Widget) -> NewWidget>(self, f: F) -> Lifecycle<NewWidget, Context> {
+    pub fn map_widget<NewWidget, F: Fn(Widget) -> NewWidget>(
+        self,
+        f: F,
+    ) -> Lifecycle<NewWidget, Context> {
         match self {
             Lifecycle::WillMount => Lifecycle::WillMount,
             Lifecycle::WillUpdate(widget) => Lifecycle::WillUpdate(f(widget)),

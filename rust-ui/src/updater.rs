@@ -40,11 +40,14 @@ impl<Handle> Updater<Handle> {
 
         let root_id = tree.attach(Box::new(Null) as BoxedWidget<Handle>);
 
-        render_states.insert_at(root_id, RenderState::new(
-            PolymophicWidget::<Handle>::initial_state(&Null),
-            Vec::new(),
-            None
-        ));
+        render_states.insert_at(
+            root_id,
+            RenderState::new(
+                PolymophicWidget::<Handle>::initial_state(&Null),
+                Vec::new(),
+                None,
+            ),
+        );
         paint_states.insert_at(root_id, PaintState::default());
 
         Self {
@@ -178,9 +181,17 @@ impl<Handle> Updater<Handle> {
 
                 if let Some(pending_widget) = render_state.pending_widget.take() {
                     let old_widget = mem::replace(widget, pending_widget);
-                    widget.lifecycle(Lifecycle::DidUpdate(&*old_widget, paint_context), &mut *render_state.state, &mut context);
+                    widget.lifecycle(
+                        Lifecycle::DidUpdate(&*old_widget, paint_context),
+                        &mut *render_state.state,
+                        &mut context,
+                    );
                 } else {
-                    widget.lifecycle(Lifecycle::DidMount(paint_context), &mut *render_state.state, &mut context);
+                    widget.lifecycle(
+                        Lifecycle::DidMount(paint_context),
+                        &mut *render_state.state,
+                        &mut context,
+                    );
                     render_state.mounted = true;
                 }
 
@@ -228,7 +239,7 @@ impl<Handle> Updater<Handle> {
     fn render_step(&mut self, node_id: NodeId) -> Option<NodeId> {
         let widget = &self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
-        if let Some(children) = render_state.children.take(){
+        if let Some(children) = render_state.children.take() {
             if !render_state.mounted {
                 let mut context = LifecycleContext {
                     event_manager: &mut self.event_manager,
