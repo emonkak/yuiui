@@ -238,6 +238,13 @@ impl<T> SlotVec<T> {
     }
 }
 
+impl<T> Default for SlotVec<T> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> Index<usize> for SlotVec<T> {
     type Output = T;
 

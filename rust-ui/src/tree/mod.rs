@@ -47,7 +47,7 @@ pub struct Node<T> {
 pub type NodeId = usize;
 
 impl<T> Tree<T> {
-    pub fn new() -> Tree<T> {
+    pub const fn new() -> Tree<T> {
         Tree {
             arena: SlotVec::new(),
         }
@@ -483,6 +483,13 @@ impl<T> Tree<T> {
                 }
             }
         }
+    }
+}
+
+impl<T> Default for Tree<T> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
 
