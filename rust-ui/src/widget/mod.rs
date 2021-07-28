@@ -7,6 +7,7 @@ pub mod subscriber;
 
 use std::any::{self, Any};
 use std::fmt;
+use std::sync::{Arc, Mutex};
 
 use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
@@ -18,9 +19,15 @@ use crate::tree::{Link, NodeId, Tree};
 
 use self::element::{Child, Children, Element, IntoElement, Key};
 
-pub type WidgetTree<Handle> = Tree<BoxedWidget<Handle>>;
+pub type WidgetTree<Handle> = Tree<WidgetPod<Handle>>;
 
-pub type WidgetNode<Handle> = Link<BoxedWidget<Handle>>;
+pub type WidgetNode<Handle> = Link<WidgetPod<Handle>>;
+
+#[derive(Debug)]
+pub struct WidgetPod<Handle> {
+    pub widget: Arc<dyn PolymophicWidget<Handle>>,
+    pub state: Arc<Mutex<Box<dyn Any>>>,
+}
 
 pub type BoxedWidget<Handle> = Box<dyn PolymophicWidget<Handle>>;
 
@@ -57,7 +64,7 @@ pub trait Widget<Handle>: WidgetMeta {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        _state: &'a Self::State,
+        _state: &Self::State,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = tree[node_id].first_child() {
@@ -99,7 +106,7 @@ pub trait PolymophicWidget<Handle>: WidgetMeta {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        state: &'a dyn Any,
+        state: &dyn Any,
     ) -> Generator<LayoutRequest, Size, Size>;
 
     fn paint(
@@ -130,6 +137,15 @@ pub trait WidgetMeta {
 pub struct WithKey<Inner> {
     inner: Inner,
     key: Key,
+}
+
+impl<Handle> WidgetPod<Handle> {
+    pub fn new(widget: BoxedWidget<Handle>) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(widget.initial_state())),
+            widget: Arc::from(widget),
+        }
+    }
 }
 
 impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> {
@@ -191,7 +207,7 @@ where
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        state: &'a dyn Any,
+        state: &dyn Any,
     ) -> Generator<LayoutRequest, Size, Size> {
         self.layout(
             node_id,

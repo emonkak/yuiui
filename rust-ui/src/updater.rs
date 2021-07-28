@@ -1,6 +1,7 @@
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::mem;
+use std::sync::Arc;
 
 use crate::event::{EventContext, EventManager, EventType};
 use crate::generator::GeneratorState;
@@ -15,7 +16,7 @@ use crate::tree::walk::{walk_next_node, WalkDirection};
 use crate::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
 use crate::widget::null::Null;
-use crate::widget::{BoxedWidget, PolymophicWidget, WidgetTree};
+use crate::widget::{BoxedWidget, PolymophicWidget, WidgetPod, WidgetTree};
 
 #[derive(Debug)]
 pub struct Updater<Handle> {
@@ -38,16 +39,9 @@ impl<Handle> Updater<Handle> {
         let mut render_states = SlotVec::new();
         let mut paint_states = SlotVec::new();
 
-        let root_id = tree.attach(Box::new(Null) as BoxedWidget<Handle>);
+        let root_id = tree.attach(WidgetPod::new(Box::new(Null)));
 
-        render_states.insert_at(
-            root_id,
-            RenderState::new(
-                PolymophicWidget::<Handle>::initial_state(&Null),
-                Vec::new(),
-                None,
-            ),
-        );
+        render_states.insert_at(root_id, RenderState::new(Vec::new(), None));
         paint_states.insert_at(root_id, PaintState::default());
 
         Self {
@@ -73,12 +67,15 @@ impl<Handle> Updater<Handle> {
     pub fn layout(&mut self, viewport_size: Size, force_layout: bool) -> Size {
         let mut layout_stack = Vec::new();
         let mut current_id = self.root_id;
-        let mut current_layout = self.tree[self.root_id].layout(
-            self.root_id,
-            BoxConstraints::tight(&viewport_size),
-            &self.tree,
-            &*self.render_states[self.root_id].state,
-        );
+        let mut current_layout = {
+            let WidgetPod { widget, state } = &*self.tree[self.root_id];
+            widget.layout(
+                self.root_id,
+                BoxConstraints::tight(&viewport_size),
+                &self.tree,
+                &**state.lock().unwrap(),
+            )
+        };
         let mut calculated_size = Size::ZERO;
 
         loop {
@@ -89,12 +86,15 @@ impl<Handle> Updater<Handle> {
                 )) => {
                     let child_render_state = &self.render_states[child_id];
                     if force_layout || child_render_state.dirty {
-                        let layout = self.tree[child_id].layout(
-                            child_id,
-                            child_box_constraints,
-                            &self.tree,
-                            &*child_render_state.state,
-                        );
+                        let layout = {
+                            let WidgetPod { widget, state } = &*self.tree[child_id];
+                            widget.layout(
+                                child_id,
+                                child_box_constraints,
+                                &self.tree,
+                                &**state.lock().unwrap(),
+                            )
+                        };
                         layout_stack.push((child_id, layout));
                     } else {
                         calculated_size = self.paint_states[child_id].rectangle.size;
@@ -168,7 +168,7 @@ impl<Handle> Updater<Handle> {
             latest_point = rectangle.point;
 
             if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
-                let widget = &mut **node;
+                let WidgetPod { widget, state } = &mut **node;
                 let absolute_rectangle = Rectangle {
                     point: absolute_point + rectangle.point,
                     size: rectangle.size,
@@ -180,29 +180,36 @@ impl<Handle> Updater<Handle> {
                 };
 
                 if let Some(pending_widget) = render_state.pending_widget.take() {
-                    let old_widget = mem::replace(widget, pending_widget);
+                    let old_widget = mem::replace(widget, Arc::from(pending_widget));
                     widget.lifecycle(
                         Lifecycle::DidUpdate(&*old_widget, paint_context),
-                        &mut *render_state.state,
+                        &mut **state.lock().unwrap(),
                         &mut context,
                     );
                 } else {
                     widget.lifecycle(
                         Lifecycle::DidMount(paint_context),
-                        &mut *render_state.state,
+                        &mut **state.lock().unwrap(),
                         &mut context,
                     );
                     render_state.mounted = true;
                 }
 
-                widget.paint(&absolute_rectangle, &mut *render_state.state, paint_context);
+                widget.paint(
+                    &absolute_rectangle,
+                    &mut **state.lock().unwrap(),
+                    paint_context,
+                );
 
-                for (child_id, child_widget) in mem::take(&mut render_state.deleted_children) {
-                    let mut render_state = self.render_states.remove(child_id);
+                for (child_id, child) in mem::take(&mut render_state.deleted_children) {
+                    let WidgetPod {
+                        widget: child_widget,
+                        state: child_state,
+                    } = child;
                     self.paint_states.remove(child_id);
                     child_widget.lifecycle(
                         Lifecycle::DidUnmount(paint_context),
-                        &mut *render_state.state,
+                        &mut **child_state.lock().unwrap(),
                         &mut context,
                     );
                 }
@@ -227,29 +234,30 @@ impl<Handle> Updater<Handle> {
         let boxed_event: Box<dyn Any> = Box::new(event);
         let mut context = EventContext {};
         for handler in self.event_manager.get::<EventType>() {
-            handler.dispatch(
-                &self.tree,
-                &mut self.render_states,
-                &boxed_event,
-                &mut context,
-            )
+            handler.dispatch(&self.tree, &boxed_event, &mut context)
         }
     }
 
     fn render_step(&mut self, node_id: NodeId) -> Option<NodeId> {
-        let widget = &self.tree[node_id];
+        let WidgetPod { widget, state } = &*self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
+
         if let Some(children) = render_state.children.take() {
             if !render_state.mounted {
                 let mut context = LifecycleContext {
                     event_manager: &mut self.event_manager,
                 };
-                widget.lifecycle(Lifecycle::WillMount, &mut *render_state.state, &mut context);
+                widget.lifecycle(
+                    Lifecycle::WillMount,
+                    &mut **state.lock().unwrap(),
+                    &mut context,
+                );
             }
 
-            let rendered_children = widget.render(children, &mut *render_state.state, node_id);
+            let rendered_children = widget.render(children, &mut **state.lock().unwrap(), node_id);
             self.reconcile_children(node_id, rendered_children.into());
         }
+
         self.next_render_step(node_id)
     }
 
@@ -285,7 +293,7 @@ impl<Handle> Updater<Handle> {
 
         for (index, (child_id, child)) in self.tree.children(target_id).enumerate() {
             let child_render_state = &self.render_states[child_id];
-            let key = key_of(&***child, index, child_render_state.key);
+            let key = key_of(&*child.widget, index, child_render_state.key);
             old_keys.push(key);
             old_node_ids.push(Some(child_id));
         }
@@ -315,22 +323,16 @@ impl<Handle> Updater<Handle> {
         match result {
             ReconcileResult::New(new_element) => {
                 let node_id = self.tree.next_node_id();
-                let render_state = RenderState::new(
-                    new_element.widget.initial_state(),
-                    new_element.children,
-                    new_element.key,
-                );
-                self.tree.append_child(target_id, new_element.widget);
+                let render_state = RenderState::new(new_element.children, new_element.key);
+                self.tree
+                    .append_child(target_id, WidgetPod::new(new_element.widget));
                 self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::NewPlacement(ref_id, new_element) => {
                 let node_id = self.tree.next_node_id();
-                let render_state = RenderState::new(
-                    new_element.widget.initial_state(),
-                    new_element.children,
-                    new_element.key,
-                );
-                self.tree.insert_before(ref_id, new_element.widget);
+                let render_state = RenderState::new(new_element.children, new_element.key);
+                self.tree
+                    .insert_before(ref_id, WidgetPod::new(new_element.widget));
                 self.render_states.insert_at(node_id, render_state);
             }
             ReconcileResult::Update(target_id, new_element) => {
@@ -354,14 +356,15 @@ impl<Handle> Updater<Handle> {
                 let mut deleted_children = Vec::new();
 
                 for (node_id, node) in self.tree.detach_subtree(target_id) {
-                    let render_state = &mut self.render_states[node_id];
+                    let WidgetPod { widget, state } = &*node;
+
                     let mut context = LifecycleContext {
                         event_manager: &mut self.event_manager,
                     };
 
-                    node.lifecycle(
+                    widget.lifecycle(
                         Lifecycle::WillUnmount,
-                        &mut *render_state.state,
+                        &mut **state.lock().unwrap(),
                         &mut context,
                     );
 
@@ -384,17 +387,17 @@ impl<Handle> Updater<Handle> {
         children: Children<Handle>,
         key: Option<Key>,
     ) {
-        let widget = &*self.tree[node_id];
+        let WidgetPod { widget, state } = &*self.tree[node_id];
         let render_state = &mut self.render_states[node_id];
 
-        if new_widget.should_update(&**widget, &*render_state.state) {
+        if new_widget.should_update(&**widget, &**state.lock().unwrap()) {
             let mut context = LifecycleContext {
                 event_manager: &mut self.event_manager,
             };
 
             widget.lifecycle(
                 Lifecycle::WillUpdate(&*new_widget),
-                &mut *render_state.state,
+                &mut **state.lock().unwrap(),
                 &mut context,
             );
 
@@ -424,7 +427,7 @@ impl<Handle> fmt::Display for Updater<Handle> {
                 |f, node_id, node| {
                     let render_state = &self.render_states[node_id];
                     let paint_state = &self.paint_states[node_id];
-                    write!(f, "<{:?}", node)?;
+                    write!(f, "<{:?}", node.widget.name())?;
                     write!(f, " id=\"{}\"", node_id)?;
                     write!(f, " x=\"{}\"", paint_state.rectangle.point.x)?;
                     write!(f, " y=\"{}\"", paint_state.rectangle.point.y)?;
@@ -436,7 +439,7 @@ impl<Handle> fmt::Display for Updater<Handle> {
                     write!(f, ">")?;
                     Ok(())
                 },
-                |f, _, node| write!(f, "</{}>", node.name())
+                |f, _, node| write!(f, "</{}>", node.widget.name())
             )
         )
     }

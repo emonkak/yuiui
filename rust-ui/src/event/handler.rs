@@ -1,9 +1,7 @@
 use std::any::{Any, TypeId};
 
-use crate::render::RenderState;
-use crate::slot_vec::SlotVec;
 use crate::tree::NodeId;
-use crate::widget::WidgetTree;
+use crate::widget::{WidgetPod, WidgetTree};
 
 use super::{EventContext, EventHandler, EventType};
 
@@ -42,20 +40,14 @@ where
     fn dispatch(
         &self,
         tree: &WidgetTree<Handle>,
-        render_states: &mut SlotVec<RenderState<Handle>>,
         event: &Box<dyn Any>,
         context: &mut EventContext,
     ) {
+        let WidgetPod { widget, state } = &*tree[self.node_id];
         (self.callback)(
-            tree[self.node_id]
-                .as_any()
-                .downcast_ref::<Widget>()
-                .unwrap(),
+            widget.as_any().downcast_ref::<Widget>().unwrap(),
             event.downcast_ref::<EventType::Event>().unwrap(),
-            render_states[self.node_id]
-                .state
-                .downcast_mut::<State>()
-                .unwrap(),
+            state.lock().unwrap().downcast_mut::<State>().unwrap(),
             context,
         )
     }
@@ -93,7 +85,6 @@ where
     fn dispatch(
         &self,
         _tree: &WidgetTree<Handle>,
-        _render_states: &mut SlotVec<RenderState<Handle>>,
         event: &Box<dyn Any>,
         context: &mut EventContext,
     ) {

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::render::RenderState;
 use crate::slot_vec::SlotVec;
 use crate::widget::WidgetTree;
 
@@ -25,13 +24,7 @@ pub trait EventType {
 }
 
 pub trait EventHandler<Handle> {
-    fn dispatch(
-        &self,
-        tree: &WidgetTree<Handle>,
-        render_states: &mut SlotVec<RenderState<Handle>>,
-        event: &Box<dyn Any>,
-        context: &mut EventContext,
-    );
+    fn dispatch(&self, tree: &WidgetTree<Handle>, event: &Box<dyn Any>, context: &mut EventContext);
 
     fn subscribed_type(&self) -> TypeId;
 

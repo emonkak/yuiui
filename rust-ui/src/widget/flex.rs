@@ -5,7 +5,7 @@ use crate::geometrics::{Point, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::tree::NodeId;
 
-use super::{BoxedWidget, Widget, WidgetMeta, WidgetTree};
+use super::{PolymophicWidget, Widget, WidgetMeta, WidgetTree};
 
 #[derive(WidgetMeta)]
 pub struct Flex {
@@ -66,7 +66,7 @@ impl<Handle> Widget<Handle> for Flex {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        _state: &'a Self::State,
+        _state: &Self::State,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
@@ -75,7 +75,7 @@ impl<Handle> Widget<Handle> for Flex {
 
             let children = tree
                 .children(node_id)
-                .map(|(child_id, child)| (child_id, get_params(child)))
+                .map(|(child_id, child)| (child_id, get_params(&*child.widget)))
                 .collect::<Vec<_>>();
 
             for (child_id, params) in children.iter() {
@@ -201,7 +201,7 @@ impl Axis {
     }
 }
 
-fn get_params<Handle>(widget: &BoxedWidget<Handle>) -> Params {
+fn get_params<Handle>(widget: &dyn PolymophicWidget<Handle>) -> Params {
     widget
         .as_any()
         .downcast_ref::<FlexItem>()
