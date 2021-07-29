@@ -6,13 +6,23 @@ use crate::platform::WindowHandle;
 
 #[derive(Clone, Debug)]
 pub struct XWindowHandle {
-    pub display: *mut xlib::Display,
-    pub window: xlib::Window,
+    display: *mut xlib::Display,
+    window: xlib::Window,
 }
 
 impl XWindowHandle {
     pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
         Self { display, window }
+    }
+
+    #[inline]
+    pub fn display(&self) -> *mut xlib::Display {
+        self.display
+    }
+
+    #[inline]
+    pub fn window(&self) -> xlib::Window {
+        self.window
     }
 }
 

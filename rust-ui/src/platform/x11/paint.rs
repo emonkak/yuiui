@@ -7,38 +7,41 @@ use crate::platform::WindowHandle;
 
 use super::window::XWindowHandle;
 
-pub struct XPaintContext {
-    handle: XWindowHandle,
+pub struct XPaintContext<'a> {
+    handle: &'a XWindowHandle,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
 }
 
-impl XPaintContext {
-    pub fn new(handle: XWindowHandle) -> Self {
+impl<'a> XPaintContext<'a> {
+    pub fn new(handle: &'a XWindowHandle) -> Self {
+        let display = handle.display();
+        let window = handle.window();
         let rectangle = handle.get_window_rectangle();
+
         unsafe {
             let pixmap = {
-                let screen = xlib::XDefaultScreenOfDisplay(handle.display);
+                let screen = xlib::XDefaultScreenOfDisplay(display);
                 let screen_number = xlib::XScreenNumberOfScreen(screen);
-                let depth = xlib::XDefaultDepth(handle.display, screen_number);
+                let depth = xlib::XDefaultDepth(display, screen_number);
                 xlib::XCreatePixmap(
-                    handle.display,
-                    handle.window,
+                    display,
+                    window,
                     rectangle.size.width as _,
                     rectangle.size.height as _,
                     depth as _,
                 )
             };
-            let gc = xlib::XCreateGC(handle.display, pixmap, 0, ptr::null_mut());
+            let gc = xlib::XCreateGC(display, pixmap, 0, ptr::null_mut());
 
             {
-                let screen = xlib::XDefaultScreenOfDisplay(handle.display);
+                let screen = xlib::XDefaultScreenOfDisplay(display);
                 let screen_number = xlib::XScreenNumberOfScreen(screen);
-                let color = xlib::XWhitePixel(handle.display, screen_number);
+                let color = xlib::XWhitePixel(display, screen_number);
 
-                xlib::XSetForeground(handle.display, gc, color);
+                xlib::XSetForeground(display, gc, color);
                 xlib::XFillRectangle(
-                    handle.display,
+                    display,
                     pixmap,
                     gc,
                     0,
@@ -62,28 +65,32 @@ impl XPaintContext {
             pad: 0,
         };
 
+        let display = self.handle.display();
+
         unsafe {
-            let screen = xlib::XDefaultScreenOfDisplay(self.handle.display);
+            let screen = xlib::XDefaultScreenOfDisplay(display);
             let screen_number = xlib::XScreenNumberOfScreen(screen);
-            let colormap = xlib::XDefaultColormap(self.handle.display, screen_number);
-            xlib::XAllocColor(self.handle.display, colormap, &mut color);
+            let colormap = xlib::XDefaultColormap(display, screen_number);
+            xlib::XAllocColor(display, colormap, &mut color);
         };
 
         color
     }
 }
 
-impl PaintContext<XWindowHandle> for XPaintContext {
+impl<'a> PaintContext<XWindowHandle> for XPaintContext<'a> {
     fn handle(&self) -> &XWindowHandle {
-        &self.handle
+        self.handle
     }
 
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
+        let display = self.handle.display();
+
         unsafe {
             let color = self.alloc_color(color);
-            xlib::XSetForeground(self.handle.display, self.gc, color.pixel);
+            xlib::XSetForeground(display, self.gc, color.pixel);
             xlib::XFillRectangle(
-                self.handle.display,
+                display,
                 self.pixmap,
                 self.gc,
                 rectangle.point.x as _,
@@ -95,11 +102,14 @@ impl PaintContext<XWindowHandle> for XPaintContext {
     }
 
     fn commit(&mut self, rectangle: &Rectangle) {
+        let display = self.handle.display();
+        let window = self.handle.window();
+
         unsafe {
             xlib::XCopyArea(
-                self.handle.display,
+                display,
                 self.pixmap,
-                self.handle.window,
+                window,
                 self.gc,
                 0,
                 0,
@@ -112,11 +122,12 @@ impl PaintContext<XWindowHandle> for XPaintContext {
     }
 }
 
-impl Drop for XPaintContext {
+impl<'a> Drop for XPaintContext<'a> {
     fn drop(&mut self) {
+        let display = self.handle.display();
         unsafe {
-            xlib::XFreeGC(self.handle.display, self.gc);
-            xlib::XFreePixmap(self.handle.display, self.pixmap);
+            xlib::XFreeGC(display, self.gc);
+            xlib::XFreePixmap(display, self.pixmap);
         }
     }
 }

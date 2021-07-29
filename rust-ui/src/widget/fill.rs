@@ -29,6 +29,7 @@ impl<Handle> Widget<Handle> for Fill {
         _state: &mut Self::State,
         paint_context: &mut dyn PaintContext<Handle>,
     ) {
+        println!("Fill::paint(): 0x{:08x}", self.color);
         paint_context.fill_rectangle(self.color, rectangle);
     }
 }

@@ -5,8 +5,10 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
 use crate::slot_vec::SlotVec;
+use crate::tree::NodeId;
 use crate::widget::WidgetTree;
 
 #[derive(Debug)]
@@ -15,8 +17,6 @@ pub struct EventManager<Handle> {
     handlers_by_type: HashMap<TypeId, Vec<HandlerId>>,
 }
 
-pub struct EventContext {}
-
 pub type HandlerId = usize;
 
 pub trait EventType {
@@ -24,7 +24,7 @@ pub trait EventType {
 }
 
 pub trait EventHandler<Handle> {
-    fn dispatch(&self, tree: &WidgetTree<Handle>, event: &Box<dyn Any>, context: &mut EventContext);
+    fn dispatch(&self, tree: &WidgetTree<Handle>, event: &Box<dyn Any>, update_notifier: &Sender<NodeId>);
 
     fn subscribed_type(&self) -> TypeId;
 

@@ -1,5 +1,6 @@
 use std::array;
 use std::fmt;
+use std::sync::Arc;
 
 use super::{BoxedWidget, Widget, WidgetMeta};
 
@@ -19,7 +20,7 @@ pub enum Child<Handle> {
 
 pub type Key = usize;
 
-pub type Children<Handle> = Vec<Element<Handle>>;
+pub type Children<Handle> = Arc<Vec<Element<Handle>>>;
 
 pub trait IntoElement<Handle> {
     fn into_element(self, children: Children<Handle>) -> Element<Handle>;
@@ -44,7 +45,17 @@ impl<Handle> Element<Handle> {
             }
         }
 
-        widget.into_element(flatten_children)
+        widget.into_element(Arc::new(flatten_children))
+    }
+}
+
+impl<Handle> Clone for Element<Handle> {
+    fn clone(&self) -> Self {
+        Self {
+            widget: Arc::clone(&self.widget),
+            children: Arc::clone(&self.children),
+            key: self.key,
+        }
     }
 }
 
@@ -73,13 +84,9 @@ impl<Handle> fmt::Display for Element<Handle> {
     }
 }
 
-impl<Handle> Into<Vec<Element<Handle>>> for Child<Handle> {
-    fn into(self) -> Vec<Element<Handle>> {
-        match self {
-            Child::Single(element) => vec![element],
-            Child::Multiple(elements) => elements,
-            Child::None => Vec::new(),
-        }
+impl<Handle> From<Element<Handle>> for Children<Handle> {
+    fn from(element: Element<Handle>) -> Self {
+        Arc::new(vec![element])
     }
 }
 
@@ -111,8 +118,8 @@ where
 {
     fn from(widget: Widget) -> Self {
         Child::Single(Element {
-            widget: Box::new(widget),
-            children: Vec::new(),
+            widget: Arc::new(widget),
+            children: Arc::new(Vec::new()),
             key: None,
         })
     }
@@ -122,6 +129,9 @@ where
 macro_rules! element {
     ($expr:expr => { $($content:tt)* }) => {
         $crate::widget::element::Element::build($expr, __element_children!([] $($content)*))
+    };
+    ($expr:expr => $child:expr) => {
+        element!($expr => { $child })
     };
     ($expr:expr) => {
         $crate::widget::element::Element::build($expr, [])
@@ -133,7 +143,13 @@ macro_rules! __element_children {
     ([$($children:expr)*] $expr:expr => { $($content:tt)* } $($rest:tt)*) => {
         __element_children!([$($children)* $crate::widget::element::Child::Single($crate::widget::element::Element::build($expr, __element_children!([] $($content)*)))] $($rest)*)
     };
-    ([$($children:expr)*] $expr:expr; $($rest:tt)*) => {
+    ([$($children:expr)*] $expr:expr => $child:expr, $($rest:tt)*) => {
+        __element_children!([$($children)*] $expr => { $child } $($rest)*)
+    };
+    ([$($children:expr)*] $expr:expr => $child:expr) => {
+        __element_children!([$($children)*] $expr => { $child })
+    };
+    ([$($children:expr)*] $expr:expr, $($rest:tt)*) => {
         __element_children!([$($children)* $crate::widget::element::Child::from($expr)] $($rest)*)
     };
     ([$($children:expr)*] $expr:expr) => {

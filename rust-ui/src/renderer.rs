@@ -1,25 +1,16 @@
 use std::any::TypeId;
 use std::marker::PhantomData;
 
-use crate::event::handler::{GlobalHandler, WidgetHandler};
-use crate::event::{EventContext, EventType};
+use crate::event::EventType;
+use crate::event::handler::{EventContext, WidgetHandler};
 use crate::reconciler::{ReconcileResult, Reconciler};
-use crate::slot_vec::SlotVec;
 use crate::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
 use crate::widget::{PolymophicWidget, WidgetPod, WidgetTree};
 
 #[derive(Debug)]
 pub struct Renderer<Handle> {
-    render_states: SlotVec<RenderState<Handle>>,
-}
-
-#[derive(Debug)]
-pub struct RenderState<Handle> {
-    pub children: Option<Children<Handle>>,
-    pub deleted_children: Vec<(NodeId, WidgetPod<Handle>)>,
-    pub key: Option<Key>,
-    pub mounted: bool,
+    _handle: PhantomData<Handle>,
 }
 
 pub struct RenderContext<Widget: ?Sized, Handle, State> {
@@ -38,16 +29,13 @@ enum TypedKey {
 impl<Handle> Renderer<Handle> {
     pub fn new() -> Self {
         Self {
-            render_states: SlotVec::new(),
+            _handle: PhantomData,
         }
     }
 
     pub fn render(&mut self, element: Element<Handle>) -> (NodeId, WidgetTree<Handle>) {
         let mut tree = Tree::new();
-        let root_id = tree.attach(WidgetPod::new(element.widget));
-
-        self.render_states
-            .insert_at(root_id, RenderState::new(Vec::new(), None));
+        let root_id = tree.attach(WidgetPod::from(element));
 
         let mut current_id = root_id;
         while let Some(next_id) = self.render_step(current_id, root_id, &mut tree) {
@@ -57,14 +45,7 @@ impl<Handle> Renderer<Handle> {
         (root_id, tree)
     }
 
-    pub fn update(
-        &mut self,
-        element: Element<Handle>,
-        root_id: NodeId,
-        tree: &mut WidgetTree<Handle>,
-    ) {
-        self.update_render_state(root_id, element, tree);
-
+    pub fn update(&mut self, root_id: NodeId, tree: &mut WidgetTree<Handle>) {
         let mut current_id = root_id;
 
         while let Some(next_id) = self.render_step(current_id, root_id, tree) {
@@ -78,14 +59,15 @@ impl<Handle> Renderer<Handle> {
         root_id: NodeId,
         tree: &mut WidgetTree<Handle>,
     ) -> Option<NodeId> {
-        let WidgetPod { widget, state, .. } = &*tree[node_id];
-        let render_state = &mut self.render_states[node_id];
-
-        if let Some(children) = render_state.children.take() {
-            let rendered_children = widget.render(children, &mut **state.lock().unwrap(), node_id);
-            self.reconcile_children(node_id, rendered_children.into(), tree);
-        }
-
+        let WidgetPod {
+            widget,
+            children,
+            state,
+            ..
+        } = &*tree[node_id];
+        let rendered_children =
+            widget.render(children.clone(), &mut **state.lock().unwrap(), node_id);
+        self.reconcile_children(node_id, rendered_children, tree);
         self.next_render_step(node_id, root_id, &tree)
     }
 
@@ -95,23 +77,27 @@ impl<Handle> Renderer<Handle> {
         root_id: NodeId,
         tree: &WidgetTree<Handle>,
     ) -> Option<NodeId> {
-        if let Some(first_child) = tree[node_id].first_child() {
-            return Some(first_child);
+        let mut current_node = &tree[node_id];
+
+        if current_node.dirty {
+            if let Some(first_child) = tree[node_id].first_child() {
+                return Some(first_child);
+            }
         }
 
-        let mut currnet_node_id = node_id;
-
         loop {
-            let current_node = &tree[currnet_node_id];
-            if let Some(sibling_id) = current_node.next_sibling() {
-                return Some(sibling_id);
+            while let Some(sibling_id) = current_node.next_sibling() {
+                current_node = &tree[sibling_id];
+                if current_node.dirty {
+                    return Some(sibling_id);
+                }
             }
 
             if let Some(parent_id) = current_node
                 .parent()
                 .filter(|&parent_id| parent_id != root_id)
             {
-                currnet_node_id = parent_id;
+                current_node = &tree[parent_id];
             } else {
                 break;
             }
@@ -130,8 +116,7 @@ impl<Handle> Renderer<Handle> {
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
 
         for (index, (child_id, child)) in tree.children(target_id).enumerate() {
-            let child_render_state = &self.render_states[child_id];
-            let key = key_of(&*child.widget, index, child_render_state.key);
+            let key = key_of(&*child.widget, index, child.key);
             old_keys.push(key);
             old_node_ids.push(Some(child_id));
         }
@@ -139,10 +124,10 @@ impl<Handle> Renderer<Handle> {
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
         let mut new_elements: Vec<Option<Element<Handle>>> = Vec::with_capacity(children.len());
 
-        for (index, element) in children.into_iter().enumerate() {
+        for (index, element) in children.iter().enumerate() {
             let key = key_of(&*element.widget, index, element.key);
             new_keys.push(key);
-            new_elements.push(Some(element));
+            new_elements.push(Some(element.clone()));
         }
 
         let reconciler =
@@ -160,42 +145,31 @@ impl<Handle> Renderer<Handle> {
         tree: &mut WidgetTree<Handle>,
     ) {
         match result {
-            ReconcileResult::New(new_element) => {
-                let node_id = tree.next_node_id();
-                let render_state = RenderState::new(new_element.children, new_element.key);
-                tree.append_child(target_id, WidgetPod::new(new_element.widget));
-                self.render_states.insert_at(node_id, render_state);
+            ReconcileResult::Create(new_element) => {
+                tree.append_child(target_id, WidgetPod::from(new_element));
             }
-            ReconcileResult::NewPlacement(ref_id, new_element) => {
-                let node_id = tree.next_node_id();
-                let render_state = RenderState::new(new_element.children, new_element.key);
-                tree.insert_before(ref_id, WidgetPod::new(new_element.widget));
-                self.render_states.insert_at(node_id, render_state);
+            ReconcileResult::CreateAndPlacement(ref_id, new_element) => {
+                tree.insert_before(ref_id, WidgetPod::from(new_element));
             }
             ReconcileResult::Update(target_id, new_element) => {
-                self.update_render_state(target_id, new_element, tree);
+                self.mark_as_dirty(target_id, new_element, tree);
             }
-            ReconcileResult::UpdatePlacement(target_id, ref_id, new_element) => {
-                self.update_render_state(target_id, new_element, tree);
+            ReconcileResult::UpdateAndPlacement(target_id, ref_id, new_element) => {
+                self.mark_as_dirty(target_id, new_element, tree);
                 tree.move_position(target_id).insert_before(ref_id);
             }
-            ReconcileResult::Deletion(target_id) => {
-                let mut deleted_children = Vec::new();
+            ReconcileResult::Delete(target_id) => {
+                let (_, detached_node) = tree.detach_subtree(target_id).last().unwrap();
 
-                for (node_id, node) in tree.detach_subtree(target_id) {
-                    deleted_children.push((node_id, node.into_inner()));
-                }
-
-                let parent = tree[target_id].parent();
-
-                if let Some(parent_id) = parent {
-                    self.render_states[parent_id].deleted_children = deleted_children;
+                if let Some(parent_id) = detached_node.parent() {
+                    let WidgetPod { deleted_children, ..  } = &mut *tree[parent_id];
+                    deleted_children.push(target_id);
                 }
             }
         }
     }
 
-    fn update_render_state(
+    fn mark_as_dirty(
         &mut self,
         node_id: NodeId,
         element: Element<Handle>,
@@ -204,14 +178,19 @@ impl<Handle> Renderer<Handle> {
         let WidgetPod {
             widget,
             state,
+            children,
+            deleted_children,
             dirty,
+            key,
+            ..
         } = &mut *tree[node_id];
 
-        if widget.should_update(&*element.widget, &**state.lock().unwrap()) {
-            let render_state = &mut self.render_states[node_id];
-            render_state.children = Some(element.children);
-            render_state.key = element.key;
+        *children = element.children;
+        *deleted_children = Vec::new();
+        *key = element.key;
 
+        if widget.should_update(&*element.widget, &**state.lock().unwrap()) {
+            *widget = element.widget;
             *dirty = true;
 
             for (_, parent) in tree.ancestors_mut(node_id) {
@@ -222,17 +201,6 @@ impl<Handle> Renderer<Handle> {
             }
         } else {
             *dirty = false;
-        }
-    }
-}
-
-impl<Handle> RenderState<Handle> {
-    pub fn new(children: Children<Handle>, key: Option<Key>) -> Self {
-        Self {
-            children: Some(children),
-            deleted_children: Vec::new(),
-            key,
-            mounted: false,
         }
     }
 }
@@ -259,19 +227,19 @@ where
     where
         EventType: self::EventType + 'static,
     {
-        WidgetHandler::new(event_type, callback, self.node_id)
+        WidgetHandler::new(event_type, self.node_id, callback)
     }
 
-    pub fn use_global_handler<EventType>(
-        &self,
-        event_type: EventType,
-        callback: fn(&EventType::Event, &mut EventContext),
-    ) -> GlobalHandler<EventType, EventType::Event>
-    where
-        EventType: self::EventType + 'static,
-    {
-        GlobalHandler::new(event_type, callback)
-    }
+    // pub fn use_global_handler<EventType>(
+    //     &self,
+    //     event_type: EventType,
+    //     callback: fn(&EventType::Event, &mut EventContext),
+    // ) -> GlobalHandler<EventType, EventType::Event>
+    // where
+    //     EventType: self::EventType + 'static,
+    // {
+    //     GlobalHandler::new(event_type, callback)
+    // }
 }
 
 fn key_of<Handle>(

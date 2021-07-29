@@ -17,7 +17,7 @@ use crate::painter::PaintContext;
 use crate::renderer::RenderContext;
 use crate::tree::{Link, NodeId, Tree};
 
-use self::element::{Child, Children, Element, IntoElement, Key};
+use self::element::{Children, Element, IntoElement, Key};
 
 pub type WidgetTree<Handle> = Tree<WidgetPod<Handle>>;
 
@@ -25,12 +25,15 @@ pub type WidgetNode<Handle> = Link<WidgetPod<Handle>>;
 
 #[derive(Debug)]
 pub struct WidgetPod<Handle> {
-    pub widget: Arc<dyn PolymophicWidget<Handle> + Send + Sync>,
+    pub widget: BoxedWidget<Handle>,
+    pub children: Children<Handle>,
+    pub key: Option<Key>,
     pub state: Arc<Mutex<Box<dyn Any + Send + Sync>>>,
+    pub deleted_children: Vec<NodeId>,
     pub dirty: bool,
 }
 
-pub type BoxedWidget<Handle> = Box<dyn PolymophicWidget<Handle> + Send + Sync>;
+pub type BoxedWidget<Handle> = Arc<dyn PolymophicWidget<Handle> + Send + Sync>;
 
 pub trait Widget<Handle>: Send + WidgetMeta {
     type State: Default + Send + Sync;
@@ -55,8 +58,8 @@ pub trait Widget<Handle>: Send + WidgetMeta {
         children: Children<Handle>,
         _state: &Self::State,
         _context: &RenderContext<Self, Handle, Self::State>,
-    ) -> Child<Handle> {
-        Child::Multiple(children)
+    ) -> Children<Handle> {
+        children
     }
 
     #[inline]
@@ -99,8 +102,12 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         context: &mut LifecycleContext<Handle>,
     );
 
-    fn render(&self, children: Children<Handle>, state: &dyn Any, node_id: NodeId)
-        -> Child<Handle>;
+    fn render(
+        &self,
+        children: Children<Handle>,
+        state: &dyn Any,
+        node_id: NodeId,
+    ) -> Children<Handle>;
 
     fn layout<'a>(
         &'a self,
@@ -141,10 +148,13 @@ pub struct WithKey<Inner> {
 }
 
 impl<Handle> WidgetPod<Handle> {
-    pub fn new(widget: BoxedWidget<Handle>) -> Self {
+    pub fn from(element: Element<Handle>) -> Self {
         Self {
-            state: Arc::new(Mutex::new(widget.initial_state())),
-            widget: Arc::from(widget),
+            state: Arc::new(Mutex::new(element.widget.initial_state())),
+            widget: element.widget,
+            children: element.children,
+            key: element.key,
+            deleted_children: Vec::new(),
             dirty: true,
         }
     }
@@ -154,7 +164,10 @@ impl<Handle> Clone for WidgetPod<Handle> {
     fn clone(&self) -> Self {
         Self {
             widget: Arc::clone(&self.widget),
+            children: Arc::clone(&self.children),
+            key: self.key,
             state: Arc::clone(&self.state),
+            deleted_children: self.deleted_children.clone(),
             dirty: self.dirty,
         }
     }
@@ -205,7 +218,7 @@ where
         children: Children<Handle>,
         state: &dyn Any,
         node_id: NodeId,
-    ) -> Child<Handle> {
+    ) -> Children<Handle> {
         self.render(
             children,
             state.downcast_ref().unwrap(),
@@ -251,7 +264,7 @@ where
         Self: Sized,
     {
         Element {
-            widget: Box::new(self),
+            widget: Arc::new(self),
             children,
             key: None,
         }
@@ -266,7 +279,7 @@ where
     #[inline]
     fn into_element(self, children: Children<Handle>) -> Element<Handle> {
         Element {
-            widget: Box::new(self.inner),
+            widget: Arc::new(self.inner),
             children,
             key: Some(self.key),
         }
