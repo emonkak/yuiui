@@ -55,7 +55,7 @@ impl<Handle> Painter<Handle> {
                 current_id,
                 BoxConstraints::tight(&viewport_size),
                 tree,
-                &**state.lock().unwrap(),
+                &mut **state.lock().unwrap(),
             )
         };
         let mut calculated_size = Size::ZERO;
@@ -76,7 +76,7 @@ impl<Handle> Painter<Handle> {
                             child_id,
                             child_box_constraints,
                             &tree,
-                            &**state.lock().unwrap(),
+                            &mut **state.lock().unwrap(),
                         );
                         layout_stack.push((child_id, layout));
                     } else {

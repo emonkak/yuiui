@@ -65,7 +65,7 @@ pub trait Widget<Handle>: Send + WidgetMeta {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        _state: &Self::State,
+        _state: &mut Self::State,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = tree[node_id].first_child() {
@@ -107,7 +107,7 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        state: &dyn Any,
+        state: &mut dyn Any,
     ) -> Generator<LayoutRequest, Size, Size>;
 
     fn paint(
@@ -219,13 +219,13 @@ where
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Handle>,
-        state: &dyn Any,
+        state: &mut dyn Any,
     ) -> Generator<LayoutRequest, Size, Size> {
         self.layout(
             node_id,
             box_constraints,
             tree,
-            state.downcast_ref().unwrap(),
+            state.downcast_mut().unwrap(),
         )
     }
 
