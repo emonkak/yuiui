@@ -1,54 +1,48 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::event::{EventHandler, EventManager, HandlerId};
 
 #[derive(Debug)]
-pub enum Lifecycle<Widget, Context> {
-    WillMount,
-    WillUpdate(Widget),
-    WillUnmount,
-    DidMount(Context),
-    DidUpdate(Widget, Context),
-    DidUnmount(Context),
+pub enum Lifecycle<Widget> {
+    OnMount,
+    OnUpdate(Widget),
+    OnUnmount,
 }
 
 pub struct LifecycleContext<'a, Handle> {
     pub(crate) event_manager: &'a mut EventManager<Handle>,
 }
 
-impl<Widget, Context> Lifecycle<Widget, Context> {
-    pub fn map_widget<NewWidget, F: Fn(Widget) -> NewWidget>(
-        self,
-        f: F,
-    ) -> Lifecycle<NewWidget, Context> {
+impl<Widget> Lifecycle<Widget> {
+    pub fn map<NewWidget, F: Fn(Widget) -> NewWidget>(self, f: F) -> Lifecycle<NewWidget> {
         match self {
-            Lifecycle::WillMount => Lifecycle::WillMount,
-            Lifecycle::WillUpdate(widget) => Lifecycle::WillUpdate(f(widget)),
-            Lifecycle::WillUnmount => Lifecycle::WillUnmount,
-            Lifecycle::DidMount(context) => Lifecycle::DidMount(context),
-            Lifecycle::DidUpdate(widget, context) => Lifecycle::DidUpdate(f(widget), context),
-            Lifecycle::DidUnmount(context) => Lifecycle::DidUnmount(context),
+            Lifecycle::OnMount => Lifecycle::OnMount,
+            Lifecycle::OnUpdate(widget) => Lifecycle::OnUpdate(f(widget)),
+            Lifecycle::OnUnmount => Lifecycle::OnUnmount,
         }
     }
 
-    pub fn without_params(&self) -> Lifecycle<(), ()> {
+    pub fn without_widget(&self) -> Lifecycle<()> {
         match self {
-            Lifecycle::WillMount => Lifecycle::WillMount,
-            Lifecycle::WillUpdate(_) => Lifecycle::WillUpdate(()),
-            Lifecycle::WillUnmount => Lifecycle::WillUnmount,
-            Lifecycle::DidMount(_) => Lifecycle::DidMount(()),
-            Lifecycle::DidUpdate(_, _) => Lifecycle::DidUpdate((), ()),
-            Lifecycle::DidUnmount(_) => Lifecycle::DidUnmount(()),
+            Lifecycle::OnMount => Lifecycle::OnMount,
+            Lifecycle::OnUpdate(_) => Lifecycle::OnUpdate(()),
+            Lifecycle::OnUnmount => Lifecycle::OnUnmount,
         }
     }
 }
 
 impl<'a, Handle> LifecycleContext<'a, Handle> {
-    pub fn add_handler(&mut self, handler: Rc<dyn EventHandler<Handle>>) -> HandlerId {
+    pub fn add_handler(
+        &mut self,
+        handler: Arc<dyn EventHandler<Handle> + Send + Sync>,
+    ) -> HandlerId {
         self.event_manager.add(handler)
     }
 
-    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Rc<dyn EventHandler<Handle>> {
+    pub fn remove_handler(
+        &mut self,
+        handler_id: HandlerId,
+    ) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
         self.event_manager.remove(handler_id)
     }
 }

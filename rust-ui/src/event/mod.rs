@@ -4,14 +4,14 @@ pub mod mouse;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::slot_vec::SlotVec;
 use crate::widget::WidgetTree;
 
 #[derive(Debug)]
 pub struct EventManager<Handle> {
-    handlers: SlotVec<Rc<dyn EventHandler<Handle>>>,
+    handlers: SlotVec<Arc<dyn EventHandler<Handle> + Send + Sync>>,
     handlers_by_type: HashMap<TypeId, Vec<HandlerId>>,
 }
 
@@ -39,7 +39,7 @@ impl<Handle> EventManager<Handle> {
         }
     }
 
-    pub fn get<T>(&self) -> impl Iterator<Item = &dyn EventHandler<Handle>>
+    pub fn get<T>(&self) -> impl Iterator<Item = &(dyn EventHandler<Handle> + Send + Sync)>
     where
         T: 'static,
     {
@@ -51,7 +51,7 @@ impl<Handle> EventManager<Handle> {
             .map(move |&handler_id| &*self.handlers[handler_id])
     }
 
-    pub fn add(&mut self, handler: Rc<dyn EventHandler<Handle>>) -> HandlerId {
+    pub fn add(&mut self, handler: Arc<dyn EventHandler<Handle> + Send + Sync>) -> HandlerId {
         let type_id = handler.subscribed_type();
         let handler_id = self.handlers.insert(handler);
         self.handlers_by_type
@@ -61,7 +61,7 @@ impl<Handle> EventManager<Handle> {
         handler_id
     }
 
-    pub fn remove(&mut self, handler_id: HandlerId) -> Rc<dyn EventHandler<Handle>> {
+    pub fn remove(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
         let handler = self.handlers.remove(handler_id);
         let handler_ids = self
             .handlers_by_type
@@ -74,15 +74,15 @@ impl<Handle> EventManager<Handle> {
     }
 }
 
-impl<Handle> PartialEq for dyn EventHandler<Handle> {
+impl<Handle> PartialEq for dyn EventHandler<Handle> + Send + Sync {
     fn eq(&self, other: &Self) -> bool {
         self.as_ptr() == other.as_ptr()
     }
 }
 
-impl<Handle> Eq for dyn EventHandler<Handle> {}
+impl<Handle> Eq for dyn EventHandler<Handle> + Send + Sync {}
 
-impl<Handle> fmt::Debug for dyn EventHandler<Handle> {
+impl<Handle> fmt::Debug for dyn EventHandler<Handle> + Send + Sync {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_tuple("EventHandler")

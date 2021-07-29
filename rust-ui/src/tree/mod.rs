@@ -516,7 +516,7 @@ impl<T> Link<T> {
     }
 
     #[inline]
-    pub fn into_data(self) -> T {
+    pub fn into_inner(self) -> T {
         self.current.data
     }
 

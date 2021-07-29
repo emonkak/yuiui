@@ -1,16 +1,15 @@
 use rust_ui_derive::WidgetMeta;
 use std::mem;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::event::{EventHandler, HandlerId};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
-use crate::paint::PaintContext;
 
 use super::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
 pub struct Subscriber<Handle: 'static> {
-    handlers: Vec<Rc<dyn EventHandler<Handle>>>,
+    handlers: Vec<Arc<dyn EventHandler<Handle> + Send + Sync>>,
 }
 
 #[derive(Default)]
@@ -27,9 +26,9 @@ impl<Handle> Subscriber<Handle> {
 
     pub fn on<Handler>(mut self, handler: Handler) -> Self
     where
-        Handler: EventHandler<Handle> + 'static,
+        Handler: EventHandler<Handle> + Send + Sync + 'static,
     {
-        self.handlers.push(Rc::new(handler));
+        self.handlers.push(Arc::new(handler));
         self
     }
 }
@@ -44,18 +43,18 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&Self, &mut dyn PaintContext<Handle>>,
+        lifecycle: Lifecycle<&Self>,
         state: &mut Self::State,
         context: &mut LifecycleContext<Handle>,
     ) {
         match lifecycle {
-            Lifecycle::WillMount => {
+            Lifecycle::OnMount => {
                 for handler in self.handlers.iter() {
-                    let handler_id = context.add_handler(Rc::clone(handler));
+                    let handler_id = context.add_handler(Arc::clone(handler));
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::WillUpdate(new_widget) => {
+            Lifecycle::OnUpdate(new_widget) => {
                 let intersected_len = self.handlers.len().min(new_widget.handlers.len());
 
                 for index in 0..intersected_len {
@@ -63,7 +62,7 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
                     let new_handler = &new_widget.handlers[index];
 
                     if handler.as_ptr() != new_handler.as_ptr() {
-                        let handler_id = context.add_handler(Rc::clone(&new_handler));
+                        let handler_id = context.add_handler(Arc::clone(&new_handler));
                         let old_handler_id =
                             mem::replace(&mut state.registered_handler_ids[index], handler_id);
                         context.remove_handler(old_handler_id);
@@ -77,16 +76,15 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
 
                 for index in intersected_len..new_widget.handlers.len() {
                     let new_handler = &new_widget.handlers[index];
-                    let handler_id = context.add_handler(Rc::clone(&new_handler));
+                    let handler_id = context.add_handler(Arc::clone(&new_handler));
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::WillUnmount => {
+            Lifecycle::OnUnmount => {
                 for handler_id in mem::take(&mut state.registered_handler_ids) {
                     context.remove_handler(handler_id);
                 }
             }
-            _ => {}
         }
     }
 }

@@ -13,8 +13,8 @@ use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
-use crate::paint::PaintContext;
-use crate::render::RenderContext;
+use crate::painter::PaintContext;
+use crate::renderer::RenderContext;
 use crate::tree::{Link, NodeId, Tree};
 
 use self::element::{Child, Children, Element, IntoElement, Key};
@@ -25,14 +25,15 @@ pub type WidgetNode<Handle> = Link<WidgetPod<Handle>>;
 
 #[derive(Debug)]
 pub struct WidgetPod<Handle> {
-    pub widget: Arc<dyn PolymophicWidget<Handle>>,
-    pub state: Arc<Mutex<Box<dyn Any>>>,
+    pub widget: Arc<dyn PolymophicWidget<Handle> + Send + Sync>,
+    pub state: Arc<Mutex<Box<dyn Any + Send + Sync>>>,
+    pub dirty: bool,
 }
 
-pub type BoxedWidget<Handle> = Box<dyn PolymophicWidget<Handle>>;
+pub type BoxedWidget<Handle> = Box<dyn PolymophicWidget<Handle> + Send + Sync>;
 
-pub trait Widget<Handle>: WidgetMeta {
-    type State: Default;
+pub trait Widget<Handle>: Send + WidgetMeta {
+    type State: Default + Send + Sync;
 
     #[inline]
     fn should_update(&self, _new_widget: &Self, _state: &Self::State) -> bool {
@@ -42,7 +43,7 @@ pub trait Widget<Handle>: WidgetMeta {
     #[inline]
     fn lifecycle(
         &self,
-        _lifecycle: Lifecycle<&Self, &mut dyn PaintContext<Handle>>,
+        _lifecycle: Lifecycle<&Self>,
         _state: &mut Self::State,
         _context: &mut LifecycleContext<Handle>,
     ) {
@@ -86,14 +87,14 @@ pub trait Widget<Handle>: WidgetMeta {
     }
 }
 
-pub trait PolymophicWidget<Handle>: WidgetMeta {
-    fn initial_state(&self) -> Box<dyn Any>;
+pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
+    fn initial_state(&self) -> Box<dyn Any + Send + Sync>;
 
     fn should_update(&self, new_widget: &dyn PolymophicWidget<Handle>, state: &dyn Any) -> bool;
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &mut dyn PaintContext<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext<Handle>,
     );
@@ -144,11 +145,22 @@ impl<Handle> WidgetPod<Handle> {
         Self {
             state: Arc::new(Mutex::new(widget.initial_state())),
             widget: Arc::from(widget),
+            dirty: true,
         }
     }
 }
 
-impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> {
+impl<Handle> Clone for WidgetPod<Handle> {
+    fn clone(&self) -> Self {
+        Self {
+            widget: Arc::clone(&self.widget),
+            state: Arc::clone(&self.state),
+            dirty: self.dirty,
+        }
+    }
+}
+
+impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> + Send + Sync {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
     }
@@ -160,7 +172,7 @@ where
     Widget::State: 'static,
 {
     #[inline]
-    fn initial_state(&self) -> Box<dyn Any> {
+    fn initial_state(&self) -> Box<dyn Any + Send + Sync> {
         let initial_state: Widget::State = Default::default();
         Box::new(initial_state)
     }
@@ -176,12 +188,12 @@ where
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &mut dyn PaintContext<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext<Handle>,
     ) {
         self.lifecycle(
-            lifecycle.map_widget(|widget| widget.as_any().downcast_ref().unwrap()),
+            lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),
             context,
         );
@@ -230,7 +242,7 @@ where
 
 impl<Widget, Handle> IntoElement<Handle> for Widget
 where
-    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + Send + Sync + 'static,
     Widget::State: 'static,
 {
     #[inline]
@@ -248,14 +260,11 @@ where
 
 impl<Widget, Handle> IntoElement<Handle> for WithKey<Widget>
 where
-    Widget: self::Widget<Handle> + 'static,
+    Widget: self::Widget<Handle> + Send + Sync + 'static,
     Widget::State: 'static,
 {
     #[inline]
-    fn into_element(self, children: Children<Handle>) -> Element<Handle>
-    where
-        Widget: Sized + 'static,
-    {
+    fn into_element(self, children: Children<Handle>) -> Element<Handle> {
         Element {
             widget: Box::new(self.inner),
             children,

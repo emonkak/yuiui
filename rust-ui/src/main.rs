@@ -11,13 +11,12 @@ use x11::xlib;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::event::EventContext;
 use rust_ui::geometrics::{Point, Rectangle, Size};
-use rust_ui::paint::PaintContext;
+use rust_ui::painter::{PaintContext, Painter};
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPaintContext;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
 use rust_ui::platform::WindowHandle;
-use rust_ui::render::RenderContext;
-use rust_ui::updater::Updater;
+use rust_ui::renderer::{RenderContext, Renderer};
 use rust_ui::widget::element::Element;
 use rust_ui::widget::element::{Child, Children};
 use rust_ui::widget::fill::Fill;
@@ -97,11 +96,14 @@ fn main() {
 
     let handle = XWindowHandle::new(display, window);
 
-    let mut updater: Updater<XWindowHandle> = Updater::new();
+    let mut renderer: Renderer<XWindowHandle> = Renderer::new();
+    let mut painter: Painter<XWindowHandle> = Painter::new();
 
-    updater.update(render());
-    updater.render();
-    updater.layout(
+    let (root_id, mut tree) = renderer.render(render());
+
+    painter.layout(
+        root_id,
+        &tree,
         Size {
             width: window_width as _,
             height: window_height as _,
@@ -112,11 +114,9 @@ fn main() {
     let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
     let mut paint_context = XPaintContext::new(handle.clone());
 
-    updater.paint(&mut paint_context);
+    painter.paint(root_id, &mut tree, &mut paint_context);
 
     handle.show_window();
-
-    println!("{}", updater);
 
     unsafe {
         xlib::XFlush(handle.display);
@@ -136,14 +136,16 @@ fn main() {
                     });
                 }
                 XEvent::ButtonRelease(event) => {
-                    updater.dispatch_events::<MouseDown>((&event).into())
+                    painter.dispatch_events::<MouseDown>((&event).into(), &tree)
                 }
                 XEvent::ConfigureNotify(event) => {
                     if window_width != event.width as _ || window_height != event.height as _ {
                         window_width = event.width as _;
                         window_height = event.height as _;
 
-                        updater.layout(
+                        painter.layout(
+                            root_id,
+                            &tree,
                             Size {
                                 width: window_width as _,
                                 height: window_height as _,
@@ -152,7 +154,7 @@ fn main() {
                         );
 
                         paint_context = XPaintContext::new(handle.clone());
-                        updater.paint(&mut paint_context);
+                        painter.paint(root_id, &mut tree, &mut paint_context);
 
                         paint_context.commit(&Rectangle {
                             point: Point::ZERO,

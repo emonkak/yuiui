@@ -106,7 +106,7 @@ impl<Handle> From<Element<Handle>> for Child<Handle> {
 
 impl<Handle, Widget> From<Widget> for Child<Handle>
 where
-    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + Send + Sync + 'static,
     Widget::State: 'static,
 {
     fn from(widget: Widget) -> Self {

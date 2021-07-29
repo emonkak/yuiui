@@ -2,7 +2,7 @@ use std::ptr;
 use x11::xlib;
 
 use crate::geometrics::Rectangle;
-use crate::paint::PaintContext;
+use crate::painter::PaintContext;
 use crate::platform::WindowHandle;
 
 use super::window::XWindowHandle;

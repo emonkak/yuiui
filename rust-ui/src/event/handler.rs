@@ -34,7 +34,7 @@ impl<EventType, Widget, Handle, State> EventHandler<Handle>
     for WidgetHandler<EventType, EventType::Event, Widget, State>
 where
     Widget: 'static,
-    EventType: self::EventType + 'static,
+    EventType: self::EventType + Send + 'static,
     State: 'static,
 {
     fn dispatch(
@@ -43,7 +43,7 @@ where
         event: &Box<dyn Any>,
         context: &mut EventContext,
     ) {
-        let WidgetPod { widget, state } = &*tree[self.node_id];
+        let WidgetPod { widget, state, .. } = &*tree[self.node_id];
         (self.callback)(
             widget.as_any().downcast_ref::<Widget>().unwrap(),
             event.downcast_ref::<EventType::Event>().unwrap(),
@@ -80,7 +80,7 @@ where
 
 impl<EventType, Handle> EventHandler<Handle> for GlobalHandler<EventType, EventType::Event>
 where
-    EventType: self::EventType + 'static,
+    EventType: self::EventType + Send + 'static,
 {
     fn dispatch(
         &self,
