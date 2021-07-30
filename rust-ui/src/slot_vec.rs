@@ -142,6 +142,7 @@ impl<T> SlotVec<T> {
         }
 
         self.entries.push((slot_index, f()));
+
         &mut self.entries.last_mut().unwrap().1
     }
 

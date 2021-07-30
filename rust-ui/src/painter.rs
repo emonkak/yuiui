@@ -158,6 +158,7 @@ impl<Handle> Painter<Handle> {
 
                 let WidgetPod { widget, state, .. } = &*new_tree[node_id];
                 let paint_state = &mut self.paint_states[node_id];
+
                 let mut context = LifecycleContext {
                     event_manager: &mut self.event_manager,
                 };
@@ -189,6 +190,17 @@ impl<Handle> Painter<Handle> {
 
                 paint_state.needs_paint = false;
             }
+        }
+    }
+
+    pub fn dispatch<EventType>(&mut self, event: EventType::Event, tree: &WidgetTree<Handle>)
+    where
+        Handle: fmt::Debug,
+        EventType: self::EventType + 'static,
+    {
+        let boxed_event: Box<dyn Any> = Box::new(event);
+        for handler in self.event_manager.get::<EventType>() {
+            handler.dispatch(tree, &boxed_event, &self.update_notifier)
         }
     }
 
@@ -231,17 +243,6 @@ impl<Handle> Painter<Handle> {
             &mut context,
         );
         self.paint_states.remove(target_id);
-    }
-
-    pub fn dispatch<EventType>(&mut self, event: EventType::Event, tree: &WidgetTree<Handle>)
-    where
-        Handle: fmt::Debug,
-        EventType: self::EventType + 'static,
-    {
-        let boxed_event: Box<dyn Any> = Box::new(event);
-        for handler in self.event_manager.get::<EventType>() {
-            handler.dispatch(tree, &boxed_event, &self.update_notifier)
-        }
     }
 }
 

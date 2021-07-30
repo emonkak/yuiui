@@ -135,8 +135,6 @@ unsafe fn notify_update(
         data,
     });
 
-    println!("notify_update");
-
     xlib::XSendEvent(display, window, xlib::True, xlib::NoEventMask, &mut event);
     xlib::XFlush(display);
 }
@@ -245,7 +243,7 @@ fn main() {
                         true,
                     );
 
-                    println!("update: {}", painter.format_tree(target_id, &tree));
+                    println!("{}", painter.format_tree(target_id, &new_tree));
 
                     painter.paint(target_id, &tree, &new_tree, &mut paint_context);
 
