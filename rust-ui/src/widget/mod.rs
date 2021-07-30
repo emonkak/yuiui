@@ -286,27 +286,31 @@ where
     }
 }
 
-fn get_short_type_name(full_name: &str) -> &str {
+fn get_short_type_name(name: &str) -> &str {
     let mut cursor = 0;
 
-    while let Some(offset) = full_name[cursor..].find("::") {
-        let slice_name = &full_name[cursor..cursor + offset];
-        if slice_name.contains("<") {
-            break;
+    while let Some(separator_offset) = name[cursor..].find("::") {
+        let slice_name = &name[cursor..cursor + separator_offset];
+        if let Some(generics_offset) = slice_name.find("<") {
+            return &name[cursor..cursor + generics_offset];
         }
-        cursor += offset + 2;
+        cursor += separator_offset + 2;
     }
 
-    &full_name[cursor..]
+    if let Some(generics_offset) = name[cursor..].find("<") {
+        &name[cursor..cursor + generics_offset]
+    } else {
+        &name[cursor..]
+    }
 }
 
 #[cfg(test)]
 #[test]
 fn test_get_short_type_name() {
     assert_eq!(get_short_type_name("Foo"), "Foo");
-    assert_eq!(get_short_type_name("Foo<Bar>"), "Foo<Bar>");
-    assert_eq!(get_short_type_name("Foo<Bar::Baz>"), "Foo<Bar::Baz>");
+    assert_eq!(get_short_type_name("Foo<Bar>"), "Foo");
+    assert_eq!(get_short_type_name("Foo<Bar::Baz>"), "Foo");
     assert_eq!(get_short_type_name("Foo::Bar"), "Bar");
-    assert_eq!(get_short_type_name("Foo::Bar<Baz>"), "Bar<Baz>");
-    assert_eq!(get_short_type_name("Foo::Bar<Baz::Qux>"), "Bar<Baz::Qux>");
+    assert_eq!(get_short_type_name("Foo::Bar<Baz>"), "Bar");
+    assert_eq!(get_short_type_name("Foo::Bar<Baz::Qux>"), "Bar");
 }
