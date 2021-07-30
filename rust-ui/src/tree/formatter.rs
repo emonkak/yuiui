@@ -15,7 +15,7 @@ where
     FClose: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
 {
     fn fmt_rec(&self, f: &mut fmt::Formatter, node_id: NodeId, level: usize) -> fmt::Result {
-        let indent_str = unsafe { String::from_utf8_unchecked(vec![b'\t'; level]) };
+        let indent_str = unsafe { String::from_utf8_unchecked(vec![b' '; level * 4]) };
         let link = &self.tree.arena[node_id];
 
         write!(f, "{}", indent_str)?;

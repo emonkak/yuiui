@@ -11,7 +11,7 @@ use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::slot_vec::SlotVec;
 use crate::tree::NodeId;
-use crate::tree::walk::{walk_next_node, WalkDirection};
+use crate::tree::walk::WalkDirection;
 use crate::widget::{PolymophicWidget, WidgetPod, WidgetTree};
 
 #[derive(Debug)]
@@ -130,33 +130,11 @@ impl<Handle> Painter<Handle> {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
 
-        let mut node_id = target_id;
-        let mut direction = WalkDirection::Downward;
+        let mut walker = new_tree.walk(target_id);
 
-        loop {
-            let mut node = &new_tree[node_id];
-
-            loop {
-                match direction {
-                    WalkDirection::Downward | WalkDirection::Sideward => {
-                        if self.paint_states[node_id].needs_paint {
-                            break;
-                        }
-                    }
-                    WalkDirection::Upward => break,
-                }
-
-                if let Some((next_node_id, next_direction)) =
-                    walk_next_node(node_id, target_id, node, &WalkDirection::Upward)
-                {
-                    node_id = next_node_id;
-                    direction = next_direction;
-                    node = &new_tree[node_id];
-                } else {
-                    break;
-                }
-            }
-
+        while let Some((node_id, node, direction)) = walker.next_if(|node_id, _| {
+            self.paint_states[node_id].needs_paint
+        }) {
             let rectangle = self.paint_states[node_id].rectangle;
 
             if direction == WalkDirection::Downward {
@@ -166,8 +144,6 @@ impl<Handle> Painter<Handle> {
             }
 
             latest_point = rectangle.point;
-
-            let next = walk_next_node(node_id, target_id, node, &direction);
 
             if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
                 if !ptr::eq(new_tree, old_tree) {
@@ -212,13 +188,6 @@ impl<Handle> Painter<Handle> {
                 );
 
                 paint_state.needs_paint = false;
-            }
-
-            if let Some((next_node_id, next_direction)) = next {
-                node_id = next_node_id;
-                direction = next_direction;
-            } else {
-                break;
             }
         }
     }

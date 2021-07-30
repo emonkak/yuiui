@@ -22,7 +22,7 @@ use self::move_position::MovePosition;
 use self::post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescendantsMut};
 use self::pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendantsMut};
 use self::siblings::{Siblings, SiblingsMut};
-use self::walk::{Walk, WalkDirection, WalkFilter, WalkFilterMut, WalkMut};
+use self::walk::{WalkDirection, Walker, WalkerMut};
 
 #[derive(Clone, Debug)]
 pub struct Tree<T> {
@@ -338,11 +338,8 @@ impl<T> Tree<T> {
     }
 
     #[inline]
-    pub fn walk(
-        &self,
-        target_id: NodeId,
-    ) -> impl Iterator<Item = (NodeId, &Link<T>, WalkDirection)> {
-        Walk {
+    pub fn walk(&self, target_id: NodeId) -> Walker<T> {
+        Walker {
             tree: self,
             root_id: target_id,
             next: Some((target_id, WalkDirection::Downward)),
@@ -350,48 +347,11 @@ impl<T> Tree<T> {
     }
 
     #[inline]
-    pub fn walk_mut(
-        &mut self,
-        target_id: NodeId,
-    ) -> impl Iterator<Item = (NodeId, &mut Link<T>, WalkDirection)> {
-        WalkMut {
+    pub fn walk_mut(&mut self, target_id: NodeId) -> WalkerMut<T> {
+        WalkerMut {
             tree: self,
             root_id: target_id,
             next: Some((target_id, WalkDirection::Downward)),
-        }
-    }
-
-    #[inline]
-    pub fn walk_filter<F>(
-        &self,
-        target_id: NodeId,
-        f: F,
-    ) -> impl Iterator<Item = (NodeId, &Link<T>, WalkDirection)>
-    where
-        F: Fn(NodeId, &Link<T>) -> bool,
-    {
-        WalkFilter {
-            tree: self,
-            root_id: target_id,
-            next: Some((target_id, WalkDirection::Downward)),
-            f,
-        }
-    }
-
-    #[inline]
-    pub fn walk_filter_mut<F>(
-        &mut self,
-        target_id: NodeId,
-        f: F,
-    ) -> impl Iterator<Item = (NodeId, &mut Link<T>, WalkDirection)>
-    where
-        F: Fn(NodeId, &mut Link<T>) -> bool,
-    {
-        WalkFilterMut {
-            tree: self,
-            root_id: target_id,
-            next: Some((target_id, WalkDirection::Downward)),
-            f,
         }
     }
 
