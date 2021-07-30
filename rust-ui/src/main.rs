@@ -11,15 +11,15 @@ use std::sync::mpsc::{channel, sync_channel, Receiver, Sender};
 use std::thread;
 use x11::xlib;
 
-use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::event::handler::EventContext;
+use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{Point, Rectangle, Size};
 use rust_ui::painter::{PaintContext, Painter};
+use rust_ui::platform::WindowHandle;
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPaintContext;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
-use rust_ui::platform::WindowHandle;
-use rust_ui::renderer::{RenderContext, Renderer};
+use rust_ui::renderer::{RenderContext, RenderTree};
 use rust_ui::tree::{NodeId, Tree};
 use rust_ui::widget::element::Children;
 use rust_ui::widget::element::Element;
@@ -28,7 +28,8 @@ use rust_ui::widget::flex::{Flex, FlexItem};
 use rust_ui::widget::null::Null;
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::subscriber::Subscriber;
-use rust_ui::widget::{Widget, WidgetMeta, WidgetPod, WidgetTree};
+use rust_ui::widget::tree::{WidgetPod, WidgetTree};
+use rust_ui::widget::{Widget, WidgetMeta};
 
 struct App;
 
@@ -90,26 +91,25 @@ fn run_render_loop(
     let (update_tx, update_rx) = channel();
 
     thread::spawn(move || {
-        let mut renderer = Renderer::new();
-        let (root_id, mut tree) = renderer.render(element);
+        let mut render_tree = RenderTree::render(element);
 
         unsafe {
             notify_update(*display.get_mut(), window, update_atom);
         }
 
-        tree_tx.send((root_id, tree.clone())).unwrap();
+        tree_tx.send((render_tree.root_id, render_tree.tree.clone())).unwrap();
 
         loop {
             let target_id = update_rx.recv().unwrap();
 
-            renderer.update(target_id, &mut tree);
+            render_tree.update(target_id);
 
             unsafe {
                 notify_update(*display.get_mut(), window, update_atom);
             }
 
             tree_tx
-                .send((root_id, tree.split_subtree(target_id)))
+                .send((render_tree.root_id, render_tree.tree.split_subtree(target_id)))
                 .unwrap();
         }
     });

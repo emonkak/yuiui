@@ -4,10 +4,11 @@ pub mod flex;
 pub mod null;
 pub mod padding;
 pub mod subscriber;
+pub mod tree;
 
 use std::any::{self, Any};
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
@@ -15,25 +16,10 @@ use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::painter::PaintContext;
 use crate::renderer::RenderContext;
-use crate::tree::{Link, NodeId, Tree};
+use crate::tree::NodeId;
 
 use self::element::{Children, Element, IntoElement, Key};
-
-pub type WidgetTree<Handle> = Tree<WidgetPod<Handle>>;
-
-pub type WidgetNode<Handle> = Link<WidgetPod<Handle>>;
-
-#[derive(Debug)]
-pub struct WidgetPod<Handle> {
-    pub widget: BoxedWidget<Handle>,
-    pub children: Children<Handle>,
-    pub key: Option<Key>,
-    pub state: Arc<Mutex<Box<dyn Any + Send + Sync>>>,
-    pub deleted_children: Vec<NodeId>,
-    pub dirty: bool,
-}
-
-pub type BoxedWidget<Handle> = Arc<dyn PolymophicWidget<Handle> + Send + Sync>;
+use self::tree::WidgetTree;
 
 pub trait Widget<Handle>: Send + WidgetMeta {
     type State: Default + Send + Sync;
@@ -145,32 +131,6 @@ pub trait WidgetMeta {
 pub struct WithKey<Inner> {
     inner: Inner,
     key: Key,
-}
-
-impl<Handle> WidgetPod<Handle> {
-    pub fn from(element: Element<Handle>) -> Self {
-        Self {
-            state: Arc::new(Mutex::new(element.widget.initial_state())),
-            widget: element.widget,
-            children: element.children,
-            key: element.key,
-            deleted_children: Vec::new(),
-            dirty: true,
-        }
-    }
-}
-
-impl<Handle> Clone for WidgetPod<Handle> {
-    fn clone(&self) -> Self {
-        Self {
-            widget: Arc::clone(&self.widget),
-            children: Arc::clone(&self.children),
-            key: self.key,
-            state: Arc::clone(&self.state),
-            deleted_children: self.deleted_children.clone(),
-            dirty: self.dirty,
-        }
-    }
 }
 
 impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> + Send + Sync {

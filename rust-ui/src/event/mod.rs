@@ -9,7 +9,7 @@ use std::sync::mpsc::Sender;
 
 use crate::slot_vec::SlotVec;
 use crate::tree::NodeId;
-use crate::widget::WidgetTree;
+use crate::widget::tree::WidgetTree;
 
 #[derive(Debug)]
 pub struct EventManager<Handle> {

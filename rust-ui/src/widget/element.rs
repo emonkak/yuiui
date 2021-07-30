@@ -2,11 +2,11 @@ use std::array;
 use std::fmt;
 use std::sync::Arc;
 
-use super::{BoxedWidget, Widget, WidgetMeta};
+use super::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
 pub struct Element<Handle> {
-    pub widget: BoxedWidget<Handle>,
+    pub widget: Arc<dyn PolymophicWidget<Handle> + Send + Sync>,
     pub children: Children<Handle>,
     pub key: Option<Key>,
 }

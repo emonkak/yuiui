@@ -12,7 +12,8 @@ use crate::lifecycle::{Lifecycle, LifecycleContext};
 use crate::slot_vec::SlotVec;
 use crate::tree::NodeId;
 use crate::tree::walk::WalkDirection;
-use crate::widget::{PolymophicWidget, WidgetPod, WidgetTree};
+use crate::widget::tree::{WidgetPod, WidgetFlag, WidgetTree};
+use crate::widget::{PolymophicWidget};
 
 #[derive(Debug)]
 pub struct Painter<Handle> {
@@ -77,7 +78,7 @@ impl<Handle> Painter<Handle> {
                         state,
                         ..
                     } = &*tree[child_id];
-                    if force_layout || tree[current_id].dirty {
+                    if force_layout || tree[current_id].flags.contains([WidgetFlag::Fresh, WidgetFlag::Dirty]) {
                         layout_stack.push((current_id, current_layout));
                         current_id = child_id;
                         current_layout = widget.layout(
@@ -102,7 +103,8 @@ impl<Handle> Painter<Handle> {
                         paint_state.rectangle.size = size;
                         paint_state.needs_paint = true;
                     } else {
-                        paint_state.needs_paint = tree[current_id].dirty;
+                        let WidgetPod { flags, .. } = &*tree[current_id];
+                        paint_state.needs_paint = flags.contains([WidgetFlag::Fresh, WidgetFlag::Dirty]);
                     }
 
                     calculated_size = size;
@@ -222,7 +224,10 @@ impl<Handle> Painter<Handle> {
                 write!(f, " y=\"{}\"", paint_state.rectangle.point.y)?;
                 write!(f, " width=\"{}\"", paint_state.rectangle.size.width)?;
                 write!(f, " height=\"{}\"", paint_state.rectangle.size.height)?;
-                if node.dirty {
+                if node.flags.contains(WidgetFlag::Fresh) {
+                    write!(f, " fresh")?;
+                }
+                if node.flags.contains(WidgetFlag::Dirty) {
                     write!(f, " dirty")?;
                 }
                 write!(f, ">")?;
