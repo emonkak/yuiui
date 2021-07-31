@@ -1,21 +1,21 @@
 use std::any::Any;
-use std::sync::Arc;
 use std::fmt;
 use std::mem;
 use std::sync::mpsc::Sender;
 
 use crate::bit_flags::BitFlags;
-use crate::event::{EventHandler, EventManager, EventType, HandlerId};
+use crate::event::{EventManager, EventType};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
-use crate::lifecycle::Lifecycle;
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
 use crate::widget::element::{BoxedWidget, Children};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
+
+use super::{Lifecycle, PaintContext, PaintHint, Painter};
 
 #[derive(Debug)]
 pub struct PaintTree<Handle> {
@@ -35,30 +35,11 @@ pub struct PaintState<Handle> {
     pub flags: BitFlags<PaintFlag>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum PaintHint {
-    Always,
-    Once,
-}
-
 #[derive(Debug)]
 pub enum PaintFlag {
     None = 0b00,
     NeedsLayout = 0b01,
     NeedsPaint = 0b10,
-}
-
-pub trait Painter<Handle> {
-    fn handle(&self) -> &Handle;
-
-    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle);
-
-    fn commit(&mut self, rectangle: &Rectangle);
-}
-
-pub struct PaintContext<'a, Handle> {
-    event_manager: &'a mut EventManager<Handle>,
-    painter: &'a mut dyn Painter<Handle>,
 }
 
 impl<Handle> PaintTree<Handle> {
@@ -349,38 +330,5 @@ impl<Handle> Default for PaintState<Handle> {
 impl Into<usize> for PaintFlag {
     fn into(self) -> usize {
         self as _
-    }
-}
-
-impl<'a, Handle> PaintContext<'a, Handle> {
-    pub fn add_handler(
-        &mut self,
-        handler: Arc<dyn EventHandler<Handle> + Send + Sync>,
-    ) -> HandlerId {
-        self.event_manager.add(handler)
-    }
-
-    pub fn remove_handler(
-        &mut self,
-        handler_id: HandlerId,
-    ) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
-        self.event_manager.remove(handler_id)
-    }
-}
-
-impl<'a, Handle> Painter<Handle> for PaintContext<'a, Handle> {
-    #[inline]
-    fn handle(&self) -> &Handle {
-        self.painter.handle()
-    }
-
-    #[inline]
-    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
-        self.painter.fill_rectangle(color, rectangle)
-    }
-
-    #[inline]
-    fn commit(&mut self, rectangle: &Rectangle) {
-        self.painter.commit(rectangle)
     }
 }

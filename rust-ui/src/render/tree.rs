@@ -281,3 +281,4 @@ fn key_of<Handle>(
         None => TypedKey::Indexed(widget.as_any().type_id(), index),
     }
 }
+
