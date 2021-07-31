@@ -7,6 +7,7 @@ pub mod event;
 pub mod generator;
 pub mod geometrics;
 pub mod layout;
+pub mod lifecycle;
 pub mod paint;
 pub mod platform;
 pub mod reconciler;

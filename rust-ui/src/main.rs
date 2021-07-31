@@ -14,14 +14,14 @@ use x11::xlib;
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{Point, Rectangle, Size};
-use rust_ui::paint::Painter;
 use rust_ui::paint::tree::PaintTree;
-use rust_ui::platform::WindowHandle;
+use rust_ui::paint::Painter;
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPainter;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
-use rust_ui::render::RenderContext;
+use rust_ui::platform::WindowHandle;
 use rust_ui::render::tree::RenderTree;
+use rust_ui::render::RenderContext;
 use rust_ui::tree::NodeId;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::element::Element;
@@ -49,7 +49,7 @@ impl<Handle: 'static> Widget<Handle> for App {
         &self,
         _children: Children<Handle>,
         state: &Self::State,
-        context: &RenderContext<Self, Handle, Self::State>,
+        context: &mut RenderContext<Self, Handle, Self::State>,
     ) -> Children<Handle> {
         element!(
             Subscriber::new().on(context.use_handler(MouseDown, Self::on_click)) => {

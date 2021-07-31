@@ -1,9 +1,7 @@
 use std::any::TypeId;
 use std::fmt;
-use std::marker::PhantomData;
 
-use crate::event::handler::{EventContext, WidgetHandler};
-use crate::event::EventType;
+use crate::lifecycle::Lifecycle;
 use crate::reconciler::{ReconcileResult, Reconciler};
 use crate::slot_vec::SlotVec;
 use crate::tree::{NodeId, Tree};
@@ -35,13 +33,6 @@ enum RenderStatus {
 enum TypedKey {
     Keyed(TypeId, Key),
     Indexed(TypeId, usize),
-}
-
-pub struct RenderContext<Widget: ?Sized, Handle, State> {
-    node_id: NodeId,
-    _widget: PhantomData<Widget>,
-    _handle: PhantomData<Handle>,
-    _state: PhantomData<State>,
 }
 
 impl<Handle> RenderTree<Handle> {
@@ -139,7 +130,7 @@ impl<Handle> RenderTree<Handle> {
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
 
         for (index, (child_id, child)) in self.tree.children(target_id).enumerate() {
-            let key = key_of(&*child.widget, index, child.key);
+            let key = TypedKey::new(&*child.widget, index, child.key);
             old_keys.push(key);
             old_node_ids.push(Some(child_id));
         }
@@ -148,7 +139,7 @@ impl<Handle> RenderTree<Handle> {
         let mut new_elements: Vec<Option<Element<Handle>>> = Vec::with_capacity(children.len());
 
         for (index, element) in children.iter().enumerate() {
-            let key = key_of(&*element.widget, index, element.key);
+            let key = TypedKey::new(&*element.widget, index, element.key);
             new_keys.push(key);
             new_elements.push(Some(element.clone()));
         }
@@ -171,47 +162,72 @@ impl<Handle> RenderTree<Handle> {
             ReconcileResult::New(new_element) => {
                 let widget_pod = WidgetPod::from(new_element);
                 let node_id = self.tree.append_child(target_id, widget_pod.clone());
-                self.render_states
-                    .insert_at(node_id, RenderState::default());
+                self.handle_creation(node_id, &widget_pod);
                 patches.push(Patch::Append(target_id, widget_pod));
             }
             ReconcileResult::Insertion(ref_id, new_element) => {
                 let widget_pod = WidgetPod::from(new_element);
                 let node_id = self.tree.insert_before(ref_id, widget_pod.clone());
-                self.render_states
-                    .insert_at(node_id, RenderState::default());
+                self.handle_creation(node_id, &widget_pod);
                 patches.push(Patch::Insert(ref_id, widget_pod));
             }
             ReconcileResult::Update(target_id, new_element) => {
-                let widget_pod = &mut self.tree[target_id];
-                if widget_pod.should_update(&new_element) {
-                    widget_pod.update(new_element.clone());
-                    self.render_states[target_id].status = RenderStatus::Dirty;
+                if self.handle_update(target_id, &new_element) {
                     patches.push(Patch::Update(target_id, new_element));
-                } else {
-                    self.render_states[target_id].status = RenderStatus::Skip;
                 }
             }
             ReconcileResult::UpdateAndPlacement(target_id, ref_id, new_element) => {
-                let widget_pod = &mut self.tree[target_id];
-                if widget_pod.should_update(&new_element) {
-                    widget_pod.update(new_element.clone());
-                    self.render_states[target_id].status = RenderStatus::Dirty;
+                if self.handle_update(target_id, &new_element) {
                     patches.push(Patch::Update(target_id, new_element));
-                } else {
-                    self.render_states[target_id].status = RenderStatus::Skip;
                 }
                 self.tree.move_position(target_id).insert_before(ref_id);
                 patches.push(Patch::Placement(target_id, ref_id));
             }
             ReconcileResult::Deletion(target_id) => {
-                let (_, subtree) = self.tree.detach(target_id);
+                let (node, subtree) = self.tree.detach(target_id);
+                let widget_pod = node.into_inner();
+                widget_pod.widget.on_render_cycle(
+                    Lifecycle::OnUnmount(&widget_pod.children),
+                    &mut **widget_pod.state.lock().unwrap(),
+                    target_id,
+                );
                 self.render_states.remove(target_id);
                 for (child_id, _) in subtree {
                     self.render_states.remove(child_id);
                 }
                 patches.push(Patch::Remove(target_id));
             }
+        }
+    }
+
+    fn handle_creation(&mut self, node_id: NodeId, widget_pod: &WidgetPod<Handle>) {
+        self.render_states
+            .insert_at(node_id, RenderState::default());
+        widget_pod.widget.on_render_cycle(
+            Lifecycle::OnMount(&widget_pod.children),
+            &mut **widget_pod.state.lock().unwrap(),
+            node_id,
+        );
+    }
+
+    fn handle_update(&mut self, target_id: NodeId, new_element: &Element<Handle>) -> bool {
+        let widget_pod = &mut self.tree[target_id];
+        widget_pod.widget.on_render_cycle(
+            Lifecycle::OnUpdate(
+                &widget_pod.children,
+                &*new_element.widget,
+                &new_element.children,
+            ),
+            &mut **widget_pod.state.lock().unwrap(),
+            target_id,
+        );
+        if widget_pod.should_update(new_element) {
+            widget_pod.update(new_element.clone());
+            self.render_states[target_id].status = RenderStatus::Dirty;
+            true
+        } else {
+            self.render_states[target_id].status = RenderStatus::Skip;
+            false
         }
     }
 }
@@ -245,40 +261,11 @@ impl Default for RenderState {
     }
 }
 
-impl<Widget, Handle, State> RenderContext<Widget, Handle, State>
-where
-    Widget: 'static,
-    State: 'static,
-{
-    pub fn new(node_id: NodeId) -> Self {
-        Self {
-            node_id: node_id,
-            _widget: PhantomData,
-            _handle: PhantomData,
-            _state: PhantomData,
+impl TypedKey {
+    fn new<Handle>(widget: &dyn PolymophicWidget<Handle>, index: usize, key: Option<Key>) -> Self {
+        match key {
+            Some(key) => Self::Keyed(widget.as_any().type_id(), key),
+            None => Self::Indexed(widget.as_any().type_id(), index),
         }
     }
-
-    pub fn use_handler<EventType>(
-        &self,
-        event_type: EventType,
-        callback: fn(&Widget, &EventType::Event, &mut State, &mut EventContext),
-    ) -> WidgetHandler<EventType, EventType::Event, Widget, State>
-    where
-        EventType: self::EventType + 'static,
-    {
-        WidgetHandler::new(event_type, self.node_id, callback)
-    }
 }
-
-fn key_of<Handle>(
-    widget: &dyn PolymophicWidget<Handle>,
-    index: usize,
-    key: Option<Key>,
-) -> TypedKey {
-    match key {
-        Some(key) => TypedKey::Keyed(widget.as_any().type_id(), key),
-        None => TypedKey::Indexed(widget.as_any().type_id(), index),
-    }
-}
-

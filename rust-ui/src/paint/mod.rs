@@ -3,7 +3,7 @@ pub mod tree;
 use std::sync::Arc;
 
 use crate::event::{EventHandler, EventManager, HandlerId};
-use crate::geometrics::{Rectangle};
+use crate::geometrics::Rectangle;
 
 pub struct PaintContext<'a, Handle> {
     event_manager: &'a mut EventManager<Handle>,
@@ -14,13 +14,6 @@ pub struct PaintContext<'a, Handle> {
 pub enum PaintHint {
     Always,
     Once,
-}
-
-#[derive(Debug)]
-pub enum Lifecycle<Widget, Children> {
-    OnMount(Children),
-    OnUpdate(Widget, Children, Children),
-    OnUnmount(Children),
 }
 
 pub trait Painter<Handle> {
@@ -61,28 +54,5 @@ impl<'a, Handle> Painter<Handle> for PaintContext<'a, Handle> {
     #[inline]
     fn commit(&mut self, rectangle: &Rectangle) {
         self.painter.commit(rectangle)
-    }
-}
-
-impl<Widget, Children> Lifecycle<Widget, Children> {
-    pub fn map<F, NewWidget>(self, f: F) -> Lifecycle<NewWidget, Children>
-    where
-        F: Fn(Widget) -> NewWidget,
-    {
-        match self {
-            Lifecycle::OnMount(children) => Lifecycle::OnMount(children),
-            Lifecycle::OnUpdate(widget, new_children, old_children) => {
-                Lifecycle::OnUpdate(f(widget), new_children, old_children)
-            }
-            Lifecycle::OnUnmount(children) => Lifecycle::OnUnmount(children),
-        }
-    }
-
-    pub fn without_params(&self) -> Lifecycle<(), ()> {
-        match self {
-            Lifecycle::OnMount(_) => Lifecycle::OnMount(()),
-            Lifecycle::OnUpdate(_, _, _) => Lifecycle::OnUpdate((), (), ()),
-            Lifecycle::OnUnmount(_) => Lifecycle::OnUnmount(()),
-        }
     }
 }

@@ -28,6 +28,7 @@ pub enum Patch<Handle> {
 }
 
 impl<Handle> WidgetPod<Handle> {
+    #[inline]
     pub fn new<Widget>(widget: Widget, children: impl Into<Children<Handle>>) -> Self
     where
         Widget: self::Widget<Handle> + Send + Sync + 'static,
@@ -41,6 +42,7 @@ impl<Handle> WidgetPod<Handle> {
         }
     }
 
+    #[inline]
     pub fn should_update(&self, element: &Element<Handle>) -> bool {
         self.widget.should_update(
             &*element.widget,
@@ -50,6 +52,7 @@ impl<Handle> WidgetPod<Handle> {
         )
     }
 
+    #[inline]
     pub fn update(&mut self, element: Element<Handle>) {
         self.widget = element.widget;
         self.children = element.children;
@@ -58,6 +61,7 @@ impl<Handle> WidgetPod<Handle> {
 }
 
 impl<Handle> From<Element<Handle>> for WidgetPod<Handle> {
+    #[inline]
     fn from(element: Element<Handle>) -> Self {
         Self {
             state: Arc::new(Mutex::new(element.widget.initial_state())),
@@ -69,6 +73,7 @@ impl<Handle> From<Element<Handle>> for WidgetPod<Handle> {
 }
 
 impl<Handle> Clone for WidgetPod<Handle> {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             widget: Arc::clone(&self.widget),

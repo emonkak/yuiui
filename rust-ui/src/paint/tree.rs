@@ -8,14 +8,14 @@ use crate::event::{EventManager, EventType};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
+use crate::lifecycle::Lifecycle;
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
-use crate::widget::element::{BoxedWidget, Children};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 
-use super::{Lifecycle, PaintContext, PaintHint, Painter};
+use super::{PaintContext, PaintHint, Painter};
 
 #[derive(Debug)]
 pub struct PaintTree<Handle> {
@@ -29,7 +29,7 @@ pub struct PaintTree<Handle> {
 #[derive(Debug)]
 pub struct PaintState<Handle> {
     pub rectangle: Rectangle,
-    pub mounted_widget: Option<(BoxedWidget<Handle>, Children<Handle>)>,
+    pub mounted_pod: Option<WidgetPod<Handle>>,
     pub deleted_children: Vec<WidgetPod<Handle>>,
     pub hint: PaintHint,
     pub flags: BitFlags<PaintFlag>,
@@ -127,7 +127,11 @@ impl<Handle> PaintTree<Handle> {
                     child_box_constraints,
                 )) => {
                     let WidgetPod { widget, state, .. } = &*self.tree[child_id];
-                    if force_layout || self.paint_states[current_id].flags.contains(PaintFlag::NeedsLayout) {
+                    if force_layout
+                        || self.paint_states[current_id]
+                            .flags
+                            .contains(PaintFlag::NeedsLayout)
+                    {
                         layout_stack.push((current_id, current_layout));
                         current_id = child_id;
                         current_layout = widget.layout(
@@ -176,9 +180,11 @@ impl<Handle> PaintTree<Handle> {
 
         let mut walker = self.tree.walk(self.root_id);
 
-        while let Some((node_id, node, direction)) =
-            walker.next_if(|node_id, _| self.paint_states[node_id].flags.contains(PaintFlag::NeedsPaint))
-        {
+        while let Some((node_id, node, direction)) = walker.next_if(|node_id, _| {
+            self.paint_states[node_id]
+                .flags
+                .contains(PaintFlag::NeedsPaint)
+        }) {
             let rectangle = self.paint_states[node_id].rectangle;
 
             if direction == WalkDirection::Downward {
@@ -202,32 +208,34 @@ impl<Handle> PaintTree<Handle> {
                         children,
                         ..
                     } = widget_pod;
-                    widget.lifecycle(
+                    widget.on_paint_cycle(
                         Lifecycle::OnUnmount(&children),
                         &mut **state.lock().unwrap(),
                         &mut context,
                     );
                 }
 
+                let widget_pod = &**node;
                 let WidgetPod {
                     widget,
                     state,
                     children,
                     ..
-                } = &**node;
+                } = widget_pod;
                 let paint_state = &mut self.paint_states[node_id];
 
-                if let Some((old_widget, old_children)) = paint_state
-                    .mounted_widget
-                    .replace((widget.clone(), children.clone()))
-                {
-                    widget.lifecycle(
-                        Lifecycle::OnUpdate(&*old_widget, &children, &old_children),
+                if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
+                    widget.on_paint_cycle(
+                        Lifecycle::OnUpdate(
+                            &children,
+                            &*old_widget_pod.widget,
+                            &old_widget_pod.children,
+                        ),
                         &mut **state.lock().unwrap(),
                         &mut context,
                     );
                 } else {
-                    widget.lifecycle(
+                    widget.on_paint_cycle(
                         Lifecycle::OnMount(children),
                         &mut **state.lock().unwrap(),
                         &mut context,
@@ -264,7 +272,10 @@ impl<Handle> PaintTree<Handle> {
     fn emit_changes(&mut self, target_id: NodeId) {
         for (parent_id, _) in self.tree.ancestors(target_id) {
             let paint_state = &mut self.paint_states[parent_id];
-            if paint_state.flags.intersects([PaintFlag::NeedsLayout, PaintFlag::NeedsPaint]) {
+            if paint_state
+                .flags
+                .intersects([PaintFlag::NeedsLayout, PaintFlag::NeedsPaint])
+            {
                 break;
             }
             paint_state.flags |= PaintFlag::NeedsLayout;
@@ -319,7 +330,7 @@ impl<Handle> Default for PaintState<Handle> {
     fn default() -> Self {
         Self {
             rectangle: Rectangle::ZERO,
-            mounted_widget: None,
+            mounted_pod: None,
             deleted_children: Vec::new(),
             hint: PaintHint::Always,
             flags: [PaintFlag::NeedsLayout, PaintFlag::NeedsPaint].into(),

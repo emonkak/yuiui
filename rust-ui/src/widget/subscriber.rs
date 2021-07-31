@@ -3,7 +3,8 @@ use std::mem;
 use std::sync::Arc;
 
 use crate::event::{EventHandler, HandlerId};
-use crate::paint::{Lifecycle, PaintContext};
+use crate::lifecycle::Lifecycle;
+use crate::paint::PaintContext;
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -48,20 +49,20 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
     }
 
     #[inline]
-    fn lifecycle(
+    fn on_paint_cycle(
         &self,
         lifecycle: Lifecycle<&Self, &Children<Handle>>,
         state: &mut Self::State,
         context: &mut PaintContext<Handle>,
     ) {
         match lifecycle {
-            Lifecycle::OnMount(_) => {
+            Lifecycle::OnMount(_children) => {
                 for handler in self.handlers.iter() {
                     let handler_id = context.add_handler(Arc::clone(handler));
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::OnUpdate(new_widget, _, _) => {
+            Lifecycle::OnUpdate(_old_children, new_widget, _new_children) => {
                 let intersected_len = self.handlers.len().min(new_widget.handlers.len());
 
                 for index in 0..intersected_len {
@@ -87,7 +88,7 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::OnUnmount(_) => {
+            Lifecycle::OnUnmount(_children) => {
                 for handler_id in mem::take(&mut state.registered_handler_ids) {
                     context.remove_handler(handler_id);
                 }

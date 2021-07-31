@@ -13,7 +13,8 @@ use std::sync::Arc;
 use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
-use crate::paint::{Lifecycle, PaintContext};
+use crate::lifecycle::Lifecycle;
+use crate::paint::PaintContext;
 use crate::render::RenderContext;
 use crate::tree::NodeId;
 
@@ -35,7 +36,16 @@ pub trait Widget<Handle>: Send + WidgetMeta {
     }
 
     #[inline]
-    fn lifecycle(
+    fn on_render_cycle(
+        &self,
+        _lifecycle: Lifecycle<&Self, &Children<Handle>>,
+        _state: &mut Self::State,
+        _context: &mut RenderContext<Self, Handle, Self::State>,
+    ) {
+    }
+
+    #[inline]
+    fn on_paint_cycle(
         &self,
         _lifecycle: Lifecycle<&Self, &Children<Handle>>,
         _state: &mut Self::State,
@@ -48,7 +58,7 @@ pub trait Widget<Handle>: Send + WidgetMeta {
         &self,
         children: Children<Handle>,
         _state: &Self::State,
-        _context: &RenderContext<Self, Handle, Self::State>,
+        _context: &mut RenderContext<Self, Handle, Self::State>,
     ) -> Children<Handle> {
         children
     }
@@ -92,7 +102,14 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         state: &dyn Any,
     ) -> bool;
 
-    fn lifecycle(
+    fn on_render_cycle(
+        &self,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
+        state: &mut dyn Any,
+        node_id: NodeId,
+    );
+
+    fn on_paint_cycle(
         &self,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
         state: &mut dyn Any,
@@ -114,12 +131,7 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         state: &mut dyn Any,
     ) -> Generator<LayoutRequest, Size, Size>;
 
-    fn paint(
-        &self,
-        rectangle: &Rectangle,
-        state: &mut dyn Any,
-        context: &mut PaintContext<Handle>,
-    );
+    fn paint(&self, rectangle: &Rectangle, state: &mut dyn Any, context: &mut PaintContext<Handle>);
 }
 
 pub trait WidgetMeta {
@@ -178,13 +190,27 @@ where
     }
 
     #[inline]
-    fn lifecycle(
+    fn on_render_cycle(
+        &self,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
+        state: &mut dyn Any,
+        node_id: NodeId,
+    ) {
+        self.on_render_cycle(
+            lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
+            state.downcast_mut().unwrap(),
+            &mut RenderContext::new(node_id),
+        );
+    }
+
+    #[inline]
+    fn on_paint_cycle(
         &self,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
         state: &mut dyn Any,
         context: &mut PaintContext<Handle>,
     ) {
-        self.lifecycle(
+        self.on_paint_cycle(
             lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),
             context,
@@ -201,7 +227,7 @@ where
         self.render(
             children,
             state.downcast_ref().unwrap(),
-            &RenderContext::new(node_id),
+            &mut RenderContext::new(node_id),
         )
     }
 

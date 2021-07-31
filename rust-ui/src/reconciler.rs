@@ -180,10 +180,7 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator
         while self.new_head < self.new_edge {
             let result = if self.new_edge < self.new_nodes.len() {
                 let old_node = self.new_index_to_old_node[self.new_edge];
-                ReconcileResult::Insertion(
-                    old_node,
-                    self.new_nodes[self.new_head].take().unwrap(),
-                )
+                ReconcileResult::Insertion(old_node, self.new_nodes[self.new_head].take().unwrap())
             } else {
                 ReconcileResult::New(self.new_nodes[self.new_head].take().unwrap())
             };
