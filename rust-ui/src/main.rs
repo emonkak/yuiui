@@ -14,11 +14,11 @@ use x11::xlib;
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{Point, Rectangle, Size};
-use rust_ui::paint::{PaintContext, PaintTree};
-use rust_ui::platform::x11::event::XEvent;
-use rust_ui::platform::x11::paint::XPaintContext;
-use rust_ui::platform::x11::window::{self, XWindowHandle};
+use rust_ui::paint::{PaintTree, Painter};
 use rust_ui::platform::WindowHandle;
+use rust_ui::platform::x11::event::XEvent;
+use rust_ui::platform::x11::paint::XPainter;
+use rust_ui::platform::x11::window::{self, XWindowHandle};
 use rust_ui::render::{RenderContext, RenderTree};
 use rust_ui::tree::NodeId;
 use rust_ui::widget::element::Children;
@@ -99,8 +99,6 @@ fn run_render_loop(
 
             let patch = render_tree.update(target_id);
 
-            println!("RENDER TREE:\n{}", render_tree);
-
             unsafe {
                 notify_update(*display.get_mut(), window, update_atom);
             }
@@ -177,7 +175,7 @@ fn main() {
 
     let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
     let mut paint_tree: PaintTree<XWindowHandle> = PaintTree::new(tx);
-    let mut paint_context = XPaintContext::new(&handle);
+    let mut painter = XPainter::new(&handle);
 
     handle.show_window();
 
@@ -190,7 +188,7 @@ fn main() {
             xlib::XNextEvent(handle.display(), &mut event);
             match XEvent::from(&event) {
                 XEvent::Expose(_) => {
-                    paint_context.commit(&Rectangle {
+                    painter.commit(&Rectangle {
                         point: Point::ZERO,
                         size: Size {
                             width: window_width as _,
@@ -212,9 +210,9 @@ fn main() {
                             true,
                         );
 
-                        paint_context = XPaintContext::new(&handle);
+                        painter = XPainter::new(&handle);
 
-                        paint_tree.paint(&mut paint_context);
+                        paint_tree.paint(&mut painter);
                     }
                 }
                 XEvent::ClientMessage(event) if event.message_type == update_atom => {
@@ -232,17 +230,17 @@ fn main() {
                         true,
                     );
 
-                    paint_tree.paint(&mut paint_context);
+                    paint_tree.paint(&mut painter);
 
-                    println!("PAINT TREE:\n{}", paint_tree);
-
-                    paint_context.commit(&Rectangle {
+                    painter.commit(&Rectangle {
                         point: Point::ZERO,
                         size: Size {
                             width: window_width as _,
                             height: window_height as _,
                         },
                     });
+
+                    println!("{}", paint_tree);
                 }
                 _ => (),
             }

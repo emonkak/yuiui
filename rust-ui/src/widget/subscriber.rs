@@ -3,7 +3,8 @@ use std::mem;
 use std::sync::Arc;
 
 use crate::event::{EventHandler, HandlerId};
-use crate::lifecycle::{Lifecycle, LifecycleContext};
+use crate::lifecycle::Lifecycle;
+use crate::paint::PaintContext;
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -52,7 +53,7 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
         &self,
         lifecycle: Lifecycle<&Self, &Children<Handle>>,
         state: &mut Self::State,
-        context: &mut LifecycleContext<Handle>,
+        context: &mut PaintContext<Handle>,
     ) {
         match lifecycle {
             Lifecycle::OnMount(_) => {

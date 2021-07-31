@@ -1,14 +1,15 @@
 use std::any::Any;
+use std::sync::Arc;
 use std::fmt;
 use std::mem;
 use std::sync::mpsc::Sender;
 
 use crate::bit_flags::BitFlags;
-use crate::event::{EventManager, EventType};
+use crate::event::{EventHandler, EventManager, EventType, HandlerId};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
-use crate::lifecycle::{Lifecycle, LifecycleContext};
+use crate::lifecycle::Lifecycle;
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
@@ -30,7 +31,14 @@ pub struct PaintState<Handle> {
     pub rectangle: Rectangle,
     pub mounted_widget: Option<(BoxedWidget<Handle>, Children<Handle>)>,
     pub deleted_children: Vec<WidgetPod<Handle>>,
+    pub hint: PaintHint,
     pub flags: BitFlags<PaintFlag>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum PaintHint {
+    Always,
+    Once,
 }
 
 #[derive(Debug)]
@@ -40,12 +48,17 @@ pub enum PaintFlag {
     NeedsPaint = 0b10,
 }
 
-pub trait PaintContext<Handle> {
+pub trait Painter<Handle> {
     fn handle(&self) -> &Handle;
 
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle);
 
     fn commit(&mut self, rectangle: &Rectangle);
+}
+
+pub struct PaintContext<'a, Handle> {
+    event_manager: &'a mut EventManager<Handle>,
+    painter: &'a mut dyn Painter<Handle>,
 }
 
 impl<Handle> PaintTree<Handle> {
@@ -79,8 +92,9 @@ impl<Handle> PaintTree<Handle> {
             }
             Patch::Update(target_id, new_element) => {
                 self.tree[target_id].update(new_element);
-                self.paint_states[target_id].mark_as_dirty();
-                self.emit_changes(target_id);
+                if self.paint_states[target_id].mark_as_dirty() {
+                    self.emit_changes(target_id);
+                }
             }
             Patch::Placement(target_id, ref_id) => {
                 self.tree.move_position(target_id).insert_before(ref_id);
@@ -100,9 +114,9 @@ impl<Handle> PaintTree<Handle> {
 
                     let paint_state = &mut self.paint_states[parent_id];
                     paint_state.deleted_children = deleted_children;
-                    paint_state.mark_as_dirty();
-
-                    self.emit_changes(parent_id);
+                    if paint_state.mark_as_dirty() {
+                        self.emit_changes(parent_id);
+                    }
                 } else {
                     unreachable!("Root removed");
                 }
@@ -175,7 +189,7 @@ impl<Handle> PaintTree<Handle> {
         calculated_size
     }
 
-    pub fn paint(&mut self, paint_context: &mut dyn PaintContext<Handle>) {
+    pub fn paint(&mut self, painter: &mut dyn Painter<Handle>) {
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
 
@@ -195,6 +209,11 @@ impl<Handle> PaintTree<Handle> {
             latest_point = rectangle.point;
 
             if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
+                let mut context = PaintContext {
+                    event_manager: &mut self.event_manager,
+                    painter,
+                };
+
                 for widget_pod in mem::take(&mut self.paint_states[node_id].deleted_children) {
                     let WidgetPod {
                         widget,
@@ -202,9 +221,6 @@ impl<Handle> PaintTree<Handle> {
                         children,
                         ..
                     } = widget_pod;
-                    let mut context = LifecycleContext {
-                        event_manager: &mut self.event_manager,
-                    };
                     widget.lifecycle(
                         Lifecycle::OnUnmount(&children),
                         &mut **state.lock().unwrap(),
@@ -219,10 +235,6 @@ impl<Handle> PaintTree<Handle> {
                     ..
                 } = &**node;
                 let paint_state = &mut self.paint_states[node_id];
-
-                let mut context = LifecycleContext {
-                    event_manager: &mut self.event_manager,
-                };
 
                 if let Some((old_widget, old_children)) = paint_state
                     .mounted_widget
@@ -249,7 +261,7 @@ impl<Handle> PaintTree<Handle> {
                 widget.paint(
                     &absolute_rectangle,
                     &mut **state.lock().unwrap(),
-                    paint_context,
+                    &mut context,
                 );
 
                 paint_state.flags ^= PaintFlag::NeedsPaint;
@@ -274,7 +286,8 @@ impl<Handle> PaintTree<Handle> {
             if paint_state.flags.intersects([PaintFlag::NeedsLayout, PaintFlag::NeedsPaint]) {
                 break;
             }
-            paint_state.mark_as_dirty();
+            paint_state.flags |= PaintFlag::NeedsLayout;
+            paint_state.flags |= PaintFlag::NeedsPaint;
         }
     }
 }
@@ -310,9 +323,14 @@ impl<Handle> fmt::Display for PaintTree<Handle> {
 }
 
 impl<Handle> PaintState<Handle> {
-    fn mark_as_dirty(&mut self) {
-        self.flags |= PaintFlag::NeedsLayout;
-        self.flags |= PaintFlag::NeedsPaint;
+    fn mark_as_dirty(&mut self) -> bool {
+        if self.hint == PaintHint::Always {
+            self.flags |= PaintFlag::NeedsLayout;
+            self.flags |= PaintFlag::NeedsPaint;
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -322,6 +340,7 @@ impl<Handle> Default for PaintState<Handle> {
             rectangle: Rectangle::ZERO,
             mounted_widget: None,
             deleted_children: Vec::new(),
+            hint: PaintHint::Always,
             flags: [PaintFlag::NeedsLayout, PaintFlag::NeedsPaint].into(),
         }
     }
@@ -330,5 +349,38 @@ impl<Handle> Default for PaintState<Handle> {
 impl Into<usize> for PaintFlag {
     fn into(self) -> usize {
         self as _
+    }
+}
+
+impl<'a, Handle> PaintContext<'a, Handle> {
+    pub fn add_handler(
+        &mut self,
+        handler: Arc<dyn EventHandler<Handle> + Send + Sync>,
+    ) -> HandlerId {
+        self.event_manager.add(handler)
+    }
+
+    pub fn remove_handler(
+        &mut self,
+        handler_id: HandlerId,
+    ) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
+        self.event_manager.remove(handler_id)
+    }
+}
+
+impl<'a, Handle> Painter<Handle> for PaintContext<'a, Handle> {
+    #[inline]
+    fn handle(&self) -> &Handle {
+        self.painter.handle()
+    }
+
+    #[inline]
+    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
+        self.painter.fill_rectangle(color, rectangle)
+    }
+
+    #[inline]
+    fn commit(&mut self, rectangle: &Rectangle) {
+        self.painter.commit(rectangle)
     }
 }

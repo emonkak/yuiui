@@ -2,18 +2,18 @@ use std::ptr;
 use x11::xlib;
 
 use crate::geometrics::Rectangle;
-use crate::paint::PaintContext;
+use crate::paint::Painter;
 use crate::platform::WindowHandle;
 
 use super::window::XWindowHandle;
 
-pub struct XPaintContext<'a> {
+pub struct XPainter<'a> {
     handle: &'a XWindowHandle,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
 }
 
-impl<'a> XPaintContext<'a> {
+impl<'a> XPainter<'a> {
     pub fn new(handle: &'a XWindowHandle) -> Self {
         let display = handle.display();
         let window = handle.window();
@@ -78,7 +78,7 @@ impl<'a> XPaintContext<'a> {
     }
 }
 
-impl<'a> PaintContext<XWindowHandle> for XPaintContext<'a> {
+impl<'a> Painter<XWindowHandle> for XPainter<'a> {
     fn handle(&self) -> &XWindowHandle {
         self.handle
     }
@@ -122,7 +122,7 @@ impl<'a> PaintContext<XWindowHandle> for XPaintContext<'a> {
     }
 }
 
-impl<'a> Drop for XPaintContext<'a> {
+impl<'a> Drop for XPainter<'a> {
     fn drop(&mut self) {
         let display = self.handle.display();
         unsafe {

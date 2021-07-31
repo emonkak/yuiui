@@ -13,7 +13,7 @@ use std::sync::Arc;
 use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
-use crate::lifecycle::{Lifecycle, LifecycleContext};
+use crate::lifecycle::Lifecycle;
 use crate::paint::PaintContext;
 use crate::render::RenderContext;
 use crate::tree::NodeId;
@@ -40,7 +40,7 @@ pub trait Widget<Handle>: Send + WidgetMeta {
         &self,
         _lifecycle: Lifecycle<&Self, &Children<Handle>>,
         _state: &mut Self::State,
-        _context: &mut LifecycleContext<Handle>,
+        _context: &mut PaintContext<Handle>,
     ) {
     }
 
@@ -77,7 +77,7 @@ pub trait Widget<Handle>: Send + WidgetMeta {
         &self,
         _rectangle: &Rectangle,
         _state: &mut Self::State,
-        _paint_context: &mut dyn PaintContext<Handle>,
+        _context: &mut PaintContext<Handle>,
     ) {
     }
 }
@@ -97,7 +97,7 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         &self,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
         state: &mut dyn Any,
-        context: &mut LifecycleContext<Handle>,
+        context: &mut PaintContext<Handle>,
     );
 
     fn render(
@@ -119,7 +119,7 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         &self,
         rectangle: &Rectangle,
         state: &mut dyn Any,
-        paint_context: &mut dyn PaintContext<Handle>,
+        context: &mut PaintContext<Handle>,
     );
 }
 
@@ -183,7 +183,7 @@ where
         &self,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
         state: &mut dyn Any,
-        context: &mut LifecycleContext<Handle>,
+        context: &mut PaintContext<Handle>,
     ) {
         self.lifecycle(
             lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
@@ -227,9 +227,9 @@ where
         &self,
         rectangle: &Rectangle,
         state: &mut dyn Any,
-        paint_context: &mut dyn PaintContext<Handle>,
+        context: &mut PaintContext<Handle>,
     ) {
-        self.paint(rectangle, state.downcast_mut().unwrap(), paint_context)
+        self.paint(rectangle, state.downcast_mut().unwrap(), context)
     }
 }
 

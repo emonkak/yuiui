@@ -1,16 +1,8 @@
-use std::sync::Arc;
-
-use crate::event::{EventHandler, EventManager, HandlerId};
-
 #[derive(Debug)]
 pub enum Lifecycle<Widget, Children> {
     OnMount(Children),
     OnUpdate(Widget, Children, Children),
     OnUnmount(Children),
-}
-
-pub struct LifecycleContext<'a, Handle> {
-    pub(crate) event_manager: &'a mut EventManager<Handle>,
 }
 
 impl<Widget, Children> Lifecycle<Widget, Children> {
@@ -33,21 +25,5 @@ impl<Widget, Children> Lifecycle<Widget, Children> {
             Lifecycle::OnUpdate(_, _, _) => Lifecycle::OnUpdate((), (), ()),
             Lifecycle::OnUnmount(_) => Lifecycle::OnUnmount(()),
         }
-    }
-}
-
-impl<'a, Handle> LifecycleContext<'a, Handle> {
-    pub fn add_handler(
-        &mut self,
-        handler: Arc<dyn EventHandler<Handle> + Send + Sync>,
-    ) -> HandlerId {
-        self.event_manager.add(handler)
-    }
-
-    pub fn remove_handler(
-        &mut self,
-        handler_id: HandlerId,
-    ) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
-        self.event_manager.remove(handler_id)
     }
 }
