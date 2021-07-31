@@ -1,6 +1,5 @@
 pub mod ancestors;
 pub mod detach_subtree;
-pub mod formatter;
 pub mod move_position;
 pub mod post_ordered_descendants;
 pub mod pre_ordered_descendants;
@@ -17,7 +16,6 @@ use crate::slot_vec::SlotVec;
 
 use self::ancestors::{Ancestors, AncestorsMut};
 use self::detach_subtree::DetachSubtree;
-use self::formatter::TreeFormatter;
 use self::move_position::MovePosition;
 use self::post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescendantsMut};
 use self::pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendantsMut};
@@ -54,7 +52,7 @@ impl<T> Tree<T> {
     }
 
     #[inline]
-    pub fn is_attached(&self, target_id: NodeId) -> bool {
+    pub fn contains(&self, target_id: NodeId) -> bool {
         self.arena.contains(target_id)
     }
 
@@ -183,15 +181,20 @@ impl<T> Tree<T> {
     }
 
     #[inline]
-    pub fn detach_subtree(
+    pub fn detach(
         &mut self,
         target_id: NodeId,
-    ) -> impl Iterator<Item = (NodeId, Link<T>)> + '_ {
-        DetachSubtree {
+    ) -> (Link<T>, impl Iterator<Item = (NodeId, Link<T>)> + '_) {
+        let link = self.arena.remove(target_id);
+        self.detach_link(&link);
+        let subtree = DetachSubtree {
             root_id: target_id,
-            next: Some(self.grandest_child(target_id).unwrap_or(target_id)),
+            next: link
+                .first_child()
+                .map(|child_id| self.grandest_child(child_id).unwrap_or(child_id)),
             tree: self,
-        }
+        };
+        (link, subtree)
     }
 
     #[inline]
@@ -339,7 +342,7 @@ impl<T> Tree<T> {
 
     #[inline]
     pub fn walk(&self, target_id: NodeId) -> Walker<T> {
-        Walker {
+        Walker {
             tree: self,
             root_id: target_id,
             next: Some((target_id, WalkDirection::Downward)),
@@ -355,19 +358,53 @@ impl<T> Tree<T> {
         }
     }
 
-    #[inline]
-    pub fn to_formatter<'a>(
-        &'a self,
+    pub fn format<FOpen, FClose>(
+        &self,
+        f: &mut fmt::Formatter,
         node_id: NodeId,
-        format_open: impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result + 'a,
-        format_close: impl Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result + 'a,
-    ) -> impl fmt::Display + 'a {
-        TreeFormatter {
-            tree: self,
-            node_id,
-            format_open,
-            format_close,
+        format_open: FOpen,
+        format_close: FClose,
+    ) -> fmt::Result
+    where
+        FOpen: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+        FClose: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+    {
+        self.format_rec(f, node_id, &format_open, &format_close, 0)
+    }
+
+    fn format_rec<FOpen, FClose>(
+        &self,
+        f: &mut fmt::Formatter,
+        node_id: NodeId,
+        format_open: &FOpen,
+        format_close: &FClose,
+        level: usize,
+    ) -> fmt::Result
+    where
+        FOpen: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+        FClose: Fn(&mut fmt::Formatter, NodeId, &T) -> fmt::Result,
+    {
+        let indent_str = unsafe { String::from_utf8_unchecked(vec![b' '; level * 4]) };
+        let link = &self.arena[node_id];
+
+        write!(f, "{}", indent_str)?;
+
+        (format_open)(f, node_id, &link.current.data)?;
+
+        if let Some(child_id) = link.current.first_child {
+            write!(f, "\n")?;
+            self.format_rec(f, child_id, format_open, format_close, level + 1)?;
+            write!(f, "\n{}", indent_str)?;
         }
+
+        (format_close)(f, node_id, &link.current.data)?;
+
+        if let Some(child_id) = link.next_sibling {
+            write!(f, "\n")?;
+            self.format_rec(f, child_id, format_open, format_close, level)?;
+        }
+
+        Ok(())
     }
 
     fn next_pre_ordered_descendant(&self, root_id: NodeId, link: &Link<T>) -> Option<NodeId> {

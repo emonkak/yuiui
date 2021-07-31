@@ -1,11 +1,10 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use crate::bit_flags::BitFlags;
 use crate::tree::{Link, NodeId, Tree};
 
-use super::PolymophicWidget;
-use super::element::{Children, Element, Key};
+use super::element::{BoxedWidget, Children, Element, Key};
+use super::Widget;
 
 pub type WidgetTree<Handle> = Tree<WidgetPod<Handle>>;
 
@@ -13,19 +12,49 @@ pub type WidgetNode<Handle> = Link<WidgetPod<Handle>>;
 
 #[derive(Debug)]
 pub struct WidgetPod<Handle> {
-    pub widget: Arc<dyn PolymophicWidget<Handle> + Send + Sync>,
+    pub widget: BoxedWidget<Handle>,
     pub children: Children<Handle>,
     pub key: Option<Key>,
     pub state: Arc<Mutex<Box<dyn Any + Send + Sync>>>,
-    pub deleted_children: Vec<NodeId>,
-    pub flags: BitFlags<WidgetFlag>,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum WidgetFlag {
-    None = 0b00,
-    Dirty = 0b01,
-    Fresh = 0b10,
+#[derive(Debug)]
+pub enum Patch<Handle> {
+    Append(NodeId, WidgetPod<Handle>),
+    Insert(NodeId, WidgetPod<Handle>),
+    Update(NodeId, Element<Handle>),
+    Placement(NodeId, NodeId),
+    Remove(NodeId),
+}
+
+impl<Handle> WidgetPod<Handle> {
+    pub fn new<Widget>(widget: Widget, children: impl Into<Children<Handle>>) -> Self
+    where
+        Widget: self::Widget<Handle> + Send + Sync + 'static,
+        Widget::State: 'static,
+    {
+        Self {
+            state: Arc::new(Mutex::new(Box::new(Widget::State::default()))),
+            widget: Arc::new(widget),
+            children: children.into(),
+            key: None,
+        }
+    }
+
+    pub fn should_update(&self, element: &Element<Handle>) -> bool {
+        self.widget.should_update(
+            &*element.widget,
+            &self.children,
+            &element.children,
+            &**self.state.lock().unwrap(),
+        )
+    }
+
+    pub fn update(&mut self, element: Element<Handle>) {
+        self.widget = element.widget;
+        self.children = element.children;
+        self.key = element.key;
+    }
 }
 
 impl<Handle> From<Element<Handle>> for WidgetPod<Handle> {
@@ -35,8 +64,6 @@ impl<Handle> From<Element<Handle>> for WidgetPod<Handle> {
             widget: element.widget,
             children: element.children,
             key: element.key,
-            deleted_children: Vec::new(),
-            flags: WidgetFlag::Fresh.into(),
         }
     }
 }
@@ -48,14 +75,6 @@ impl<Handle> Clone for WidgetPod<Handle> {
             children: Arc::clone(&self.children),
             key: self.key,
             state: Arc::clone(&self.state),
-            deleted_children: self.deleted_children.clone(),
-            flags: self.flags,
         }
-    }
-}
-
-impl Into<usize> for WidgetFlag {
-    fn into(self) -> usize {
-        self as usize
     }
 }

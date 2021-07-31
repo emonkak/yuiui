@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::event::{EventHandler, HandlerId};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
 
+use super::element::Children;
 use super::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
@@ -36,25 +37,31 @@ impl<Handle> Subscriber<Handle> {
 impl<Handle> Widget<Handle> for Subscriber<Handle> {
     type State = SubscriberState;
 
-    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
-        self.handlers != new_widget.handlers
+    fn should_update(
+        &self,
+        new_widget: &Self,
+        old_children: &Children<Handle>,
+        new_children: &Children<Handle>,
+        _state: &Self::State,
+    ) -> bool {
+        !Arc::ptr_eq(&old_children, &new_children) || self.handlers != new_widget.handlers
     }
 
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&Self>,
+        lifecycle: Lifecycle<&Self, &Children<Handle>>,
         state: &mut Self::State,
         context: &mut LifecycleContext<Handle>,
     ) {
         match lifecycle {
-            Lifecycle::OnMount => {
+            Lifecycle::OnMount(_) => {
                 for handler in self.handlers.iter() {
                     let handler_id = context.add_handler(Arc::clone(handler));
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::OnUpdate(new_widget) => {
+            Lifecycle::OnUpdate(new_widget, _, _) => {
                 let intersected_len = self.handlers.len().min(new_widget.handlers.len());
 
                 for index in 0..intersected_len {
@@ -80,7 +87,7 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::OnUnmount => {
+            Lifecycle::OnUnmount(_) => {
                 for handler_id in mem::take(&mut state.registered_handler_ids) {
                     context.remove_handler(handler_id);
                 }

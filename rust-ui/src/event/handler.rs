@@ -47,7 +47,7 @@ where
         &self,
         tree: &WidgetTree<Handle>,
         event: &Box<dyn Any>,
-        update_notifier: &Sender<NodeId>
+        update_notifier: &Sender<NodeId>,
     ) {
         let WidgetPod { widget, state, .. } = &*tree[self.node_id];
         (self.callback)(
@@ -56,7 +56,7 @@ where
             state.lock().unwrap().downcast_mut::<State>().unwrap(),
             &mut EventContext {
                 node_id: self.node_id,
-                update_notifier
+                update_notifier,
             },
         )
     }
@@ -80,7 +80,11 @@ impl<EventType> GlobalHandler<EventType, EventType::Event>
 where
     EventType: self::EventType + 'static,
 {
-    pub fn new(event_type: EventType, root_id: NodeId, callback: fn(&EventType::Event, &mut EventContext)) -> Self {
+    pub fn new(
+        event_type: EventType,
+        root_id: NodeId,
+        callback: fn(&EventType::Event, &mut EventContext),
+    ) -> Self {
         Self {
             _event_type: event_type,
             root_id,
@@ -97,14 +101,14 @@ where
         &self,
         _tree: &WidgetTree<Handle>,
         event: &Box<dyn Any>,
-        update_notifier: &Sender<NodeId>
+        update_notifier: &Sender<NodeId>,
     ) {
         (self.callback)(
             event.downcast_ref::<EventType::Event>().unwrap(),
             &mut EventContext {
                 node_id: self.root_id,
-                update_notifier
-            }
+                update_notifier,
+            },
         )
     }
 

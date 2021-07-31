@@ -1,8 +1,9 @@
 use rust_ui_derive::WidgetMeta;
 
 use crate::geometrics::Rectangle;
-use crate::painter::PaintContext;
+use crate::paint::PaintContext;
 
+use super::element::Children;
 use super::{Widget, WidgetMeta};
 
 #[derive(Eq, PartialEq, WidgetMeta)]
@@ -19,7 +20,13 @@ impl Fill {
 impl<Handle> Widget<Handle> for Fill {
     type State = ();
 
-    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
+    fn should_update(
+        &self,
+        new_widget: &Self,
+        _old_children: &Children<Handle>,
+        _new_children: &Children<Handle>,
+        _state: &Self::State,
+    ) -> bool {
         self != new_widget
     }
 
@@ -29,7 +36,6 @@ impl<Handle> Widget<Handle> for Fill {
         _state: &mut Self::State,
         paint_context: &mut dyn PaintContext<Handle>,
     ) {
-        println!("Fill::paint(): 0x{:08x}", self.color);
         paint_context.fill_rectangle(self.color, rectangle);
     }
 }

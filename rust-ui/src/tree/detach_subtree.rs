@@ -12,16 +12,7 @@ impl<'a, T> Iterator for DetachSubtree<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node_id| {
             let link = self.tree.arena.remove(node_id);
-            if node_id == self.root_id {
-                self.tree.detach_link(&link);
-                self.next = None;
-            } else {
-                self.next = Some(
-                    self.tree
-                        .next_post_ordered_descendant(self.root_id, &link)
-                        .unwrap_or(self.root_id),
-                );
-            }
+            self.next = self.tree.next_post_ordered_descendant(self.root_id, &link);
             (node_id, link)
         })
     }

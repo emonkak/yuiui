@@ -221,41 +221,29 @@ mod tests {
     #[test]
     fn test_contains() {
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right, Button::Middle])
-                .contains([]),
+            BitFlags::from([Button::Left, Button::Right, Button::Middle]).contains([]),
             false
         );
         assert_eq!(
             BitFlags::from([Button::Left, Button::Right]).contains([]),
             false
         );
-        assert_eq!(
-            BitFlags::from([Button::Left]).contains([]),
-            false
-        );
-        assert_eq!(
-            BitFlags::from([] as [Button; 0]).contains([]),
-            false
-        );
+        assert_eq!(BitFlags::from([Button::Left]).contains([]), false);
+        assert_eq!(BitFlags::from([] as [Button; 0]).contains([]), false);
 
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right, Button::Middle])
-                .contains([Button::Left]),
+            BitFlags::from([Button::Left, Button::Right, Button::Middle]).contains([Button::Left]),
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right])
-                .contains([Button::Left]),
+            BitFlags::from([Button::Left, Button::Right]).contains([Button::Left]),
             true
         );
         assert_eq!(
             BitFlags::from([Button::Left]).contains([Button::Left]),
             true
         );
-        assert_eq!(
-            BitFlags::from([]).contains([Button::Left]),
-            false
-        );
+        assert_eq!(BitFlags::from([]).contains([Button::Left]), false);
 
         assert_eq!(
             BitFlags::from([Button::Left, Button::Right, Button::Middle])
@@ -263,18 +251,15 @@ mod tests {
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right])
-                .contains([Button::Left, Button::Right]),
+            BitFlags::from([Button::Left, Button::Right]).contains([Button::Left, Button::Right]),
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left])
-                .contains([Button::Left, Button::Right]),
+            BitFlags::from([Button::Left]).contains([Button::Left, Button::Right]),
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left])
-                .contains([Button::Left, Button::Right, Button::Middle]),
+            BitFlags::from([Button::Left]).contains([Button::Left, Button::Right, Button::Middle]),
             true
         );
     }
@@ -282,22 +267,15 @@ mod tests {
     #[test]
     fn test_intersects() {
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right, Button::Middle])
-                .intersects([]),
+            BitFlags::from([Button::Left, Button::Right, Button::Middle]).intersects([]),
             true
         );
         assert_eq!(
             BitFlags::from([Button::Left, Button::Right]).intersects([]),
             true
         );
-        assert_eq!(
-            BitFlags::from([Button::Left]).intersects([]),
-            true
-        );
-        assert_eq!(
-            BitFlags::from([] as [Button; 0]).intersects([]),
-            true
-        );
+        assert_eq!(BitFlags::from([Button::Left]).intersects([]), true);
+        assert_eq!(BitFlags::from([] as [Button; 0]).intersects([]), true);
 
         assert_eq!(
             BitFlags::from([Button::Left, Button::Right, Button::Middle])
@@ -305,18 +283,14 @@ mod tests {
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right])
-                .intersects([Button::Left]),
+            BitFlags::from([Button::Left, Button::Right]).intersects([Button::Left]),
             true
         );
         assert_eq!(
             BitFlags::from([Button::Left]).intersects([Button::Left]),
             true
         );
-        assert_eq!(
-            BitFlags::from([]).intersects([Button::Left]),
-            false
-        );
+        assert_eq!(BitFlags::from([]).intersects([Button::Left]), false);
 
         assert_eq!(
             BitFlags::from([Button::Left, Button::Right, Button::Middle])
@@ -324,18 +298,19 @@ mod tests {
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right])
-                .intersects([Button::Left, Button::Right]),
+            BitFlags::from([Button::Left, Button::Right]).intersects([Button::Left, Button::Right]),
             true
         );
         assert_eq!(
-            BitFlags::from([Button::Left])
-                .intersects([Button::Left, Button::Right]),
+            BitFlags::from([Button::Left]).intersects([Button::Left, Button::Right]),
             false
         );
         assert_eq!(
-            BitFlags::from([Button::Left])
-                .intersects([Button::Left, Button::Right, Button::Middle]),
+            BitFlags::from([Button::Left]).intersects([
+                Button::Left,
+                Button::Right,
+                Button::Middle
+            ]),
             false
         );
     }

@@ -14,32 +14,29 @@ use x11::xlib;
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{Point, Rectangle, Size};
-use rust_ui::painter::{PaintContext, Painter};
-use rust_ui::platform::WindowHandle;
+use rust_ui::paint::{PaintContext, PaintTree};
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPaintContext;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
-use rust_ui::renderer::{RenderContext, RenderTree};
-use rust_ui::tree::{NodeId, Tree};
+use rust_ui::platform::WindowHandle;
+use rust_ui::render::{RenderContext, RenderTree};
+use rust_ui::tree::NodeId;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::element::Element;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
-use rust_ui::widget::null::Null;
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::subscriber::Subscriber;
-use rust_ui::widget::tree::{WidgetPod, WidgetTree};
+use rust_ui::widget::tree::Patch;
 use rust_ui::widget::{Widget, WidgetMeta};
 
 struct App;
 
 impl App {
-    fn on_click(&self, event: &MouseEvent, state: &mut bool, context: &mut EventContext) {
+    fn on_click(&self, _event: &MouseEvent, state: &mut bool, context: &mut EventContext) {
         *state = !*state;
 
         context.notify_changes();
-
-        println!("on_click: {:?}", event)
     }
 }
 
@@ -52,7 +49,6 @@ impl<Handle: 'static> Widget<Handle> for App {
         state: &Self::State,
         context: &RenderContext<Self, Handle, Self::State>,
     ) -> Children<Handle> {
-        println!("render: {:?}", state);
         element!(
             Subscriber::new().on(context.use_handler(MouseDown, Self::on_click)) => {
                 Padding::uniform(32.0) => {
@@ -83,38 +79,37 @@ fn run_render_loop(
     window: xlib::Window,
     update_atom: xlib::Atom,
     element: Element<XWindowHandle>,
-) -> (
-    Sender<NodeId>,
-    Receiver<(NodeId, WidgetTree<XWindowHandle>)>,
-) {
-    let (tree_tx, tree_rx) = sync_channel(1);
+) -> (Sender<NodeId>, Receiver<Vec<Patch<XWindowHandle>>>) {
+    let (patch_tx, patch_rx) = sync_channel(1);
     let (update_tx, update_rx) = channel();
 
     thread::spawn(move || {
-        let mut render_tree = RenderTree::render(element);
+        let mut render_tree = RenderTree::new();
+
+        let patch = render_tree.render(element);
 
         unsafe {
             notify_update(*display.get_mut(), window, update_atom);
         }
 
-        tree_tx.send((render_tree.root_id, render_tree.tree.clone())).unwrap();
+        patch_tx.send(patch).unwrap();
 
         loop {
             let target_id = update_rx.recv().unwrap();
 
-            render_tree.update(target_id);
+            let patch = render_tree.update(target_id);
+
+            println!("RENDER TREE:\n{}", render_tree);
 
             unsafe {
                 notify_update(*display.get_mut(), window, update_atom);
             }
 
-            tree_tx
-                .send((render_tree.root_id, render_tree.tree.split_subtree(target_id)))
-                .unwrap();
+            patch_tx.send(patch).unwrap();
         }
     });
 
-    (update_tx, tree_rx)
+    (update_tx, patch_rx)
 }
 
 unsafe fn notify_update(
@@ -181,7 +176,7 @@ fn main() {
     );
 
     let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
-    let mut painter: Painter<XWindowHandle> = Painter::new(tx);
+    let mut paint_tree: PaintTree<XWindowHandle> = PaintTree::new(tx);
     let mut paint_context = XPaintContext::new(&handle);
 
     handle.show_window();
@@ -189,9 +184,6 @@ fn main() {
     unsafe {
         xlib::XFlush(handle.display());
     }
-
-    let mut tree: Tree<WidgetPod<XWindowHandle>> = Tree::new();
-    let root_id = tree.attach(WidgetPod::from(element!(Null)));
 
     loop {
         unsafe {
@@ -206,18 +198,13 @@ fn main() {
                         },
                     });
                 }
-                XEvent::ButtonRelease(event) => {
-                    painter.dispatch::<MouseDown>((&event).into(), &tree)
-                }
+                XEvent::ButtonRelease(event) => paint_tree.dispatch::<MouseDown>((&event).into()),
                 XEvent::ConfigureNotify(event) => {
-                    println!("resize: {} {} {} {}", window_width, event.width, window_height, event.height);
                     if window_width != event.width as _ || window_height != event.height as _ {
                         window_width = event.width as _;
                         window_height = event.height as _;
 
-                        painter.layout(
-                            root_id,
-                            &tree,
+                        paint_tree.layout(
                             Size {
                                 width: window_width as _,
                                 height: window_height as _,
@@ -227,15 +214,17 @@ fn main() {
 
                         paint_context = XPaintContext::new(&handle);
 
-                        painter.paint(root_id, &tree, &tree, &mut paint_context);
+                        paint_tree.paint(&mut paint_context);
                     }
                 }
                 XEvent::ClientMessage(event) if event.message_type == update_atom => {
-                    let (target_id, new_tree) = rx.recv().unwrap();
+                    let patches = rx.recv().unwrap();
 
-                    painter.layout(
-                        target_id,
-                        &new_tree,
+                    for patch in patches {
+                        paint_tree.apply_patch(patch);
+                    }
+
+                    paint_tree.layout(
                         Size {
                             width: window_width as _,
                             height: window_height as _,
@@ -243,9 +232,9 @@ fn main() {
                         true,
                     );
 
-                    println!("{}", painter.format_tree(target_id, &new_tree));
+                    paint_tree.paint(&mut paint_context);
 
-                    painter.paint(target_id, &tree, &new_tree, &mut paint_context);
+                    println!("PAINT TREE:\n{}", paint_tree);
 
                     paint_context.commit(&Rectangle {
                         point: Point::ZERO,
@@ -254,8 +243,6 @@ fn main() {
                             height: window_height as _,
                         },
                     });
-
-                    tree = new_tree;
                 }
                 _ => (),
             }

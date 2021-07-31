@@ -6,7 +6,7 @@ use super::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
 pub struct Element<Handle> {
-    pub widget: Arc<dyn PolymophicWidget<Handle> + Send + Sync>,
+    pub widget: BoxedWidget<Handle>,
     pub children: Children<Handle>,
     pub key: Option<Key>,
 }
@@ -18,9 +18,11 @@ pub enum Child<Handle> {
     None,
 }
 
-pub type Key = usize;
+pub type BoxedWidget<Handle> = Arc<dyn PolymophicWidget<Handle> + Send + Sync>;
 
 pub type Children<Handle> = Arc<Vec<Element<Handle>>>;
+
+pub type Key = usize;
 
 pub trait IntoElement<Handle> {
     fn into_element(self, children: Children<Handle>) -> Element<Handle>;

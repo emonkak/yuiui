@@ -3,10 +3,10 @@ use super::*;
 #[test]
 fn test_is_attached() {
     let mut tree = Tree::new();
-    assert!(!tree.is_attached(0));
+    assert!(!tree.contains(0));
 
     let root = tree.attach("root");
-    assert!(tree.is_attached(root));
+    assert!(tree.contains(root));
 }
 
 #[test]
@@ -384,16 +384,16 @@ fn test_split_subtree() {
 
     let subtree = tree.split_subtree(foo);
 
-    assert!(!subtree.is_attached(root));
+    assert!(!subtree.contains(root));
     assert_eq!(&subtree[foo], &tree[foo]);
     assert_eq!(&subtree[bar], &tree[bar]);
     assert_eq!(&subtree[baz], &tree[baz]);
     assert_eq!(&subtree[qux], &tree[qux]);
-    assert!(!subtree.is_attached(quux));
+    assert!(!subtree.contains(quux));
 }
 
 #[test]
-fn test_detach_subtree() {
+fn test_detach() {
     let mut tree = Tree::new();
     let root = tree.attach("root");
     let foo = tree.append_child(root, "foo");
@@ -402,8 +402,22 @@ fn test_detach_subtree() {
     let qux = tree.append_child(foo, "qux");
     let quux = tree.append_child(root, "quux");
 
+    let (link, subtree) = tree.detach(foo);
     assert_eq!(
-        tree.detach_subtree(foo).collect::<Vec<_>>(),
+        link,
+        Link {
+            current: Node {
+                data: "foo",
+                first_child: Some(bar),
+                last_child: Some(qux),
+            },
+            prev_sibling: None,
+            next_sibling: Some(quux),
+            parent: Some(root),
+        }
+    );
+    assert_eq!(
+        subtree.collect::<Vec<_>>(),
         [
             (
                 baz,
@@ -444,19 +458,6 @@ fn test_detach_subtree() {
                     parent: Some(foo),
                 }
             ),
-            (
-                foo,
-                Link {
-                    current: Node {
-                        data: "foo",
-                        first_child: Some(bar),
-                        last_child: Some(qux),
-                    },
-                    prev_sibling: None,
-                    next_sibling: Some(quux),
-                    parent: Some(root),
-                }
-            ),
         ]
     );
     assert_eq!(
@@ -485,48 +486,47 @@ fn test_detach_subtree() {
             parent: Some(root),
         }
     );
-    assert!(!tree.is_attached(foo));
-    assert!(!tree.is_attached(bar));
-    assert!(!tree.is_attached(baz));
-    assert!(!tree.is_attached(qux));
+    assert!(!tree.contains(foo));
+    assert!(!tree.contains(bar));
+    assert!(!tree.contains(baz));
+    assert!(!tree.contains(qux));
 
+    let (link, subtree) = tree.detach(root);
     assert_eq!(
-        tree.detach_subtree(root).collect::<Vec<_>>(),
-        [
-            (
-                quux,
-                Link {
-                    current: Node {
-                        data: "quux",
-                        first_child: None,
-                        last_child: None,
-                    },
-                    prev_sibling: None,
-                    next_sibling: None,
-                    parent: Some(root),
-                }
-            ),
-            (
-                root,
-                Link {
-                    current: Node {
-                        data: "root",
-                        first_child: Some(quux),
-                        last_child: Some(quux),
-                    },
-                    prev_sibling: None,
-                    next_sibling: None,
-                    parent: None,
-                }
-            ),
-        ]
+        link,
+        Link {
+            current: Node {
+                data: "root",
+                first_child: Some(quux),
+                last_child: Some(quux),
+            },
+            prev_sibling: None,
+            next_sibling: None,
+            parent: None,
+        }
     );
-    assert!(!tree.is_attached(root));
-    assert!(!tree.is_attached(foo));
-    assert!(!tree.is_attached(bar));
-    assert!(!tree.is_attached(baz));
-    assert!(!tree.is_attached(qux));
-    assert!(!tree.is_attached(quux));
+    assert_eq!(
+        subtree.collect::<Vec<_>>(),
+        [(
+            quux,
+            Link {
+                current: Node {
+                    data: "quux",
+                    first_child: None,
+                    last_child: None,
+                },
+                prev_sibling: None,
+                next_sibling: None,
+                parent: Some(root),
+            }
+        ),]
+    );
+    assert!(!tree.contains(root));
+    assert!(!tree.contains(foo));
+    assert!(!tree.contains(bar));
+    assert!(!tree.contains(baz));
+    assert!(!tree.contains(qux));
+    assert!(!tree.contains(quux));
 }
 
 #[test]
@@ -854,33 +854,69 @@ fn test_walk_next_if() {
     let quux = tree.append_child(root, "quux");
 
     let mut walker = tree.walk(root);
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((root, &tree[root], WalkDirection::Downward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((foo, &tree[foo], WalkDirection::Downward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((qux, &tree[qux], WalkDirection::Sideward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((foo, &tree[foo], WalkDirection::Upward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((quux, &tree[quux], WalkDirection::Sideward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((root, &tree[root], WalkDirection::Upward)));
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((root, &tree[root], WalkDirection::Downward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((foo, &tree[foo], WalkDirection::Downward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((qux, &tree[qux], WalkDirection::Sideward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((foo, &tree[foo], WalkDirection::Upward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((quux, &tree[quux], WalkDirection::Sideward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((root, &tree[root], WalkDirection::Upward))
+    );
     assert_eq!(walker.next_if(|id, _| id != bar), None);
 
     let mut walker = tree.walk(foo);
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((foo, &tree[foo], WalkDirection::Downward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((qux, &tree[qux], WalkDirection::Sideward)));
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((foo, &tree[foo], WalkDirection::Upward)));
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((foo, &tree[foo], WalkDirection::Downward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((qux, &tree[qux], WalkDirection::Sideward))
+    );
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((foo, &tree[foo], WalkDirection::Upward))
+    );
     assert_eq!(walker.next_if(|id, _| id != bar), None);
 
     let mut walker = tree.walk(bar);
     assert_eq!(walker.next_if(|id, _| id != bar), None);
 
     let mut walker = tree.walk(baz);
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((baz, &tree[baz], WalkDirection::Downward)));
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((baz, &tree[baz], WalkDirection::Downward))
+    );
     assert_eq!(walker.next_if(|id, _| id != bar), None);
 
     let mut walker = tree.walk(qux);
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((qux, &tree[qux], WalkDirection::Downward)));
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((qux, &tree[qux], WalkDirection::Downward))
+    );
     assert_eq!(walker.next_if(|id, _| id != bar), None);
 
     let mut walker = tree.walk(quux);
-    assert_eq!(walker.next_if(|id, _| id != bar), Some((quux, &tree[quux], WalkDirection::Downward)));
+    assert_eq!(
+        walker.next_if(|id, _| id != bar),
+        Some((quux, &tree[quux], WalkDirection::Downward))
+    );
     assert_eq!(walker.next_if(|id, _| id != bar), None);
 
     for &node_id in &[root, foo, bar, baz, qux, quux] {

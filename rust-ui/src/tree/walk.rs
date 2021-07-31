@@ -24,25 +24,27 @@ impl<'a, T> Walker<'a, T> {
     where
         F: Fn(NodeId, &Link<T>) -> bool,
     {
-        self.next.take().and_then(move |(mut node_id, mut direction)| {
-            let mut link = &self.tree.arena[node_id];
-            while match direction {
-                WalkDirection::Downward | WalkDirection::Sideward => !filter(node_id, link),
-                WalkDirection::Upward => false,
-            } {
-                if let Some((next_node_id, next_direction)) =
-                    walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward)
-                {
-                    node_id = next_node_id;
-                    direction = next_direction;
-                    link = &self.tree.arena[node_id];
-                } else {
-                    return None;
+        self.next
+            .take()
+            .and_then(move |(mut node_id, mut direction)| {
+                let mut link = &self.tree.arena[node_id];
+                while match direction {
+                    WalkDirection::Downward | WalkDirection::Sideward => !filter(node_id, link),
+                    WalkDirection::Upward => false,
+                } {
+                    if let Some((next_node_id, next_direction)) =
+                        walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward)
+                    {
+                        node_id = next_node_id;
+                        direction = next_direction;
+                        link = &self.tree.arena[node_id];
+                    } else {
+                        return None;
+                    }
                 }
-            }
-            self.next = walk_next_node(node_id, self.root_id, link, &direction);
-            Some((node_id, link, direction))
-        })
+                self.next = walk_next_node(node_id, self.root_id, link, &direction);
+                Some((node_id, link, direction))
+            })
     }
 }
 
@@ -51,33 +53,35 @@ impl<'a, T> WalkerMut<'a, T> {
     where
         F: Fn(NodeId, &Link<T>) -> bool,
     {
-        self.next.take().and_then(move |(mut node_id, mut direction)| {
-            let mut link = unsafe {
-                (&mut self.tree.arena[node_id] as *mut Link<T>)
-                    .as_mut()
-                    .unwrap()
-            };
-            while match direction {
-                WalkDirection::Downward | WalkDirection::Sideward => !filter(node_id, link),
-                WalkDirection::Upward => false,
-            } {
-                if let Some((next_node_id, next_direction)) =
-                    walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward)
-                {
-                    node_id = next_node_id;
-                    direction = next_direction;
-                    link = unsafe {
-                        (&mut self.tree.arena[node_id] as *mut Link<T>)
-                            .as_mut()
-                            .unwrap()
-                    };
-                } else {
-                    return None;
+        self.next
+            .take()
+            .and_then(move |(mut node_id, mut direction)| {
+                let mut link = unsafe {
+                    (&mut self.tree.arena[node_id] as *mut Link<T>)
+                        .as_mut()
+                        .unwrap()
+                };
+                while match direction {
+                    WalkDirection::Downward | WalkDirection::Sideward => !filter(node_id, link),
+                    WalkDirection::Upward => false,
+                } {
+                    if let Some((next_node_id, next_direction)) =
+                        walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward)
+                    {
+                        node_id = next_node_id;
+                        direction = next_direction;
+                        link = unsafe {
+                            (&mut self.tree.arena[node_id] as *mut Link<T>)
+                                .as_mut()
+                                .unwrap()
+                        };
+                    } else {
+                        return None;
+                    }
                 }
-            }
-            self.next = walk_next_node(node_id, self.root_id, link, &direction);
-            Some((node_id, link, direction))
-        })
+                self.next = walk_next_node(node_id, self.root_id, link, &direction);
+                Some((node_id, link, direction))
+            })
     }
 }
 

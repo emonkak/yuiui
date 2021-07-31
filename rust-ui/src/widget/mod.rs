@@ -14,8 +14,8 @@ use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::lifecycle::{Lifecycle, LifecycleContext};
-use crate::painter::PaintContext;
-use crate::renderer::RenderContext;
+use crate::paint::PaintContext;
+use crate::render::RenderContext;
 use crate::tree::NodeId;
 
 use self::element::{Children, Element, IntoElement, Key};
@@ -25,14 +25,20 @@ pub trait Widget<Handle>: Send + WidgetMeta {
     type State: Default + Send + Sync;
 
     #[inline]
-    fn should_update(&self, _new_widget: &Self, _state: &Self::State) -> bool {
+    fn should_update(
+        &self,
+        _new_widget: &Self,
+        _old_children: &Children<Handle>,
+        _new_children: &Children<Handle>,
+        _state: &Self::State,
+    ) -> bool {
         true
     }
 
     #[inline]
     fn lifecycle(
         &self,
-        _lifecycle: Lifecycle<&Self>,
+        _lifecycle: Lifecycle<&Self, &Children<Handle>>,
         _state: &mut Self::State,
         _context: &mut LifecycleContext<Handle>,
     ) {
@@ -79,11 +85,17 @@ pub trait Widget<Handle>: Send + WidgetMeta {
 pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
     fn initial_state(&self) -> Box<dyn Any + Send + Sync>;
 
-    fn should_update(&self, new_widget: &dyn PolymophicWidget<Handle>, state: &dyn Any) -> bool;
+    fn should_update(
+        &self,
+        new_widget: &dyn PolymophicWidget<Handle>,
+        old_children: &Children<Handle>,
+        new_children: &Children<Handle>,
+        state: &dyn Any,
+    ) -> bool;
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext<Handle>,
     );
@@ -151,9 +163,17 @@ where
     }
 
     #[inline]
-    fn should_update(&self, new_widget: &dyn PolymophicWidget<Handle>, state: &dyn Any) -> bool {
+    fn should_update(
+        &self,
+        new_widget: &dyn PolymophicWidget<Handle>,
+        old_children: &Children<Handle>,
+        new_children: &Children<Handle>,
+        state: &dyn Any,
+    ) -> bool {
         self.should_update(
             new_widget.as_any().downcast_ref::<Self>().unwrap(),
+            old_children,
+            new_children,
             state.downcast_ref().unwrap(),
         )
     }
@@ -161,7 +181,7 @@ where
     #[inline]
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
         state: &mut dyn Any,
         context: &mut LifecycleContext<Handle>,
     ) {

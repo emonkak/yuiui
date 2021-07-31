@@ -19,11 +19,11 @@ pub struct Reconciler<'a, Key, OldNode, NewNode> {
 
 #[derive(Debug)]
 pub enum ReconcileResult<OldNode, NewNode> {
-    Create(NewNode),
-    CreateAndPlacement(OldNode, NewNode),
+    New(NewNode),
+    Insertion(OldNode, NewNode),
     Update(OldNode, NewNode),
     UpdateAndPlacement(OldNode, OldNode, NewNode),
-    Delete(OldNode),
+    Deletion(OldNode),
 }
 
 impl<'a, Key, OldNode: Default + Clone, NewNode> Reconciler<'a, Key, OldNode, NewNode> {
@@ -130,11 +130,11 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator
                     };
 
                     if !new_key_set.contains(&self.old_keys[self.old_head]) {
-                        let result = ReconcileResult::Delete(old_head_node);
+                        let result = ReconcileResult::Deletion(old_head_node);
                         self.old_head += 1;
                         result
                     } else if !new_key_set.contains(&self.old_keys[self.old_edge - 1]) {
-                        let result = ReconcileResult::Delete(old_tail_node);
+                        let result = ReconcileResult::Deletion(old_tail_node);
                         self.old_edge -= 1;
                         result
                     } else {
@@ -162,7 +162,7 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator
                                 self.new_nodes[self.new_head].take().unwrap(),
                             )
                         } else {
-                            ReconcileResult::CreateAndPlacement(
+                            ReconcileResult::Insertion(
                                 old_head_node,
                                 self.new_nodes[self.new_head].take().unwrap(),
                             )
@@ -180,12 +180,12 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator
         while self.new_head < self.new_edge {
             let result = if self.new_edge < self.new_nodes.len() {
                 let old_node = self.new_index_to_old_node[self.new_edge];
-                ReconcileResult::CreateAndPlacement(
+                ReconcileResult::Insertion(
                     old_node,
                     self.new_nodes[self.new_head].take().unwrap(),
                 )
             } else {
-                ReconcileResult::Create(self.new_nodes[self.new_head].take().unwrap())
+                ReconcileResult::New(self.new_nodes[self.new_head].take().unwrap())
             };
             self.new_head += 1;
             return Some(result);
@@ -194,7 +194,7 @@ impl<'a, Key: Eq + Hash, OldNode: Copy, NewNode> Iterator
         while self.old_head < self.old_edge {
             if let Some(old_head_node) = self.old_nodes[self.old_head].take() {
                 self.old_head += 1;
-                return Some(ReconcileResult::Delete(old_head_node));
+                return Some(ReconcileResult::Deletion(old_head_node));
             } else {
                 self.old_head += 1;
             }
