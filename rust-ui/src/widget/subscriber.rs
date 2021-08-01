@@ -3,7 +3,7 @@ use std::mem;
 use std::sync::Arc;
 
 use crate::event::{EventHandler, HandlerId};
-use crate::paint::{PaintCycle, PaintContext};
+use crate::paint::{PaintContext, PaintCycle};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};

@@ -98,7 +98,7 @@ impl<Handle> PaintTree<Handle> {
                         self.emit_changes(parent_id);
                     }
                 } else {
-                    unreachable!("Root removed");
+                    unreachable!("Root cannot be removed");
                 }
             }
         }
