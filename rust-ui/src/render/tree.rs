@@ -88,44 +88,17 @@ impl<Handle> RenderTree<Handle> {
         } = &*self.tree[target_id];
         let rendered_children =
             widget.render(children.clone(), &mut **state.lock().unwrap(), target_id);
-        self.reconcile_children(target_id, rendered_children, patches);
+        for result in self.reconcile_children(target_id, rendered_children) {
+            self.handle_reconcile_result(target_id, result, patches);
+        }
         self.next_render_target(target_id, initial_id)
-    }
-
-    fn next_render_target(&self, target_id: NodeId, initial_id: NodeId) -> Option<NodeId> {
-        let mut current_node = &self.tree[target_id];
-
-        if self.render_states[target_id].status != RenderStatus::Skip {
-            if let Some(first_child) = self.tree[target_id].first_child() {
-                return Some(first_child);
-            }
-        }
-
-        loop {
-            while let Some(sibling_id) = current_node.next_sibling() {
-                current_node = &self.tree[sibling_id];
-                if self.render_states[target_id].status != RenderStatus::Skip {
-                    return Some(sibling_id);
-                }
-            }
-
-            match current_node.parent() {
-                Some(parent_id) if parent_id != initial_id => {
-                    current_node = &self.tree[parent_id];
-                }
-                _ => break,
-            }
-        }
-
-        None
     }
 
     fn reconcile_children(
         &mut self,
         target_id: NodeId,
         children: Children<Handle>,
-        patches: &mut Vec<Patch<Handle>>,
-    ) {
+    ) -> Reconciler<TypedKey, NodeId, Element<Handle>> {
         let mut old_keys: Vec<TypedKey> = Vec::new();
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
 
@@ -144,12 +117,7 @@ impl<Handle> RenderTree<Handle> {
             new_elements.push(Some(element.clone()));
         }
 
-        let reconciler =
-            Reconciler::new(&old_keys, &mut old_node_ids, &new_keys, &mut new_elements);
-
-        for result in reconciler {
-            self.handle_reconcile_result(target_id, result, patches);
-        }
+        Reconciler::new(old_keys, old_node_ids, new_keys, new_elements)
     }
 
     fn handle_reconcile_result(
@@ -229,6 +197,34 @@ impl<Handle> RenderTree<Handle> {
             self.render_states[target_id].status = RenderStatus::Skip;
             false
         }
+    }
+
+    fn next_render_target(&self, target_id: NodeId, initial_id: NodeId) -> Option<NodeId> {
+        let mut current_node = &self.tree[target_id];
+
+        if self.render_states[target_id].status != RenderStatus::Skip {
+            if let Some(first_child) = self.tree[target_id].first_child() {
+                return Some(first_child);
+            }
+        }
+
+        loop {
+            while let Some(sibling_id) = current_node.next_sibling() {
+                current_node = &self.tree[sibling_id];
+                if self.render_states[target_id].status != RenderStatus::Skip {
+                    return Some(sibling_id);
+                }
+            }
+
+            match current_node.parent() {
+                Some(parent_id) if parent_id != initial_id => {
+                    current_node = &self.tree[parent_id];
+                }
+                _ => break,
+            }
+        }
+
+        None
     }
 }
 
