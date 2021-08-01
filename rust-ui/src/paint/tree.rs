@@ -28,6 +28,7 @@ pub struct PaintTree<Handle> {
 #[derive(Debug)]
 pub struct PaintState<Handle> {
     rectangle: Rectangle,
+    box_constraints: BoxConstraints,
     mounted_pod: Option<WidgetPod<Handle>>,
     deleted_children: Vec<WidgetPod<Handle>>,
     hint: PaintHint,
@@ -105,20 +106,44 @@ impl<Handle> PaintTree<Handle> {
         }
     }
 
-    pub fn layout(&mut self, viewport_size: Size, force_layout: bool) -> Size {
-        let mut layout_stack = Vec::new();
-        let mut calculated_size = Size::ZERO;
+    pub fn layout(&mut self, viewport: Size) {
+        self.do_layout(self.root_id, BoxConstraints::tight(viewport));
+    }
 
-        let mut current_id = self.root_id;
+    pub fn layout_subtree(&mut self, target_id: NodeId, viewport: Size) {
+        let mut current_id = target_id;
+        let mut box_constraints = if target_id == self.root_id {
+            BoxConstraints::tight(viewport)
+        } else {
+            self.paint_states[target_id].box_constraints
+        };
+        while let Some(parent_id) = self.do_layout(current_id, box_constraints) {
+            current_id = parent_id;
+            box_constraints = if parent_id == self.root_id {
+                BoxConstraints::tight(viewport)
+            } else {
+                self.paint_states[parent_id].box_constraints
+            };
+        }
+    }
+
+    fn do_layout(&mut self, target_id: NodeId, box_constraints: BoxConstraints) -> Option<NodeId> {
+        let target_node = &self.tree[target_id];
+
+        let mut current_id = target_id;
+        let mut current_box_constraints = box_constraints;
         let mut current_layout = {
-            let WidgetPod { widget, state, .. } = &*self.tree[current_id];
+            let WidgetPod { widget, state, .. } = &**target_node;
             widget.layout(
-                current_id,
-                BoxConstraints::tight(&viewport_size),
+                target_id,
+                box_constraints,
                 &self.tree,
                 &mut **state.lock().unwrap(),
             )
         };
+
+        let mut layout_stack = Vec::new();
+        let mut calculated_size = Size::ZERO;
 
         loop {
             match current_layout.resume(calculated_size) {
@@ -126,14 +151,14 @@ impl<Handle> PaintTree<Handle> {
                     child_id,
                     child_box_constraints,
                 )) => {
-                    if force_layout
-                        || self.paint_states[child_id]
-                            .flags
-                            .contains(PaintFlag::NeedsLayout)
+                    let paint_state = &self.paint_states[child_id];
+                    if paint_state.flags.contains(PaintFlag::NeedsLayout)
+                        || paint_state.box_constraints != child_box_constraints
                     {
                         let WidgetPod { widget, state, .. } = &*self.tree[child_id];
-                        layout_stack.push((current_id, current_layout));
+                        layout_stack.push((current_id, current_box_constraints, current_layout));
                         current_id = child_id;
+                        current_box_constraints = child_box_constraints;
                         current_layout = widget.layout(
                             child_id,
                             child_box_constraints,
@@ -141,7 +166,7 @@ impl<Handle> PaintTree<Handle> {
                             &mut **state.lock().unwrap(),
                         );
                     } else {
-                        calculated_size = self.paint_states[child_id].rectangle.size;
+                        calculated_size = paint_state.rectangle.size;
                     }
                 }
                 GeneratorState::Yielded(LayoutRequest::ArrangeChild(child_id, point)) => {
@@ -151,10 +176,11 @@ impl<Handle> PaintTree<Handle> {
                 }
                 GeneratorState::Complete(size) => {
                     let mut paint_state = &mut self.paint_states[current_id];
-
+                    paint_state.box_constraints = current_box_constraints;
                     paint_state.flags ^= PaintFlag::NeedsLayout;
 
-                    if paint_state.rectangle.size != size {
+                    let size_changed = paint_state.rectangle.size != size;
+                    if size_changed {
                         paint_state.rectangle.size = size;
                         paint_state.flags |= PaintFlag::Dirty;
                         if matches!(paint_state.hint, PaintHint::Always) {
@@ -162,19 +188,21 @@ impl<Handle> PaintTree<Handle> {
                         }
                     }
 
-                    calculated_size = size;
-
-                    if let Some((next_id, next_layout)) = layout_stack.pop() {
+                    if let Some((next_id, next_box_constraints, next_layout)) = layout_stack.pop() {
                         current_id = next_id;
+                        current_box_constraints = next_box_constraints;
                         current_layout = next_layout;
+                        calculated_size = size;
                     } else {
-                        break;
+                        return if size_changed {
+                            target_node.parent()
+                        } else {
+                            None
+                        };
                     }
                 }
             }
         }
-
-        calculated_size
     }
 
     pub fn paint(&mut self, painter: &mut dyn Painter<Handle>) {
@@ -188,15 +216,15 @@ impl<Handle> PaintTree<Handle> {
         {
             let rectangle = self.paint_states[node_id].rectangle;
 
-            if direction == WalkDirection::Downward {
-                absolute_point += latest_point;
-            } else if direction == WalkDirection::Upward {
-                absolute_point -= rectangle.point;
+            match direction {
+                WalkDirection::Downward => absolute_point += latest_point,
+                WalkDirection::Upward => absolute_point -= rectangle.point,
+                _ => {}
             }
 
             latest_point = rectangle.point;
 
-            if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
+            if matches!(direction, WalkDirection::Downward | WalkDirection::Sideward) {
                 let paint_state = &mut self.paint_states[node_id];
 
                 if paint_state.flags.contains(PaintFlag::NeedsPaint) {
@@ -205,13 +233,13 @@ impl<Handle> PaintTree<Handle> {
                         painter,
                     };
 
-                    for widget_pod in mem::take(&mut paint_state.deleted_children) {
-                        let WidgetPod {
-                            widget,
-                            state,
-                            children,
-                            ..
-                        } = widget_pod;
+                    for WidgetPod {
+                        widget,
+                        state,
+                        children,
+                        ..
+                    } in mem::take(&mut paint_state.deleted_children)
+                    {
                         widget.on_paint_cycle(
                             PaintCycle::DidUnmount(&children),
                             &mut **state.lock().unwrap(),
@@ -300,10 +328,14 @@ impl<Handle> fmt::Display for PaintTree<Handle> {
                 if let Some(key) = node.key {
                     write!(f, " key=\"{}\"", key)?;
                 }
-                write!(f, " x=\"{}\"", paint_state.rectangle.point.x)?;
-                write!(f, " y=\"{}\"", paint_state.rectangle.point.y)?;
-                write!(f, " width=\"{}\"", paint_state.rectangle.size.width)?;
-                write!(f, " height=\"{}\"", paint_state.rectangle.size.height)?;
+                write!(f, " x=\"{}\"", paint_state.rectangle.point.x.round())?;
+                write!(f, " y=\"{}\"", paint_state.rectangle.point.y.round())?;
+                write!(f, " width=\"{}\"", paint_state.rectangle.size.width.round())?;
+                write!(
+                    f,
+                    " height=\"{}\"",
+                    paint_state.rectangle.size.height.round()
+                )?;
                 if paint_state.flags.contains(PaintFlag::Dirty) {
                     write!(f, " dirty")?;
                 }
@@ -325,6 +357,7 @@ impl<Handle> Default for PaintState<Handle> {
     fn default() -> Self {
         Self {
             rectangle: Rectangle::ZERO,
+            box_constraints: BoxConstraints::LOOSE,
             mounted_pod: None,
             deleted_children: Vec::new(),
             hint: PaintHint::Always,

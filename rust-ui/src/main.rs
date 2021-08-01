@@ -82,7 +82,10 @@ fn run_render_loop(
     window: xlib::Window,
     update_atom: xlib::Atom,
     element: Element<XWindowHandle>,
-) -> (Sender<NodeId>, Receiver<Vec<Patch<XWindowHandle>>>) {
+) -> (
+    Sender<NodeId>,
+    Receiver<(NodeId, Vec<Patch<XWindowHandle>>)>,
+) {
     let (patch_tx, patch_rx) = sync_channel(1);
     let (update_tx, update_rx) = channel();
 
@@ -95,7 +98,7 @@ fn run_render_loop(
             notify_update(*display.get_mut(), window, update_atom);
         }
 
-        patch_tx.send(patch).unwrap();
+        patch_tx.send((render_tree.root_id(), patch)).unwrap();
 
         loop {
             let target_id = update_rx.recv().unwrap();
@@ -106,7 +109,7 @@ fn run_render_loop(
                 notify_update(*display.get_mut(), window, update_atom);
             }
 
-            patch_tx.send(patch).unwrap();
+            patch_tx.send((target_id, patch)).unwrap();
         }
     });
 
@@ -209,13 +212,10 @@ fn main() {
                         window_width = event.width as _;
                         window_height = event.height as _;
 
-                        paint_tree.layout(
-                            Size {
-                                width: window_width as _,
-                                height: window_height as _,
-                            },
-                            true,
-                        );
+                        paint_tree.layout(Size {
+                            width: window_width as _,
+                            height: window_height as _,
+                        });
 
                         painter = XPainter::new(&handle);
 
@@ -223,18 +223,18 @@ fn main() {
                     }
                 }
                 XEvent::ClientMessage(event) if event.message_type == update_atom => {
-                    let patches = rx.recv().unwrap();
+                    let (node_id, patches) = rx.recv().unwrap();
 
                     for patch in patches {
                         paint_tree.apply_patch(patch);
                     }
 
-                    paint_tree.layout(
+                    paint_tree.layout_subtree(
+                        node_id,
                         Size {
                             width: window_width as _,
                             height: window_height as _,
                         },
-                        true,
                     );
 
                     paint_tree.paint(&mut painter);

@@ -53,6 +53,11 @@ impl<Handle> RenderTree<Handle> {
         }
     }
 
+    #[inline]
+    pub fn root_id(&self) -> NodeId {
+        self.root_id
+    }
+
     pub fn render(&mut self, element: Element<Handle>) -> Vec<Patch<Handle>> {
         *self.tree[self.root_id] = WidgetPod::new(Null, vec![element]);
 

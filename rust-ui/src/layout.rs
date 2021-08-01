@@ -14,13 +14,16 @@ pub struct BoxConstraints {
 }
 
 impl BoxConstraints {
-    pub const ZERO: Self = Self {
+    pub const LOOSE: Self = Self {
         min: Size::ZERO,
-        max: Size::ZERO,
+        max: Size {
+            width: f32::INFINITY,
+            height: f32::INFINITY,
+        },
     };
 
     #[inline]
-    pub fn tight(size: &Size) -> BoxConstraints {
+    pub fn tight(size: Size) -> BoxConstraints {
         let size = size.expand();
         BoxConstraints {
             min: size,
