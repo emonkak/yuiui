@@ -13,7 +13,7 @@ use std::sync::Arc;
 use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
-use crate::paint::{PaintContext, PaintCycle};
+use crate::paint::{PaintContext, PaintCycle, PaintHint};
 use crate::render::{RenderContext, RenderCycle};
 use crate::tree::NodeId;
 
@@ -86,7 +86,8 @@ pub trait Widget<Handle>: Send + WidgetMeta {
         _rectangle: &Rectangle,
         _state: &mut Self::State,
         _context: &mut PaintContext<Handle>,
-    ) {
+    ) -> PaintHint {
+        PaintHint::Once
     }
 }
 
@@ -130,7 +131,12 @@ pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
         state: &mut dyn Any,
     ) -> Generator<LayoutRequest, Size, Size>;
 
-    fn paint(&self, rectangle: &Rectangle, state: &mut dyn Any, context: &mut PaintContext<Handle>);
+    fn paint(
+        &self,
+        rectangle: &Rectangle,
+        state: &mut dyn Any,
+        context: &mut PaintContext<Handle>,
+    ) -> PaintHint;
 }
 
 pub trait WidgetMeta {
@@ -252,7 +258,7 @@ where
         rectangle: &Rectangle,
         state: &mut dyn Any,
         context: &mut PaintContext<Handle>,
-    ) {
+    ) -> PaintHint {
         self.paint(rectangle, state.downcast_mut().unwrap(), context)
     }
 }

@@ -27,18 +27,19 @@ pub struct PaintTree<Handle> {
 
 #[derive(Debug)]
 pub struct PaintState<Handle> {
-    pub rectangle: Rectangle,
-    pub mounted_pod: Option<WidgetPod<Handle>>,
-    pub deleted_children: Vec<WidgetPod<Handle>>,
-    pub hint: PaintHint,
-    pub flags: BitFlags<PaintFlag>,
+    rectangle: Rectangle,
+    mounted_pod: Option<WidgetPod<Handle>>,
+    deleted_children: Vec<WidgetPod<Handle>>,
+    hint: PaintHint,
+    flags: BitFlags<PaintFlag>,
 }
 
 #[derive(Debug)]
 pub enum PaintFlag {
-    None = 0b00,
-    NeedsLayout = 0b01,
-    NeedsPaint = 0b10,
+    None = 0b000,
+    Dirty = 0b001,
+    NeedsLayout = 0b010,
+    NeedsPaint = 0b100,
 }
 
 impl<Handle> PaintTree<Handle> {
@@ -63,18 +64,21 @@ impl<Handle> PaintTree<Handle> {
             Patch::Append(parent_id, widget_pod) => {
                 let child_id = self.tree.append_child(parent_id, widget_pod);
                 self.paint_states.insert_at(child_id, PaintState::default());
-                self.emit_changes(child_id);
+                self.mark_parents_as_dirty(child_id);
             }
             Patch::Insert(ref_id, widget_pod) => {
                 let child_id = self.tree.insert_before(ref_id, widget_pod);
                 self.paint_states.insert_at(child_id, PaintState::default());
-                self.emit_changes(child_id);
+                self.mark_parents_as_dirty(child_id);
             }
             Patch::Update(target_id, new_element) => {
                 self.tree[target_id].update(new_element);
-                if self.paint_states[target_id].mark_as_dirty() {
-                    self.emit_changes(target_id);
+                let paint_state = &mut self.paint_states[target_id];
+                paint_state.flags |= [PaintFlag::Dirty, PaintFlag::NeedsLayout];
+                if matches!(paint_state.hint, PaintHint::Always) {
+                    paint_state.flags |= PaintFlag::NeedsPaint;
                 }
+                self.mark_parents_as_dirty(target_id);
             }
             Patch::Placement(target_id, ref_id) => {
                 self.tree.move_position(target_id).insert_before(ref_id);
@@ -92,11 +96,8 @@ impl<Handle> PaintTree<Handle> {
                     self.paint_states.remove(target_id);
                     deleted_children.push(node.into_inner());
 
-                    let paint_state = &mut self.paint_states[parent_id];
-                    paint_state.deleted_children = deleted_children;
-                    if paint_state.mark_as_dirty() {
-                        self.emit_changes(parent_id);
-                    }
+                    let parent_paint_state = &mut self.paint_states[parent_id];
+                    parent_paint_state.deleted_children = deleted_children;
                 } else {
                     unreachable!("Root cannot be removed");
                 }
@@ -125,12 +126,12 @@ impl<Handle> PaintTree<Handle> {
                     child_id,
                     child_box_constraints,
                 )) => {
-                    let WidgetPod { widget, state, .. } = &*self.tree[child_id];
                     if force_layout
-                        || self.paint_states[current_id]
+                        || self.paint_states[child_id]
                             .flags
                             .contains(PaintFlag::NeedsLayout)
                     {
+                        let WidgetPod { widget, state, .. } = &*self.tree[child_id];
                         layout_stack.push((current_id, current_layout));
                         current_id = child_id;
                         current_layout = widget.layout(
@@ -155,7 +156,10 @@ impl<Handle> PaintTree<Handle> {
 
                     if paint_state.rectangle.size != size {
                         paint_state.rectangle.size = size;
-                        paint_state.flags |= PaintFlag::NeedsPaint;
+                        paint_state.flags |= PaintFlag::Dirty;
+                        if matches!(paint_state.hint, PaintHint::Always) {
+                            paint_state.flags |= PaintFlag::NeedsPaint;
+                        }
                     }
 
                     calculated_size = size;
@@ -179,11 +183,9 @@ impl<Handle> PaintTree<Handle> {
 
         let mut walker = self.tree.walk(self.root_id);
 
-        while let Some((node_id, node, direction)) = walker.next_if(|node_id, _| {
-            self.paint_states[node_id]
-                .flags
-                .contains(PaintFlag::NeedsPaint)
-        }) {
+        while let Some((node_id, node, direction)) =
+            walker.next_if(|node_id, _| self.paint_states[node_id].flags.contains(PaintFlag::Dirty))
+        {
             let rectangle = self.paint_states[node_id].rectangle;
 
             if direction == WalkDirection::Downward {
@@ -195,64 +197,71 @@ impl<Handle> PaintTree<Handle> {
             latest_point = rectangle.point;
 
             if direction == WalkDirection::Downward || direction == WalkDirection::Sideward {
-                let mut context = PaintContext {
-                    event_manager: &mut self.event_manager,
-                    painter,
-                };
+                let paint_state = &mut self.paint_states[node_id];
 
-                for widget_pod in mem::take(&mut self.paint_states[node_id].deleted_children) {
+                if paint_state.flags.contains(PaintFlag::NeedsPaint) {
+                    let mut context = PaintContext {
+                        event_manager: &mut self.event_manager,
+                        painter,
+                    };
+
+                    for widget_pod in mem::take(&mut paint_state.deleted_children) {
+                        let WidgetPod {
+                            widget,
+                            state,
+                            children,
+                            ..
+                        } = widget_pod;
+                        widget.on_paint_cycle(
+                            PaintCycle::DidUnmount(&children),
+                            &mut **state.lock().unwrap(),
+                            &mut context,
+                        );
+                    }
+
+                    let widget_pod = &**node;
                     let WidgetPod {
                         widget,
                         state,
                         children,
                         ..
                     } = widget_pod;
-                    widget.on_paint_cycle(
-                        PaintCycle::DidUnmount(&children),
+
+                    if let Some(old_widget_pod) =
+                        paint_state.mounted_pod.replace(widget_pod.clone())
+                    {
+                        widget.on_paint_cycle(
+                            PaintCycle::DidUpdate(
+                                &children,
+                                &*old_widget_pod.widget,
+                                &old_widget_pod.children,
+                            ),
+                            &mut **state.lock().unwrap(),
+                            &mut context,
+                        );
+                    } else {
+                        widget.on_paint_cycle(
+                            PaintCycle::DidMount(children),
+                            &mut **state.lock().unwrap(),
+                            &mut context,
+                        );
+                    }
+
+                    let absolute_rectangle = Rectangle {
+                        point: absolute_point + rectangle.point,
+                        size: rectangle.size,
+                    };
+
+                    paint_state.hint = widget.paint(
+                        &absolute_rectangle,
                         &mut **state.lock().unwrap(),
                         &mut context,
                     );
+
+                    paint_state.flags ^= PaintFlag::NeedsPaint;
                 }
 
-                let widget_pod = &**node;
-                let WidgetPod {
-                    widget,
-                    state,
-                    children,
-                    ..
-                } = widget_pod;
-                let paint_state = &mut self.paint_states[node_id];
-
-                if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
-                    widget.on_paint_cycle(
-                        PaintCycle::DidUpdate(
-                            &children,
-                            &*old_widget_pod.widget,
-                            &old_widget_pod.children,
-                        ),
-                        &mut **state.lock().unwrap(),
-                        &mut context,
-                    );
-                } else {
-                    widget.on_paint_cycle(
-                        PaintCycle::DidMount(children),
-                        &mut **state.lock().unwrap(),
-                        &mut context,
-                    );
-                }
-
-                let absolute_rectangle = Rectangle {
-                    point: absolute_point + rectangle.point,
-                    size: rectangle.size,
-                };
-
-                widget.paint(
-                    &absolute_rectangle,
-                    &mut **state.lock().unwrap(),
-                    &mut context,
-                );
-
-                paint_state.flags ^= PaintFlag::NeedsPaint;
+                paint_state.flags ^= PaintFlag::Dirty;
             }
         }
     }
@@ -268,17 +277,13 @@ impl<Handle> PaintTree<Handle> {
         }
     }
 
-    fn emit_changes(&mut self, target_id: NodeId) {
+    fn mark_parents_as_dirty(&mut self, target_id: NodeId) {
         for (parent_id, _) in self.tree.ancestors(target_id) {
             let paint_state = &mut self.paint_states[parent_id];
-            if paint_state
-                .flags
-                .intersects([PaintFlag::NeedsLayout, PaintFlag::NeedsPaint])
-            {
+            if paint_state.flags.contains(PaintFlag::Dirty) {
                 break;
             }
-            paint_state.flags |= PaintFlag::NeedsLayout;
-            paint_state.flags |= PaintFlag::NeedsPaint;
+            paint_state.flags |= PaintFlag::Dirty;
         }
     }
 }
@@ -299,6 +304,9 @@ impl<Handle> fmt::Display for PaintTree<Handle> {
                 write!(f, " y=\"{}\"", paint_state.rectangle.point.y)?;
                 write!(f, " width=\"{}\"", paint_state.rectangle.size.width)?;
                 write!(f, " height=\"{}\"", paint_state.rectangle.size.height)?;
+                if paint_state.flags.contains(PaintFlag::Dirty) {
+                    write!(f, " dirty")?;
+                }
                 if paint_state.flags.contains(PaintFlag::NeedsLayout) {
                     write!(f, " needs_layout")?;
                 }
@@ -313,18 +321,6 @@ impl<Handle> fmt::Display for PaintTree<Handle> {
     }
 }
 
-impl<Handle> PaintState<Handle> {
-    fn mark_as_dirty(&mut self) -> bool {
-        if self.hint == PaintHint::Always {
-            self.flags |= PaintFlag::NeedsLayout;
-            self.flags |= PaintFlag::NeedsPaint;
-            true
-        } else {
-            false
-        }
-    }
-}
-
 impl<Handle> Default for PaintState<Handle> {
     fn default() -> Self {
         Self {
@@ -332,7 +328,12 @@ impl<Handle> Default for PaintState<Handle> {
             mounted_pod: None,
             deleted_children: Vec::new(),
             hint: PaintHint::Always,
-            flags: [PaintFlag::NeedsLayout, PaintFlag::NeedsPaint].into(),
+            flags: [
+                PaintFlag::Dirty,
+                PaintFlag::NeedsLayout,
+                PaintFlag::NeedsPaint,
+            ]
+            .into(),
         }
     }
 }

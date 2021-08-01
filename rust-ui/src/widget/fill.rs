@@ -1,7 +1,7 @@
 use rust_ui_derive::WidgetMeta;
 
 use crate::geometrics::Rectangle;
-use crate::paint::{PaintContext, Painter};
+use crate::paint::{PaintContext, PaintHint, Painter};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -35,7 +35,8 @@ impl<Handle> Widget<Handle> for Fill {
         rectangle: &Rectangle,
         _state: &mut Self::State,
         context: &mut PaintContext<Handle>,
-    ) {
+    ) -> PaintHint {
         context.fill_rectangle(self.color, rectangle);
+        PaintHint::Always
     }
 }

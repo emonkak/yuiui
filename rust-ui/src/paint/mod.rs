@@ -17,7 +17,7 @@ pub enum PaintCycle<Widget, Children> {
     DidUnmount(Children),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum PaintHint {
     Always,
     Once,

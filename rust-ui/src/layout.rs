@@ -14,7 +14,7 @@ pub struct BoxConstraints {
 }
 
 impl BoxConstraints {
-    pub const NONE: Self = Self {
+    pub const ZERO: Self = Self {
         min: Size::ZERO,
         max: Size::ZERO,
     };
