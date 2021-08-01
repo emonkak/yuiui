@@ -8,14 +8,13 @@ use crate::event::{EventManager, EventType};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
-use crate::lifecycle::Lifecycle;
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 
-use super::{PaintContext, PaintHint, Painter};
+use super::{PaintContext, PaintCycle, PaintHint, Painter};
 
 #[derive(Debug)]
 pub struct PaintTree<Handle> {
@@ -209,7 +208,7 @@ impl<Handle> PaintTree<Handle> {
                         ..
                     } = widget_pod;
                     widget.on_paint_cycle(
-                        Lifecycle::OnUnmount(&children),
+                        PaintCycle::DidUnmount(&children),
                         &mut **state.lock().unwrap(),
                         &mut context,
                     );
@@ -226,7 +225,7 @@ impl<Handle> PaintTree<Handle> {
 
                 if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
                     widget.on_paint_cycle(
-                        Lifecycle::OnUpdate(
+                        PaintCycle::DidUpdate(
                             &children,
                             &*old_widget_pod.widget,
                             &old_widget_pod.children,
@@ -236,7 +235,7 @@ impl<Handle> PaintTree<Handle> {
                     );
                 } else {
                     widget.on_paint_cycle(
-                        Lifecycle::OnMount(children),
+                        PaintCycle::DidMount(children),
                         &mut **state.lock().unwrap(),
                         &mut context,
                     );

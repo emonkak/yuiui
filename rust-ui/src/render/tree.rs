@@ -1,7 +1,6 @@
 use std::any::TypeId;
 use std::fmt;
 
-use crate::lifecycle::Lifecycle;
 use crate::reconciler::{ReconcileResult, Reconciler};
 use crate::slot_vec::SlotVec;
 use crate::tree::{NodeId, Tree};
@@ -9,6 +8,8 @@ use crate::widget::element::{Children, Element, Key};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 use crate::widget::PolymophicWidget;
+
+use super::RenderCycle;
 
 #[derive(Debug)]
 pub struct RenderTree<Handle> {
@@ -155,7 +156,7 @@ impl<Handle> RenderTree<Handle> {
                 let (node, subtree) = self.tree.detach(target_id);
                 let widget_pod = node.into_inner();
                 widget_pod.widget.on_render_cycle(
-                    Lifecycle::OnUnmount(&widget_pod.children),
+                    RenderCycle::WillUnmount(&widget_pod.children),
                     &mut **widget_pod.state.lock().unwrap(),
                     target_id,
                 );
@@ -172,7 +173,7 @@ impl<Handle> RenderTree<Handle> {
         self.render_states
             .insert_at(node_id, RenderState::default());
         widget_pod.widget.on_render_cycle(
-            Lifecycle::OnMount(&widget_pod.children),
+            RenderCycle::WillMount(&widget_pod.children),
             &mut **widget_pod.state.lock().unwrap(),
             node_id,
         );
@@ -181,7 +182,7 @@ impl<Handle> RenderTree<Handle> {
     fn handle_update(&mut self, target_id: NodeId, new_element: &Element<Handle>) -> bool {
         let widget_pod = &mut self.tree[target_id];
         widget_pod.widget.on_render_cycle(
-            Lifecycle::OnUpdate(
+            RenderCycle::WillUpdate(
                 &widget_pod.children,
                 &*new_element.widget,
                 &new_element.children,

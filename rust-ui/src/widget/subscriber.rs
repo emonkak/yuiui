@@ -3,8 +3,7 @@ use std::mem;
 use std::sync::Arc;
 
 use crate::event::{EventHandler, HandlerId};
-use crate::lifecycle::Lifecycle;
-use crate::paint::PaintContext;
+use crate::paint::{PaintCycle, PaintContext};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -51,18 +50,18 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
     #[inline]
     fn on_paint_cycle(
         &self,
-        lifecycle: Lifecycle<&Self, &Children<Handle>>,
+        paint_cycle: PaintCycle<&Self, &Children<Handle>>,
         state: &mut Self::State,
         context: &mut PaintContext<Handle>,
     ) {
-        match lifecycle {
-            Lifecycle::OnMount(_children) => {
+        match paint_cycle {
+            PaintCycle::DidMount(_children) => {
                 for handler in self.handlers.iter() {
                     let handler_id = context.add_handler(Arc::clone(handler));
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::OnUpdate(_old_children, new_widget, _new_children) => {
+            PaintCycle::DidUpdate(_old_children, new_widget, _new_children) => {
                 let intersected_len = self.handlers.len().min(new_widget.handlers.len());
 
                 for index in 0..intersected_len {
@@ -88,7 +87,7 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            Lifecycle::OnUnmount(_children) => {
+            PaintCycle::DidUnmount(_children) => {
                 for handler_id in mem::take(&mut state.registered_handler_ids) {
                     context.remove_handler(handler_id);
                 }

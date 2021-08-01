@@ -10,6 +10,13 @@ pub struct PaintContext<'a, Handle> {
     painter: &'a mut dyn Painter<Handle>,
 }
 
+#[derive(Debug)]
+pub enum PaintCycle<Widget, Children> {
+    DidMount(Children),
+    DidUpdate(Children, Widget, Children),
+    DidUnmount(Children),
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum PaintHint {
     Always,
@@ -37,6 +44,29 @@ impl<'a, Handle> PaintContext<'a, Handle> {
         handler_id: HandlerId,
     ) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
         self.event_manager.remove(handler_id)
+    }
+}
+
+impl<Widget, Children> PaintCycle<Widget, Children> {
+    pub fn map<F, NewWidget>(self, f: F) -> PaintCycle<NewWidget, Children>
+    where
+        F: Fn(Widget) -> NewWidget,
+    {
+        match self {
+            PaintCycle::DidMount(children) => PaintCycle::DidMount(children),
+            PaintCycle::DidUpdate(children, new_widget, new_children) => {
+                PaintCycle::DidUpdate(children, f(new_widget), new_children)
+            }
+            PaintCycle::DidUnmount(children) => PaintCycle::DidUnmount(children),
+        }
+    }
+
+    pub fn without_params(&self) -> PaintCycle<(), ()> {
+        match self {
+            PaintCycle::DidMount(_) => PaintCycle::DidMount(()),
+            PaintCycle::DidUpdate(_, _, _) => PaintCycle::DidUpdate((), (), ()),
+            PaintCycle::DidUnmount(_) => PaintCycle::DidUnmount(()),
+        }
     }
 }
 

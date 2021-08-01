@@ -13,6 +13,13 @@ pub struct RenderContext<Widget: ?Sized, Handle, State> {
     _state: PhantomData<State>,
 }
 
+#[derive(Debug)]
+pub enum RenderCycle<Widget, Children> {
+    WillMount(Children),
+    WillUpdate(Children, Widget, Children),
+    WillUnmount(Children),
+}
+
 impl<Widget, Handle, State> RenderContext<Widget, Handle, State>
 where
     Widget: 'static,
@@ -36,5 +43,28 @@ where
         EventType: self::EventType + 'static,
     {
         WidgetHandler::new(event_type, self.node_id, callback)
+    }
+}
+
+impl<Widget, Children> RenderCycle<Widget, Children> {
+    pub fn map<F, NewWidget>(self, f: F) -> RenderCycle<NewWidget, Children>
+    where
+        F: Fn(Widget) -> NewWidget,
+    {
+        match self {
+            RenderCycle::WillMount(children) => RenderCycle::WillMount(children),
+            RenderCycle::WillUpdate(children, new_widget, new_children) => {
+                RenderCycle::WillUpdate(children, f(new_widget), new_children)
+            }
+            RenderCycle::WillUnmount(children) => RenderCycle::WillUnmount(children),
+        }
+    }
+
+    pub fn without_params(&self) -> RenderCycle<(), ()> {
+        match self {
+            RenderCycle::WillMount(_) => RenderCycle::WillMount(()),
+            RenderCycle::WillUpdate(_, _, _) => RenderCycle::WillUpdate((), (), ()),
+            RenderCycle::WillUnmount(_) => RenderCycle::WillUnmount(()),
+        }
     }
 }
