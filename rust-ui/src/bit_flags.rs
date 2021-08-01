@@ -3,12 +3,7 @@
 use std::array;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
-use std::ops::BitAnd;
-use std::ops::BitAndAssign;
-use std::ops::BitOr;
-use std::ops::BitOrAssign;
-use std::ops::BitXor;
-use std::ops::BitXorAssign;
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BitFlags<T> {
@@ -130,6 +125,25 @@ impl<T: Into<BitFlags<U>>, U> BitXorAssign<T> for BitFlags<U> {
     #[inline]
     fn bitxor_assign(&mut self, rhs: T) {
         self.flags ^= rhs.into().flags;
+    }
+}
+
+impl<T: Into<BitFlags<U>>, U> Sub<T> for BitFlags<U> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: T) -> Self::Output {
+        Self {
+            flags: self.flags & !rhs.into().flags,
+            _type: self._type,
+        }
+    }
+}
+
+impl<T: Into<BitFlags<U>>, U> SubAssign<T> for BitFlags<U> {
+    #[inline]
+    fn sub_assign(&mut self, rhs: T) {
+        self.flags &= !rhs.into().flags;
     }
 }
 
@@ -260,13 +274,9 @@ mod tests {
 
     #[test]
     fn test_bit_or() {
-        let mut buttons = BitFlags::new();
-        buttons = buttons | Button::Left;
-        assert_eq!(buttons, [Button::Left].into());
-
-        let mut buttons = BitFlags::new();
-        buttons = buttons | BitFlags::from(Button::Left);
-        assert_eq!(buttons, [Button::Left].into());
+        let buttons = BitFlags::new();
+        assert_eq!(buttons | Button::Left, [Button::Left].into());
+        assert_eq!(buttons | Button::Left | Button::Right, [Button::Left, Button::Right].into());
     }
 
     #[test]
@@ -276,19 +286,17 @@ mod tests {
         assert_eq!(buttons, [Button::Left].into());
 
         let mut buttons = BitFlags::new();
-        buttons |= BitFlags::from(Button::Left);
-        assert_eq!(buttons, [Button::Left].into());
+        buttons |= Button::Left;
+        buttons |= Button::Right;
+        assert_eq!(buttons, [Button::Left, Button::Right].into());
     }
 
     #[test]
     fn test_bit_and() {
-        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
-        buttons = buttons & Button::Left;
-        assert_eq!(buttons, [Button::Left].into());
-
-        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
-        buttons = buttons & BitFlags::from(Button::Left);
-        assert_eq!(buttons, [Button::Left].into());
+        let buttons = BitFlags::from([Button::Left, Button::Right]);
+        assert_eq!(buttons & Button::Left, [Button::Left].into());
+        assert_eq!(buttons & Button::Right, [Button::Right].into());
+        assert_eq!(buttons & Button::Middle, [].into());
     }
 
     #[test]
@@ -298,29 +306,57 @@ mod tests {
         assert_eq!(buttons, [Button::Left].into());
 
         let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
-        buttons &= BitFlags::from(Button::Left);
-        assert_eq!(buttons, [Button::Left].into());
+        buttons &= Button::Right;
+        assert_eq!(buttons, [Button::Right].into());
+
+        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
+        buttons &= Button::Middle;
+        assert_eq!(buttons, [Button::Middle].into());
     }
 
     #[test]
     fn test_bit_xor() {
-        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
-        buttons = buttons ^ Button::Left;
-        assert_eq!(buttons, [Button::Right, Button::Middle].into());
-
-        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
-        buttons = buttons ^ BitFlags::from(Button::Left);
-        assert_eq!(buttons, [Button::Right, Button::Middle].into());
+        let buttons = BitFlags::from([Button::Left, Button::Right]);
+        assert_eq!(buttons ^ Button::Left, [Button::Right].into());
+        assert_eq!(buttons ^ Button::Right, [Button::Left].into());
+        assert_eq!(buttons ^ Button::Middle, [Button::Left, Button::Right, Button::Middle].into());
     }
 
     #[test]
     fn test_bit_xor_assign() {
-        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
+        let mut buttons = BitFlags::from([Button::Left, Button::Right]);
         buttons ^= Button::Left;
-        assert_eq!(buttons, [Button::Right, Button::Middle].into());
+        assert_eq!(buttons, [Button::Right].into());
 
-        let mut buttons = BitFlags::from([Button::Left, Button::Right, Button::Middle]);
-        buttons ^= BitFlags::from(Button::Left);
-        assert_eq!(buttons, [Button::Right, Button::Middle].into());
+        let mut buttons = BitFlags::from([Button::Left, Button::Right]);
+        buttons ^= Button::Right;
+        assert_eq!(buttons, [Button::Left].into());
+
+        let mut buttons = BitFlags::from([Button::Left, Button::Right]);
+        buttons ^= Button::Middle;
+        assert_eq!(buttons, [Button::Left, Button::Right, Button::Middle].into());
+    }
+
+    #[test]
+    fn test_sub() {
+        let buttons = BitFlags::from([Button::Left, Button::Right]);
+        assert_eq!(buttons - Button::Left, [Button::Right].into());
+        assert_eq!(buttons - Button::Right, [Button::Left].into());
+        assert_eq!(buttons - Button::Middle, [Button::Left, Button::Right].into());
+    }
+
+    #[test]
+    fn test_sub_assign() {
+        let mut buttons = BitFlags::from([Button::Left, Button::Right]);
+        buttons -= Button::Left;
+        assert_eq!(buttons, [Button::Right].into());
+
+        let mut buttons = BitFlags::from([Button::Left, Button::Right]);
+        buttons -= Button::Right;
+        assert_eq!(buttons, [Button::Left].into());
+
+        let mut buttons = BitFlags::from([Button::Left, Button::Right]);
+        buttons -= Button::Middle;
+        assert_eq!(buttons, [Button::Left, Button::Right].into());
     }
 }

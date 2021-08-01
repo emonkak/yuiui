@@ -177,7 +177,7 @@ impl<Handle> PaintTree<Handle> {
                 GeneratorState::Complete(size) => {
                     let mut paint_state = &mut self.paint_states[current_id];
                     paint_state.box_constraints = current_box_constraints;
-                    paint_state.flags ^= PaintFlag::NeedsLayout;
+                    paint_state.flags -= PaintFlag::NeedsLayout;
 
                     let size_changed = paint_state.rectangle.size != size;
                     if size_changed {
@@ -286,10 +286,10 @@ impl<Handle> PaintTree<Handle> {
                         &mut context,
                     );
 
-                    paint_state.flags ^= PaintFlag::NeedsPaint;
+                    paint_state.flags -= PaintFlag::NeedsPaint;
                 }
 
-                paint_state.flags ^= PaintFlag::Dirty;
+                paint_state.flags -= PaintFlag::Dirty;
             }
         }
     }
