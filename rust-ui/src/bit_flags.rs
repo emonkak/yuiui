@@ -58,7 +58,7 @@ impl<T: Into<usize>, const N: usize> From<[T; N]> for BitFlags<T> {
     fn from(values: [T; N]) -> Self {
         Self {
             flags: array::IntoIter::new(values)
-                .fold(0 as usize, |flags, value| flags | value.into() as usize),
+                .fold(0 as usize, |flags, value| flags | value.into()),
             _type: PhantomData,
         }
     }
@@ -70,123 +70,66 @@ impl<T: Into<usize>> FromIterator<T> for BitFlags<T> {
         Self {
             flags: values
                 .into_iter()
-                .fold(0 as usize, |flags, value| flags | value.into() as usize),
+                .fold(0 as usize, |flags, value| flags | value.into()),
             _type: PhantomData,
         }
     }
 }
 
-impl<T: Into<usize>> BitAnd<T> for BitFlags<T> {
+impl<T: Into<BitFlags<U>>, U> BitAnd<T> for BitFlags<U> {
     type Output = Self;
 
     #[inline]
     fn bitand(self, rhs: T) -> Self::Output {
         Self {
-            flags: self.flags & rhs.into(),
+            flags: self.flags & rhs.into().flags,
             _type: self._type,
         }
     }
 }
 
-impl<T: Into<usize>> BitAndAssign<T> for BitFlags<T> {
+impl<T: Into<BitFlags<U>>, U> BitAndAssign<T> for BitFlags<U> {
     #[inline]
     fn bitand_assign(&mut self, rhs: T) {
-        self.flags &= rhs.into();
+        self.flags &= rhs.into().flags;
     }
 }
 
-impl<T: Into<usize>> BitOr<T> for BitFlags<T> {
+impl<T: Into<BitFlags<U>>, U> BitOr<T> for BitFlags<U> {
     type Output = Self;
 
     #[inline]
     fn bitor(self, rhs: T) -> Self::Output {
         Self {
-            flags: self.flags | rhs.into(),
+            flags: self.flags | rhs.into().flags,
             _type: self._type,
         }
     }
 }
 
-impl<T: Into<usize>> BitOrAssign<T> for BitFlags<T> {
+impl<T: Into<BitFlags<U>>, U> BitOrAssign<T> for BitFlags<U> {
     #[inline]
     fn bitor_assign(&mut self, rhs: T) {
-        self.flags |= rhs.into();
+        self.flags |= rhs.into().flags;
     }
 }
 
-impl<T: Into<usize>> BitXor<T> for BitFlags<T> {
+impl<T: Into<BitFlags<U>>, U> BitXor<T> for BitFlags<U> {
     type Output = Self;
 
     #[inline]
     fn bitxor(self, rhs: T) -> Self::Output {
         Self {
-            flags: self.flags ^ rhs.into(),
+            flags: self.flags ^ rhs.into().flags,
             _type: self._type,
         }
     }
 }
 
-impl<T: Into<usize>> BitXorAssign<T> for BitFlags<T> {
+impl<T: Into<BitFlags<U>>, U> BitXorAssign<T> for BitFlags<U> {
     #[inline]
     fn bitxor_assign(&mut self, rhs: T) {
-        self.flags ^= rhs.into();
-    }
-}
-
-impl<T> BitAnd<BitFlags<T>> for BitFlags<T> {
-    type Output = Self;
-
-    #[inline]
-    fn bitand(self, rhs: BitFlags<T>) -> Self::Output {
-        Self {
-            flags: self.flags & rhs.flags,
-            _type: self._type,
-        }
-    }
-}
-
-impl<T> BitAndAssign<BitFlags<T>> for BitFlags<T> {
-    #[inline]
-    fn bitand_assign(&mut self, rhs: BitFlags<T>) {
-        self.flags &= rhs.flags;
-    }
-}
-
-impl<T> BitOr<BitFlags<T>> for BitFlags<T> {
-    type Output = Self;
-
-    #[inline]
-    fn bitor(self, rhs: BitFlags<T>) -> Self::Output {
-        Self {
-            flags: self.flags | rhs.flags,
-            _type: self._type,
-        }
-    }
-}
-
-impl<T> BitOrAssign<BitFlags<T>> for BitFlags<T> {
-    #[inline]
-    fn bitor_assign(&mut self, rhs: BitFlags<T>) {
-        self.flags |= rhs.flags;
-    }
-}
-
-impl<T> BitXor<BitFlags<T>> for BitFlags<T> {
-    type Output = Self;
-
-    #[inline]
-    fn bitxor(self, rhs: BitFlags<T>) -> Self::Output {
-        Self {
-            flags: self.flags ^ rhs.flags,
-            _type: self._type,
-        }
-    }
-}
-
-impl<T> BitXorAssign<BitFlags<T>> for BitFlags<T> {
-    #[inline]
-    fn bitxor_assign(&mut self, rhs: BitFlags<T>) {
-        self.flags ^= rhs.flags;
+        self.flags ^= rhs.into().flags;
     }
 }
 
