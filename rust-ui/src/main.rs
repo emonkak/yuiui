@@ -16,6 +16,7 @@ use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{Point, Rectangle, Size};
 use rust_ui::paint::tree::PaintTree;
 use rust_ui::paint::Painter;
+use rust_ui::platform::x11::error_handler;
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPainter;
 use rust_ui::platform::x11::window::{self, XWindowHandle};
@@ -135,6 +136,10 @@ unsafe fn notify_update(
 }
 
 fn main() {
+    unsafe {
+        error_handler::install();
+    };
+
     let display = unsafe { xlib::XOpenDisplay(ptr::null()) };
     if display.is_null() {
         panic!(
