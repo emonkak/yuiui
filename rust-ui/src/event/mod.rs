@@ -26,6 +26,16 @@ pub type HandlerId = usize;
 
 pub trait EventType: Send + Sync {
     type Event;
+
+    fn of(event: impl Into<Self::Event>) -> GenericEvent
+    where
+        Self: 'static,
+    {
+        GenericEvent {
+            type_id: TypeId::of::<Self>(),
+            payload: Box::new(event.into()),
+        }
+    }
 }
 
 pub trait EventHandler<Painter>: Send + Sync {
@@ -77,18 +87,6 @@ impl<Painter> EventManager<Painter> {
             handler_ids.swap_remove(index);
         }
         handler
-    }
-}
-
-impl GenericEvent {
-    pub fn new<T>(event: T::Event) -> Self
-    where
-        T: EventType + 'static,
-    {
-        Self {
-            type_id: TypeId::of::<T>(),
-            payload: Box::new(event),
-        }
     }
 }
 

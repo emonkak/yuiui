@@ -1,5 +1,4 @@
 use std::ptr;
-
 use x11::xlib;
 
 use crate::geometrics::{Rectangle, WindowSize};

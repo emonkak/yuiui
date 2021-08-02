@@ -5,7 +5,7 @@ use std::sync::mpsc::Sender;
 use crate::bit_flags::BitFlags;
 use crate::event::{EventManager, GenericEvent};
 use crate::generator::GeneratorState;
-use crate::geometrics::{Point, Rectangle, Size};
+use crate::geometrics::{Point, Rectangle, Size, WindowSize};
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
@@ -21,12 +21,12 @@ pub struct PaintTree<Painter> {
     root_id: NodeId,
     paint_states: SlotVec<PaintState<Painter>>,
     event_manager: EventManager<Painter>,
-    update_notifier: Sender<NodeId>,
 }
 
 #[derive(Debug)]
 pub struct PaintState<Painter> {
     rectangle: Rectangle,
+    absolute_point: Point,
     box_constraints: BoxConstraints,
     mounted_pod: Option<WidgetPod<Painter>>,
     deleted_children: Vec<WidgetPod<Painter>>,
@@ -43,19 +43,21 @@ pub enum PaintFlag {
 }
 
 impl<Painter> PaintTree<Painter> {
-    pub fn new(update_notifier: Sender<NodeId>) -> Self {
+    pub fn new(window_size: WindowSize) -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
 
+        let mut paint_state = PaintState::default();
+        paint_state.box_constraints = BoxConstraints::tight((&window_size).into());
+
         let mut paint_states = SlotVec::new();
-        paint_states.insert_at(root_id, PaintState::default());
+        paint_states.insert_at(root_id, paint_state);
 
         Self {
             tree,
             root_id,
             paint_states,
             event_manager: EventManager::new(),
-            update_notifier,
         }
     }
 
@@ -105,24 +107,21 @@ impl<Painter> PaintTree<Painter> {
         }
     }
 
-    pub fn layout(&mut self, viewport: Size, painter: &mut Painter) {
-        self.do_layout(self.root_id, BoxConstraints::tight(viewport), painter);
+    pub fn layout_root(&mut self, window_size: WindowSize, painter: &mut Painter) {
+        self.do_layout(
+            self.root_id,
+            BoxConstraints::tight((&window_size).into()),
+            painter,
+        );
     }
 
-    pub fn layout_subtree(&mut self, target_id: NodeId, viewport: Size, painter: &mut Painter) {
+    pub fn layout_subtree(&mut self, target_id: NodeId, painter: &mut Painter) {
         let mut current_id = target_id;
-        let mut box_constraints = if target_id == self.root_id {
-            BoxConstraints::tight(viewport)
-        } else {
-            self.paint_states[target_id].box_constraints
-        };
+        let mut box_constraints = self.paint_states[target_id].box_constraints;
+
         while let Some(parent_id) = self.do_layout(current_id, box_constraints, painter) {
             current_id = parent_id;
-            box_constraints = if parent_id == self.root_id {
-                BoxConstraints::tight(viewport)
-            } else {
-                self.paint_states[parent_id].box_constraints
-            };
+            box_constraints = self.paint_states[parent_id].box_constraints;
         }
     }
 
@@ -294,15 +293,15 @@ impl<Painter> PaintTree<Painter> {
                     painter,
                     &mut context,
                 );
-
+                paint_state.absolute_point = absolute_point;
                 paint_state.flags -= PaintFlag::NeedsPaint;
             }
         }
     }
 
-    pub fn dispatch(&self, event: &GenericEvent) {
+    pub fn dispatch(&self, event: &GenericEvent, update_notifier: &Sender<NodeId>) {
         for handler in self.event_manager.get(&event.type_id) {
-            handler.dispatch(&self.tree, &event.payload, &self.update_notifier)
+            handler.dispatch(&self.tree, &event.payload, update_notifier)
         }
     }
 
@@ -358,6 +357,7 @@ impl<Painter> Default for PaintState<Painter> {
     fn default() -> Self {
         Self {
             rectangle: Rectangle::ZERO,
+            absolute_point: Point::ZERO,
             box_constraints: BoxConstraints::LOOSE,
             mounted_pod: None,
             deleted_children: Vec::new(),

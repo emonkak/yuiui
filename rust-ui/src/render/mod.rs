@@ -1,6 +1,7 @@
 pub mod reconciler;
 pub mod tree;
 
+use std::any::TypeId;
 use std::marker::PhantomData;
 
 use crate::event::handler::{EventContext, WidgetHandler};
@@ -37,13 +38,12 @@ where
 
     pub fn use_handler<EventType>(
         &self,
-        event_type: EventType,
         callback: fn(&Widget, &EventType::Event, &mut State, &mut EventContext),
-    ) -> WidgetHandler<EventType, EventType::Event, Widget, State>
+    ) -> WidgetHandler<EventType::Event, Widget, State>
     where
         EventType: self::EventType + 'static,
     {
-        WidgetHandler::new(event_type, self.node_id, callback)
+        WidgetHandler::new(TypeId::of::<EventType>(), self.node_id, callback)
     }
 }
 

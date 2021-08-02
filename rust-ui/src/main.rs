@@ -10,7 +10,6 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::geometrics::WindowSize;
 use rust_ui::platform::backend::Backend;
 use rust_ui::platform::paint::GeneralPainter;
 use rust_ui::platform::x11::backend::XBackend;
@@ -44,7 +43,7 @@ impl<Painter: GeneralPainter + 'static> Widget<Painter> for App {
         context: &mut RenderContext<Self, Painter, Self::State>,
     ) -> Children<Painter> {
         element!(
-            Subscriber::new().on(context.use_handler(MouseDown, Self::on_click)) => {
+            Subscriber::new().on(context.use_handler::<MouseDown>(Self::on_click)) => {
                 Padding::uniform(32.0) => {
                     Flex::row() => {
                         if *state {
@@ -81,11 +80,7 @@ fn main() {
         );
     }
 
-    let window_size = WindowSize {
-        width: 640,
-        height: 480,
-    };
-    let window = unsafe { window::create_window(display, window_size.width, window_size.height) };
+    let window = unsafe { window::create_window(display, 640, 480) };
 
     unsafe {
         xlib::XSelectInput(
@@ -102,5 +97,5 @@ fn main() {
 
     let mut backend = XBackend::new(display, window);
 
-    backend.run(window_size, element!(App));
+    backend.run(element!(App));
 }

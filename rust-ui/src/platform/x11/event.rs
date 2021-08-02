@@ -1,5 +1,4 @@
 use std::os::raw::*;
-
 use x11::xlib;
 
 use crate::bit_flags::BitFlags;
@@ -87,8 +86,8 @@ impl From<&xlib::XEvent> for XEvent {
     }
 }
 
-impl From<&xlib::XButtonEvent> for MouseEvent {
-    fn from(event: &xlib::XButtonEvent) -> Self {
+impl From<xlib::XButtonEvent> for MouseEvent {
+    fn from(event: xlib::XButtonEvent) -> Self {
         Self {
             point: Point {
                 x: event.x as _,

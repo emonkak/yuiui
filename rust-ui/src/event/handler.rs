@@ -4,10 +4,10 @@ use std::sync::mpsc::Sender;
 use crate::tree::NodeId;
 use crate::widget::tree::{WidgetPod, WidgetTree};
 
-use super::{EventHandler, EventType};
+use super::EventHandler;
 
-pub struct WidgetHandler<EventType, Event, Widget, State> {
-    _event_type: EventType,
+pub struct WidgetHandler<Event, Widget, State> {
+    type_id: TypeId,
     node_id: NodeId,
     callback: fn(&Widget, &Event, &mut State, &mut EventContext),
 }
@@ -17,30 +17,29 @@ pub struct EventContext<'a> {
     update_notifier: &'a Sender<NodeId>,
 }
 
-impl<EventType, Widget, State> WidgetHandler<EventType, EventType::Event, Widget, State>
+impl<Event, Widget, State> WidgetHandler<Event, Widget, State>
 where
-    EventType: self::EventType + 'static,
+    Event: 'static,
     Widget: 'static,
     State: 'static,
 {
     pub fn new(
-        event_type: EventType,
+        type_id: TypeId,
         node_id: NodeId,
-        callback: fn(&Widget, &EventType::Event, &mut State, &mut EventContext),
+        callback: fn(&Widget, &Event, &mut State, &mut EventContext),
     ) -> Self {
         Self {
-            _event_type: event_type,
+            type_id,
             node_id,
             callback,
         }
     }
 }
 
-impl<EventType, Widget, Painter, State> EventHandler<Painter>
-    for WidgetHandler<EventType, EventType::Event, Widget, State>
+impl<Event, Widget, Painter, State> EventHandler<Painter> for WidgetHandler<Event, Widget, State>
 where
+    Event: 'static,
     Widget: 'static,
-    EventType: self::EventType + 'static,
     State: 'static,
 {
     fn dispatch(
@@ -52,7 +51,7 @@ where
         let WidgetPod { widget, state, .. } = &*tree[self.node_id];
         (self.callback)(
             widget.as_any().downcast_ref::<Widget>().unwrap(),
-            event.downcast_ref::<EventType::Event>().unwrap(),
+            event.downcast_ref::<Event>().unwrap(),
             state.lock().unwrap().downcast_mut::<State>().unwrap(),
             &mut EventContext {
                 node_id: self.node_id,
@@ -62,58 +61,7 @@ where
     }
 
     fn subscribed_type(&self) -> TypeId {
-        TypeId::of::<EventType>()
-    }
-
-    fn as_ptr(&self) -> *const () {
-        self.callback as *const ()
-    }
-}
-
-pub struct GlobalHandler<EventType, Event> {
-    _event_type: EventType,
-    root_id: NodeId,
-    callback: fn(&Event, &mut EventContext),
-}
-
-impl<EventType> GlobalHandler<EventType, EventType::Event>
-where
-    EventType: self::EventType + 'static,
-{
-    pub fn new(
-        event_type: EventType,
-        root_id: NodeId,
-        callback: fn(&EventType::Event, &mut EventContext),
-    ) -> Self {
-        Self {
-            _event_type: event_type,
-            root_id,
-            callback,
-        }
-    }
-}
-
-impl<EventType, Painter> EventHandler<Painter> for GlobalHandler<EventType, EventType::Event>
-where
-    EventType: self::EventType + 'static,
-{
-    fn dispatch(
-        &self,
-        _tree: &WidgetTree<Painter>,
-        event: &Box<dyn Any>,
-        update_notifier: &Sender<NodeId>,
-    ) {
-        (self.callback)(
-            event.downcast_ref::<EventType::Event>().unwrap(),
-            &mut EventContext {
-                node_id: self.root_id,
-                update_notifier,
-            },
-        )
-    }
-
-    fn subscribed_type(&self) -> TypeId {
-        TypeId::of::<EventType>()
+        self.type_id
     }
 
     fn as_ptr(&self) -> *const () {
