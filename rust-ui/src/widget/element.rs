@@ -5,33 +5,33 @@ use std::sync::Arc;
 use super::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
-pub struct Element<Handle> {
-    pub widget: BoxedWidget<Handle>,
-    pub children: Children<Handle>,
+pub struct Element<Painter> {
+    pub widget: BoxedWidget<Painter>,
+    pub children: Children<Painter>,
     pub key: Option<Key>,
 }
 
 #[derive(Debug)]
-pub enum Child<Handle> {
-    Multiple(Vec<Element<Handle>>),
-    Single(Element<Handle>),
+pub enum Child<Painter> {
+    Multiple(Vec<Element<Painter>>),
+    Single(Element<Painter>),
     None,
 }
 
-pub type BoxedWidget<Handle> = Arc<dyn PolymophicWidget<Handle>>;
+pub type BoxedWidget<Painter> = Arc<dyn PolymophicWidget<Painter>>;
 
-pub type Children<Handle> = Arc<Vec<Element<Handle>>>;
+pub type Children<Painter> = Arc<Vec<Element<Painter>>>;
 
 pub type Key = usize;
 
-pub trait IntoElement<Handle> {
-    fn into_element(self, children: Children<Handle>) -> Element<Handle>;
+pub trait IntoElement<Painter> {
+    fn into_element(self, children: Children<Painter>) -> Element<Painter>;
 }
 
-impl<Handle> Element<Handle> {
+impl<Painter> Element<Painter> {
     pub fn build<const N: usize>(
-        widget: impl IntoElement<Handle> + 'static,
-        children: [Child<Handle>; N],
+        widget: impl IntoElement<Painter> + 'static,
+        children: [Child<Painter>; N],
     ) -> Self {
         let mut flatten_children = Vec::with_capacity(N);
 
@@ -51,7 +51,7 @@ impl<Handle> Element<Handle> {
     }
 }
 
-impl<Handle> Clone for Element<Handle> {
+impl<Painter> Clone for Element<Painter> {
     fn clone(&self) -> Self {
         Self {
             widget: Arc::clone(&self.widget),
@@ -61,10 +61,10 @@ impl<Handle> Clone for Element<Handle> {
     }
 }
 
-impl<Handle> fmt::Display for Element<Handle> {
+impl<Painter> fmt::Display for Element<Painter> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn fmt_rec<Handle>(
-            this: &Element<Handle>,
+        fn fmt_rec<Painter>(
+            this: &Element<Painter>,
             f: &mut fmt::Formatter<'_>,
             level: usize,
         ) -> fmt::Result {
@@ -86,20 +86,20 @@ impl<Handle> fmt::Display for Element<Handle> {
     }
 }
 
-impl<Handle> From<Element<Handle>> for Children<Handle> {
-    fn from(element: Element<Handle>) -> Self {
+impl<Painter> From<Element<Painter>> for Children<Painter> {
+    fn from(element: Element<Painter>) -> Self {
         Arc::new(vec![element])
     }
 }
 
-impl<Handle> From<Vec<Element<Handle>>> for Child<Handle> {
-    fn from(elements: Vec<Element<Handle>>) -> Self {
+impl<Painter> From<Vec<Element<Painter>>> for Child<Painter> {
+    fn from(elements: Vec<Element<Painter>>) -> Self {
         Child::Multiple(elements)
     }
 }
 
-impl<Handle> From<Option<Element<Handle>>> for Child<Handle> {
-    fn from(element: Option<Element<Handle>>) -> Self {
+impl<Painter> From<Option<Element<Painter>>> for Child<Painter> {
+    fn from(element: Option<Element<Painter>>) -> Self {
         match element {
             Some(element) => Child::Single(element),
             None => Child::None,
@@ -107,15 +107,15 @@ impl<Handle> From<Option<Element<Handle>>> for Child<Handle> {
     }
 }
 
-impl<Handle> From<Element<Handle>> for Child<Handle> {
-    fn from(element: Element<Handle>) -> Self {
+impl<Painter> From<Element<Painter>> for Child<Painter> {
+    fn from(element: Element<Painter>) -> Self {
         Child::Single(element)
     }
 }
 
-impl<Handle, Widget> From<Widget> for Child<Handle>
+impl<Painter, Widget> From<Widget> for Child<Painter>
 where
-    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget: self::Widget<Painter> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     fn from(widget: Widget) -> Self {

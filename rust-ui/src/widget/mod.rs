@@ -20,15 +20,15 @@ use crate::tree::NodeId;
 use self::element::{Children, Element, IntoElement, Key};
 use self::tree::WidgetTree;
 
-pub trait Widget<Handle>: Send + Sync + WidgetMeta {
+pub trait Widget<Painter>: Send + Sync + WidgetMeta {
     type State: Default + Send + Sync;
 
     #[inline]
     fn should_update(
         &self,
         _new_widget: &Self,
-        _old_children: &Children<Handle>,
-        _new_children: &Children<Handle>,
+        _old_children: &Children<Painter>,
+        _new_children: &Children<Painter>,
         _state: &Self::State,
     ) -> bool {
         true
@@ -37,28 +37,29 @@ pub trait Widget<Handle>: Send + Sync + WidgetMeta {
     #[inline]
     fn on_render_cycle(
         &self,
-        _render_cycle: RenderCycle<&Self, &Children<Handle>>,
+        _render_cycle: RenderCycle<&Self, &Children<Painter>>,
         _state: &mut Self::State,
-        _context: &mut RenderContext<Self, Handle, Self::State>,
+        _context: &mut RenderContext<Self, Painter, Self::State>,
     ) {
     }
 
     #[inline]
     fn on_paint_cycle(
         &self,
-        _paint_cycle: PaintCycle<&Self, &Children<Handle>>,
+        _paint_cycle: PaintCycle<&Self, &Children<Painter>>,
         _state: &mut Self::State,
-        _context: &mut PaintContext<Handle>,
+        _painter: &mut Painter,
+        _context: &mut PaintContext<Painter>,
     ) {
     }
 
     #[inline]
     fn render(
         &self,
-        children: Children<Handle>,
+        children: Children<Painter>,
         _state: &Self::State,
-        _context: &mut RenderContext<Self, Handle, Self::State>,
-    ) -> Children<Handle> {
+        _context: &mut RenderContext<Self, Painter, Self::State>,
+    ) -> Children<Painter> {
         children
     }
 
@@ -67,8 +68,9 @@ pub trait Widget<Handle>: Send + Sync + WidgetMeta {
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Handle>,
+        tree: &'a WidgetTree<Painter>,
         _state: &mut Self::State,
+        _painter: &mut Painter,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = tree[node_id].first_child() {
@@ -85,57 +87,61 @@ pub trait Widget<Handle>: Send + Sync + WidgetMeta {
         &self,
         _rectangle: &Rectangle,
         _state: &mut Self::State,
-        _context: &mut PaintContext<Handle>,
+        _painter: &mut Painter,
+        _context: &mut PaintContext<Painter>,
     ) -> PaintHint {
         PaintHint::Once
     }
 }
 
-pub trait PolymophicWidget<Handle>: Send + Sync + WidgetMeta {
+pub trait PolymophicWidget<Painter>: Send + Sync + WidgetMeta {
     fn initial_state(&self) -> Box<dyn Any + Send + Sync>;
 
     fn should_update(
         &self,
-        new_widget: &dyn PolymophicWidget<Handle>,
-        old_children: &Children<Handle>,
-        new_children: &Children<Handle>,
+        new_widget: &dyn PolymophicWidget<Painter>,
+        old_children: &Children<Painter>,
+        new_children: &Children<Painter>,
         state: &dyn Any,
     ) -> bool;
 
     fn on_render_cycle(
         &self,
-        render_cycle: RenderCycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
+        render_cycle: RenderCycle<&dyn PolymophicWidget<Painter>, &Children<Painter>>,
         state: &mut dyn Any,
         node_id: NodeId,
     );
 
     fn on_paint_cycle(
         &self,
-        paint_cycle: PaintCycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
+        paint_cycle: PaintCycle<&dyn PolymophicWidget<Painter>, &Children<Painter>>,
         state: &mut dyn Any,
-        context: &mut PaintContext<Handle>,
+        painter: &mut Painter,
+        context: &mut PaintContext<Painter>,
     );
 
     fn render(
         &self,
-        children: Children<Handle>,
+        children: Children<Painter>,
         state: &dyn Any,
         node_id: NodeId,
-    ) -> Children<Handle>;
+    ) -> Children<Painter>;
 
     fn layout<'a>(
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Handle>,
+        tree: &'a WidgetTree<Painter>,
         state: &mut dyn Any,
+        painter: &mut Painter,
     ) -> Generator<LayoutRequest, Size, Size>;
 
     fn paint(
         &self,
         rectangle: &Rectangle,
         state: &mut dyn Any,
-        context: &mut PaintContext<Handle>,
+        painter: &mut Painter,
+        context: &mut PaintContext<Painter>,
     ) -> PaintHint;
 }
 
@@ -161,15 +167,15 @@ pub struct WithKey<Inner> {
     key: Key,
 }
 
-impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> {
+impl<Painter> fmt::Debug for dyn PolymophicWidget<Painter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {{ .. }}", self.name())
     }
 }
 
-impl<Widget, Handle> PolymophicWidget<Handle> for Widget
+impl<Widget, Painter> PolymophicWidget<Painter> for Widget
 where
-    Widget: self::Widget<Handle> + 'static,
+    Widget: self::Widget<Painter> + 'static,
     Widget::State: 'static,
 {
     #[inline]
@@ -181,9 +187,9 @@ where
     #[inline]
     fn should_update(
         &self,
-        new_widget: &dyn PolymophicWidget<Handle>,
-        old_children: &Children<Handle>,
-        new_children: &Children<Handle>,
+        new_widget: &dyn PolymophicWidget<Painter>,
+        old_children: &Children<Painter>,
+        new_children: &Children<Painter>,
         state: &dyn Any,
     ) -> bool {
         self.should_update(
@@ -197,7 +203,7 @@ where
     #[inline]
     fn on_render_cycle(
         &self,
-        render_cycle: RenderCycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
+        render_cycle: RenderCycle<&dyn PolymophicWidget<Painter>, &Children<Painter>>,
         state: &mut dyn Any,
         node_id: NodeId,
     ) {
@@ -211,13 +217,15 @@ where
     #[inline]
     fn on_paint_cycle(
         &self,
-        paint_cycle: PaintCycle<&dyn PolymophicWidget<Handle>, &Children<Handle>>,
+        paint_cycle: PaintCycle<&dyn PolymophicWidget<Painter>, &Children<Painter>>,
         state: &mut dyn Any,
-        context: &mut PaintContext<Handle>,
+        painter: &mut Painter,
+        context: &mut PaintContext<Painter>,
     ) {
         self.on_paint_cycle(
             paint_cycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),
+            painter,
             context,
         );
     }
@@ -225,10 +233,10 @@ where
     #[inline]
     fn render(
         &self,
-        children: Children<Handle>,
+        children: Children<Painter>,
         state: &dyn Any,
         node_id: NodeId,
-    ) -> Children<Handle> {
+    ) -> Children<Painter> {
         self.render(
             children,
             state.downcast_ref().unwrap(),
@@ -241,14 +249,16 @@ where
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Handle>,
+        tree: &'a WidgetTree<Painter>,
         state: &mut dyn Any,
+        painter: &mut Painter,
     ) -> Generator<LayoutRequest, Size, Size> {
         self.layout(
             node_id,
             box_constraints,
             tree,
             state.downcast_mut().unwrap(),
+            painter,
         )
     }
 
@@ -257,19 +267,20 @@ where
         &self,
         rectangle: &Rectangle,
         state: &mut dyn Any,
-        context: &mut PaintContext<Handle>,
+        painter: &mut Painter,
+        context: &mut PaintContext<Painter>,
     ) -> PaintHint {
-        self.paint(rectangle, state.downcast_mut().unwrap(), context)
+        self.paint(rectangle, state.downcast_mut().unwrap(), painter, context)
     }
 }
 
-impl<Widget, Handle> IntoElement<Handle> for Widget
+impl<Widget, Painter> IntoElement<Painter> for Widget
 where
-    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget: self::Widget<Painter> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     #[inline]
-    fn into_element(self, children: Children<Handle>) -> Element<Handle>
+    fn into_element(self, children: Children<Painter>) -> Element<Painter>
     where
         Self: Sized,
     {
@@ -281,13 +292,13 @@ where
     }
 }
 
-impl<Widget, Handle> IntoElement<Handle> for WithKey<Widget>
+impl<Widget, Painter> IntoElement<Painter> for WithKey<Widget>
 where
-    Widget: self::Widget<Handle> + WidgetMeta + 'static,
+    Widget: self::Widget<Painter> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     #[inline]
-    fn into_element(self, children: Children<Handle>) -> Element<Handle> {
+    fn into_element(self, children: Children<Painter>) -> Element<Painter> {
         Element {
             widget: Arc::new(self.inner),
             children,

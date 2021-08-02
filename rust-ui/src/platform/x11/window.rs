@@ -1,62 +1,10 @@
 use std::mem;
 use x11::xlib;
 
-use crate::geometrics::{Point, Rectangle, Size};
-use crate::platform::WindowHandle;
-
-#[derive(Clone, Debug)]
-pub struct XWindowHandle {
-    display: *mut xlib::Display,
-    window: xlib::Window,
-}
-
-impl XWindowHandle {
-    pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
-        Self { display, window }
-    }
-
-    #[inline]
-    pub fn display(&self) -> *mut xlib::Display {
-        self.display
-    }
-
-    #[inline]
-    pub fn window(&self) -> xlib::Window {
-        self.window
-    }
-}
-
-impl WindowHandle for XWindowHandle {
-    fn get_window_rectangle(&self) -> Rectangle {
-        let mut attributes: xlib::XWindowAttributes =
-            unsafe { mem::MaybeUninit::zeroed().assume_init() };
-        unsafe {
-            xlib::XGetWindowAttributes(self.display, self.window, &mut attributes);
-        }
-        Rectangle {
-            point: Point {
-                x: attributes.x as _,
-                y: attributes.y as _,
-            },
-            size: Size {
-                width: attributes.width as _,
-                height: attributes.height as _,
-            },
-        }
-    }
-
-    fn show_window(&self) {
-        unsafe {
-            xlib::XMapWindow(self.display, self.window);
-            xlib::XFlush(self.display);
-        }
-    }
-
-    fn close_window(&self) {
-        unsafe {
-            xlib::XDestroyWindow(self.display, self.window);
-        }
-    }
+pub unsafe fn get_window_rectangle(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32, u32, u32) {
+    let mut attributes: xlib::XWindowAttributes = mem::MaybeUninit::zeroed().assume_init();
+    xlib::XGetWindowAttributes(display, window, &mut attributes);
+    (attributes.x, attributes.y, attributes.width as _, attributes.height as _)
 }
 
 pub unsafe fn create_window(display: *mut xlib::Display, width: u32, height: u32) -> xlib::Window {

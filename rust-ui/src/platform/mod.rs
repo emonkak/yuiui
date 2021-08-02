@@ -2,10 +2,8 @@ pub mod x11;
 
 use crate::geometrics::Rectangle;
 
-pub trait WindowHandle {
-    fn get_window_rectangle(&self) -> Rectangle;
+pub trait GeneralPainter {
+    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle);
 
-    fn show_window(&self);
-
-    fn close_window(&self);
+    fn commit(&mut self, rectangle: &Rectangle);
 }

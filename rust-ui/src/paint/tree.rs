@@ -14,23 +14,23 @@ use crate::tree::{NodeId, Tree};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 
-use super::{PaintContext, PaintCycle, PaintHint, Painter};
+use super::{PaintContext, PaintCycle, PaintHint};
 
 #[derive(Debug)]
-pub struct PaintTree<Handle> {
-    tree: WidgetTree<Handle>,
+pub struct PaintTree<Painter> {
+    tree: WidgetTree<Painter>,
     root_id: NodeId,
-    paint_states: SlotVec<PaintState<Handle>>,
-    event_manager: EventManager<Handle>,
+    paint_states: SlotVec<PaintState<Painter>>,
+    event_manager: EventManager<Painter>,
     update_notifier: Sender<NodeId>,
 }
 
 #[derive(Debug)]
-pub struct PaintState<Handle> {
+pub struct PaintState<Painter> {
     rectangle: Rectangle,
     box_constraints: BoxConstraints,
-    mounted_pod: Option<WidgetPod<Handle>>,
-    deleted_children: Vec<WidgetPod<Handle>>,
+    mounted_pod: Option<WidgetPod<Painter>>,
+    deleted_children: Vec<WidgetPod<Painter>>,
     hint: PaintHint,
     flags: BitFlags<PaintFlag>,
 }
@@ -43,7 +43,7 @@ pub enum PaintFlag {
     NeedsPaint = 0b100,
 }
 
-impl<Handle> PaintTree<Handle> {
+impl<Painter> PaintTree<Painter> {
     pub fn new(update_notifier: Sender<NodeId>) -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
@@ -60,7 +60,7 @@ impl<Handle> PaintTree<Handle> {
         }
     }
 
-    pub fn apply_patch(&mut self, patch: Patch<Handle>) {
+    pub fn apply_patch(&mut self, patch: Patch<Painter>) {
         match patch {
             Patch::Append(parent_id, widget_pod) => {
                 let child_id = self.tree.append_child(parent_id, widget_pod);
@@ -106,18 +106,18 @@ impl<Handle> PaintTree<Handle> {
         }
     }
 
-    pub fn layout(&mut self, viewport: Size) {
-        self.do_layout(self.root_id, BoxConstraints::tight(viewport));
+    pub fn layout(&mut self, viewport: Size, painter: &mut Painter) {
+        self.do_layout(self.root_id, BoxConstraints::tight(viewport), painter);
     }
 
-    pub fn layout_subtree(&mut self, target_id: NodeId, viewport: Size) {
+    pub fn layout_subtree(&mut self, target_id: NodeId, viewport: Size, painter: &mut Painter) {
         let mut current_id = target_id;
         let mut box_constraints = if target_id == self.root_id {
             BoxConstraints::tight(viewport)
         } else {
             self.paint_states[target_id].box_constraints
         };
-        while let Some(parent_id) = self.do_layout(current_id, box_constraints) {
+        while let Some(parent_id) = self.do_layout(current_id, box_constraints, painter) {
             current_id = parent_id;
             box_constraints = if parent_id == self.root_id {
                 BoxConstraints::tight(viewport)
@@ -127,7 +127,7 @@ impl<Handle> PaintTree<Handle> {
         }
     }
 
-    fn do_layout(&mut self, target_id: NodeId, box_constraints: BoxConstraints) -> Option<NodeId> {
+    fn do_layout(&mut self, target_id: NodeId, box_constraints: BoxConstraints, painter: &mut Painter) -> Option<NodeId> {
         let target_node = &self.tree[target_id];
 
         let mut current_id = target_id;
@@ -139,6 +139,7 @@ impl<Handle> PaintTree<Handle> {
                 box_constraints,
                 &self.tree,
                 &mut **state.lock().unwrap(),
+                painter,
             )
         };
 
@@ -164,6 +165,7 @@ impl<Handle> PaintTree<Handle> {
                             child_box_constraints,
                             &self.tree,
                             &mut **state.lock().unwrap(),
+                            painter,
                         );
                     } else {
                         calculated_size = paint_state.rectangle.size;
@@ -205,7 +207,7 @@ impl<Handle> PaintTree<Handle> {
         }
     }
 
-    pub fn paint(&mut self, painter: &mut dyn Painter<Handle>) {
+    pub fn paint(&mut self, painter: &mut Painter) {
         let mut walker = self.tree.walk(self.root_id);
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
@@ -232,7 +234,6 @@ impl<Handle> PaintTree<Handle> {
             if paint_state.flags.contains(PaintFlag::NeedsPaint) {
                 let mut context = PaintContext {
                     event_manager: &mut self.event_manager,
-                    painter,
                 };
 
                 for WidgetPod {
@@ -245,6 +246,7 @@ impl<Handle> PaintTree<Handle> {
                     widget.on_paint_cycle(
                         PaintCycle::DidUnmount(&children),
                         &mut **state.lock().unwrap(),
+                        painter,
                         &mut context,
                     );
                 }
@@ -265,12 +267,14 @@ impl<Handle> PaintTree<Handle> {
                             &old_widget_pod.children,
                         ),
                         &mut **state.lock().unwrap(),
+                        painter,
                         &mut context,
                     );
                 } else {
                     widget.on_paint_cycle(
                         PaintCycle::DidMount(children),
                         &mut **state.lock().unwrap(),
+                        painter,
                         &mut context,
                     );
                 }
@@ -283,6 +287,7 @@ impl<Handle> PaintTree<Handle> {
                 paint_state.hint = widget.paint(
                     &absolute_rectangle,
                     &mut **state.lock().unwrap(),
+                    painter,
                     &mut context,
                 );
 
@@ -293,7 +298,6 @@ impl<Handle> PaintTree<Handle> {
 
     pub fn dispatch<EventType>(&self, event: EventType::Event)
     where
-        Handle: fmt::Debug,
         EventType: self::EventType + 'static,
     {
         let boxed_event: Box<dyn Any> = Box::new(event);
@@ -313,7 +317,7 @@ impl<Handle> PaintTree<Handle> {
     }
 }
 
-impl<Handle> fmt::Display for PaintTree<Handle> {
+impl<Painter> fmt::Display for PaintTree<Painter> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.format(
             f,
@@ -350,7 +354,7 @@ impl<Handle> fmt::Display for PaintTree<Handle> {
     }
 }
 
-impl<Handle> Default for PaintState<Handle> {
+impl<Painter> Default for PaintState<Painter> {
     fn default() -> Self {
         Self {
             rectangle: Rectangle::ZERO,

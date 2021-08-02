@@ -15,14 +15,13 @@ use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{Point, Rectangle, Size};
 use rust_ui::paint::tree::PaintTree;
-use rust_ui::paint::Painter;
+use rust_ui::platform::GeneralPainter;
 use rust_ui::platform::x11::error_handler;
 use rust_ui::platform::x11::event::XEvent;
 use rust_ui::platform::x11::paint::XPainter;
-use rust_ui::platform::x11::window::{self, XWindowHandle};
-use rust_ui::platform::WindowHandle;
-use rust_ui::render::tree::RenderTree;
+use rust_ui::platform::x11::window;
 use rust_ui::render::RenderContext;
+use rust_ui::render::tree::RenderTree;
 use rust_ui::tree::NodeId;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::element::Element;
@@ -43,15 +42,15 @@ impl App {
     }
 }
 
-impl<Handle: 'static> Widget<Handle> for App {
+impl<Painter: GeneralPainter + 'static> Widget<Painter> for App {
     type State = bool;
 
     fn render(
         &self,
-        _children: Children<Handle>,
+        _children: Children<Painter>,
         state: &Self::State,
-        context: &mut RenderContext<Self, Handle, Self::State>,
-    ) -> Children<Handle> {
+        context: &mut RenderContext<Self, Painter, Self::State>,
+    ) -> Children<Painter> {
         element!(
             Subscriber::new().on(context.use_handler(MouseDown, Self::on_click)) => {
                 Padding::uniform(32.0) => {
@@ -81,10 +80,10 @@ fn run_render_loop(
     mut display: AtomicPtr<xlib::Display>,
     window: xlib::Window,
     update_atom: xlib::Atom,
-    element: Element<XWindowHandle>,
+    element: Element<XPainter>,
 ) -> (
     Sender<NodeId>,
-    Receiver<(NodeId, Vec<Patch<XWindowHandle>>)>,
+    Receiver<(NodeId, Vec<Patch<XPainter>>)>,
 ) {
     let (patch_tx, patch_rx) = sync_channel(1);
     let (update_tx, update_rx) = channel();
@@ -166,8 +165,6 @@ fn main() {
         );
     }
 
-    let handle = XWindowHandle::new(display, window);
-
     let update_atom = unsafe {
         xlib::XInternAtom(
             display,
@@ -177,25 +174,24 @@ fn main() {
     };
 
     let (tx, rx) = run_render_loop(
-        AtomicPtr::new(handle.display()),
-        handle.window(),
+        AtomicPtr::new(display),
+        window,
         update_atom,
         element!(App),
     );
 
     let mut event: xlib::XEvent = unsafe { mem::MaybeUninit::uninit().assume_init() };
-    let mut paint_tree: PaintTree<XWindowHandle> = PaintTree::new(tx);
-    let mut painter = XPainter::new(&handle);
-
-    handle.show_window();
+    let mut paint_tree: PaintTree<XPainter> = PaintTree::new(tx);
+    let mut painter = XPainter::new(display, window);
 
     unsafe {
-        xlib::XFlush(handle.display());
+        xlib::XMapWindow(display, window);
+        xlib::XFlush(display);
     }
 
     loop {
         unsafe {
-            xlib::XNextEvent(handle.display(), &mut event);
+            xlib::XNextEvent(display, &mut event);
             match XEvent::from(&event) {
                 XEvent::Expose(_) => {
                     painter.commit(&Rectangle {
@@ -212,12 +208,12 @@ fn main() {
                         window_width = event.width as _;
                         window_height = event.height as _;
 
+                        painter = XPainter::new(display, window);
+
                         paint_tree.layout(Size {
                             width: window_width as _,
                             height: window_height as _,
-                        });
-
-                        painter = XPainter::new(&handle);
+                        }, &mut painter);
 
                         paint_tree.paint(&mut painter);
                     }
@@ -235,6 +231,7 @@ fn main() {
                             width: window_width as _,
                             height: window_height as _,
                         },
+                        &mut painter,
                     );
 
                     paint_tree.paint(&mut painter);

@@ -6,10 +6,10 @@ use crate::event::handler::{EventContext, WidgetHandler};
 use crate::event::EventType;
 use crate::tree::NodeId;
 
-pub struct RenderContext<Widget: ?Sized, Handle, State> {
+pub struct RenderContext<Widget: ?Sized, Painter, State> {
     node_id: NodeId,
     _widget: PhantomData<Widget>,
-    _handle: PhantomData<Handle>,
+    _handle: PhantomData<Painter>,
     _state: PhantomData<State>,
 }
 
@@ -20,7 +20,7 @@ pub enum RenderCycle<Widget, Children> {
     WillUnmount(Children),
 }
 
-impl<Widget, Handle, State> RenderContext<Widget, Handle, State>
+impl<Widget, Painter, State> RenderContext<Widget, Painter, State>
 where
     Widget: 'static,
     State: 'static,

@@ -12,8 +12,8 @@ use crate::tree::NodeId;
 use crate::widget::tree::WidgetTree;
 
 #[derive(Debug)]
-pub struct EventManager<Handle> {
-    handlers: SlotVec<Arc<dyn EventHandler<Handle>>>,
+pub struct EventManager<Painter> {
+    handlers: SlotVec<Arc<dyn EventHandler<Painter>>>,
     handlers_by_type: HashMap<TypeId, Vec<HandlerId>>,
 }
 
@@ -23,10 +23,10 @@ pub trait EventType: Send + Sync {
     type Event;
 }
 
-pub trait EventHandler<Handle>: Send + Sync {
+pub trait EventHandler<Painter>: Send + Sync {
     fn dispatch(
         &self,
-        tree: &WidgetTree<Handle>,
+        tree: &WidgetTree<Painter>,
         event: &Box<dyn Any>,
         update_notifier: &Sender<NodeId>,
     );
@@ -36,7 +36,7 @@ pub trait EventHandler<Handle>: Send + Sync {
     fn as_ptr(&self) -> *const ();
 }
 
-impl<Handle> EventManager<Handle> {
+impl<Painter> EventManager<Painter> {
     pub fn new() -> Self {
         Self {
             handlers: SlotVec::new(),
@@ -44,7 +44,7 @@ impl<Handle> EventManager<Handle> {
         }
     }
 
-    pub fn get<T>(&self) -> impl Iterator<Item = &(dyn EventHandler<Handle>)>
+    pub fn get<T>(&self) -> impl Iterator<Item = &(dyn EventHandler<Painter>)>
     where
         T: 'static,
     {
@@ -56,7 +56,7 @@ impl<Handle> EventManager<Handle> {
             .map(move |&handler_id| &*self.handlers[handler_id])
     }
 
-    pub fn add(&mut self, handler: Arc<dyn EventHandler<Handle>>) -> HandlerId {
+    pub fn add(&mut self, handler: Arc<dyn EventHandler<Painter>>) -> HandlerId {
         let type_id = handler.subscribed_type();
         let handler_id = self.handlers.insert(handler);
         self.handlers_by_type
@@ -66,7 +66,7 @@ impl<Handle> EventManager<Handle> {
         handler_id
     }
 
-    pub fn remove(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Handle>> {
+    pub fn remove(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Painter>> {
         let handler = self.handlers.remove(handler_id);
         let handler_ids = self
             .handlers_by_type
@@ -79,15 +79,15 @@ impl<Handle> EventManager<Handle> {
     }
 }
 
-impl<Handle> PartialEq for dyn EventHandler<Handle> {
+impl<Painter> PartialEq for dyn EventHandler<Painter> {
     fn eq(&self, other: &Self) -> bool {
         self.as_ptr() == other.as_ptr()
     }
 }
 
-impl<Handle> Eq for dyn EventHandler<Handle> {}
+impl<Painter> Eq for dyn EventHandler<Painter> {}
 
-impl<Handle> fmt::Debug for dyn EventHandler<Handle> {
+impl<Painter> fmt::Debug for dyn EventHandler<Painter> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_tuple("EventHandler")

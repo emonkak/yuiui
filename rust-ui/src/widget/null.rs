@@ -5,6 +5,6 @@ use super::{Widget, WidgetMeta};
 #[derive(WidgetMeta)]
 pub struct Null;
 
-impl<Handle> Widget<Handle> for Null {
+impl<Painter> Widget<Painter> for Null {
     type State = ();
 }

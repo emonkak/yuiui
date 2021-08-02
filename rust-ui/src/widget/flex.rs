@@ -58,15 +58,16 @@ impl Flex {
     }
 }
 
-impl<Handle> Widget<Handle> for Flex {
+impl<Painter> Widget<Painter> for Flex {
     type State = ();
 
     fn layout<'a>(
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Handle>,
+        tree: &'a WidgetTree<Painter>,
         _state: &mut Self::State,
+        _painter: &mut Painter,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
@@ -131,7 +132,7 @@ impl FlexItem {
     }
 }
 
-impl<Handle> Widget<Handle> for FlexItem {
+impl<Painter> Widget<Painter> for FlexItem {
     type State = ();
 }
 
@@ -201,7 +202,7 @@ impl Axis {
     }
 }
 
-fn get_params<Handle>(widget: &dyn PolymophicWidget<Handle>) -> Params {
+fn get_params<Painter>(widget: &dyn PolymophicWidget<Painter>) -> Params {
     widget
         .as_any()
         .downcast_ref::<FlexItem>()

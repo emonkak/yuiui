@@ -3,11 +3,9 @@ pub mod tree;
 use std::sync::Arc;
 
 use crate::event::{EventHandler, EventManager, HandlerId};
-use crate::geometrics::Rectangle;
 
-pub struct PaintContext<'a, Handle> {
-    event_manager: &'a mut EventManager<Handle>,
-    painter: &'a mut dyn Painter<Handle>,
+pub struct PaintContext<'a, Painter> {
+    event_manager: &'a mut EventManager<Painter>,
 }
 
 #[derive(Debug)]
@@ -23,20 +21,12 @@ pub enum PaintHint {
     Once,
 }
 
-pub trait Painter<Handle> {
-    fn handle(&self) -> &Handle;
-
-    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle);
-
-    fn commit(&mut self, rectangle: &Rectangle);
-}
-
-impl<'a, Handle> PaintContext<'a, Handle> {
-    pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Handle>>) -> HandlerId {
+impl<'a, Painter> PaintContext<'a, Painter> {
+    pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Painter>>) -> HandlerId {
         self.event_manager.add(handler)
     }
 
-    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Handle>> {
+    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Painter>> {
         self.event_manager.remove(handler_id)
     }
 }
@@ -61,22 +51,5 @@ impl<Widget, Children> PaintCycle<Widget, Children> {
             PaintCycle::DidUpdate(_, _, _) => PaintCycle::DidUpdate((), (), ()),
             PaintCycle::DidUnmount(_) => PaintCycle::DidUnmount(()),
         }
-    }
-}
-
-impl<'a, Handle> Painter<Handle> for PaintContext<'a, Handle> {
-    #[inline]
-    fn handle(&self) -> &Handle {
-        self.painter.handle()
-    }
-
-    #[inline]
-    fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
-        self.painter.fill_rectangle(color, rectangle)
-    }
-
-    #[inline]
-    fn commit(&mut self, rectangle: &Rectangle) {
-        self.painter.commit(rectangle)
     }
 }

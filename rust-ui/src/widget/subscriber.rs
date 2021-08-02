@@ -9,8 +9,8 @@ use super::element::Children;
 use super::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
-pub struct Subscriber<Handle: 'static> {
-    handlers: Vec<Arc<dyn EventHandler<Handle>>>,
+pub struct Subscriber<Painter: 'static> {
+    handlers: Vec<Arc<dyn EventHandler<Painter>>>,
 }
 
 #[derive(Default)]
@@ -18,7 +18,7 @@ pub struct SubscriberState {
     registered_handler_ids: Vec<HandlerId>,
 }
 
-impl<Handle> Subscriber<Handle> {
+impl<Painter> Subscriber<Painter> {
     pub fn new() -> Self {
         Self {
             handlers: Vec::new(),
@@ -27,21 +27,21 @@ impl<Handle> Subscriber<Handle> {
 
     pub fn on<Handler>(mut self, handler: Handler) -> Self
     where
-        Handler: EventHandler<Handle> + 'static,
+        Handler: EventHandler<Painter> + 'static,
     {
         self.handlers.push(Arc::new(handler));
         self
     }
 }
 
-impl<Handle> Widget<Handle> for Subscriber<Handle> {
+impl<Painter> Widget<Painter> for Subscriber<Painter> {
     type State = SubscriberState;
 
     fn should_update(
         &self,
         new_widget: &Self,
-        old_children: &Children<Handle>,
-        new_children: &Children<Handle>,
+        old_children: &Children<Painter>,
+        new_children: &Children<Painter>,
         _state: &Self::State,
     ) -> bool {
         !Arc::ptr_eq(&old_children, &new_children) || self.handlers != new_widget.handlers
@@ -50,9 +50,10 @@ impl<Handle> Widget<Handle> for Subscriber<Handle> {
     #[inline]
     fn on_paint_cycle(
         &self,
-        paint_cycle: PaintCycle<&Self, &Children<Handle>>,
+        paint_cycle: PaintCycle<&Self, &Children<Painter>>,
         state: &mut Self::State,
-        context: &mut PaintContext<Handle>,
+        _painter: &mut Painter,
+        context: &mut PaintContext<Painter>,
     ) {
         match paint_cycle {
             PaintCycle::DidMount(_children) => {

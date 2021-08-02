@@ -13,21 +13,21 @@ use crate::widget::PolymophicWidget;
 use super::RenderCycle;
 
 #[derive(Debug)]
-pub struct RenderTree<Handle> {
-    tree: WidgetTree<Handle>,
+pub struct RenderTree<Painter> {
+    tree: WidgetTree<Painter>,
     root_id: NodeId,
-    render_states: SlotVec<RenderState<Handle>>,
+    render_states: SlotVec<RenderState<Painter>>,
 }
 
 #[derive(Debug)]
-struct RenderState<Handle> {
-    status: RenderStatus<Handle>,
+struct RenderState<Painter> {
+    status: RenderStatus<Painter>,
 }
 
 #[derive(Debug)]
-enum RenderStatus<Handle> {
+enum RenderStatus<Painter> {
     Fresh,
-    Pending(Element<Handle>),
+    Pending(Element<Painter>),
     Rendered,
     Skipped,
 }
@@ -38,7 +38,7 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-impl<Handle> RenderTree<Handle> {
+impl<Painter> RenderTree<Painter> {
     pub fn new() -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
@@ -58,7 +58,7 @@ impl<Handle> RenderTree<Handle> {
         self.root_id
     }
 
-    pub fn render(&mut self, element: Element<Handle>) -> Vec<Patch<Handle>> {
+    pub fn render(&mut self, element: Element<Painter>) -> Vec<Patch<Painter>> {
         *self.tree[self.root_id] = WidgetPod::new(Null, vec![element]);
 
         let mut patches = Vec::new();
@@ -71,7 +71,7 @@ impl<Handle> RenderTree<Handle> {
         patches
     }
 
-    pub fn update(&mut self, target_id: NodeId) -> Vec<Patch<Handle>> {
+    pub fn update(&mut self, target_id: NodeId) -> Vec<Patch<Painter>> {
         let mut patches = Vec::new();
         let mut current_id = target_id;
 
@@ -86,7 +86,7 @@ impl<Handle> RenderTree<Handle> {
         &mut self,
         target_id: NodeId,
         initial_id: NodeId,
-        patches: &mut Vec<Patch<Handle>>,
+        patches: &mut Vec<Patch<Painter>>,
     ) -> Option<NodeId> {
         let WidgetPod {
             widget,
@@ -134,8 +134,8 @@ impl<Handle> RenderTree<Handle> {
     fn reconcile_children(
         &mut self,
         target_id: NodeId,
-        children: Children<Handle>,
-    ) -> Reconciler<TypedKey, NodeId, Element<Handle>> {
+        children: Children<Painter>,
+    ) -> Reconciler<TypedKey, NodeId, Element<Painter>> {
         let mut old_keys: Vec<TypedKey> = Vec::new();
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
 
@@ -146,7 +146,7 @@ impl<Handle> RenderTree<Handle> {
         }
 
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
-        let mut new_elements: Vec<Option<Element<Handle>>> = Vec::with_capacity(children.len());
+        let mut new_elements: Vec<Option<Element<Painter>>> = Vec::with_capacity(children.len());
 
         for (index, element) in children.iter().enumerate() {
             let key = TypedKey::new(&*element.widget, index, element.key);
@@ -160,8 +160,8 @@ impl<Handle> RenderTree<Handle> {
     fn handle_reconcile_result(
         &mut self,
         target_id: NodeId,
-        result: ReconcileResult<NodeId, Element<Handle>>,
-        patches: &mut Vec<Patch<Handle>>,
+        result: ReconcileResult<NodeId, Element<Painter>>,
+        patches: &mut Vec<Patch<Painter>>,
     ) {
         match result {
             ReconcileResult::New(new_element) => {
@@ -266,7 +266,7 @@ impl<Handle> RenderTree<Handle> {
     }
 }
 
-impl<Handle> fmt::Display for RenderTree<Handle> {
+impl<Painter> fmt::Display for RenderTree<Painter> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.format(
             f,
@@ -292,7 +292,7 @@ impl<Handle> fmt::Display for RenderTree<Handle> {
     }
 }
 
-impl<Handle> Default for RenderState<Handle> {
+impl<Painter> Default for RenderState<Painter> {
     fn default() -> Self {
         Self {
             status: RenderStatus::Fresh,
@@ -301,7 +301,7 @@ impl<Handle> Default for RenderState<Handle> {
 }
 
 impl TypedKey {
-    fn new<Handle>(widget: &dyn PolymophicWidget<Handle>, index: usize, key: Option<Key>) -> Self {
+    fn new<Painter>(widget: &dyn PolymophicWidget<Painter>, index: usize, key: Option<Key>) -> Self {
         match key {
             Some(key) => Self::Keyed(widget.as_any().type_id(), key),
             None => Self::Indexed(widget.as_any().type_id(), index),

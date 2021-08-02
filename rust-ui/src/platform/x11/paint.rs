@@ -2,24 +2,22 @@ use std::ptr;
 use x11::xlib;
 
 use crate::geometrics::Rectangle;
-use crate::paint::Painter;
-use crate::platform::WindowHandle;
+use crate::platform::GeneralPainter;
 
-use super::window::XWindowHandle;
+use super::window;
 
-pub struct XPainter<'a> {
-    handle: &'a XWindowHandle,
+pub struct XPainter {
+    display: *mut xlib::Display,
+    window: xlib::Window,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
 }
 
-impl<'a> XPainter<'a> {
-    pub fn new(handle: &'a XWindowHandle) -> Self {
-        let display = handle.display();
-        let window = handle.window();
-        let rectangle = handle.get_window_rectangle();
-
+impl XPainter {
+    pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
         unsafe {
+            let (_, _, width, height) = window::get_window_rectangle(display, window);
+
             let pixmap = {
                 let screen = xlib::XDefaultScreenOfDisplay(display);
                 let screen_number = xlib::XScreenNumberOfScreen(screen);
@@ -27,8 +25,8 @@ impl<'a> XPainter<'a> {
                 xlib::XCreatePixmap(
                     display,
                     window,
-                    rectangle.size.width as _,
-                    rectangle.size.height as _,
+                    width,
+                    height,
                     depth as _,
                 )
             };
@@ -46,12 +44,12 @@ impl<'a> XPainter<'a> {
                     gc,
                     0,
                     0,
-                    rectangle.size.width as _,
-                    rectangle.size.height as _,
+                    width,
+                    height,
                 );
             }
 
-            Self { handle, pixmap, gc }
+            Self { display, window, pixmap, gc }
         }
     }
 
@@ -65,32 +63,24 @@ impl<'a> XPainter<'a> {
             pad: 0,
         };
 
-        let display = self.handle.display();
-
         unsafe {
-            let screen = xlib::XDefaultScreenOfDisplay(display);
+            let screen = xlib::XDefaultScreenOfDisplay(self.display);
             let screen_number = xlib::XScreenNumberOfScreen(screen);
-            let colormap = xlib::XDefaultColormap(display, screen_number);
-            xlib::XAllocColor(display, colormap, &mut color);
+            let colormap = xlib::XDefaultColormap(self.display, screen_number);
+            xlib::XAllocColor(self.display, colormap, &mut color);
         };
 
         color
     }
 }
 
-impl<'a> Painter<XWindowHandle> for XPainter<'a> {
-    fn handle(&self) -> &XWindowHandle {
-        self.handle
-    }
-
+impl GeneralPainter for XPainter {
     fn fill_rectangle(&mut self, color: u32, rectangle: &Rectangle) {
-        let display = self.handle.display();
-
         unsafe {
             let color = self.alloc_color(color);
-            xlib::XSetForeground(display, self.gc, color.pixel);
+            xlib::XSetForeground(self.display, self.gc, color.pixel);
             xlib::XFillRectangle(
-                display,
+                self.display,
                 self.pixmap,
                 self.gc,
                 rectangle.point.x as _,
@@ -102,14 +92,11 @@ impl<'a> Painter<XWindowHandle> for XPainter<'a> {
     }
 
     fn commit(&mut self, rectangle: &Rectangle) {
-        let display = self.handle.display();
-        let window = self.handle.window();
-
         unsafe {
             xlib::XCopyArea(
-                display,
+                self.display,
                 self.pixmap,
-                window,
+                self.window,
                 self.gc,
                 0,
                 0,
@@ -122,12 +109,11 @@ impl<'a> Painter<XWindowHandle> for XPainter<'a> {
     }
 }
 
-impl<'a> Drop for XPainter<'a> {
+impl Drop for XPainter {
     fn drop(&mut self) {
-        let display = self.handle.display();
         unsafe {
-            xlib::XFreeGC(display, self.gc);
-            xlib::XFreePixmap(display, self.pixmap);
+            xlib::XFreeGC(self.display, self.gc);
+            xlib::XFreePixmap(self.display, self.pixmap);
         }
     }
 }

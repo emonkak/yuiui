@@ -26,15 +26,16 @@ impl Padding {
     }
 }
 
-impl<Handle> Widget<Handle> for Padding {
+impl<Painter> Widget<Painter> for Padding {
     type State = ();
 
     fn layout<'a>(
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Handle>,
+        tree: &'a WidgetTree<Painter>,
         _state: &mut Self::State,
+        _painter: &mut Painter,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let child_id = tree[node_id]

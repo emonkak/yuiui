@@ -36,7 +36,7 @@ where
     }
 }
 
-impl<EventType, Widget, Handle, State> EventHandler<Handle>
+impl<EventType, Widget, Painter, State> EventHandler<Painter>
     for WidgetHandler<EventType, EventType::Event, Widget, State>
 where
     Widget: 'static,
@@ -45,7 +45,7 @@ where
 {
     fn dispatch(
         &self,
-        tree: &WidgetTree<Handle>,
+        tree: &WidgetTree<Painter>,
         event: &Box<dyn Any>,
         update_notifier: &Sender<NodeId>,
     ) {
@@ -93,13 +93,13 @@ where
     }
 }
 
-impl<EventType, Handle> EventHandler<Handle> for GlobalHandler<EventType, EventType::Event>
+impl<EventType, Painter> EventHandler<Painter> for GlobalHandler<EventType, EventType::Event>
 where
     EventType: self::EventType + 'static,
 {
     fn dispatch(
         &self,
-        _tree: &WidgetTree<Handle>,
+        _tree: &WidgetTree<Painter>,
         event: &Box<dyn Any>,
         update_notifier: &Sender<NodeId>,
     ) {
