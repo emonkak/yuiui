@@ -17,6 +17,11 @@ pub struct EventManager<Painter> {
     handlers_by_type: HashMap<TypeId, Vec<HandlerId>>,
 }
 
+pub struct GenericEvent {
+    pub type_id: TypeId,
+    pub payload: Box<dyn Any>,
+}
+
 pub type HandlerId = usize;
 
 pub trait EventType: Send + Sync {
@@ -44,13 +49,10 @@ impl<Painter> EventManager<Painter> {
         }
     }
 
-    pub fn get<T>(&self) -> impl Iterator<Item = &(dyn EventHandler<Painter>)>
-    where
-        T: 'static,
+    pub fn get(&self, type_id: &TypeId) -> impl Iterator<Item = &(dyn EventHandler<Painter>)>
     {
-        let type_id = TypeId::of::<T>();
         self.handlers_by_type
-            .get(&type_id)
+            .get(type_id)
             .map_or(&[] as &[usize], |listener_ids| listener_ids.as_slice())
             .iter()
             .map(move |&handler_id| &*self.handlers[handler_id])
@@ -76,6 +78,15 @@ impl<Painter> EventManager<Painter> {
             handler_ids.swap_remove(index);
         }
         handler
+    }
+}
+
+impl GenericEvent {
+    pub fn new<T>(event: T::Event) -> Self where T: EventType + 'static {
+        Self {
+            type_id: TypeId::of::<T>(),
+            payload: Box::new(event),
+        }
     }
 }
 

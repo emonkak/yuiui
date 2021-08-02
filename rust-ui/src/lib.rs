@@ -11,6 +11,7 @@ pub mod paint;
 pub mod platform;
 pub mod reconciler;
 pub mod render;
+pub mod runner;
 pub mod slot_vec;
 pub mod tree;
 pub mod widget;

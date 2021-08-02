@@ -1,10 +1,9 @@
-use std::any::Any;
 use std::fmt;
 use std::mem;
 use std::sync::mpsc::Sender;
 
 use crate::bit_flags::BitFlags;
-use crate::event::{EventManager, EventType};
+use crate::event::{EventManager, GenericEvent};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
 use crate::layout::{BoxConstraints, LayoutRequest};
@@ -296,13 +295,9 @@ impl<Painter> PaintTree<Painter> {
         }
     }
 
-    pub fn dispatch<EventType>(&self, event: EventType::Event)
-    where
-        EventType: self::EventType + 'static,
-    {
-        let boxed_event: Box<dyn Any> = Box::new(event);
-        for handler in self.event_manager.get::<EventType>() {
-            handler.dispatch(&self.tree, &boxed_event, &self.update_notifier)
+    pub fn dispatch(&self, event: &GenericEvent) {
+        for handler in self.event_manager.get(&event.type_id) {
+            handler.dispatch(&self.tree, &event.payload, &self.update_notifier)
         }
     }
 

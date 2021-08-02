@@ -1,6 +1,7 @@
-use rust_ui_derive::WidgetMeta;
 use std::mem;
 use std::sync::Arc;
+
+use rust_ui_derive::WidgetMeta;
 
 use crate::event::{EventHandler, HandlerId};
 use crate::paint::{PaintContext, PaintCycle};
