@@ -257,9 +257,7 @@ impl<Handle> PaintTree<Handle> {
                     ..
                 } = widget_pod;
 
-                if let Some(old_widget_pod) =
-                    paint_state.mounted_pod.replace(widget_pod.clone())
-                {
+                if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
                     widget.on_paint_cycle(
                         PaintCycle::DidUpdate(
                             &children,

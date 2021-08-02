@@ -276,7 +276,10 @@ mod tests {
     fn test_bit_or() {
         let buttons = BitFlags::new();
         assert_eq!(buttons | Button::Left, [Button::Left].into());
-        assert_eq!(buttons | Button::Left | Button::Right, [Button::Left, Button::Right].into());
+        assert_eq!(
+            buttons | Button::Left | Button::Right,
+            [Button::Left, Button::Right].into()
+        );
     }
 
     #[test]
@@ -319,7 +322,10 @@ mod tests {
         let buttons = BitFlags::from([Button::Left, Button::Right]);
         assert_eq!(buttons ^ Button::Left, [Button::Right].into());
         assert_eq!(buttons ^ Button::Right, [Button::Left].into());
-        assert_eq!(buttons ^ Button::Middle, [Button::Left, Button::Right, Button::Middle].into());
+        assert_eq!(
+            buttons ^ Button::Middle,
+            [Button::Left, Button::Right, Button::Middle].into()
+        );
     }
 
     #[test]
@@ -334,7 +340,10 @@ mod tests {
 
         let mut buttons = BitFlags::from([Button::Left, Button::Right]);
         buttons ^= Button::Middle;
-        assert_eq!(buttons, [Button::Left, Button::Right, Button::Middle].into());
+        assert_eq!(
+            buttons,
+            [Button::Left, Button::Right, Button::Middle].into()
+        );
     }
 
     #[test]
@@ -342,7 +351,10 @@ mod tests {
         let buttons = BitFlags::from([Button::Left, Button::Right]);
         assert_eq!(buttons - Button::Left, [Button::Right].into());
         assert_eq!(buttons - Button::Right, [Button::Left].into());
-        assert_eq!(buttons - Button::Middle, [Button::Left, Button::Right].into());
+        assert_eq!(
+            buttons - Button::Middle,
+            [Button::Left, Button::Right].into()
+        );
     }
 
     #[test]
