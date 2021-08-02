@@ -10,7 +10,7 @@ use super::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
 pub struct Subscriber<Handle: 'static> {
-    handlers: Vec<Arc<dyn EventHandler<Handle> + Send + Sync>>,
+    handlers: Vec<Arc<dyn EventHandler<Handle>>>,
 }
 
 #[derive(Default)]
@@ -27,7 +27,7 @@ impl<Handle> Subscriber<Handle> {
 
     pub fn on<Handler>(mut self, handler: Handler) -> Self
     where
-        Handler: EventHandler<Handle> + Send + Sync + 'static,
+        Handler: EventHandler<Handle> + 'static,
     {
         self.handlers.push(Arc::new(handler));
         self

@@ -20,7 +20,7 @@ use crate::tree::NodeId;
 use self::element::{Children, Element, IntoElement, Key};
 use self::tree::WidgetTree;
 
-pub trait Widget<Handle>: Send + WidgetMeta {
+pub trait Widget<Handle>: Send + Sync + WidgetMeta {
     type State: Default + Send + Sync;
 
     #[inline]
@@ -91,7 +91,7 @@ pub trait Widget<Handle>: Send + WidgetMeta {
     }
 }
 
-pub trait PolymophicWidget<Handle>: Send + WidgetMeta {
+pub trait PolymophicWidget<Handle>: Send + Sync + WidgetMeta {
     fn initial_state(&self) -> Box<dyn Any + Send + Sync>;
 
     fn should_update(
@@ -161,9 +161,9 @@ pub struct WithKey<Inner> {
     key: Key,
 }
 
-impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> + Send + Sync {
+impl<Handle> fmt::Debug for dyn PolymophicWidget<Handle> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "{} {{ .. }}", self.name())
     }
 }
 
@@ -265,7 +265,7 @@ where
 
 impl<Widget, Handle> IntoElement<Handle> for Widget
 where
-    Widget: self::Widget<Handle> + WidgetMeta + Send + Sync + 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     #[inline]
@@ -283,7 +283,7 @@ where
 
 impl<Widget, Handle> IntoElement<Handle> for WithKey<Widget>
 where
-    Widget: self::Widget<Handle> + Send + Sync + 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     #[inline]

@@ -32,17 +32,11 @@ pub trait Painter<Handle> {
 }
 
 impl<'a, Handle> PaintContext<'a, Handle> {
-    pub fn add_handler(
-        &mut self,
-        handler: Arc<dyn EventHandler<Handle> + Send + Sync>,
-    ) -> HandlerId {
+    pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Handle>>) -> HandlerId {
         self.event_manager.add(handler)
     }
 
-    pub fn remove_handler(
-        &mut self,
-        handler_id: HandlerId,
-    ) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
+    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Handle>> {
         self.event_manager.remove(handler_id)
     }
 }

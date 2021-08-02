@@ -13,17 +13,17 @@ use crate::widget::tree::WidgetTree;
 
 #[derive(Debug)]
 pub struct EventManager<Handle> {
-    handlers: SlotVec<Arc<dyn EventHandler<Handle> + Send + Sync>>,
+    handlers: SlotVec<Arc<dyn EventHandler<Handle>>>,
     handlers_by_type: HashMap<TypeId, Vec<HandlerId>>,
 }
 
 pub type HandlerId = usize;
 
-pub trait EventType {
+pub trait EventType: Send + Sync {
     type Event;
 }
 
-pub trait EventHandler<Handle> {
+pub trait EventHandler<Handle>: Send + Sync {
     fn dispatch(
         &self,
         tree: &WidgetTree<Handle>,
@@ -44,7 +44,7 @@ impl<Handle> EventManager<Handle> {
         }
     }
 
-    pub fn get<T>(&self) -> impl Iterator<Item = &(dyn EventHandler<Handle> + Send + Sync)>
+    pub fn get<T>(&self) -> impl Iterator<Item = &(dyn EventHandler<Handle>)>
     where
         T: 'static,
     {
@@ -56,7 +56,7 @@ impl<Handle> EventManager<Handle> {
             .map(move |&handler_id| &*self.handlers[handler_id])
     }
 
-    pub fn add(&mut self, handler: Arc<dyn EventHandler<Handle> + Send + Sync>) -> HandlerId {
+    pub fn add(&mut self, handler: Arc<dyn EventHandler<Handle>>) -> HandlerId {
         let type_id = handler.subscribed_type();
         let handler_id = self.handlers.insert(handler);
         self.handlers_by_type
@@ -66,7 +66,7 @@ impl<Handle> EventManager<Handle> {
         handler_id
     }
 
-    pub fn remove(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Handle> + Send + Sync> {
+    pub fn remove(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Handle>> {
         let handler = self.handlers.remove(handler_id);
         let handler_ids = self
             .handlers_by_type
@@ -79,15 +79,15 @@ impl<Handle> EventManager<Handle> {
     }
 }
 
-impl<Handle> PartialEq for dyn EventHandler<Handle> + Send + Sync {
+impl<Handle> PartialEq for dyn EventHandler<Handle> {
     fn eq(&self, other: &Self) -> bool {
         self.as_ptr() == other.as_ptr()
     }
 }
 
-impl<Handle> Eq for dyn EventHandler<Handle> + Send + Sync {}
+impl<Handle> Eq for dyn EventHandler<Handle> {}
 
-impl<Handle> fmt::Debug for dyn EventHandler<Handle> + Send + Sync {
+impl<Handle> fmt::Debug for dyn EventHandler<Handle> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_tuple("EventHandler")

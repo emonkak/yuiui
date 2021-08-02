@@ -40,7 +40,7 @@ impl<EventType, Widget, Handle, State> EventHandler<Handle>
     for WidgetHandler<EventType, EventType::Event, Widget, State>
 where
     Widget: 'static,
-    EventType: self::EventType + Send + 'static,
+    EventType: self::EventType + 'static,
     State: 'static,
 {
     fn dispatch(
@@ -95,7 +95,7 @@ where
 
 impl<EventType, Handle> EventHandler<Handle> for GlobalHandler<EventType, EventType::Event>
 where
-    EventType: self::EventType + Send + 'static,
+    EventType: self::EventType + 'static,
 {
     fn dispatch(
         &self,

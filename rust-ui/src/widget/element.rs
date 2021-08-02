@@ -18,7 +18,7 @@ pub enum Child<Handle> {
     None,
 }
 
-pub type BoxedWidget<Handle> = Arc<dyn PolymophicWidget<Handle> + Send + Sync>;
+pub type BoxedWidget<Handle> = Arc<dyn PolymophicWidget<Handle>>;
 
 pub type Children<Handle> = Arc<Vec<Element<Handle>>>;
 
@@ -115,7 +115,7 @@ impl<Handle> From<Element<Handle>> for Child<Handle> {
 
 impl<Handle, Widget> From<Widget> for Child<Handle>
 where
-    Widget: self::Widget<Handle> + WidgetMeta + Send + Sync + 'static,
+    Widget: self::Widget<Handle> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     fn from(widget: Widget) -> Self {
