@@ -10,12 +10,13 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::platform::GeneralPainter;
+use rust_ui::geometrics::WindowSize;
+use rust_ui::platform::backend::Backend;
+use rust_ui::platform::paint::GeneralPainter;
 use rust_ui::platform::x11::backend::XBackend;
 use rust_ui::platform::x11::error_handler;
 use rust_ui::platform::x11::window;
 use rust_ui::render::RenderContext;
-use rust_ui::runner;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
@@ -80,7 +81,11 @@ fn main() {
         );
     }
 
-    let window = unsafe { window::create_window(display, 640, 480) };
+    let window_size = WindowSize {
+        width: 640,
+        height: 480,
+    };
+    let window = unsafe { window::create_window(display, window_size.width, window_size.height) };
 
     unsafe {
         xlib::XSelectInput(
@@ -91,9 +96,11 @@ fn main() {
                 | xlib::ExposureMask
                 | xlib::StructureNotifyMask,
         );
+        xlib::XMapWindow(display, window);
+        xlib::XFlush(display);
     }
 
-    let backend = XBackend::new(display, window);
+    let mut backend = XBackend::new(display, window);
 
-    runner::run(backend, element!(App));
+    backend.run(window_size, element!(App));
 }

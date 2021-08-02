@@ -6,13 +6,13 @@ use crate::bit_flags::BitFlags;
 use crate::event::{EventManager, GenericEvent};
 use crate::generator::GeneratorState;
 use crate::geometrics::{Point, Rectangle, Size};
-use crate::layout::{BoxConstraints, LayoutRequest};
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 
+use super::layout::{BoxConstraints, LayoutRequest};
 use super::{PaintContext, PaintCycle, PaintHint};
 
 #[derive(Debug)]
@@ -126,7 +126,12 @@ impl<Painter> PaintTree<Painter> {
         }
     }
 
-    fn do_layout(&mut self, target_id: NodeId, box_constraints: BoxConstraints, painter: &mut Painter) -> Option<NodeId> {
+    fn do_layout(
+        &mut self,
+        target_id: NodeId,
+        box_constraints: BoxConstraints,
+        painter: &mut Painter,
+    ) -> Option<NodeId> {
         let target_node = &self.tree[target_id];
 
         let mut current_id = target_id;

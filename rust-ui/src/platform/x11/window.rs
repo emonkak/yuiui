@@ -1,10 +1,18 @@
 use std::mem;
 use x11::xlib;
 
-pub unsafe fn get_window_rectangle(display: *mut xlib::Display, window: xlib::Window) -> (i32, i32, u32, u32) {
+pub unsafe fn get_window_rectangle(
+    display: *mut xlib::Display,
+    window: xlib::Window,
+) -> (i32, i32, u32, u32) {
     let mut attributes: xlib::XWindowAttributes = mem::MaybeUninit::zeroed().assume_init();
     xlib::XGetWindowAttributes(display, window, &mut attributes);
-    (attributes.x, attributes.y, attributes.width as _, attributes.height as _)
+    (
+        attributes.x,
+        attributes.y,
+        attributes.width as _,
+        attributes.height as _,
+    )
 }
 
 pub unsafe fn create_window(display: *mut xlib::Display, width: u32, height: u32) -> xlib::Window {

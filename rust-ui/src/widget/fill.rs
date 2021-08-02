@@ -2,7 +2,7 @@ use rust_ui_derive::WidgetMeta;
 
 use crate::geometrics::Rectangle;
 use crate::paint::{PaintContext, PaintHint};
-use crate::platform::GeneralPainter;
+use crate::platform::paint::GeneralPainter;
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};

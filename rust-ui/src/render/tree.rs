@@ -2,7 +2,6 @@ use std::any::TypeId;
 use std::fmt;
 use std::mem;
 
-use crate::reconciler::{ReconcileResult, Reconciler};
 use crate::slot_vec::SlotVec;
 use crate::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
@@ -10,6 +9,7 @@ use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 use crate::widget::PolymophicWidget;
 
+use super::reconciler::{ReconcileResult, Reconciler};
 use super::RenderCycle;
 
 #[derive(Debug)]
@@ -301,7 +301,11 @@ impl<Painter> Default for RenderState<Painter> {
 }
 
 impl TypedKey {
-    fn new<Painter>(widget: &dyn PolymophicWidget<Painter>, index: usize, key: Option<Key>) -> Self {
+    fn new<Painter>(
+        widget: &dyn PolymophicWidget<Painter>,
+        index: usize,
+        key: Option<Key>,
+    ) -> Self {
         match key {
             Some(key) => Self::Keyed(widget.as_any().type_id(), key),
             None => Self::Indexed(widget.as_any().type_id(), index),

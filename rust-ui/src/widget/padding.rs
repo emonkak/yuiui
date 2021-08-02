@@ -2,7 +2,7 @@ use rust_ui_derive::WidgetMeta;
 
 use crate::generator::{Coroutine, Generator};
 use crate::geometrics::{Point, Size};
-use crate::layout::{BoxConstraints, LayoutRequest};
+use crate::paint::layout::{BoxConstraints, LayoutRequest};
 use crate::tree::NodeId;
 
 use super::{Widget, WidgetMeta, WidgetTree};

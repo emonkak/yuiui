@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use crate::generator::Generator;
 use crate::geometrics::{Rectangle, Size};
-use crate::layout::{BoxConstraints, LayoutRequest};
+use crate::paint::layout::{BoxConstraints, LayoutRequest};
 use crate::paint::{PaintContext, PaintCycle, PaintHint};
 use crate::render::{RenderContext, RenderCycle};
 use crate::tree::NodeId;

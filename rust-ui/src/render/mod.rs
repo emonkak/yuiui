@@ -1,3 +1,4 @@
+pub mod reconciler;
 pub mod tree;
 
 use std::marker::PhantomData;

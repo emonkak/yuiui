@@ -49,8 +49,7 @@ impl<Painter> EventManager<Painter> {
         }
     }
 
-    pub fn get(&self, type_id: &TypeId) -> impl Iterator<Item = &(dyn EventHandler<Painter>)>
-    {
+    pub fn get(&self, type_id: &TypeId) -> impl Iterator<Item = &(dyn EventHandler<Painter>)> {
         self.handlers_by_type
             .get(type_id)
             .map_or(&[] as &[usize], |listener_ids| listener_ids.as_slice())
@@ -82,7 +81,10 @@ impl<Painter> EventManager<Painter> {
 }
 
 impl GenericEvent {
-    pub fn new<T>(event: T::Event) -> Self where T: EventType + 'static {
+    pub fn new<T>(event: T::Event) -> Self
+    where
+        T: EventType + 'static,
+    {
         Self {
             type_id: TypeId::of::<T>(),
             payload: Box::new(event),

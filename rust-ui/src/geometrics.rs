@@ -1,21 +1,27 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-#[derive(Clone, Copy, Default, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rectangle {
     pub point: Point,
     pub size: Size,
 }
 
-#[derive(Clone, Copy, Default, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Size {
     pub width: f32,
     pub height: f32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WindowSize {
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Rectangle {
@@ -107,5 +113,14 @@ impl AddAssign for Size {
             width: self.width + other.width,
             height: self.height + other.height,
         };
+    }
+}
+
+impl Into<Size> for &WindowSize {
+    fn into(self) -> Size {
+        Size {
+            width: self.width as _,
+            height: self.height as _,
+        }
     }
 }
