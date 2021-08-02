@@ -206,10 +206,9 @@ impl<Handle> PaintTree<Handle> {
     }
 
     pub fn paint(&mut self, painter: &mut dyn Painter<Handle>) {
+        let mut walker = self.tree.walk(self.root_id);
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
-
-        let mut walker = self.tree.walk(self.root_id);
 
         while let Some((node_id, node, direction)) =
             walker.next_if(|node_id, _| self.paint_states[node_id].flags.contains(PaintFlag::Dirty))
@@ -224,72 +223,72 @@ impl<Handle> PaintTree<Handle> {
 
             latest_point = rectangle.point;
 
-            if matches!(direction, WalkDirection::Downward | WalkDirection::Sideward) {
-                let paint_state = &mut self.paint_states[node_id];
+            if matches!(direction, WalkDirection::Upward) {
+                continue;
+            }
 
-                if paint_state.flags.contains(PaintFlag::NeedsPaint) {
-                    let mut context = PaintContext {
-                        event_manager: &mut self.event_manager,
-                        painter,
-                    };
+            let paint_state = &mut self.paint_states[node_id];
 
-                    for WidgetPod {
-                        widget,
-                        state,
-                        children,
-                        ..
-                    } in mem::take(&mut paint_state.deleted_children)
-                    {
-                        widget.on_paint_cycle(
-                            PaintCycle::DidUnmount(&children),
-                            &mut **state.lock().unwrap(),
-                            &mut context,
-                        );
-                    }
+            if paint_state.flags.contains(PaintFlag::NeedsPaint) {
+                let mut context = PaintContext {
+                    event_manager: &mut self.event_manager,
+                    painter,
+                };
 
-                    let widget_pod = &**node;
-                    let WidgetPod {
-                        widget,
-                        state,
-                        children,
-                        ..
-                    } = widget_pod;
-
-                    if let Some(old_widget_pod) =
-                        paint_state.mounted_pod.replace(widget_pod.clone())
-                    {
-                        widget.on_paint_cycle(
-                            PaintCycle::DidUpdate(
-                                &children,
-                                &*old_widget_pod.widget,
-                                &old_widget_pod.children,
-                            ),
-                            &mut **state.lock().unwrap(),
-                            &mut context,
-                        );
-                    } else {
-                        widget.on_paint_cycle(
-                            PaintCycle::DidMount(children),
-                            &mut **state.lock().unwrap(),
-                            &mut context,
-                        );
-                    }
-
-                    let absolute_rectangle = Rectangle {
-                        point: absolute_point + rectangle.point,
-                        size: rectangle.size,
-                    };
-
-                    paint_state.hint = widget.paint(
-                        &absolute_rectangle,
+                for WidgetPod {
+                    widget,
+                    state,
+                    children,
+                    ..
+                } in mem::take(&mut paint_state.deleted_children)
+                {
+                    widget.on_paint_cycle(
+                        PaintCycle::DidUnmount(&children),
                         &mut **state.lock().unwrap(),
                         &mut context,
                     );
-
-                    paint_state.flags -= PaintFlag::NeedsPaint;
                 }
 
-                paint_state.flags -= PaintFlag::Dirty;
+                let widget_pod = &**node;
+                let WidgetPod {
+                    widget,
+                    state,
+                    children,
+                    ..
+                } = widget_pod;
+
+                if let Some(old_widget_pod) =
+                    paint_state.mounted_pod.replace(widget_pod.clone())
+                {
+                    widget.on_paint_cycle(
+                        PaintCycle::DidUpdate(
+                            &children,
+                            &*old_widget_pod.widget,
+                            &old_widget_pod.children,
+                        ),
+                        &mut **state.lock().unwrap(),
+                        &mut context,
+                    );
+                } else {
+                    widget.on_paint_cycle(
+                        PaintCycle::DidMount(children),
+                        &mut **state.lock().unwrap(),
+                        &mut context,
+                    );
+                }
+
+                let absolute_rectangle = Rectangle {
+                    point: absolute_point + rectangle.point,
+                    size: rectangle.size,
+                };
+
+                paint_state.hint = widget.paint(
+                    &absolute_rectangle,
+                    &mut **state.lock().unwrap(),
+                    &mut context,
+                );
+
+                paint_state.flags -= PaintFlag::NeedsPaint;
             }
         }
     }
