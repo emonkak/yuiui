@@ -1,17 +1,20 @@
 use std::sync::mpsc::{channel, sync_channel};
 use std::thread;
 
+use mio::{Events, Poll, Token, Waker};
+
 use crate::event::GenericEvent;
 use crate::geometrics::WindowSize;
 use crate::paint::tree::PaintTree;
 use crate::render::tree::RenderTree;
-use crate::tree::NodeId;
 use crate::widget::element::Element;
+
+const WINDOE_EVENT_TOKEN: Token = Token(0);
+const REDRAW_TOKEN: Token = Token(1);
 
 pub enum Message {
     Invalidate,
     Resize(WindowSize),
-    Update(NodeId),
     Event(GenericEvent),
     Quit,
 }
@@ -21,32 +24,38 @@ pub trait Backend<Painter> {
 
     fn commit_paint(&mut self, painter: &mut Painter);
 
+    fn invalidate(&self);
+
     fn advance_event_loop(&mut self) -> Message;
 
-    fn create_notifier(&mut self) -> Box<dyn Fn(NodeId) + Send>;
-
     fn get_window_size(&self) -> WindowSize;
+
+    fn subscribe_window_events(&self, poll: &Poll, token: Token);
 
     fn run(&mut self, element: Element<Painter>)
     where
         Painter: 'static,
     {
-        let (patches_tx, patches_rx) = sync_channel(1);
-        let (update_tx, update_rx) = channel();
-        let notify_update = self.create_notifier();
+        let mut poll = Poll::new().unwrap();
+        let waker = Waker::new(poll.registry(), REDRAW_TOKEN).unwrap();
+
+        self.subscribe_window_events(&poll, WINDOE_EVENT_TOKEN);
+
+        let (update_senter, update_receiver) = sync_channel(1);
+        let (redraw_sender, redraw_receiver) = channel();
 
         thread::spawn(move || {
             let mut render_tree = RenderTree::new();
 
             let patches = render_tree.render(element);
-            patches_tx.send(patches).unwrap();
-            notify_update(render_tree.root_id());
+            update_senter.send((render_tree.root_id(), patches)).unwrap();
+            waker.wake().unwrap();
 
             loop {
-                let target_id = update_rx.recv().unwrap();
+                let target_id = redraw_receiver.recv().unwrap();
                 let patches = render_tree.update(target_id);
-                patches_tx.send(patches).unwrap();
-                notify_update(target_id);
+                update_senter.send((target_id, patches)).unwrap();
+                waker.wake().unwrap();
             }
         });
 
@@ -54,34 +63,48 @@ pub trait Backend<Painter> {
         let mut paint_tree = PaintTree::new(window_size);
         let mut painter = self.begin_paint(window_size);
 
+        let mut events = Events::with_capacity(8);
+
         loop {
-            match self.advance_event_loop() {
-                Message::Invalidate => {
-                    self.commit_paint(&mut painter);
-                }
-                Message::Resize(size) => {
-                    if window_size != size {
-                        window_size = size;
-                        painter = self.begin_paint(window_size);
-                        paint_tree.layout_root(window_size, &mut painter);
+            poll.poll(&mut events, None).unwrap();
+
+            for event in &events {
+                match event.token() {
+                    WINDOE_EVENT_TOKEN => {
+                        match self.advance_event_loop() {
+                            Message::Invalidate => {
+                                self.commit_paint(&mut painter);
+                            }
+                            Message::Resize(size) => {
+                                if window_size != size {
+                                    window_size = size;
+                                    painter = self.begin_paint(window_size);
+                                    paint_tree.layout_root(window_size, &mut painter);
+                                    paint_tree.paint(&mut painter);
+                                    self.invalidate();
+                                }
+                            }
+                            Message::Event(event) => {
+                                paint_tree.dispatch(&event, &redraw_sender);
+                            }
+                            Message::Quit => {
+                                break;
+                            }
+                        }
+                    },
+                    REDRAW_TOKEN => {
+                        let (node_id, patches) = update_receiver.recv().unwrap();
+
+                        for patch in patches {
+                            paint_tree.apply_patch(patch);
+                        }
+
+                        paint_tree.layout_subtree(node_id, &mut painter);
                         paint_tree.paint(&mut painter);
-                    }
-                }
-                Message::Update(node_id) => {
-                    for patch in patches_rx.recv().unwrap() {
-                        paint_tree.apply_patch(patch);
-                    }
 
-                    paint_tree.layout_subtree(node_id, &mut painter);
-                    paint_tree.paint(&mut painter);
-
-                    self.commit_paint(&mut painter);
-                }
-                Message::Event(event) => {
-                    paint_tree.dispatch(&event, &update_tx);
-                }
-                Message::Quit => {
-                    break;
+                        self.commit_paint(&mut painter);
+                    }
+                    _ => {}
                 }
             }
         }

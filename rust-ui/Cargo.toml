@@ -9,7 +9,8 @@ default = ["xlib"]
 xlib = []
 
 [dependencies]
-x11 = { version = "2.18.2", features = ["xft", "xinerama", "xlib"] }
+mio = { version = "0.7", features = ["os-ext"] }
+x11 = { version = "2.18", features = ["xft", "xinerama", "xlib"] }
 
 [dependencies.rust-ui-derive]
 path = "../rust-ui-derive"

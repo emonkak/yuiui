@@ -1,34 +1,28 @@
 use std::mem;
-use std::sync::atomic::{AtomicPtr, Ordering};
 use x11::xlib;
+
+use mio::unix::SourceFd;
+use mio::{Interest, Poll, Token};
 
 use crate::event::mouse::MouseDown;
 use crate::event::EventType;
 use crate::geometrics::WindowSize;
 use crate::platform::backend::{Backend, Message};
 use crate::platform::paint::GeneralPainter;
-use crate::tree::NodeId;
 
 use super::event::XEvent;
 use super::paint::XPainter;
 
-const UPDATE_ATOM_NAME: &str = "__RUST_UI_UPDATE\0";
-
 pub struct XBackend {
     display: *mut xlib::Display,
     window: xlib::Window,
-    update_atom: xlib::Atom,
 }
 
 impl XBackend {
     pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
-        let update_atom = unsafe {
-            xlib::XInternAtom(display, UPDATE_ATOM_NAME.as_ptr() as *const _, xlib::False)
-        };
         Self {
             display,
             window,
-            update_atom,
         }
     }
 }
@@ -39,7 +33,30 @@ impl Backend<XPainter> for XBackend {
     }
 
     fn commit_paint(&mut self, painter: &mut XPainter) {
-        painter.commit()
+        painter.commit();
+        unsafe {
+            xlib::XFlush(self.display);
+        }
+    }
+
+    fn invalidate(&self) {
+        let mut event = xlib::XEvent::from(xlib::XExposeEvent {
+            type_: xlib::Expose,
+            serial: 0,
+            send_event: xlib::True,
+            display: self.display,
+            window: self.window,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            count: 0,
+        });
+
+        unsafe {
+            xlib::XSendEvent(self.display, self.window, xlib::True, xlib::NoEventMask, &mut event);
+            xlib::XFlush(self.display);
+        }
     }
 
     fn advance_event_loop(&mut self) -> Message {
@@ -70,41 +87,21 @@ impl Backend<XPainter> for XBackend {
                         height: event.height as _,
                     });
                 }
-                XEvent::ClientMessage(event) if event.message_type == self.update_atom => {
-                    let node_id = event.data.get_long(0) as _;
-                    return Message::Update(node_id);
-                }
                 _ => (),
             }
         }
     }
 
-    fn create_notifier(&mut self) -> Box<dyn Fn(NodeId) + Send> {
-        let display = AtomicPtr::new(self.display);
-        let window = self.window;
-        let update_atom = self.update_atom;
-        Box::new(move |node_id| {
-            let display = display.load(Ordering::Relaxed);
+    fn subscribe_window_events(&self, poll: &Poll, token: Token) {
+        let fd = unsafe { xlib::XConnectionNumber(self.display) };
 
-            let mut data = xlib::ClientMessageData::new();
-            data.set_long(0, node_id as _);
+        poll.registry()
+            .register(&mut SourceFd(&fd), token, Interest::READABLE)
+            .unwrap();
 
-            let mut event = xlib::XEvent::from(xlib::XClientMessageEvent {
-                type_: xlib::ClientMessage,
-                serial: 0,
-                send_event: xlib::True,
-                display,
-                window: window,
-                message_type: update_atom,
-                format: 32,
-                data,
-            });
-
-            unsafe {
-                xlib::XSendEvent(display, window, xlib::True, xlib::NoEventMask, &mut event);
-                xlib::XFlush(display);
-            }
-        })
+        unsafe {
+            xlib::XFlush(self.display);
+        }
     }
 
     fn get_window_size(&self) -> WindowSize {

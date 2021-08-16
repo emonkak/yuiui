@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate rust_ui;
+
 extern crate x11;
 
 use std::any::Any;

@@ -1,3 +1,4 @@
+extern crate mio;
 extern crate rust_ui_derive;
 extern crate x11;
 
