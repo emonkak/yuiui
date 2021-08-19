@@ -3,7 +3,7 @@ use rust_ui_derive::WidgetMeta;
 use crate::base::Rectangle;
 use crate::graphics::color::Color;
 use crate::graphics::x11::renderer::{DrawOp, XRenderer};
-use crate::paint::PaintContext;
+use crate::paint::LifecycleContext;
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -38,7 +38,7 @@ impl Widget<XRenderer> for Fill {
         bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut XRenderer,
-        _context: &mut PaintContext<XRenderer>,
+        _context: &mut LifecycleContext<XRenderer>,
     ) -> DrawOp {
         DrawOp::FillRectangle(self.color, bounds.into()) + draw_op
     }

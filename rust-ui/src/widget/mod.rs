@@ -14,8 +14,8 @@ use crate::base::{Rectangle, Size};
 use crate::generator::Generator;
 use crate::graphics::renderer::Renderer;
 use crate::paint::layout::{BoxConstraints, LayoutRequest};
-use crate::paint::{PaintContext, PaintCycle};
-use crate::render::{RenderContext, RenderCycle};
+use crate::paint::{LifecycleContext, Lifecycle};
+use crate::render::{RenderContext};
 use crate::tree::NodeId;
 
 use self::element::{Children, Element, IntoElement, Key};
@@ -39,21 +39,12 @@ where
     }
 
     #[inline]
-    fn on_render_cycle(
+    fn on_lifecycle(
         &self,
-        _render_cycle: RenderCycle<&Self, &Children<Renderer>>,
-        _state: &mut Self::State,
-        _context: &mut RenderContext<Self, Renderer, Self::State>,
-    ) {
-    }
-
-    #[inline]
-    fn on_paint_cycle(
-        &self,
-        _paint_cycle: PaintCycle<&Self, &Children<Renderer>>,
+        _lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         _state: &mut Self::State,
         _renderer: &mut Renderer,
-        _context: &mut PaintContext<Renderer>,
+        _context: &mut LifecycleContext<Renderer>,
     ) {
     }
 
@@ -93,7 +84,7 @@ where
         _bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut Renderer,
-        _context: &mut PaintContext<Renderer>,
+        _context: &mut LifecycleContext<Renderer>,
     ) -> Renderer::DrawOp {
         draw_op
     }
@@ -110,19 +101,12 @@ pub trait PolymophicWidget<Renderer: self::Renderer>: Send + Sync + WidgetMeta {
         state: &dyn Any,
     ) -> bool;
 
-    fn on_render_cycle(
+    fn on_lifecycle(
         &self,
-        render_cycle: RenderCycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
-        state: &mut dyn Any,
-        node_id: NodeId,
-    );
-
-    fn on_paint_cycle(
-        &self,
-        paint_cycle: PaintCycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
         state: &mut dyn Any,
         renderer: &mut Renderer,
-        context: &mut PaintContext<Renderer>,
+        context: &mut LifecycleContext<Renderer>,
     );
 
     fn render(
@@ -147,7 +131,7 @@ pub trait PolymophicWidget<Renderer: self::Renderer>: Send + Sync + WidgetMeta {
         bounds: Rectangle,
         state: &mut dyn Any,
         renderer: &mut Renderer,
-        context: &mut PaintContext<Renderer>,
+        context: &mut LifecycleContext<Renderer>,
     ) -> Renderer::DrawOp;
 }
 
@@ -208,29 +192,15 @@ where
     }
 
     #[inline]
-    fn on_render_cycle(
+    fn on_lifecycle(
         &self,
-        render_cycle: RenderCycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
-        state: &mut dyn Any,
-        node_id: NodeId,
-    ) {
-        self.on_render_cycle(
-            render_cycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
-            state.downcast_mut().unwrap(),
-            &mut RenderContext::new(node_id),
-        );
-    }
-
-    #[inline]
-    fn on_paint_cycle(
-        &self,
-        paint_cycle: PaintCycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
+        lifecycle: Lifecycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
         state: &mut dyn Any,
         renderer: &mut Renderer,
-        context: &mut PaintContext<Renderer>,
+        context: &mut LifecycleContext<Renderer>,
     ) {
-        self.on_paint_cycle(
-            paint_cycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
+        self.on_lifecycle(
+            lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),
             renderer,
             context,
@@ -276,7 +246,7 @@ where
         bounds: Rectangle,
         state: &mut dyn Any,
         renderer: &mut Renderer,
-        context: &mut PaintContext<Renderer>,
+        context: &mut LifecycleContext<Renderer>,
     ) -> Renderer::DrawOp {
         self.draw(
             draw_op,

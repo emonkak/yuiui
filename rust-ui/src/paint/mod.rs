@@ -5,24 +5,18 @@ use std::sync::Arc;
 
 use crate::event::{EventHandler, EventManager, HandlerId};
 
-pub struct PaintContext<'a, Renderer> {
+pub struct LifecycleContext<'a, Renderer> {
     event_manager: &'a mut EventManager<Renderer>,
 }
 
 #[derive(Debug)]
-pub enum PaintCycle<Widget, Children> {
+pub enum Lifecycle<Widget, Children> {
     DidMount(Children),
     DidUpdate(Children, Widget, Children),
     DidUnmount(Children),
 }
 
-#[derive(Debug)]
-pub enum PaintHint {
-    Always,
-    Once,
-}
-
-impl<'a, Renderer> PaintContext<'a, Renderer> {
+impl<'a, Renderer> LifecycleContext<'a, Renderer> {
     pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Renderer>>) -> HandlerId {
         self.event_manager.add(handler)
     }
@@ -32,25 +26,25 @@ impl<'a, Renderer> PaintContext<'a, Renderer> {
     }
 }
 
-impl<Widget, Children> PaintCycle<Widget, Children> {
-    pub fn map<F, NewWidget>(self, f: F) -> PaintCycle<NewWidget, Children>
+impl<Widget, Children> Lifecycle<Widget, Children> {
+    pub fn map<F, NewWidget>(self, f: F) -> Lifecycle<NewWidget, Children>
     where
         F: Fn(Widget) -> NewWidget,
     {
         match self {
-            PaintCycle::DidMount(children) => PaintCycle::DidMount(children),
-            PaintCycle::DidUpdate(children, new_widget, new_children) => {
-                PaintCycle::DidUpdate(children, f(new_widget), new_children)
+            Lifecycle::DidMount(children) => Lifecycle::DidMount(children),
+            Lifecycle::DidUpdate(children, new_widget, new_children) => {
+                Lifecycle::DidUpdate(children, f(new_widget), new_children)
             }
-            PaintCycle::DidUnmount(children) => PaintCycle::DidUnmount(children),
+            Lifecycle::DidUnmount(children) => Lifecycle::DidUnmount(children),
         }
     }
 
-    pub fn without_params(&self) -> PaintCycle<(), ()> {
+    pub fn without_params(&self) -> Lifecycle<(), ()> {
         match self {
-            PaintCycle::DidMount(_) => PaintCycle::DidMount(()),
-            PaintCycle::DidUpdate(_, _, _) => PaintCycle::DidUpdate((), (), ()),
-            PaintCycle::DidUnmount(_) => PaintCycle::DidUnmount(()),
+            Lifecycle::DidMount(_) => Lifecycle::DidMount(()),
+            Lifecycle::DidUpdate(_, _, _) => Lifecycle::DidUpdate((), (), ()),
+            Lifecycle::DidUnmount(_) => Lifecycle::DidUnmount(()),
         }
     }
 }

@@ -14,7 +14,7 @@ use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 
 use super::layout::{BoxConstraints, LayoutRequest};
-use super::{PaintContext, PaintCycle};
+use super::{LifecycleContext, Lifecycle};
 
 #[derive(Debug)]
 pub struct PaintTree<Renderer> {
@@ -251,7 +251,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
                 }
             }
 
-            let mut context = PaintContext {
+            let mut context = LifecycleContext {
                 event_manager: &mut self.event_manager,
             };
 
@@ -262,8 +262,8 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
                 ..
             } in mem::take(&mut paint_state.deleted_children)
             {
-                widget.on_paint_cycle(
-                    PaintCycle::DidUnmount(&children),
+                widget.on_lifecycle(
+                    Lifecycle::DidUnmount(&children),
                     &mut **state.lock().unwrap(),
                     renderer,
                     &mut context,
@@ -271,7 +271,12 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
             }
 
             let widget_pod = &**node;
-            let WidgetPod { widget, state, children, ..  } = widget_pod;
+            let WidgetPod {
+                widget,
+                state,
+                children,
+                ..
+            } = widget_pod;
             let absolute_bounds = bounds.offset(absolute_point.x, absolute_point.y);
 
             let draw_op = widget.draw(
@@ -283,8 +288,8 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
             );
 
             if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
-                widget.on_paint_cycle(
-                    PaintCycle::DidUpdate(
+                widget.on_lifecycle(
+                    Lifecycle::DidUpdate(
                         &children,
                         &*old_widget_pod.widget,
                         &old_widget_pod.children,
@@ -294,8 +299,8 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
                     &mut context,
                 );
             } else {
-                widget.on_paint_cycle(
-                    PaintCycle::DidMount(children),
+                widget.on_lifecycle(
+                    Lifecycle::DidMount(children),
                     &mut **state.lock().unwrap(),
                     renderer,
                     &mut context,

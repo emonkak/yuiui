@@ -5,7 +5,7 @@ use rust_ui_derive::WidgetMeta;
 
 use crate::event::{EventHandler, HandlerId};
 use crate::graphics::renderer::Renderer;
-use crate::paint::{PaintContext, PaintCycle};
+use crate::paint::{LifecycleContext, Lifecycle};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -50,21 +50,21 @@ impl<Renderer: self::Renderer> Widget<Renderer> for Subscriber<Renderer> {
     }
 
     #[inline]
-    fn on_paint_cycle(
+    fn on_lifecycle(
         &self,
-        paint_cycle: PaintCycle<&Self, &Children<Renderer>>,
+        lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         state: &mut Self::State,
         _renderer: &mut Renderer,
-        context: &mut PaintContext<Renderer>,
+        context: &mut LifecycleContext<Renderer>,
     ) {
-        match paint_cycle {
-            PaintCycle::DidMount(_children) => {
+        match lifecycle {
+            Lifecycle::DidMount(_children) => {
                 for handler in self.handlers.iter() {
                     let handler_id = context.add_handler(Arc::clone(handler));
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            PaintCycle::DidUpdate(_old_children, new_widget, _new_children) => {
+            Lifecycle::DidUpdate(_old_children, new_widget, _new_children) => {
                 let intersected_len = self.handlers.len().min(new_widget.handlers.len());
 
                 for index in 0..intersected_len {
@@ -90,7 +90,7 @@ impl<Renderer: self::Renderer> Widget<Renderer> for Subscriber<Renderer> {
                     state.registered_handler_ids.push(handler_id);
                 }
             }
-            PaintCycle::DidUnmount(_children) => {
+            Lifecycle::DidUnmount(_children) => {
                 for handler_id in mem::take(&mut state.registered_handler_ids) {
                     context.remove_handler(handler_id);
                 }

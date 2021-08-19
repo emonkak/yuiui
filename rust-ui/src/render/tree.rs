@@ -11,7 +11,6 @@ use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 use crate::widget::PolymophicWidget;
 
 use super::reconciler::{ReconcileResult, Reconciler};
-use super::RenderCycle;
 
 #[derive(Debug)]
 pub struct RenderTree<Renderer> {
@@ -99,30 +98,12 @@ impl<Renderer: self::Renderer> RenderTree<Renderer> {
             &mut self.render_states[target_id].status,
             RenderStatus::Rendered,
         ) {
-            RenderStatus::Fresh => {
-                widget.on_render_cycle(
-                    RenderCycle::WillMount(&children),
-                    &mut **state.lock().unwrap(),
-                    target_id,
-                );
-            }
             RenderStatus::Pending(element) => {
-                widget.on_render_cycle(
-                    RenderCycle::WillUpdate(&children, &*element.widget, &element.children),
-                    &mut **state.lock().unwrap(),
-                    target_id,
-                );
                 *widget = element.widget;
                 *children = element.children;
             }
-            RenderStatus::Rendered => {
-                widget.on_render_cycle(
-                    RenderCycle::WillUpdate(&children, &**widget, &children),
-                    &mut **state.lock().unwrap(),
-                    target_id,
-                );
-            }
             RenderStatus::Skipped => unreachable!("Skipped widget"),
+            RenderStatus::Fresh | RenderStatus::Rendered => {}
         }
         let rendered_children =
             widget.render(children.clone(), &mut **state.lock().unwrap(), target_id);
@@ -202,33 +183,11 @@ impl<Renderer: self::Renderer> RenderTree<Renderer> {
                 patches.push(Patch::Placement(target_id, ref_id));
             }
             ReconcileResult::Deletion(target_id) => {
-                let (node, subtree) = self.tree.detach(target_id);
+                let (_, subtree) = self.tree.detach(target_id);
 
-                let WidgetPod {
-                    widget,
-                    children,
-                    state,
-                    ..
-                } = node.into_inner();
-                widget.on_render_cycle(
-                    RenderCycle::WillUnmount(&children),
-                    &mut **state.lock().unwrap(),
-                    target_id,
-                );
                 self.render_states.remove(target_id);
 
-                for (child_id, child) in subtree {
-                    let WidgetPod {
-                        widget,
-                        children,
-                        state,
-                        ..
-                    } = child.into_inner();
-                    widget.on_render_cycle(
-                        RenderCycle::WillUnmount(&children),
-                        &mut **state.lock().unwrap(),
-                        target_id,
-                    );
+                for (child_id, _) in subtree {
                     self.render_states.remove(child_id);
                 }
 

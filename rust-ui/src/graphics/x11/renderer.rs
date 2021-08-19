@@ -161,7 +161,12 @@ impl DrawArea {
             };
             let gc = xlib::XCreateGC(display, pixmap, 0, ptr::null_mut());
 
-            Self { display, pixmap, gc, size }
+            Self {
+                display,
+                pixmap,
+                gc,
+                size,
+            }
         }
     }
 }
