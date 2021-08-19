@@ -8,10 +8,10 @@ use crate::event::handler::{EventContext, WidgetHandler};
 use crate::event::EventType;
 use crate::tree::NodeId;
 
-pub struct RenderContext<Widget: ?Sized, Painter, State> {
+pub struct RenderContext<Widget: ?Sized, Renderer, State> {
     node_id: NodeId,
     _widget: PhantomData<Widget>,
-    _handle: PhantomData<Painter>,
+    _handle: PhantomData<Renderer>,
     _state: PhantomData<State>,
 }
 

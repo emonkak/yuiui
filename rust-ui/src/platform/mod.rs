@@ -1,3 +1,4 @@
-pub mod backend;
-pub mod paint;
+pub mod application;
+pub mod event_loop;
+pub mod window;
 pub mod x11;

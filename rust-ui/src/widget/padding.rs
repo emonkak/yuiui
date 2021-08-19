@@ -1,7 +1,8 @@
 use rust_ui_derive::WidgetMeta;
 
+use crate::base::{Point, Size};
 use crate::generator::{Coroutine, Generator};
-use crate::geometrics::{Point, Size};
+use crate::graphics::renderer::Renderer;
 use crate::paint::layout::{BoxConstraints, LayoutRequest};
 use crate::tree::NodeId;
 
@@ -26,16 +27,16 @@ impl Padding {
     }
 }
 
-impl<Painter> Widget<Painter> for Padding {
+impl<Renderer: self::Renderer> Widget<Renderer> for Padding {
     type State = ();
 
     fn layout<'a>(
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Painter>,
+        tree: &'a WidgetTree<Renderer>,
         _state: &mut Self::State,
-        _painter: &mut Painter,
+        _renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let child_id = tree[node_id]

@@ -1,4 +1,4 @@
-use crate::geometrics::{Point, Size};
+use crate::base::{Point, Size};
 use crate::tree::NodeId;
 
 #[derive(Debug)]

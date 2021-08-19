@@ -4,14 +4,15 @@ use std::sync::Arc;
 use rust_ui_derive::WidgetMeta;
 
 use crate::event::{EventHandler, HandlerId};
+use crate::graphics::renderer::Renderer;
 use crate::paint::{PaintContext, PaintCycle};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
-pub struct Subscriber<Painter: 'static> {
-    handlers: Vec<Arc<dyn EventHandler<Painter>>>,
+pub struct Subscriber<Renderer: 'static> {
+    handlers: Vec<Arc<dyn EventHandler<Renderer>>>,
 }
 
 #[derive(Default)]
@@ -19,7 +20,7 @@ pub struct SubscriberState {
     registered_handler_ids: Vec<HandlerId>,
 }
 
-impl<Painter> Subscriber<Painter> {
+impl<Renderer: self::Renderer> Subscriber<Renderer> {
     pub fn new() -> Self {
         Self {
             handlers: Vec::new(),
@@ -28,21 +29,21 @@ impl<Painter> Subscriber<Painter> {
 
     pub fn on<Handler>(mut self, handler: Handler) -> Self
     where
-        Handler: EventHandler<Painter> + 'static,
+        Handler: EventHandler<Renderer> + 'static,
     {
         self.handlers.push(Arc::new(handler));
         self
     }
 }
 
-impl<Painter> Widget<Painter> for Subscriber<Painter> {
+impl<Renderer: self::Renderer> Widget<Renderer> for Subscriber<Renderer> {
     type State = SubscriberState;
 
     fn should_update(
         &self,
         new_widget: &Self,
-        old_children: &Children<Painter>,
-        new_children: &Children<Painter>,
+        old_children: &Children<Renderer>,
+        new_children: &Children<Renderer>,
         _state: &Self::State,
     ) -> bool {
         !Arc::ptr_eq(&old_children, &new_children) || self.handlers != new_widget.handlers
@@ -51,10 +52,10 @@ impl<Painter> Widget<Painter> for Subscriber<Painter> {
     #[inline]
     fn on_paint_cycle(
         &self,
-        paint_cycle: PaintCycle<&Self, &Children<Painter>>,
+        paint_cycle: PaintCycle<&Self, &Children<Renderer>>,
         state: &mut Self::State,
-        _painter: &mut Painter,
-        context: &mut PaintContext<Painter>,
+        _renderer: &mut Renderer,
+        context: &mut PaintContext<Renderer>,
     ) {
         match paint_cycle {
             PaintCycle::DidMount(_children) => {

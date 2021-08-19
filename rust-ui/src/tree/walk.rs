@@ -12,7 +12,7 @@ pub struct WalkerMut<'a, T> {
     pub(super) next: Option<(NodeId, WalkDirection)>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WalkDirection {
     Downward,
     Sideward,
@@ -20,7 +20,7 @@ pub enum WalkDirection {
 }
 
 impl<'a, T> Walker<'a, T> {
-    pub fn next_if<F>(&mut self, filter: F) -> Option<(NodeId, &'a Link<T>, WalkDirection)>
+    pub fn next_match<F>(&mut self, filter: F) -> Option<(NodeId, &'a Link<T>, WalkDirection)>
     where
         F: Fn(NodeId, &Link<T>) -> bool,
     {
@@ -33,7 +33,7 @@ impl<'a, T> Walker<'a, T> {
                     WalkDirection::Upward => false,
                 } {
                     if let Some((next_node_id, next_direction)) =
-                        walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward)
+                        walk_next_node(node_id, self.root_id, link, WalkDirection::Upward)
                     {
                         node_id = next_node_id;
                         direction = next_direction;
@@ -42,14 +42,14 @@ impl<'a, T> Walker<'a, T> {
                         return None;
                     }
                 }
-                self.next = walk_next_node(node_id, self.root_id, link, &direction);
+                self.next = walk_next_node(node_id, self.root_id, link, direction);
                 Some((node_id, link, direction))
             })
     }
 }
 
 impl<'a, T> WalkerMut<'a, T> {
-    pub fn next_if<F>(&mut self, filter: F) -> Option<(NodeId, &'a mut Link<T>, WalkDirection)>
+    pub fn next_match<F>(&mut self, filter: F) -> Option<(NodeId, &'a mut Link<T>, WalkDirection)>
     where
         F: Fn(NodeId, &Link<T>) -> bool,
     {
@@ -66,7 +66,7 @@ impl<'a, T> WalkerMut<'a, T> {
                     WalkDirection::Upward => false,
                 } {
                     if let Some((next_node_id, next_direction)) =
-                        walk_next_node(node_id, self.root_id, link, &WalkDirection::Upward)
+                        walk_next_node(node_id, self.root_id, link, WalkDirection::Upward)
                     {
                         node_id = next_node_id;
                         direction = next_direction;
@@ -79,7 +79,7 @@ impl<'a, T> WalkerMut<'a, T> {
                         return None;
                     }
                 }
-                self.next = walk_next_node(node_id, self.root_id, link, &direction);
+                self.next = walk_next_node(node_id, self.root_id, link, direction);
                 Some((node_id, link, direction))
             })
     }
@@ -91,7 +91,7 @@ impl<'a, T> Iterator for Walker<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|(node_id, direction)| {
             let link = &self.tree.arena[node_id];
-            self.next = walk_next_node(node_id, self.root_id, link, &direction);
+            self.next = walk_next_node(node_id, self.root_id, link, direction);
             (node_id, link, direction)
         })
     }
@@ -107,7 +107,7 @@ impl<'a, T> Iterator for WalkerMut<'a, T> {
                     .as_mut()
                     .unwrap()
             };
-            self.next = walk_next_node(node_id, self.root_id, link, &direction);
+            self.next = walk_next_node(node_id, self.root_id, link, direction);
             (node_id, link, direction)
         })
     }
@@ -117,7 +117,7 @@ pub fn walk_next_node<T>(
     node_id: NodeId,
     root_id: NodeId,
     link: &Link<T>,
-    direction: &WalkDirection,
+    direction: WalkDirection,
 ) -> Option<(NodeId, WalkDirection)> {
     if node_id == root_id {
         match direction {

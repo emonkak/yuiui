@@ -1,5 +1,5 @@
+use crate::base::Point;
 use crate::bit_flags::BitFlags;
-use crate::geometrics::Point;
 
 use super::EventType;
 

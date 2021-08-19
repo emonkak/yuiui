@@ -36,7 +36,7 @@ where
     }
 }
 
-impl<Event, Widget, Painter, State> EventHandler<Painter> for WidgetHandler<Event, Widget, State>
+impl<Event, Widget, Renderer, State> EventHandler<Renderer> for WidgetHandler<Event, Widget, State>
 where
     Event: 'static,
     Widget: 'static,
@@ -44,7 +44,7 @@ where
 {
     fn dispatch(
         &self,
-        tree: &WidgetTree<Painter>,
+        tree: &WidgetTree<Renderer>,
         event: &Box<dyn Any>,
         update_notifier: &Sender<NodeId>,
     ) {

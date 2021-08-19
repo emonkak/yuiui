@@ -1,7 +1,8 @@
 use rust_ui_derive::WidgetMeta;
 
+use crate::base::{Point, Size};
 use crate::generator::{Coroutine, Generator};
-use crate::geometrics::{Point, Size};
+use crate::graphics::renderer::Renderer;
 use crate::paint::layout::{BoxConstraints, LayoutRequest};
 use crate::tree::NodeId;
 
@@ -58,16 +59,16 @@ impl Flex {
     }
 }
 
-impl<Painter> Widget<Painter> for Flex {
+impl<Renderer: self::Renderer> Widget<Renderer> for Flex {
     type State = ();
 
     fn layout<'a>(
         &'a self,
         node_id: NodeId,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Painter>,
+        tree: &'a WidgetTree<Renderer>,
         _state: &mut Self::State,
-        _painter: &mut Painter,
+        _renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
@@ -132,7 +133,7 @@ impl FlexItem {
     }
 }
 
-impl<Painter> Widget<Painter> for FlexItem {
+impl<Renderer: self::Renderer> Widget<Renderer> for FlexItem {
     type State = ();
 }
 
@@ -202,7 +203,7 @@ impl Axis {
     }
 }
 
-fn get_params<Painter>(widget: &dyn PolymophicWidget<Painter>) -> Params {
+fn get_params<Renderer>(widget: &dyn PolymophicWidget<Renderer>) -> Params {
     widget
         .as_any()
         .downcast_ref::<FlexItem>()

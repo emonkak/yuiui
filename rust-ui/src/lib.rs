@@ -1,12 +1,9 @@
-extern crate mio;
-extern crate rust_ui_derive;
-extern crate x11;
-
 mod bit_flags;
 
+pub mod base;
 pub mod event;
 pub mod generator;
-pub mod geometrics;
+pub mod graphics;
 pub mod paint;
 pub mod platform;
 pub mod render;

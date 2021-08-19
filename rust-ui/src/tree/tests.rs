@@ -837,7 +837,7 @@ fn test_walk() {
 }
 
 #[test]
-fn test_walk_next_if() {
+fn test_walk_next_match() {
     //           root
     //          /   \
     //       foo    quux
@@ -855,82 +855,82 @@ fn test_walk_next_if() {
 
     let mut walker = tree.walk(root);
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((root, &tree[root], WalkDirection::Downward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((foo, &tree[foo], WalkDirection::Downward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((qux, &tree[qux], WalkDirection::Sideward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((foo, &tree[foo], WalkDirection::Upward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((quux, &tree[quux], WalkDirection::Sideward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((root, &tree[root], WalkDirection::Upward))
     );
-    assert_eq!(walker.next_if(|id, _| id != bar), None);
+    assert_eq!(walker.next_match(|id, _| id != bar), None);
 
     let mut walker = tree.walk(foo);
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((foo, &tree[foo], WalkDirection::Downward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((qux, &tree[qux], WalkDirection::Sideward))
     );
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((foo, &tree[foo], WalkDirection::Upward))
     );
-    assert_eq!(walker.next_if(|id, _| id != bar), None);
+    assert_eq!(walker.next_match(|id, _| id != bar), None);
 
     let mut walker = tree.walk(bar);
-    assert_eq!(walker.next_if(|id, _| id != bar), None);
+    assert_eq!(walker.next_match(|id, _| id != bar), None);
 
     let mut walker = tree.walk(baz);
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((baz, &tree[baz], WalkDirection::Downward))
     );
-    assert_eq!(walker.next_if(|id, _| id != bar), None);
+    assert_eq!(walker.next_match(|id, _| id != bar), None);
 
     let mut walker = tree.walk(qux);
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((qux, &tree[qux], WalkDirection::Downward))
     );
-    assert_eq!(walker.next_if(|id, _| id != bar), None);
+    assert_eq!(walker.next_match(|id, _| id != bar), None);
 
     let mut walker = tree.walk(quux);
     assert_eq!(
-        walker.next_if(|id, _| id != bar),
+        walker.next_match(|id, _| id != bar),
         Some((quux, &tree[quux], WalkDirection::Downward))
     );
-    assert_eq!(walker.next_if(|id, _| id != bar), None);
+    assert_eq!(walker.next_match(|id, _| id != bar), None);
 
     for &node_id in &[root, foo, bar, baz, qux, quux] {
         let mut xs = Vec::new();
         let mut walker = tree.walk(node_id);
 
-        while let Some((index, link, direction)) = walker.next_if(|id, _| id != bar) {
+        while let Some((index, link, direction)) = walker.next_match(|id, _| id != bar) {
             xs.push((index, link as *const _, direction));
         }
 
         let mut ys = Vec::new();
         let mut walker = tree.walk_mut(node_id);
 
-        while let Some((index, link, direction)) = walker.next_if(|id, _| id != bar) {
+        while let Some((index, link, direction)) = walker.next_match(|id, _| id != bar) {
             ys.push((index, link as *const _, direction));
         }
 

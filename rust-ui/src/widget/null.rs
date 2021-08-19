@@ -1,10 +1,12 @@
 use rust_ui_derive::WidgetMeta;
 
+use crate::graphics::renderer::Renderer;
+
 use super::{Widget, WidgetMeta};
 
 #[derive(WidgetMeta)]
 pub struct Null;
 
-impl<Painter> Widget<Painter> for Null {
+impl<Renderer: self::Renderer> Widget<Renderer> for Null {
     type State = ();
 }

@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::fmt;
 use std::mem;
 
+use crate::graphics::renderer::Renderer;
 use crate::slot_vec::SlotVec;
 use crate::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
@@ -13,21 +14,21 @@ use super::reconciler::{ReconcileResult, Reconciler};
 use super::RenderCycle;
 
 #[derive(Debug)]
-pub struct RenderTree<Painter> {
-    tree: WidgetTree<Painter>,
+pub struct RenderTree<Renderer> {
+    tree: WidgetTree<Renderer>,
     root_id: NodeId,
-    render_states: SlotVec<RenderState<Painter>>,
+    render_states: SlotVec<RenderState<Renderer>>,
 }
 
 #[derive(Debug)]
-struct RenderState<Painter> {
-    status: RenderStatus<Painter>,
+struct RenderState<Renderer> {
+    status: RenderStatus<Renderer>,
 }
 
 #[derive(Debug)]
-enum RenderStatus<Painter> {
+enum RenderStatus<Renderer> {
     Fresh,
-    Pending(Element<Painter>),
+    Pending(Element<Renderer>),
     Rendered,
     Skipped,
 }
@@ -38,7 +39,7 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-impl<Painter> RenderTree<Painter> {
+impl<Renderer: self::Renderer> RenderTree<Renderer> {
     pub fn new() -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
@@ -58,7 +59,7 @@ impl<Painter> RenderTree<Painter> {
         self.root_id
     }
 
-    pub fn render(&mut self, element: Element<Painter>) -> Vec<Patch<Painter>> {
+    pub fn render(&mut self, element: Element<Renderer>) -> Vec<Patch<Renderer>> {
         *self.tree[self.root_id] = WidgetPod::new(Null, vec![element]);
 
         let mut patches = Vec::new();
@@ -71,7 +72,7 @@ impl<Painter> RenderTree<Painter> {
         patches
     }
 
-    pub fn update(&mut self, target_id: NodeId) -> Vec<Patch<Painter>> {
+    pub fn update(&mut self, target_id: NodeId) -> Vec<Patch<Renderer>> {
         let mut patches = Vec::new();
         let mut current_id = target_id;
 
@@ -86,7 +87,7 @@ impl<Painter> RenderTree<Painter> {
         &mut self,
         target_id: NodeId,
         initial_id: NodeId,
-        patches: &mut Vec<Patch<Painter>>,
+        patches: &mut Vec<Patch<Renderer>>,
     ) -> Option<NodeId> {
         let WidgetPod {
             widget,
@@ -134,8 +135,8 @@ impl<Painter> RenderTree<Painter> {
     fn reconcile_children(
         &mut self,
         target_id: NodeId,
-        children: Children<Painter>,
-    ) -> Reconciler<TypedKey, NodeId, Element<Painter>> {
+        children: Children<Renderer>,
+    ) -> Reconciler<TypedKey, NodeId, Element<Renderer>> {
         let mut old_keys: Vec<TypedKey> = Vec::new();
         let mut old_node_ids: Vec<Option<NodeId>> = Vec::new();
 
@@ -146,7 +147,7 @@ impl<Painter> RenderTree<Painter> {
         }
 
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
-        let mut new_elements: Vec<Option<Element<Painter>>> = Vec::with_capacity(children.len());
+        let mut new_elements: Vec<Option<Element<Renderer>>> = Vec::with_capacity(children.len());
 
         for (index, element) in children.iter().enumerate() {
             let key = TypedKey::new(&*element.widget, index, element.key);
@@ -160,8 +161,8 @@ impl<Painter> RenderTree<Painter> {
     fn handle_reconcile_result(
         &mut self,
         target_id: NodeId,
-        result: ReconcileResult<NodeId, Element<Painter>>,
-        patches: &mut Vec<Patch<Painter>>,
+        result: ReconcileResult<NodeId, Element<Renderer>>,
+        patches: &mut Vec<Patch<Renderer>>,
     ) {
         match result {
             ReconcileResult::New(new_element) => {
@@ -266,7 +267,7 @@ impl<Painter> RenderTree<Painter> {
     }
 }
 
-impl<Painter> fmt::Display for RenderTree<Painter> {
+impl<Renderer> fmt::Display for RenderTree<Renderer> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.format(
             f,
@@ -292,7 +293,7 @@ impl<Painter> fmt::Display for RenderTree<Painter> {
     }
 }
 
-impl<Painter> Default for RenderState<Painter> {
+impl<Renderer> Default for RenderState<Renderer> {
     fn default() -> Self {
         Self {
             status: RenderStatus::Fresh,
@@ -301,8 +302,8 @@ impl<Painter> Default for RenderState<Painter> {
 }
 
 impl TypedKey {
-    fn new<Painter>(
-        widget: &dyn PolymophicWidget<Painter>,
+    fn new<Renderer>(
+        widget: &dyn PolymophicWidget<Renderer>,
         index: usize,
         key: Option<Key>,
     ) -> Self {

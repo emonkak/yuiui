@@ -1,37 +1,39 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
+use crate::graphics::renderer::Renderer;
 use crate::tree::{Link, NodeId, Tree};
 
 use super::element::{BoxedWidget, Children, Element, Key};
 use super::Widget;
 
-pub type WidgetTree<Painter> = Tree<WidgetPod<Painter>>;
+pub type WidgetTree<Renderer> = Tree<WidgetPod<Renderer>>;
 
-pub type WidgetNode<Painter> = Link<WidgetPod<Painter>>;
+pub type WidgetNode<Renderer> = Link<WidgetPod<Renderer>>;
 
 #[derive(Debug)]
-pub struct WidgetPod<Painter> {
-    pub widget: BoxedWidget<Painter>,
-    pub children: Children<Painter>,
+pub struct WidgetPod<Renderer> {
+    pub widget: BoxedWidget<Renderer>,
+    pub children: Children<Renderer>,
     pub key: Option<Key>,
     pub state: Arc<Mutex<Box<dyn Any + Send + Sync>>>,
 }
 
 #[derive(Debug)]
-pub enum Patch<Painter> {
-    Append(NodeId, WidgetPod<Painter>),
-    Insert(NodeId, WidgetPod<Painter>),
-    Update(NodeId, Element<Painter>),
+pub enum Patch<Renderer> {
+    Append(NodeId, WidgetPod<Renderer>),
+    Insert(NodeId, WidgetPod<Renderer>),
+    Update(NodeId, Element<Renderer>),
     Placement(NodeId, NodeId),
     Remove(NodeId),
 }
 
-impl<Painter> WidgetPod<Painter> {
+impl<Renderer: self::Renderer> WidgetPod<Renderer> {
     #[inline]
-    pub fn new<Widget>(widget: Widget, children: impl Into<Children<Painter>>) -> Self
+    pub fn new<Widget>(widget: Widget, children: impl Into<Children<Renderer>>) -> Self
     where
-        Widget: self::Widget<Painter> + Send + Sync + 'static,
+        Renderer: self::Renderer,
+        Widget: self::Widget<Renderer> + Send + Sync + 'static,
         Widget::State: 'static,
     {
         Self {
@@ -43,7 +45,7 @@ impl<Painter> WidgetPod<Painter> {
     }
 
     #[inline]
-    pub fn should_update(&self, element: &Element<Painter>) -> bool {
+    pub fn should_update(&self, element: &Element<Renderer>) -> bool {
         self.widget.should_update(
             &*element.widget,
             &self.children,
@@ -53,16 +55,16 @@ impl<Painter> WidgetPod<Painter> {
     }
 
     #[inline]
-    pub fn update(&mut self, element: Element<Painter>) {
+    pub fn update(&mut self, element: Element<Renderer>) {
         self.widget = element.widget;
         self.children = element.children;
         self.key = element.key;
     }
 }
 
-impl<Painter> From<Element<Painter>> for WidgetPod<Painter> {
+impl<Renderer: self::Renderer> From<Element<Renderer>> for WidgetPod<Renderer> {
     #[inline]
-    fn from(element: Element<Painter>) -> Self {
+    fn from(element: Element<Renderer>) -> Self {
         Self {
             state: Arc::new(Mutex::new(element.widget.initial_state())),
             widget: element.widget,
@@ -72,7 +74,7 @@ impl<Painter> From<Element<Painter>> for WidgetPod<Painter> {
     }
 }
 
-impl<Painter> Clone for WidgetPod<Painter> {
+impl<Renderer> Clone for WidgetPod<Renderer> {
     #[inline]
     fn clone(&self) -> Self {
         Self {

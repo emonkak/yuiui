@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use crate::event::{EventHandler, EventManager, HandlerId};
 
-pub struct PaintContext<'a, Painter> {
-    event_manager: &'a mut EventManager<Painter>,
+pub struct PaintContext<'a, Renderer> {
+    event_manager: &'a mut EventManager<Renderer>,
 }
 
 #[derive(Debug)]
@@ -22,12 +22,12 @@ pub enum PaintHint {
     Once,
 }
 
-impl<'a, Painter> PaintContext<'a, Painter> {
-    pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Painter>>) -> HandlerId {
+impl<'a, Renderer> PaintContext<'a, Renderer> {
+    pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Renderer>>) -> HandlerId {
         self.event_manager.add(handler)
     }
 
-    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Painter>> {
+    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Renderer>> {
         self.event_manager.remove(handler_id)
     }
 }

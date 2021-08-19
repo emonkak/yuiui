@@ -2,36 +2,38 @@ use std::array;
 use std::fmt;
 use std::sync::Arc;
 
+use crate::graphics::renderer::Renderer;
+
 use super::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
-pub struct Element<Painter> {
-    pub widget: BoxedWidget<Painter>,
-    pub children: Children<Painter>,
+pub struct Element<Renderer> {
+    pub widget: BoxedWidget<Renderer>,
+    pub children: Children<Renderer>,
     pub key: Option<Key>,
 }
 
 #[derive(Debug)]
-pub enum Child<Painter> {
-    Multiple(Vec<Element<Painter>>),
-    Single(Element<Painter>),
+pub enum Child<Renderer> {
+    Multiple(Vec<Element<Renderer>>),
+    Single(Element<Renderer>),
     None,
 }
 
-pub type BoxedWidget<Painter> = Arc<dyn PolymophicWidget<Painter>>;
+pub type BoxedWidget<Renderer> = Arc<dyn PolymophicWidget<Renderer>>;
 
-pub type Children<Painter> = Arc<Vec<Element<Painter>>>;
+pub type Children<Renderer> = Arc<Vec<Element<Renderer>>>;
 
 pub type Key = usize;
 
-pub trait IntoElement<Painter> {
-    fn into_element(self, children: Children<Painter>) -> Element<Painter>;
+pub trait IntoElement<Renderer> {
+    fn into_element(self, children: Children<Renderer>) -> Element<Renderer>;
 }
 
-impl<Painter> Element<Painter> {
+impl<Renderer> Element<Renderer> {
     pub fn build<const N: usize>(
-        widget: impl IntoElement<Painter> + 'static,
-        children: [Child<Painter>; N],
+        widget: impl IntoElement<Renderer> + 'static,
+        children: [Child<Renderer>; N],
     ) -> Self {
         let mut flatten_children = Vec::with_capacity(N);
 
@@ -51,7 +53,7 @@ impl<Painter> Element<Painter> {
     }
 }
 
-impl<Painter> Clone for Element<Painter> {
+impl<Renderer> Clone for Element<Renderer> {
     fn clone(&self) -> Self {
         Self {
             widget: Arc::clone(&self.widget),
@@ -61,10 +63,10 @@ impl<Painter> Clone for Element<Painter> {
     }
 }
 
-impl<Painter> fmt::Display for Element<Painter> {
+impl<Renderer> fmt::Display for Element<Renderer> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn fmt_rec<Painter>(
-            this: &Element<Painter>,
+        fn fmt_rec<Renderer>(
+            this: &Element<Renderer>,
             f: &mut fmt::Formatter<'_>,
             level: usize,
         ) -> fmt::Result {
@@ -86,20 +88,20 @@ impl<Painter> fmt::Display for Element<Painter> {
     }
 }
 
-impl<Painter> From<Element<Painter>> for Children<Painter> {
-    fn from(element: Element<Painter>) -> Self {
+impl<Renderer> From<Element<Renderer>> for Children<Renderer> {
+    fn from(element: Element<Renderer>) -> Self {
         Arc::new(vec![element])
     }
 }
 
-impl<Painter> From<Vec<Element<Painter>>> for Child<Painter> {
-    fn from(elements: Vec<Element<Painter>>) -> Self {
+impl<Renderer> From<Vec<Element<Renderer>>> for Child<Renderer> {
+    fn from(elements: Vec<Element<Renderer>>) -> Self {
         Child::Multiple(elements)
     }
 }
 
-impl<Painter> From<Option<Element<Painter>>> for Child<Painter> {
-    fn from(element: Option<Element<Painter>>) -> Self {
+impl<Renderer> From<Option<Element<Renderer>>> for Child<Renderer> {
+    fn from(element: Option<Element<Renderer>>) -> Self {
         match element {
             Some(element) => Child::Single(element),
             None => Child::None,
@@ -107,15 +109,16 @@ impl<Painter> From<Option<Element<Painter>>> for Child<Painter> {
     }
 }
 
-impl<Painter> From<Element<Painter>> for Child<Painter> {
-    fn from(element: Element<Painter>) -> Self {
+impl<Renderer> From<Element<Renderer>> for Child<Renderer> {
+    fn from(element: Element<Renderer>) -> Self {
         Child::Single(element)
     }
 }
 
-impl<Painter, Widget> From<Widget> for Child<Painter>
+impl<Renderer, Widget> From<Widget> for Child<Renderer>
 where
-    Widget: self::Widget<Painter> + WidgetMeta + 'static,
+    Renderer: self::Renderer,
+    Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
     fn from(widget: Widget) -> Self {

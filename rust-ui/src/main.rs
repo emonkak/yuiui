@@ -11,11 +11,12 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::platform::backend::Backend;
-use rust_ui::platform::paint::GeneralPainter;
-use rust_ui::platform::x11::backend::XBackend;
+use rust_ui::graphics::color::Color;
+use rust_ui::graphics::x11::renderer::XRenderer;
+use rust_ui::platform::application;
 use rust_ui::platform::x11::error_handler;
-use rust_ui::platform::x11::window;
+use rust_ui::platform::x11::event_loop::XEventLoop;
+use rust_ui::platform::x11::window::XWindow;
 use rust_ui::render::RenderContext;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
@@ -34,15 +35,15 @@ impl App {
     }
 }
 
-impl<Painter: GeneralPainter + 'static> Widget<Painter> for App {
+impl Widget<XRenderer> for App {
     type State = bool;
 
     fn render(
         &self,
-        _children: Children<Painter>,
+        _children: Children<XRenderer>,
         state: &Self::State,
-        context: &mut RenderContext<Self, Painter, Self::State>,
-    ) -> Children<Painter> {
+        context: &mut RenderContext<Self, XRenderer, Self::State>,
+    ) -> Children<XRenderer> {
         element!(
             Subscriber::new().on(context.use_handler::<MouseDown>(Self::on_click)) => {
                 Padding::uniform(32.0) => {
@@ -50,10 +51,25 @@ impl<Painter: GeneralPainter + 'static> Widget<Painter> for App {
                         if *state {
                             None
                         } else {
-                            Some(element!(FlexItem::new(1.0).with_key(1) => Fill::new(0xff0000ff)))
+                            Some(element!(FlexItem::new(1.0).with_key(1) => Fill::new(Color {
+                                r: 1.0,
+                                g: 0.0,
+                                b: 0.0,
+                                a: 1.0,
+                            })))
                         },
-                        FlexItem::new(1.0).with_key(2) => Fill::new(0x00ff00ff),
-                        FlexItem::new(1.0).with_key(3) => Fill::new(0x0000ffff),
+                        FlexItem::new(1.0).with_key(2) => Fill::new(Color {
+                                r: 0.0,
+                                g: 1.0,
+                                b: 0.0,
+                                a: 1.0,
+                        }),
+                        FlexItem::new(1.0).with_key(3) => Fill::new(Color {
+                                r: 0.0,
+                                g: 0.0,
+                                b: 1.0,
+                                a: 1.0,
+                        }),
                     }
                 }
             }
@@ -81,22 +97,23 @@ fn main() {
         );
     }
 
-    let window = unsafe { window::create_window(display, 640, 480) };
+    let event_loop = XEventLoop::new(display).unwrap();
+    let window = XWindow::new(display, 640, 480);
 
     unsafe {
         xlib::XSelectInput(
             display,
-            window,
+            window.window,
             xlib::ButtonPressMask
                 | xlib::ButtonReleaseMask
                 | xlib::ExposureMask
                 | xlib::StructureNotifyMask,
         );
-        xlib::XMapWindow(display, window);
+        xlib::XMapWindow(display, window.window);
         xlib::XFlush(display);
     }
 
-    let mut backend = XBackend::new(display, window);
+    let renderer = XRenderer::new(display, window.window);
 
-    backend.run(element!(App));
+    application::run(event_loop, renderer, window, element!(App));
 }

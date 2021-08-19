@@ -528,6 +528,11 @@ impl<T> Link<T> {
     }
 
     #[inline]
+    pub fn has_child(&self) -> bool {
+        self.current.first_child.is_some()
+    }
+
+    #[inline]
     pub fn next_sibling(&self) -> Option<NodeId> {
         self.next_sibling
     }
