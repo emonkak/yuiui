@@ -6,7 +6,6 @@ use crate::base::{Point, Rectangle, Size};
 use crate::bit_flags::BitFlags;
 use crate::event::{EventManager, GenericEvent};
 use crate::generator::GeneratorState;
-use crate::graphics::draw_pipeline::DrawPipeline;
 use crate::graphics::renderer::Renderer;
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
@@ -208,111 +207,102 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
         }
     }
 
-    pub fn paint(&mut self, renderer: &mut Renderer) -> Renderer::DrawPipeline {
+    pub fn paint(&mut self, pipeline: &mut Renderer::Pipeline, renderer: &mut Renderer) {
         let mut tree_walker = self.tree.walk(self.root_id);
 
         let mut absolute_point = Point { x: 0.0, y: 0.0 };
         let mut latest_point = Point { x: 0.0, y: 0.0 };
-
-        let mut child_draw_op = Renderer::DrawPipeline::default();
-        let mut current_draw_pipeline = Renderer::DrawPipeline::default();
 
         while let Some((node_id, node, direction)) = tree_walker
             .next_match(|node_id, _| self.paint_states[node_id].flags.contains(PaintFlag::Dirty))
         {
             let paint_state = &mut self.paint_states[node_id];
             let bounds = paint_state.bounds;
-            let needs_repaint = paint_state.flags.contains(PaintFlag::NeedsPaint);
 
             match direction {
                 WalkDirection::Downward => {
                     absolute_point += latest_point;
                     latest_point = bounds.point();
-                    if !needs_repaint || node.has_child() {
-                        continue;
-                    }
+                }
+                WalkDirection::Sideward => {
+                    latest_point = bounds.point();
                 }
                 WalkDirection::Upward => {
                     absolute_point -= bounds.point();
                     latest_point = bounds.point();
-                    if !needs_repaint {
-                        continue;
-                    }
-                    child_draw_op = mem::take(&mut current_draw_pipeline);
                 }
-                WalkDirection::Sideward => {
-                    latest_point = bounds.point();
-                    if !needs_repaint || node.has_child() {
-                        continue;
-                    }
-                }
+            }
+
+            if !paint_state.flags.contains(PaintFlag::NeedsPaint) {
+                continue;
             }
 
             let mut context = LifecycleContext {
                 event_manager: &mut self.event_manager,
             };
 
-            for WidgetPod {
-                widget,
-                state,
-                children,
-                ..
-            } in mem::take(&mut paint_state.deleted_children)
-            {
-                widget.on_lifecycle(
-                    Lifecycle::DidUnmount(&children),
+            if matches!(direction, WalkDirection::Downward | WalkDirection::Sideward) {
+                let WidgetPod { widget, state, .. } = &**node;
+                let absolute_bounds = bounds.offset(absolute_point.x, absolute_point.y);
+
+                widget.draw(
+                    pipeline,
+                    absolute_bounds,
                     &mut **state.lock().unwrap(),
                     renderer,
                     &mut context,
                 );
+
+                paint_state.absolute_point = absolute_point;
             }
 
-            let widget_pod = &**node;
-            let WidgetPod {
-                widget,
-                state,
-                children,
-                ..
-            } = widget_pod;
+            if direction == WalkDirection::Upward || !node.has_child() {
+                for WidgetPod {
+                    widget,
+                    state,
+                    children,
+                    ..
+                } in mem::take(&mut paint_state.deleted_children)
+                {
+                    widget.on_lifecycle(
+                        Lifecycle::DidUnmount(&children),
+                        &mut **state.lock().unwrap(),
+                        renderer,
+                        &mut context,
+                    );
+                }
 
-            let mut draw_pipeline = mem::take(&mut child_draw_op);
-            let absolute_bounds = bounds.offset(absolute_point.x, absolute_point.y);
+                let widget_pod = &**node;
+                let WidgetPod {
+                    widget,
+                    state,
+                    children,
+                    ..
+                } = widget_pod;
 
-            widget.draw(
-                &mut draw_pipeline,
-                absolute_bounds,
-                &mut **state.lock().unwrap(),
-                renderer,
-                &mut context,
-            );
+                if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
+                    widget.on_lifecycle(
+                        Lifecycle::DidUpdate(
+                            &children,
+                            &*old_widget_pod.widget,
+                            &old_widget_pod.children,
+                        ),
+                        &mut **state.lock().unwrap(),
+                        renderer,
+                        &mut context,
+                    );
+                } else {
+                    widget.on_lifecycle(
+                        Lifecycle::DidMount(children),
+                        &mut **state.lock().unwrap(),
+                        renderer,
+                        &mut context,
+                    );
+                }
 
-            if let Some(old_widget_pod) = paint_state.mounted_pod.replace(widget_pod.clone()) {
-                widget.on_lifecycle(
-                    Lifecycle::DidUpdate(
-                        &children,
-                        &*old_widget_pod.widget,
-                        &old_widget_pod.children,
-                    ),
-                    &mut **state.lock().unwrap(),
-                    renderer,
-                    &mut context,
-                );
-            } else {
-                widget.on_lifecycle(
-                    Lifecycle::DidMount(children),
-                    &mut **state.lock().unwrap(),
-                    renderer,
-                    &mut context,
-                );
+                paint_state.flags -= PaintFlag::NeedsPaint;
             }
-
-            current_draw_pipeline.compose(draw_pipeline);
-
-            paint_state.absolute_point = absolute_point;
-            paint_state.flags -= PaintFlag::NeedsPaint;
         }
-
-        current_draw_pipeline
     }
 
     pub fn dispatch(&self, event: &GenericEvent, update_notifier: &Sender<NodeId>) {

@@ -2,12 +2,13 @@ use futures::task::{FutureObj, Spawn};
 use raw_window_handle::HasRawWindowHandle;
 use std::io;
 
+use crate::base::Rectangle;
 use crate::graphics::color::Color;
 use crate::graphics::renderer::Renderer as RendererTrait;
 use crate::graphics::viewport::Viewport;
 
 use super::backend::Backend;
-use super::draw_pipeline::DrawPipeline;
+use super::pipeline::{Layer, Pipeline};
 use super::settings::Settings;
 
 pub struct Renderer {
@@ -83,10 +84,10 @@ impl Renderer {
 }
 
 impl RendererTrait for Renderer {
-    type DrawArea = wgpu::SwapChain;
-    type DrawPipeline = self::DrawPipeline;
+    type View = wgpu::SwapChain;
+    type Pipeline = self::Pipeline;
 
-    fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea {
+    fn create_view(&mut self, viewport: &Viewport) -> Self::View {
         let physical_size = viewport.physical_size();
         self.device.create_swap_chain(
             &self.surface,
@@ -100,14 +101,25 @@ impl RendererTrait for Renderer {
         )
     }
 
-    fn perform_draw(
+    fn create_pipeline(&mut self, viewport: &Viewport) -> Self::Pipeline {
+        let bounds = Rectangle::from(viewport.logical_size());
+        Pipeline {
+            primary_layer: Layer {
+                quads: Vec::new(),
+                bounds,
+            },
+            layers: Vec::new(),
+        }
+    }
+
+    fn perform_pipeline(
         &mut self,
-        draw_pipeline: &Self::DrawPipeline,
-        draw_area: &mut Self::DrawArea,
+        swap_chain: &mut Self::View,
+        pipeline: &Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
     ) {
-        let frame = draw_area.get_current_frame().expect("Next frame");
+        let frame = swap_chain.get_current_frame().expect("Next frame");
 
         let mut encoder = self
             .device
@@ -142,7 +154,7 @@ impl RendererTrait for Renderer {
             &mut self.staging_belt,
             &mut encoder,
             &frame.output.view,
-            draw_pipeline,
+            pipeline,
             viewport,
         );
 

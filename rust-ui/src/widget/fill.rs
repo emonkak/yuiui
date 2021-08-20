@@ -36,13 +36,13 @@ impl Widget<x11::Renderer> for Fill {
 
     fn draw(
         &self,
-        draw_pipeline: &mut x11::DrawPipeline,
+        pipeline: &mut x11::Pipeline,
         bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut x11::Renderer,
         _context: &mut LifecycleContext<x11::Renderer>,
     ) {
-        draw_pipeline.push(x11::DrawOp::FillRectangle(self.color, bounds.into()));
+        pipeline.push(x11::DrawOp::FillRectangle(self.color, bounds.into()));
     }
 }
 
@@ -61,18 +61,18 @@ impl Widget<wgpu::Renderer> for Fill {
 
     fn draw(
         &self,
-        draw_pipeline: &mut wgpu::DrawPipeline,
+        pipeline: &mut wgpu::Pipeline,
         bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut wgpu::Renderer,
         _context: &mut LifecycleContext<wgpu::Renderer>,
     ) {
-        draw_pipeline.push(wgpu::DrawOp::Quad {
+        pipeline.push_quad(
             bounds,
-            background: Background::Color(self.color),
-            border_radius: 8.0,
-            border_width: 0.0,
-            border_color: Color::TRANSPARENT,
-        })
+            Background::Color(self.color),
+            8.0,
+            0.0,
+            Color::TRANSPARENT,
+        )
     }
 }

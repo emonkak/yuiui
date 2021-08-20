@@ -6,14 +6,14 @@ use crate::graphics::color::Color;
 use crate::graphics::renderer::Renderer as RendererTrait;
 use crate::graphics::viewport::Viewport;
 
-use super::draw_pipeline::{DrawOp, DrawPipeline};
+use super::pipeline::{DrawOp, Pipeline};
 
 pub struct Renderer {
     display: *mut xlib::Display,
     window: xlib::Window,
 }
 
-pub struct DrawArea {
+pub struct View {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
@@ -46,18 +46,13 @@ impl Renderer {
         color
     }
 
-    fn fill_rectangle(
-        &mut self,
-        draw_area: &DrawArea,
-        color: &xlib::XColor,
-        bounds: PhysicalRectangle,
-    ) {
+    fn fill_rectangle(&mut self, view: &View, color: &xlib::XColor, bounds: PhysicalRectangle) {
         unsafe {
-            xlib::XSetForeground(self.display, draw_area.gc, color.pixel);
+            xlib::XSetForeground(self.display, view.gc, color.pixel);
             xlib::XFillRectangle(
                 self.display,
-                draw_area.pixmap,
-                draw_area.gc,
+                view.pixmap,
+                view.gc,
                 bounds.x as _,
                 bounds.y as _,
                 bounds.width as _,
@@ -66,7 +61,7 @@ impl Renderer {
         }
     }
 
-    fn commit(&mut self, draw_area: &DrawArea, size: PhysicalSize) {
+    fn commit(&mut self, draw_area: &View, size: PhysicalSize) {
         unsafe {
             xlib::XCopyArea(
                 self.display,
@@ -86,43 +81,47 @@ impl Renderer {
 }
 
 impl RendererTrait for Renderer {
-    type DrawArea = self::DrawArea;
+    type View = self::View;
 
-    type DrawPipeline = DrawPipeline;
+    type Pipeline = Pipeline;
 
-    fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea {
-        DrawArea::new(self.display, viewport.physical_size())
+    fn create_view(&mut self, viewport: &Viewport) -> Self::View {
+        View::new(self.display, viewport.physical_size())
     }
 
-    fn perform_draw(
+    fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
+        Pipeline::new()
+    }
+
+    fn perform_pipeline(
         &mut self,
-        draw_pipeline: &Self::DrawPipeline,
-        draw_area: &mut Self::DrawArea,
+        view: &mut Self::View,
+        pipeline: &Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
     ) {
         let alloc_background_color = self.alloc_color(&background_color);
 
         self.fill_rectangle(
-            draw_area,
+            view,
             &alloc_background_color,
             PhysicalRectangle::from(viewport.physical_size()),
         );
 
-        for draw_op in &draw_pipeline.draw_ops {
+        for draw_op in &pipeline.draw_ops {
             match draw_op {
                 DrawOp::FillRectangle(color, bounds) => {
                     let alloc_color = self.alloc_color(color);
-                    self.fill_rectangle(draw_area, &alloc_color, *bounds);
+                    self.fill_rectangle(view, &alloc_color, *bounds);
                 }
             }
         }
 
-        self.commit(draw_area, viewport.physical_size());
+        self.commit(view, viewport.physical_size());
     }
 }
 
-impl DrawArea {
+impl View {
     pub fn new(display: *mut xlib::Display, size: PhysicalSize) -> Self {
         unsafe {
             let pixmap = {
@@ -143,7 +142,7 @@ impl DrawArea {
     }
 }
 
-impl Drop for DrawArea {
+impl Drop for View {
     fn drop(&mut self) {
         unsafe {
             xlib::XFreeGC(self.display, self.gc);

@@ -1,6 +1,5 @@
 use bytemuck::{Pod, Zeroable};
 use std::mem;
-use std::ops::Range;
 use wgpu::util::DeviceExt;
 
 use crate::base::PhysicalRectangle;
@@ -206,7 +205,7 @@ impl Pipeline {
         staging_belt: &mut wgpu::util::StagingBelt,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        instances: (&[Quad], &[Quad]),
+        instances: &[Quad],
         bounds: PhysicalRectangle,
         scale_factor: f32,
         transformation: Transformation,
@@ -226,33 +225,23 @@ impl Pipeline {
         }
 
         let mut i = 0;
-        let total = instances.0.len() + instances.1.len();
+        let total_instances = instances.len();
 
-        while i < total {
-            let end = (i + MAX_INSTANCES).min(total);
+        while i < total_instances {
+            let end = (i + MAX_INSTANCES).min(total_instances);
             let amount = end - i;
 
-            let (first_instances, second_instances) =
-                select_slices(instances.0, instances.1, i..end);
-            let first_instance_bytes = first_instances.map(bytemuck::cast_slice);
-            let second_instance_bytes = second_instances.map(bytemuck::cast_slice);
-            let total_bytes = first_instance_bytes.map_or(0, |bytes| bytes.len())
-                + second_instance_bytes.map_or(0, |bytes| bytes.len());
+            let instance_bytes = bytemuck::cast_slice(instances);
 
             let mut instance_buffer = staging_belt.write_buffer(
                 encoder,
                 &self.instances,
                 0,
-                wgpu::BufferSize::new(total_bytes as u64).unwrap(),
+                wgpu::BufferSize::new(instance_bytes.len() as u64).unwrap(),
                 device,
             );
 
-            if let Some(bytes) = first_instance_bytes {
-                instance_buffer.copy_from_slice(bytes);
-            }
-            if let Some(bytes) = second_instance_bytes {
-                instance_buffer.copy_from_slice(bytes);
-            }
+            instance_buffer.copy_from_slice(instance_bytes);
 
             {
                 let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -311,27 +300,4 @@ impl Default for Uniforms {
             _padding: [0.0; 3],
         }
     }
-}
-
-fn select_slices<'a, 'b, T>(
-    first: &'a [T],
-    second: &'b [T],
-    range: Range<usize>,
-) -> (Option<&'a [T]>, Option<&'b [T]>) {
-    let first_len = first.len();
-
-    let first_result = if range.start < first_len {
-        Some(&first[range.start..range.end.max(first_len - 1)])
-    } else {
-        None
-    };
-
-    let second_result = if range.end > first_len {
-        let second_len = second.len();
-        Some(&second[(range.start.saturating_sub(second_len))..(range.end - second_len)])
-    } else {
-        None
-    };
-
-    (first_result, second_result)
 }
