@@ -2,10 +2,11 @@ use std::any::TypeId;
 use std::sync::mpsc::{channel, sync_channel};
 use std::thread;
 
-use crate::event::window::WindowResize;
 use crate::event::EventType;
+use crate::event::window::WindowResize;
 use crate::graphics::color::Color;
 use crate::graphics::renderer::Renderer;
+use crate::graphics::viewport::Viewport;
 use crate::paint::tree::PaintTree;
 use crate::render::tree::RenderTree;
 use crate::widget::element::Element;
@@ -47,10 +48,10 @@ pub fn run<Window, EventLoop, Renderer>(
         }
     });
 
-    let mut window_size = window.get_rectangle().size();
-    let mut paint_tree = PaintTree::new(window_size);
+    let mut viewport = Viewport::new(window.get_bounds().size(), 1.0);
+    let mut paint_tree = PaintTree::new(viewport.logical_size());
 
-    let mut draw_area = renderer.create_draw_area(window_size);
+    let mut draw_area = renderer.create_draw_area(&viewport);
     let mut draw_op = Renderer::DrawOp::default();
 
     event_loop.run(|event| {
@@ -64,14 +65,14 @@ pub fn run<Window, EventLoop, Renderer>(
                     draw_op = paint_tree.paint(&mut renderer);
                 }
 
-                renderer.perform_draw(&draw_area, &draw_op, Color::WHITE);
+                renderer.perform_draw(&draw_op, &mut draw_area, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
                 if window_event.type_id == TypeId::of::<WindowResize>() {
                     let resize_event = WindowResize::downcast(&window_event).unwrap();
-                    window_size = resize_event.size;
-                    draw_area = renderer.create_draw_area(window_size);
-                    paint_tree.layout_root(window_size, &mut renderer);
+                    viewport = Viewport::new(resize_event.size, 1.0);
+                    draw_area = renderer.create_draw_area(&viewport);
+                    paint_tree.layout_root(viewport.logical_size(), &mut renderer);
                     draw_op = paint_tree.paint(&mut renderer);
                 }
                 paint_tree.dispatch(&window_event, &render_sender);

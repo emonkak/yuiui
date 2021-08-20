@@ -115,3 +115,27 @@ impl From<Rectangle<f32>> for Rectangle<u32> {
         }
     }
 }
+
+impl<T: Default> From<Point<T>> for Rectangle<T> {
+    #[inline]
+    fn from(point: Point<T>) -> Self {
+        Self {
+            x: point.x,
+            y: point.y,
+            width: Default::default(),
+            height: Default::default(),
+        }
+    }
+}
+
+impl<T: Default> From<Size<T>> for Rectangle<T> {
+    #[inline]
+    fn from(size: Size<T>) -> Self {
+        Self {
+            x: Default::default(),
+            y: Default::default(),
+            width: size.width,
+            height: size.height,
+        }
+    }
+}

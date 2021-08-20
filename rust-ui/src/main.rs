@@ -12,7 +12,7 @@ use x11::xlib;
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::graphics::color::Color;
-use rust_ui::graphics::x11::renderer::XRenderer;
+use rust_ui::graphics::wgpu as graphics;
 use rust_ui::platform::application;
 use rust_ui::platform::x11::error_handler;
 use rust_ui::platform::x11::event_loop::XEventLoop;
@@ -35,15 +35,15 @@ impl App {
     }
 }
 
-impl Widget<XRenderer> for App {
+impl Widget<graphics::Renderer> for App {
     type State = bool;
 
     fn render(
         &self,
-        _children: Children<XRenderer>,
+        _children: Children<graphics::Renderer>,
         state: &Self::State,
-        context: &mut RenderContext<Self, XRenderer, Self::State>,
-    ) -> Children<XRenderer> {
+        context: &mut RenderContext<Self, graphics::Renderer, Self::State>,
+    ) -> Children<graphics::Renderer> {
         element!(
             Subscriber::new().on(context.use_handler::<MouseDown>(Self::on_click)) => {
                 Padding::uniform(32.0) => {
@@ -51,25 +51,31 @@ impl Widget<XRenderer> for App {
                         if *state {
                             None
                         } else {
-                            Some(element!(FlexItem::new(1.0).with_key(1) => Fill::new(Color {
-                                r: 1.0,
-                                g: 0.0,
-                                b: 0.0,
-                                a: 1.0,
-                            })))
+                            Some(element!(FlexItem::new(1.0).with_key(1) => {
+                                Padding::uniform(16.0) => Fill::new(Color {
+                                    r: 1.0,
+                                    g: 0.0,
+                                    b: 0.0,
+                                    a: 1.0,
+                                })
+                            }))
                         },
-                        FlexItem::new(1.0).with_key(2) => Fill::new(Color {
+                        FlexItem::new(1.0).with_key(2) => {
+                            Padding::uniform(16.0) => Fill::new(Color {
                                 r: 0.0,
                                 g: 1.0,
                                 b: 0.0,
                                 a: 1.0,
-                        }),
-                        FlexItem::new(1.0).with_key(3) => Fill::new(Color {
+                            })
+                        }
+                        FlexItem::new(1.0).with_key(3) => {
+                            Padding::uniform(16.0) => Fill::new(Color {
                                 r: 0.0,
                                 g: 0.0,
                                 b: 1.0,
                                 a: 1.0,
-                        }),
+                            })
+                        }
                     }
                 }
             }
@@ -113,7 +119,7 @@ fn main() {
         xlib::XFlush(display);
     }
 
-    let renderer = XRenderer::new(display, window.window);
+    let renderer = graphics::Renderer::new(&window, graphics::Settings::default()).unwrap();
 
     application::run(event_loop, renderer, window, element!(App));
 }

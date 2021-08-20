@@ -7,7 +7,7 @@ pub trait Window: HasRawWindowHandle {
 
     fn window_id(&self) -> Self::WindowId;
 
-    fn get_rectangle(&self) -> PhysicalRectangle;
+    fn get_bounds(&self) -> PhysicalRectangle;
 
-    fn invalidate(&self);
+    fn invalidate(&self, bounds: PhysicalRectangle);
 }

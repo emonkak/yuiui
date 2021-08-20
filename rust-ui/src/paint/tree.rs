@@ -2,7 +2,7 @@ use std::fmt;
 use std::mem;
 use std::sync::mpsc::Sender;
 
-use crate::base::{PhysicalSize, Point, Rectangle, Size};
+use crate::base::{Point, Rectangle, Size};
 use crate::bit_flags::BitFlags;
 use crate::event::{EventManager, GenericEvent};
 use crate::generator::GeneratorState;
@@ -43,12 +43,12 @@ pub enum PaintFlag {
 }
 
 impl<Renderer: self::Renderer> PaintTree<Renderer> {
-    pub fn new(window_size: PhysicalSize) -> Self {
+    pub fn new(viewport_size: Size) -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
 
         let mut paint_state = PaintState::default();
-        paint_state.box_constraints = BoxConstraints::tight(window_size.into());
+        paint_state.box_constraints = BoxConstraints::tight(viewport_size);
 
         let mut paint_states = SlotVec::new();
         paint_states.insert_at(root_id, paint_state);
@@ -108,10 +108,10 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
         }
     }
 
-    pub fn layout_root(&mut self, window_size: PhysicalSize, renderer: &mut Renderer) {
+    pub fn layout_root(&mut self, viewport_size: Size, renderer: &mut Renderer) {
         self.do_layout(
             self.root_id,
-            BoxConstraints::tight(window_size.into()),
+            BoxConstraints::tight(viewport_size),
             renderer,
         );
     }

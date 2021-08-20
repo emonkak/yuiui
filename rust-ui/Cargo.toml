@@ -9,8 +9,12 @@ default = ["xlib"]
 xlib = []
 
 [dependencies]
+bytemuck = { version = "1.7", features = ["derive"] }
+futures = "0.3"
+glam = "0.17"
 mio = { version = "0.7", features = ["os-ext"] }
 raw-window-handle = "0.3"
+wgpu = "0.9"
 x11 = { version = "2.18", features = ["xft", "xinerama", "xlib"] }
 
 [dependencies.rust-ui-derive]

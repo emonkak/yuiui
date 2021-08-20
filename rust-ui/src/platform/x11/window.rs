@@ -48,7 +48,7 @@ impl Window for XWindow {
         self.window
     }
 
-    fn get_rectangle(&self) -> PhysicalRectangle {
+    fn get_bounds(&self) -> PhysicalRectangle {
         unsafe {
             let mut attributes_ptr: MaybeUninit<xlib::XWindowAttributes> = MaybeUninit::uninit();
             xlib::XGetWindowAttributes(self.display, self.window, attributes_ptr.as_mut_ptr());
@@ -62,19 +62,17 @@ impl Window for XWindow {
         }
     }
 
-    fn invalidate(&self) {
-        let rectangle = self.get_rectangle();
-
+    fn invalidate(&self, bounds: PhysicalRectangle) {
         let mut event = xlib::XEvent::from(xlib::XExposeEvent {
             type_: xlib::Expose,
             serial: 0,
             send_event: xlib::True,
             display: self.display,
             window: self.window,
-            x: 0,
-            y: 0,
-            width: rectangle.width as _,
-            height: rectangle.height as _,
+            x: bounds.x as _,
+            y: bounds.y as _,
+            width: bounds.width as _,
+            height: bounds.height as _,
             count: 0,
         });
 
