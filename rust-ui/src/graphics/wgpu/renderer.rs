@@ -7,7 +7,7 @@ use crate::graphics::renderer::Renderer as RendererTrait;
 use crate::graphics::viewport::Viewport;
 
 use super::backend::Backend;
-use super::draw_op::DrawOp;
+use super::draw_pipeline::DrawPipeline;
 use super::settings::Settings;
 
 pub struct Renderer {
@@ -24,22 +24,14 @@ pub struct Renderer {
 impl Renderer {
     const CHUNK_SIZE: u64 = 10 * 1024;
 
-    pub fn new<W: HasRawWindowHandle>(
-        window: &W,
-        settings: Settings,
-    ) -> io::Result<Self> {
-        futures::executor::block_on(Self::request(settings, window)).ok_or(
-            io::Error::new(
-                io::ErrorKind::NotFound,
-                "A suitable graphics adapter or device could not be found",
-            ),
-        )
+    pub fn new<W: HasRawWindowHandle>(window: &W, settings: Settings) -> io::Result<Self> {
+        futures::executor::block_on(Self::request(settings, window)).ok_or(io::Error::new(
+            io::ErrorKind::NotFound,
+            "A suitable graphics adapter or device could not be found",
+        ))
     }
 
-    pub async fn request<W: HasRawWindowHandle>(
-        settings: Settings,
-        window: &W,
-    ) -> Option<Self> {
+    pub async fn request<W: HasRawWindowHandle>(settings: Settings, window: &W) -> Option<Self> {
         let instance = wgpu::Instance::new(settings.internal_backend);
 
         let surface = unsafe { instance.create_surface(window) };
@@ -92,12 +84,9 @@ impl Renderer {
 
 impl RendererTrait for Renderer {
     type DrawArea = wgpu::SwapChain;
-    type DrawOp = self::DrawOp;
+    type DrawPipeline = self::DrawPipeline;
 
-    fn create_draw_area(
-        &mut self,
-        viewport: &Viewport,
-    ) -> Self::DrawArea {
+    fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea {
         let physical_size = viewport.physical_size();
         self.device.create_swap_chain(
             &self.surface,
@@ -113,7 +102,7 @@ impl RendererTrait for Renderer {
 
     fn perform_draw(
         &mut self,
-        draw_op: &Self::DrawOp,
+        draw_pipeline: &Self::DrawPipeline,
         draw_area: &mut Self::DrawArea,
         viewport: &Viewport,
         background_color: Color,
@@ -153,8 +142,8 @@ impl RendererTrait for Renderer {
             &mut self.staging_belt,
             &mut encoder,
             &frame.output.view,
+            draw_pipeline,
             viewport,
-            draw_op,
         );
 
         self.staging_belt.finish();

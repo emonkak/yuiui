@@ -2,8 +2,8 @@ use std::any::TypeId;
 use std::sync::mpsc::{channel, sync_channel};
 use std::thread;
 
-use crate::event::EventType;
 use crate::event::window::WindowResize;
+use crate::event::EventType;
 use crate::graphics::color::Color;
 use crate::graphics::renderer::Renderer;
 use crate::graphics::viewport::Viewport;
@@ -23,7 +23,6 @@ pub fn run<Window, EventLoop, Renderer>(
     Window: self::Window + 'static,
     EventLoop: self::EventLoop<WindowId = Window::WindowId> + 'static,
     Renderer: self::Renderer + 'static,
-    Renderer::DrawOp: std::fmt::Debug,
 {
     let (update_senter, update_receiver) = sync_channel(1);
     let (render_sender, render_receiver) = channel();
@@ -52,7 +51,7 @@ pub fn run<Window, EventLoop, Renderer>(
     let mut paint_tree = PaintTree::new(viewport.logical_size());
 
     let mut draw_area = renderer.create_draw_area(&viewport);
-    let mut draw_op = Renderer::DrawOp::default();
+    let mut draw_pipeline = Renderer::DrawPipeline::default();
 
     event_loop.run(|event| {
         match event {
@@ -62,10 +61,10 @@ pub fn run<Window, EventLoop, Renderer>(
                         paint_tree.apply_patch(patch);
                     }
                     paint_tree.layout_subtree(node_id, &mut renderer);
-                    draw_op = paint_tree.paint(&mut renderer);
+                    draw_pipeline = paint_tree.paint(&mut renderer);
                 }
 
-                renderer.perform_draw(&draw_op, &mut draw_area, &viewport, Color::WHITE);
+                renderer.perform_draw(&draw_pipeline, &mut draw_area, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
                 if window_event.type_id == TypeId::of::<WindowResize>() {
@@ -73,7 +72,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     viewport = Viewport::new(resize_event.size, 1.0);
                     draw_area = renderer.create_draw_area(&viewport);
                     paint_tree.layout_root(viewport.logical_size(), &mut renderer);
-                    draw_op = paint_tree.paint(&mut renderer);
+                    draw_pipeline = paint_tree.paint(&mut renderer);
                 }
                 paint_tree.dispatch(&window_event, &render_sender);
             }

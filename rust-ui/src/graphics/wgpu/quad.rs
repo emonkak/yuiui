@@ -1,11 +1,29 @@
 use bytemuck::{Pod, Zeroable};
 use std::mem;
+use std::ops::Range;
 use wgpu::util::DeviceExt;
 
 use crate::base::PhysicalRectangle;
 use crate::graphics::transformation::Transformation;
 
-use super::layer;
+const QUAD_INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
+
+const QUAD_VERTS: [Vertex; 4] = [
+    Vertex {
+        _position: [0.0, 0.0],
+    },
+    Vertex {
+        _position: [1.0, 0.0],
+    },
+    Vertex {
+        _position: [1.0, 1.0],
+    },
+    Vertex {
+        _position: [0.0, 1.0],
+    },
+];
+
+const MAX_INSTANCES: usize = 100_000;
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -15,6 +33,31 @@ pub struct Pipeline {
     vertices: wgpu::Buffer,
     indices: wgpu::Buffer,
     instances: wgpu::Buffer,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct Quad {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+    pub color: [f32; 4],
+    pub border_color: [f32; 4],
+    pub border_radius: f32,
+    pub border_width: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod)]
+pub struct Vertex {
+    _position: [f32; 2],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+struct Uniforms {
+    transform: [f32; 16],
+    scale: f32,
+    _padding: [f32; 3],
 }
 
 impl Pipeline {
@@ -82,7 +125,7 @@ impl Pipeline {
                         }],
                     },
                     wgpu::VertexBufferLayout {
-                        array_stride: mem::size_of::<layer::Quad>() as u64,
+                        array_stride: mem::size_of::<Quad>() as u64,
                         step_mode: wgpu::InputStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array!(
                             1 => Float32x2,
@@ -142,7 +185,7 @@ impl Pipeline {
 
         let instances = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(concat!(module_path!(), " instance buffer")),
-            size: mem::size_of::<layer::Quad>() as u64 * MAX_INSTANCES as u64,
+            size: mem::size_of::<Quad>() as u64 * MAX_INSTANCES as u64,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
         });
@@ -162,13 +205,13 @@ impl Pipeline {
         device: &wgpu::Device,
         staging_belt: &mut wgpu::util::StagingBelt,
         encoder: &mut wgpu::CommandEncoder,
-        instances: &[layer::Quad],
-        transformation: Transformation,
-        scale: f32,
-        bounds: PhysicalRectangle,
         target: &wgpu::TextureView,
+        instances: (&[Quad], &[Quad]),
+        bounds: PhysicalRectangle,
+        scale_factor: f32,
+        transformation: Transformation,
     ) {
-        let uniforms = Uniforms::new(transformation, scale);
+        let uniforms = Uniforms::new(transformation, scale_factor);
 
         {
             let mut constants_buffer = staging_belt.write_buffer(
@@ -183,23 +226,33 @@ impl Pipeline {
         }
 
         let mut i = 0;
-        let total = instances.len();
+        let total = instances.0.len() + instances.1.len();
 
         while i < total {
             let end = (i + MAX_INSTANCES).min(total);
             let amount = end - i;
 
-            let instance_bytes = bytemuck::cast_slice(&instances[i..end]);
+            let (first_instances, second_instances) =
+                select_slices(instances.0, instances.1, i..end);
+            let first_instance_bytes = first_instances.map(bytemuck::cast_slice);
+            let second_instance_bytes = second_instances.map(bytemuck::cast_slice);
+            let total_bytes = first_instance_bytes.map_or(0, |bytes| bytes.len())
+                + second_instance_bytes.map_or(0, |bytes| bytes.len());
 
             let mut instance_buffer = staging_belt.write_buffer(
                 encoder,
                 &self.instances,
                 0,
-                wgpu::BufferSize::new(instance_bytes.len() as u64).unwrap(),
+                wgpu::BufferSize::new(total_bytes as u64).unwrap(),
                 device,
             );
 
-            instance_buffer.copy_from_slice(instance_bytes);
+            if let Some(bytes) = first_instance_bytes {
+                instance_buffer.copy_from_slice(bytes);
+            }
+            if let Some(bytes) = second_instance_bytes {
+                instance_buffer.copy_from_slice(bytes);
+            }
 
             {
                 let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -236,38 +289,9 @@ impl Pipeline {
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod)]
-pub struct Vertex {
-    _position: [f32; 2],
-}
+unsafe impl bytemuck::Zeroable for Quad {}
 
-const QUAD_INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-const QUAD_VERTS: [Vertex; 4] = [
-    Vertex {
-        _position: [0.0, 0.0],
-    },
-    Vertex {
-        _position: [1.0, 0.0],
-    },
-    Vertex {
-        _position: [1.0, 1.0],
-    },
-    Vertex {
-        _position: [0.0, 1.0],
-    },
-];
-
-const MAX_INSTANCES: usize = 100_000;
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
-struct Uniforms {
-    transform: [f32; 16],
-    scale: f32,
-    _padding: [f32; 3],
-}
+unsafe impl bytemuck::Pod for Quad {}
 
 impl Uniforms {
     fn new(transformation: Transformation, scale: f32) -> Uniforms {
@@ -287,4 +311,27 @@ impl Default for Uniforms {
             _padding: [0.0; 3],
         }
     }
+}
+
+fn select_slices<'a, 'b, T>(
+    first: &'a [T],
+    second: &'b [T],
+    range: Range<usize>,
+) -> (Option<&'a [T]>, Option<&'b [T]>) {
+    let first_len = first.len();
+
+    let first_result = if range.start < first_len {
+        Some(&first[range.start..range.end.max(first_len - 1)])
+    } else {
+        None
+    };
+
+    let second_result = if range.end > first_len {
+        let second_len = second.len();
+        Some(&second[(range.start.saturating_sub(second_len))..(range.end - second_len)])
+    } else {
+        None
+    };
+
+    (first_result, second_result)
 }

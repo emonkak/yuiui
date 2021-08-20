@@ -14,8 +14,8 @@ use crate::base::{Rectangle, Size};
 use crate::generator::Generator;
 use crate::graphics::renderer::Renderer;
 use crate::paint::layout::{BoxConstraints, LayoutRequest};
-use crate::paint::{LifecycleContext, Lifecycle};
-use crate::render::{RenderContext};
+use crate::paint::{Lifecycle, LifecycleContext};
+use crate::render::RenderContext;
 use crate::tree::NodeId;
 
 use self::element::{Children, Element, IntoElement, Key};
@@ -80,13 +80,12 @@ where
     #[inline]
     fn draw(
         &self,
-        draw_op: Renderer::DrawOp,
+        _draw_pipeline: &mut Renderer::DrawPipeline,
         _bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut Renderer,
         _context: &mut LifecycleContext<Renderer>,
-    ) -> Renderer::DrawOp {
-        draw_op
+    ) {
     }
 }
 
@@ -127,12 +126,12 @@ pub trait PolymophicWidget<Renderer: self::Renderer>: Send + Sync + WidgetMeta {
 
     fn draw(
         &self,
-        draw_op: Renderer::DrawOp,
+        draw_pipeline: &mut Renderer::DrawPipeline,
         bounds: Rectangle,
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut LifecycleContext<Renderer>,
-    ) -> Renderer::DrawOp;
+    );
 }
 
 pub trait WidgetMeta {
@@ -242,14 +241,14 @@ where
     #[inline]
     fn draw(
         &self,
-        draw_op: Renderer::DrawOp,
+        draw_pipeline: &mut Renderer::DrawPipeline,
         bounds: Rectangle,
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut LifecycleContext<Renderer>,
-    ) -> Renderer::DrawOp {
+    ) {
         self.draw(
-            draw_op,
+            draw_pipeline,
             bounds,
             state.downcast_mut().unwrap(),
             renderer,

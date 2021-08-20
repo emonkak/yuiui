@@ -5,7 +5,7 @@ use rust_ui_derive::WidgetMeta;
 
 use crate::event::{EventHandler, HandlerId};
 use crate::graphics::renderer::Renderer;
-use crate::paint::{LifecycleContext, Lifecycle};
+use crate::paint::{Lifecycle, LifecycleContext};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};

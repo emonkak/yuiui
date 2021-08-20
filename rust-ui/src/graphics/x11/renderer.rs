@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-use std::ops::Add;
 use std::ptr;
 use x11::xlib;
 
@@ -7,6 +5,8 @@ use crate::base::{PhysicalRectangle, PhysicalSize};
 use crate::graphics::color::Color;
 use crate::graphics::renderer::Renderer as RendererTrait;
 use crate::graphics::viewport::Viewport;
+
+use super::draw_pipeline::{DrawOp, DrawPipeline};
 
 pub struct Renderer {
     display: *mut xlib::Display,
@@ -17,13 +17,6 @@ pub struct DrawArea {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
-}
-
-#[derive(Clone, Debug)]
-pub enum DrawOp {
-    None,
-    Batch(VecDeque<DrawOp>),
-    FillRectangle(Color, PhysicalRectangle),
 }
 
 impl Renderer {
@@ -95,7 +88,7 @@ impl Renderer {
 impl RendererTrait for Renderer {
     type DrawArea = self::DrawArea;
 
-    type DrawOp = DrawOp;
+    type DrawPipeline = DrawPipeline;
 
     fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea {
         DrawArea::new(self.display, viewport.physical_size())
@@ -103,7 +96,7 @@ impl RendererTrait for Renderer {
 
     fn perform_draw(
         &mut self,
-        mut draw_op: &Self::DrawOp,
+        draw_pipeline: &Self::DrawPipeline,
         draw_area: &mut Self::DrawArea,
         viewport: &Viewport,
         background_color: Color,
@@ -113,26 +106,15 @@ impl RendererTrait for Renderer {
         self.fill_rectangle(
             draw_area,
             &alloc_background_color,
-            PhysicalRectangle::from(viewport.physical_size())
+            PhysicalRectangle::from(viewport.physical_size()),
         );
 
-        let mut pending_ops = VecDeque::new();
-
-        loop {
+        for draw_op in &draw_pipeline.draw_ops {
             match draw_op {
-                DrawOp::None => {}
-                DrawOp::Batch(batch_ops) => {
-                    pending_ops.extend(batch_ops);
-                }
                 DrawOp::FillRectangle(color, bounds) => {
                     let alloc_color = self.alloc_color(color);
                     self.fill_rectangle(draw_area, &alloc_color, *bounds);
                 }
-            }
-            if let Some(pending_op) = pending_ops.pop_front() {
-                draw_op = pending_op;
-            } else {
-                break;
             }
         }
 
@@ -166,41 +148,6 @@ impl Drop for DrawArea {
         unsafe {
             xlib::XFreeGC(self.display, self.gc);
             xlib::XFreePixmap(self.display, self.pixmap);
-        }
-    }
-}
-
-impl Default for DrawOp {
-    fn default() -> Self {
-        DrawOp::None
-    }
-}
-
-impl Add for DrawOp {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        match (self, other) {
-            (Self::None, y) => y,
-            (x, Self::None) => x,
-            (Self::Batch(mut xs), Self::Batch(ys)) => {
-                xs.extend(ys);
-                Self::Batch(xs)
-            }
-            (Self::Batch(mut xs), y) => {
-                xs.push_back(y);
-                Self::Batch(xs)
-            }
-            (x, Self::Batch(mut ys)) => {
-                ys.push_front(x);
-                Self::Batch(ys)
-            }
-            (x, y) => {
-                let mut xs = VecDeque::with_capacity(2);
-                xs.push_back(x);
-                xs.push_back(y);
-                Self::Batch(xs)
-            }
         }
     }
 }
