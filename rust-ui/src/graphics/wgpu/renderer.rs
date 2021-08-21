@@ -4,7 +4,7 @@ use raw_window_handle::HasRawWindowHandle;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Transformation, Viewport};
 
-use super::pipeline::{Pipeline, Layer};
+use super::pipeline::{Layer, Pipeline};
 use super::quad;
 use super::settings::Settings;
 
@@ -154,7 +154,7 @@ impl crate::graphics::Renderer for Renderer {
             depth_stencil_attachment: None,
         });
 
-        self.backend.draw(
+        self.backend.run(
             &mut self.device,
             &mut self.staging_belt,
             &mut encoder,
@@ -181,12 +181,12 @@ impl Backend {
         Self { quad_pipeline }
     }
 
-    fn draw(
+    fn run(
         &mut self,
         device: &wgpu::Device,
         staging_belt: &mut wgpu::util::StagingBelt,
         encoder: &mut wgpu::CommandEncoder,
-        frame: &wgpu::TextureView,
+        target: &wgpu::TextureView,
         pipeline: &Pipeline,
         viewport: &Viewport,
     ) {
@@ -197,7 +197,7 @@ impl Backend {
             device,
             staging_belt,
             encoder,
-            &frame,
+            &target,
             pipeline.primary_layer(),
             Rectangle::from(viewport.logical_size()),
             scale_factor,
@@ -209,7 +209,7 @@ impl Backend {
                 device,
                 staging_belt,
                 encoder,
-                &frame,
+                &target,
                 &layer,
                 layer.bounds(),
                 scale_factor,
@@ -232,7 +232,7 @@ impl Backend {
         let bounds = bounds.scale(scale_factor).snap();
 
         if !layer.quads().is_empty() {
-            self.quad_pipeline.draw(
+            self.quad_pipeline.run(
                 device,
                 staging_belt,
                 encoder,

@@ -44,6 +44,7 @@ impl<Renderer> Widget<Renderer> for Fill {
             border_radius: 8.0,
             border_width: 0.0,
             border_color: Color::TRANSPARENT,
-        }.into()
+        }
+        .into()
     }
 }

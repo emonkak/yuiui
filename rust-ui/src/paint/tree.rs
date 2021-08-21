@@ -208,7 +208,11 @@ impl<Renderer> PaintTree<Renderer> {
         }
     }
 
-    pub fn paint<Pipeline: self::Pipeline>(&mut self, pipeline: &mut Pipeline, renderer: &mut Renderer) {
+    pub fn paint<Pipeline: self::Pipeline>(
+        &mut self,
+        pipeline: &mut Pipeline,
+        renderer: &mut Renderer,
+    ) {
         let mut tree_walker = self.tree.walk(self.root_id);
 
         let mut absolute_translation = Vector::ZERO;

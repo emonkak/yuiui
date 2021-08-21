@@ -120,4 +120,3 @@ fn fs_main(
 
     return vec4<f32>(mixed_color.x, mixed_color.y, mixed_color.z, mixed_color.w * radius_alpha);
 }
-

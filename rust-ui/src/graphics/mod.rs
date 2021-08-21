@@ -1,7 +1,7 @@
 mod background;
 mod color;
-mod primitive;
 mod pipeline;
+mod primitive;
 mod renderer;
 mod transformation;
 mod viewport;

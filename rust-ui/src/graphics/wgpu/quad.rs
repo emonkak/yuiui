@@ -5,25 +5,6 @@ use wgpu::util::DeviceExt;
 use crate::geometrics::PhysicalRectangle;
 use crate::graphics::Transformation;
 
-const QUAD_INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-const QUAD_VERTS: [Vertex; 4] = [
-    Vertex {
-        _position: [0.0, 0.0],
-    },
-    Vertex {
-        _position: [1.0, 0.0],
-    },
-    Vertex {
-        _position: [1.0, 1.0],
-    },
-    Vertex {
-        _position: [0.0, 1.0],
-    },
-];
-
-const MAX_INSTANCES: usize = 100_000;
-
 #[derive(Debug)]
 pub struct Pipeline {
     pipeline: wgpu::RenderPipeline,
@@ -34,8 +15,8 @@ pub struct Pipeline {
     instances: wgpu::Buffer,
 }
 
-#[derive(Debug, Clone, Copy)]
 #[repr(C)]
+#[derive(Debug, Clone, Copy, Zeroable, Pod)]
 pub struct Quad {
     pub position: [f32; 2],
     pub size: [f32; 2],
@@ -46,10 +27,8 @@ pub struct Quad {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod)]
-pub struct Vertex {
-    _position: [f32; 2],
-}
+#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+struct Vertex(f32, f32);
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
@@ -58,6 +37,17 @@ struct Uniforms {
     scale: f32,
     _padding: [f32; 3],
 }
+
+const QUAD_INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
+
+const QUAD_VERTS: [Vertex; 4] = [
+    Vertex(0.0, 0.0),
+    Vertex(1.0, 0.0),
+    Vertex(1.0, 1.0),
+    Vertex(0.0, 1.0),
+];
+
+const MAX_INSTANCES: usize = 100_000;
 
 impl Pipeline {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Pipeline {
@@ -199,7 +189,7 @@ impl Pipeline {
         }
     }
 
-    pub fn draw(
+    pub fn run(
         &mut self,
         device: &wgpu::Device,
         staging_belt: &mut wgpu::util::StagingBelt,
@@ -210,9 +200,8 @@ impl Pipeline {
         scale_factor: f32,
         transformation: Transformation,
     ) {
-        let uniforms = Uniforms::new(transformation, scale_factor);
-
         {
+            let uniforms = Uniforms::new(transformation, scale_factor);
             let mut constants_buffer = staging_belt.write_buffer(
                 encoder,
                 &self.constants_buffer,
@@ -220,83 +209,61 @@ impl Pipeline {
                 wgpu::BufferSize::new(mem::size_of::<Uniforms>() as u64).unwrap(),
                 device,
             );
-
             constants_buffer.copy_from_slice(bytemuck::bytes_of(&uniforms));
         }
 
-        let mut i = 0;
-        let total_instances = instances.len();
-
-        while i < total_instances {
-            let end = (i + MAX_INSTANCES).min(total_instances);
-            let amount = end - i;
-
-            let instance_bytes = bytemuck::cast_slice(instances);
-
-            let mut instance_buffer = staging_belt.write_buffer(
-                encoder,
-                &self.instances,
-                0,
-                wgpu::BufferSize::new(instance_bytes.len() as u64).unwrap(),
-                device,
-            );
-
-            instance_buffer.copy_from_slice(instance_bytes);
+        for i in (0..instances.len()).step_by(MAX_INSTANCES) {
+            let end = (i + MAX_INSTANCES).min(instances.len());
+            let count = end - i;
 
             {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some(concat!(module_path!(), " render pass")),
-                    color_attachments: &[wgpu::RenderPassColorAttachment {
-                        view: target,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Load,
-                            store: true,
-                        },
-                    }],
-                    depth_stencil_attachment: None,
-                });
-
-                render_pass.set_pipeline(&self.pipeline);
-                render_pass.set_bind_group(0, &self.constants, &[]);
-                render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.set_vertex_buffer(0, self.vertices.slice(..));
-                render_pass.set_vertex_buffer(1, self.instances.slice(..));
-
-                render_pass.set_scissor_rect(
-                    bounds.x as u32,
-                    bounds.y as u32,
-                    bounds.width,
-                    bounds.height,
+                let instance_bytes = bytemuck::cast_slice(&instances[i..end]);
+                let mut instance_buffer = staging_belt.write_buffer(
+                    encoder,
+                    &self.instances,
+                    0,
+                    wgpu::BufferSize::new(instance_bytes.len() as u64).unwrap(),
+                    device,
                 );
-
-                render_pass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..amount as u32);
+                instance_buffer.copy_from_slice(instance_bytes);
             }
 
-            i += MAX_INSTANCES;
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some(concat!(module_path!(), " render pass")),
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.constants, &[]);
+            render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_vertex_buffer(0, self.vertices.slice(..));
+            render_pass.set_vertex_buffer(1, self.instances.slice(..));
+
+            render_pass.set_scissor_rect(
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height,
+            );
+
+            render_pass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..count as u32);
         }
     }
 }
-
-unsafe impl bytemuck::Zeroable for Quad {}
-
-unsafe impl bytemuck::Pod for Quad {}
 
 impl Uniforms {
     fn new(transformation: Transformation, scale: f32) -> Uniforms {
         Self {
-            transform: *transformation.as_ref(),
+            transform: transformation.into(),
             scale,
-            _padding: [0.0; 3],
-        }
-    }
-}
-
-impl Default for Uniforms {
-    fn default() -> Self {
-        Self {
-            transform: *Transformation::identity().as_ref(),
-            scale: 1.0,
             _padding: [0.0; 3],
         }
     }

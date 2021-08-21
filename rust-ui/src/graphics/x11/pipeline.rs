@@ -62,14 +62,13 @@ impl Pipeline {
                 // TODO:
             }
             Primitive::Quad {
-                bounds,
-                background,
-                ..
+                bounds, background, ..
             } => {
                 let background_color = match background {
-                    Background::Color(color) => self.alloc_color(color)
+                    Background::Color(color) => self.alloc_color(color),
                 };
-                self.draw_ops.push(DrawOp::FillRectangle(background_color, (*bounds).into()));
+                self.draw_ops
+                    .push(DrawOp::FillRectangle(background_color, (*bounds).into()));
             }
         }
     }
