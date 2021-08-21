@@ -1,12 +1,10 @@
-mod bit_flags;
+#[allow(dead_code)]
+mod support;
 
-pub mod base;
 pub mod event;
-pub mod generator;
+pub mod geometrics;
 pub mod graphics;
 pub mod paint;
-pub mod platform;
 pub mod render;
-pub mod slot_vec;
-pub mod tree;
+pub mod ui;
 pub mod widget;

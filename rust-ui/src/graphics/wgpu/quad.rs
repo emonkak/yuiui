@@ -2,8 +2,8 @@ use bytemuck::{Pod, Zeroable};
 use std::mem;
 use wgpu::util::DeviceExt;
 
-use crate::base::PhysicalRectangle;
-use crate::graphics::transformation::Transformation;
+use crate::geometrics::PhysicalRectangle;
+use crate::graphics::Transformation;
 
 const QUAD_INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
 

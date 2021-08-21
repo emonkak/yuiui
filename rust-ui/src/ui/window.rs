@@ -1,6 +1,6 @@
 use raw_window_handle::HasRawWindowHandle;
 
-use crate::base::PhysicalRectangle;
+use crate::geometrics::PhysicalRectangle;
 
 pub trait Window: HasRawWindowHandle {
     type WindowId: Copy + Send;

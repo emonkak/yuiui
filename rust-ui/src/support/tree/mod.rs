@@ -12,15 +12,15 @@ mod tests;
 use std::fmt;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-use crate::slot_vec::SlotVec;
+use crate::support::slot_vec::SlotVec;
 
-use self::ancestors::{Ancestors, AncestorsMut};
-use self::detach_subtree::DetachSubtree;
-use self::move_position::MovePosition;
-use self::post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescendantsMut};
-use self::pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendantsMut};
-use self::siblings::{Siblings, SiblingsMut};
-use self::walk::{WalkDirection, Walker, WalkerMut};
+use ancestors::{Ancestors, AncestorsMut};
+use detach_subtree::DetachSubtree;
+use move_position::MovePosition;
+use post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescendantsMut};
+use pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendantsMut};
+use siblings::{Siblings, SiblingsMut};
+use walk::{WalkDirection, Walker, WalkerMut};
 
 #[derive(Clone, Debug)]
 pub struct Tree<T> {

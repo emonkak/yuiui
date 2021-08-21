@@ -3,8 +3,8 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use std::mem::MaybeUninit;
 use x11::xlib;
 
-use crate::base::PhysicalRectangle;
-use crate::platform::window::Window;
+use crate::geometrics::PhysicalRectangle;
+use crate::ui::window::Window;
 
 pub struct XWindow {
     pub display: *mut xlib::Display,

@@ -1,7 +1,14 @@
-pub mod background;
-pub mod color;
-pub mod renderer;
-pub mod transformation;
-pub mod viewport;
+mod background;
+mod color;
+mod renderer;
+mod transformation;
+mod viewport;
+
 pub mod wgpu;
 pub mod x11;
+
+pub use background::*;
+pub use color::*;
+pub use renderer::*;
+pub use transformation::*;
+pub use viewport::*;

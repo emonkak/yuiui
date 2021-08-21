@@ -1,5 +1,5 @@
-use crate::base::{Point, Size};
-use crate::tree::NodeId;
+use crate::geometrics::{Point, Size};
+use crate::support::tree::NodeId;
 
 #[derive(Debug)]
 pub enum LayoutRequest {

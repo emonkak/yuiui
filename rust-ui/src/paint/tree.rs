@@ -2,19 +2,20 @@ use std::fmt;
 use std::mem;
 use std::sync::mpsc::Sender;
 
-use crate::base::{Point, Rectangle, Size};
-use crate::bit_flags::BitFlags;
 use crate::event::{EventManager, GenericEvent};
-use crate::generator::GeneratorState;
-use crate::graphics::renderer::{Pipeline, Renderer};
-use crate::slot_vec::SlotVec;
-use crate::tree::walk::WalkDirection;
-use crate::tree::{NodeId, Tree};
+use crate::geometrics::{Point, Rectangle, Size};
+use crate::graphics::{Pipeline, Renderer};
+use crate::support::bit_flags::BitFlags;
+use crate::support::generator::GeneratorState;
+use crate::support::slot_vec::SlotVec;
+use crate::support::tree::walk::WalkDirection;
+use crate::support::tree::{NodeId, Tree};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
 
+use super::context::PaintContext;
 use super::layout::{BoxConstraints, LayoutRequest};
-use super::{Lifecycle, LifecycleContext};
+use super::lifecycle::Lifecycle;
 
 #[derive(Debug)]
 pub struct PaintTree<Renderer, Primitive> {
@@ -25,7 +26,7 @@ pub struct PaintTree<Renderer, Primitive> {
 }
 
 #[derive(Debug)]
-pub struct PaintState<Renderer, Primitive> {
+struct PaintState<Renderer, Primitive> {
     bounds: Rectangle,
     absolute_point: Point,
     box_constraints: BoxConstraints,
@@ -36,7 +37,8 @@ pub struct PaintState<Renderer, Primitive> {
 }
 
 #[derive(Debug)]
-pub enum PaintFlag {
+enum PaintFlag {
+    #[allow(dead_code)]
     None = 0b000,
     Dirty = 0b001,
     NeedsLayout = 0b010,
@@ -239,9 +241,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
                 continue;
             }
 
-            let mut context = LifecycleContext {
-                event_manager: &mut self.event_manager,
-            };
+            let mut context = PaintContext::new(&mut self.event_manager);
 
             if matches!(direction, WalkDirection::Downward | WalkDirection::Sideward) {
                 let WidgetPod { widget, state, .. } = &**node;

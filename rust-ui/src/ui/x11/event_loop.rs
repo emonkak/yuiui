@@ -10,11 +10,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use x11::xlib;
 
-use crate::base::{PhysicalPoint, PhysicalSize};
 use crate::event::mouse::MouseDown;
 use crate::event::window::{WindowClose, WindowCloseEvent, WindowResize};
 use crate::event::EventType;
-use crate::platform::event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy, StartCause};
+use crate::geometrics::{PhysicalPoint, PhysicalSize};
+use crate::ui::event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy, StartCause};
 
 const WINDOE_EVENT_TOKEN: Token = Token(0);
 const REDRAW_REQUEST_TOKEN: Token = Token(1);

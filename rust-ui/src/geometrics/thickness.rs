@@ -5,4 +5,3 @@ pub struct Thickness<T = f32> {
     pub right: T,
     pub bottom: T,
 }
-

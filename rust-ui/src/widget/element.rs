@@ -2,7 +2,7 @@ use std::array;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::graphics::renderer::Renderer;
+use crate::graphics::Renderer;
 
 use super::{PolymophicWidget, Widget, WidgetMeta};
 

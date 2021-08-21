@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate rust_ui;
-
 extern crate x11;
 
 use std::any::Any;
@@ -11,13 +10,12 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::graphics::color::Color;
-use rust_ui::graphics::wgpu as graphics;
-use rust_ui::platform::application;
-use rust_ui::platform::x11::error_handler;
-use rust_ui::platform::x11::event_loop::XEventLoop;
-use rust_ui::platform::x11::window::XWindow;
-use rust_ui::render::RenderContext;
+use rust_ui::graphics::{wgpu as graphics, Color};
+use rust_ui::render::context::RenderContext;
+use rust_ui::ui::application;
+use rust_ui::ui::x11::error_handler;
+use rust_ui::ui::x11::event_loop::XEventLoop;
+use rust_ui::ui::x11::window::XWindow;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};

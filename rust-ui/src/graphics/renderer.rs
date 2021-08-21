@@ -1,21 +1,20 @@
-use super::color::Color;
-use super::viewport::Viewport;
+use super::{Color, Viewport};
 
 pub trait Renderer {
-    type DrawArea;
+    type Frame;
 
     type Primitive: Default;
 
     type Pipeline: self::Pipeline<Self::Primitive>;
 
-    fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea;
+    fn create_frame(&mut self, viewport: &Viewport) -> Self::Frame;
 
     fn create_pipeline(&mut self, viewport: &Viewport) -> Self::Pipeline;
 
     fn perform_pipeline(
         &mut self,
-        draw_area: &mut Self::DrawArea,
-        pipeline: &Self::Pipeline,
+        frame: &mut Self::Frame,
+        pipeline: &mut Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
     );

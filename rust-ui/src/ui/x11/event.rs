@@ -1,10 +1,10 @@
 use std::os::raw::*;
 use x11::xlib;
 
-use crate::base::{PhysicalSize, Point};
-use crate::bit_flags::BitFlags;
 use crate::event::mouse::{MouseButton, MouseEvent};
 use crate::event::window::WindowResizeEvent;
+use crate::geometrics::{PhysicalSize, Point};
+use crate::support::bit_flags::BitFlags;
 
 impl From<&xlib::XButtonEvent> for MouseEvent {
     fn from(event: &xlib::XButtonEvent) -> Self {

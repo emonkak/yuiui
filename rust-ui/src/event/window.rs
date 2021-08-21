@@ -1,4 +1,4 @@
-use crate::base::PhysicalSize;
+use crate::geometrics::PhysicalSize;
 
 use super::EventType;
 

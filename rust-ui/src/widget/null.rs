@@ -1,6 +1,6 @@
 use rust_ui_derive::WidgetMeta;
 
-use crate::graphics::renderer::Renderer;
+use crate::graphics::Renderer;
 
 use super::{Widget, WidgetMeta};
 

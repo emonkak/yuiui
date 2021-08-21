@@ -8,8 +8,8 @@ use std::fmt;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-use crate::slot_vec::SlotVec;
-use crate::tree::NodeId;
+use crate::support::slot_vec::SlotVec;
+use crate::support::tree::NodeId;
 use crate::widget::tree::WidgetTree;
 
 #[derive(Debug)]
@@ -18,6 +18,7 @@ pub struct EventManager<Renderer> {
     handlers_by_type: HashMap<TypeId, Vec<HandlerId>>,
 }
 
+#[derive(Debug)]
 pub struct GenericEvent {
     pub type_id: TypeId,
     pub payload: Box<dyn Any>,

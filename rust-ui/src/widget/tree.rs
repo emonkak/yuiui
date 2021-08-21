@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use crate::graphics::renderer::Renderer;
-use crate::tree::{Link, NodeId, Tree};
+use crate::graphics::Renderer;
+use crate::support::tree::{Link, NodeId, Tree};
 
 use super::element::{BoxedWidget, Children, Element, Key};
 use super::Widget;

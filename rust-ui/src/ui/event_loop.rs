@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use crate::event::GenericEvent;
 
+#[derive(Debug)]
 pub enum ControlFlow {
     Exit,
     Poll,
@@ -9,6 +10,7 @@ pub enum ControlFlow {
     WaitUntil(Instant),
 }
 
+#[derive(Debug)]
 pub enum StartCause {
     Init,
     Poll,
@@ -22,6 +24,7 @@ pub enum StartCause {
     },
 }
 
+#[derive(Debug)]
 pub enum Event<WindowId> {
     Tick(StartCause),
     WindowEvent(WindowId, GenericEvent),

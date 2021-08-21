@@ -1,4 +1,4 @@
-use super::color::Color;
+use super::Color;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Background {

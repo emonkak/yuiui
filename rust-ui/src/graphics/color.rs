@@ -28,6 +28,7 @@ impl Color {
         a: 0.0,
     };
 
+    #[inline]
     pub fn inverse(self) -> Self {
         Self {
             r: 1.0 - self.r,
@@ -37,6 +38,7 @@ impl Color {
         }
     }
 
+    #[inline]
     pub fn into_linear(self) -> [f32; 4] {
         // https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
         fn linear_component(u: f32) -> f32 {
@@ -55,21 +57,23 @@ impl Color {
         ]
     }
 
+    #[inline]
     pub fn into_u8_components(self) -> [u8; 4] {
         [
-            (self.r * 255.0) as u8,
-            (self.g * 255.0) as u8,
-            (self.b * 255.0) as u8,
-            (self.a * 255.0) as u8,
+            (self.r * 255.0).round() as u8,
+            (self.g * 255.0).round() as u8,
+            (self.b * 255.0).round() as u8,
+            (self.a * 255.0).round() as u8,
         ]
     }
 
+    #[inline]
     pub fn into_u16_components(self) -> [u16; 4] {
         [
-            (self.r * 65535.0) as u16,
-            (self.g * 65535.0) as u16,
-            (self.b * 65535.0) as u16,
-            (self.a * 65535.0) as u16,
+            (self.r * 65535.0).round() as u16,
+            (self.g * 65535.0).round() as u16,
+            (self.b * 65535.0).round() as u16,
+            (self.a * 65535.0).round() as u16,
         ]
     }
 }

@@ -4,9 +4,7 @@ use std::thread;
 
 use crate::event::window::WindowResize;
 use crate::event::EventType;
-use crate::graphics::color::Color;
-use crate::graphics::renderer::Renderer;
-use crate::graphics::viewport::Viewport;
+use crate::graphics::{Color, Renderer, Viewport};
 use crate::paint::tree::PaintTree;
 use crate::render::tree::RenderTree;
 use crate::widget::element::Element;
@@ -47,7 +45,7 @@ pub fn run<Window, EventLoop, Renderer>(
 
     let mut viewport = Viewport::new(window.get_bounds().size(), 1.0);
     let mut paint_tree = PaintTree::new(viewport.logical_size());
-    let mut draw_area = renderer.create_draw_area(&viewport);
+    let mut frame = renderer.create_frame(&viewport);
     let mut pipeline = renderer.create_pipeline(&viewport);
 
     event_loop.run(|event| {
@@ -64,7 +62,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                renderer.perform_pipeline(&mut draw_area, &pipeline, &viewport, Color::WHITE);
+                renderer.perform_pipeline(&mut frame, &mut pipeline, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
                 if window_event.type_id == TypeId::of::<WindowResize>() {
@@ -73,7 +71,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     viewport = Viewport::new(resize_event.size, 1.0);
                     paint_tree.layout_root(viewport.logical_size(), &mut renderer);
 
-                    draw_area = renderer.create_draw_area(&viewport);
+                    frame = renderer.create_frame(&viewport);
                     pipeline = renderer.create_pipeline(&viewport);
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }

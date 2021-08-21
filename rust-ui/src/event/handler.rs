@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 use std::sync::mpsc::Sender;
 
-use crate::tree::NodeId;
+use crate::support::tree::NodeId;
 use crate::widget::tree::{WidgetPod, WidgetTree};
 
 use super::EventHandler;

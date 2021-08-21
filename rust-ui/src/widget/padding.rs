@@ -1,10 +1,10 @@
 use rust_ui_derive::WidgetMeta;
 
-use crate::base::{Point, Size};
-use crate::generator::{Coroutine, Generator};
-use crate::graphics::renderer::Renderer;
+use crate::geometrics::{Point, Size};
+use crate::graphics::Renderer;
 use crate::paint::layout::{BoxConstraints, LayoutRequest};
-use crate::tree::NodeId;
+use crate::support::generator::{Coroutine, Generator};
+use crate::support::tree::NodeId;
 
 use super::{Widget, WidgetMeta, WidgetTree};
 

@@ -1,4 +1,3 @@
-mod backend;
 mod quad;
 mod renderer;
 mod settings;

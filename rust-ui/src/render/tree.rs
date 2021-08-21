@@ -2,9 +2,9 @@ use std::any::TypeId;
 use std::fmt;
 use std::mem;
 
-use crate::graphics::renderer::Renderer;
-use crate::slot_vec::SlotVec;
-use crate::tree::{NodeId, Tree};
+use crate::graphics::Renderer;
+use crate::support::slot_vec::SlotVec;
+use crate::support::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
 use crate::widget::null::Null;
 use crate::widget::tree::{Patch, WidgetPod, WidgetTree};

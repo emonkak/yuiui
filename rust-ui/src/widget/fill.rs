@@ -1,11 +1,8 @@
 use rust_ui_derive::WidgetMeta;
 
-use crate::base::Rectangle;
-use crate::graphics::background::Background;
-use crate::graphics::color::Color;
-use crate::graphics::wgpu;
-use crate::graphics::x11;
-use crate::paint::LifecycleContext;
+use crate::geometrics::Rectangle;
+use crate::graphics::{wgpu, x11, Background, Color};
+use crate::paint::context::PaintContext;
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -39,7 +36,7 @@ impl Widget<x11::Renderer> for Fill {
         bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut x11::Renderer,
-        _context: &mut LifecycleContext<x11::Renderer>,
+        _context: &mut PaintContext<x11::Renderer>,
     ) -> x11::Primitive {
         x11::Primitive::FillRectangle(self.color, bounds.into())
     }
@@ -63,7 +60,7 @@ impl Widget<wgpu::Renderer> for Fill {
         bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut wgpu::Renderer,
-        _context: &mut LifecycleContext<wgpu::Renderer>,
+        _context: &mut PaintContext<wgpu::Renderer>,
     ) -> wgpu::Primitive {
         wgpu::Primitive::Quad {
             bounds,

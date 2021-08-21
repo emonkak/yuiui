@@ -4,8 +4,9 @@ use std::sync::Arc;
 use rust_ui_derive::WidgetMeta;
 
 use crate::event::{EventHandler, HandlerId};
-use crate::graphics::renderer::Renderer;
-use crate::paint::{Lifecycle, LifecycleContext};
+use crate::graphics::Renderer;
+use crate::paint::context::PaintContext;
+use crate::paint::lifecycle::Lifecycle;
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -55,7 +56,7 @@ impl<Renderer: self::Renderer> Widget<Renderer> for Subscriber<Renderer> {
         lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         state: &mut Self::State,
         _renderer: &mut Renderer,
-        context: &mut LifecycleContext<Renderer>,
+        context: &mut PaintContext<Renderer>,
     ) {
         match lifecycle {
             Lifecycle::DidMount(_children) => {
