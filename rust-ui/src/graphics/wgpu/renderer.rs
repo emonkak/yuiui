@@ -2,10 +2,10 @@ use futures::task::{FutureObj, Spawn};
 use raw_window_handle::HasRawWindowHandle;
 
 use crate::geometrics::Rectangle;
-use crate::graphics::{Color, Renderer as RendererTrait, Viewport};
+use crate::graphics::{Color, Transformation, Viewport};
 
-use super::pipeline::{Backend, Pipeline};
-use super::primitive::Primitive;
+use super::pipeline::{Pipeline, Layer};
+use super::quad;
 use super::settings::Settings;
 
 pub struct Renderer {
@@ -17,6 +17,11 @@ pub struct Renderer {
     staging_belt: wgpu::util::StagingBelt,
     local_pool: futures::executor::LocalPool,
     backend: Backend,
+}
+
+#[derive(Debug)]
+struct Backend {
+    quad_pipeline: quad::Pipeline,
 }
 
 #[derive(Debug)]
@@ -74,7 +79,7 @@ impl Renderer {
 
         let staging_belt = wgpu::util::StagingBelt::new(Self::CHUNK_SIZE);
         let local_pool = futures::executor::LocalPool::new();
-        let backend = Backend::new(&device, format, settings);
+        let backend = Backend::new(&device, format, &settings);
 
         Ok(Self {
             settings,
@@ -89,9 +94,8 @@ impl Renderer {
     }
 }
 
-impl RendererTrait for Renderer {
+impl crate::graphics::Renderer for Renderer {
     type Frame = wgpu::SwapChain;
-    type Primitive = Primitive;
     type Pipeline = Pipeline;
 
     fn create_frame(&mut self, viewport: &Viewport) -> Self::Frame {
@@ -120,8 +124,6 @@ impl RendererTrait for Renderer {
         viewport: &Viewport,
         background_color: Color,
     ) {
-        dbg!(&pipeline);
-
         let frame = swap_chain.get_current_frame().expect("Next frame");
 
         let mut encoder = self
@@ -170,5 +172,76 @@ impl RendererTrait for Renderer {
             .expect("Recall staging belt");
 
         self.local_pool.run_until_stalled();
+    }
+}
+
+impl Backend {
+    fn new(device: &wgpu::Device, format: wgpu::TextureFormat, _settings: &Settings) -> Self {
+        let quad_pipeline = quad::Pipeline::new(device, format);
+        Self { quad_pipeline }
+    }
+
+    fn draw(
+        &mut self,
+        device: &wgpu::Device,
+        staging_belt: &mut wgpu::util::StagingBelt,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: &wgpu::TextureView,
+        pipeline: &Pipeline,
+        viewport: &Viewport,
+    ) {
+        let scale_factor = viewport.scale_factor() as f32;
+        let transformation = viewport.projection();
+
+        self.flush(
+            device,
+            staging_belt,
+            encoder,
+            &frame,
+            pipeline.primary_layer(),
+            Rectangle::from(viewport.logical_size()),
+            scale_factor,
+            transformation,
+        );
+
+        for layer in pipeline.finished_layers() {
+            self.flush(
+                device,
+                staging_belt,
+                encoder,
+                &frame,
+                &layer,
+                layer.bounds(),
+                scale_factor,
+                transformation,
+            );
+        }
+    }
+
+    fn flush(
+        &mut self,
+        device: &wgpu::Device,
+        staging_belt: &mut wgpu::util::StagingBelt,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        layer: &Layer,
+        bounds: Rectangle,
+        scale_factor: f32,
+        transformation: Transformation,
+    ) {
+        let bounds = bounds.scale(scale_factor).snap();
+
+        if !layer.quads().is_empty() {
+            self.quad_pipeline.draw(
+                device,
+                staging_belt,
+                encoder,
+                target,
+                &layer.quads(),
+                bounds,
+                scale_factor,
+                transformation,
+            );
+        }
     }
 }

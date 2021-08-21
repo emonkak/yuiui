@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Settings {
     pub present_mode: wgpu::PresentMode,
     pub internal_backend: wgpu::BackendBit,
@@ -7,7 +7,7 @@ pub struct Settings {
     pub antialiasing: Option<Antialiasing>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Antialiasing {
     MSAAx2,
     MSAAx4,

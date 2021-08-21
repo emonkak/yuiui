@@ -2,10 +2,9 @@ use std::ptr;
 use x11::xlib;
 
 use crate::geometrics::{PhysicalRectangle, PhysicalSize};
-use crate::graphics::{Color, Renderer as RendererTrait, Viewport};
+use crate::graphics::{Color, Viewport};
 
-use super::pipeline::Pipeline;
-use super::primitive::Primitive;
+use super::pipeline::{DrawOp, Pipeline};
 
 #[derive(Debug)]
 pub struct Renderer {
@@ -23,28 +22,6 @@ pub struct Frame {
 impl Renderer {
     pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
         Self { display, window }
-    }
-
-    fn alloc_color(&self, color: &Color) -> xlib::XColor {
-        let [red, green, blue, _] = color.into_u16_components();
-
-        let mut color = xlib::XColor {
-            pixel: 0,
-            red,
-            green,
-            blue,
-            flags: 0,
-            pad: 0,
-        };
-
-        unsafe {
-            let screen = xlib::XDefaultScreenOfDisplay(self.display);
-            let screen_number = xlib::XScreenNumberOfScreen(screen);
-            let colormap = xlib::XDefaultColormap(self.display, screen_number);
-            xlib::XAllocColor(self.display, colormap, &mut color);
-        };
-
-        color
     }
 
     fn fill_rectangle(&self, frame: &Frame, color: &xlib::XColor, bounds: PhysicalRectangle) {
@@ -80,25 +57,17 @@ impl Renderer {
         }
     }
 
-    fn process_primitives(&self, frame: &Frame, primitives: &[Primitive]) {
-        for primitive in primitives {
-            match primitive {
-                Primitive::None => {}
-                Primitive::Batch(primitives) => {
-                    self.process_primitives(frame, primitives);
-                }
-                Primitive::FillRectangle(color, bounds) => {
-                    let alloc_color = self.alloc_color(color);
-                    self.fill_rectangle(frame, &alloc_color, *bounds);
-                }
+    fn process_draw_op(&self, draw_op: &DrawOp, frame: &Frame) {
+        match draw_op {
+            DrawOp::FillRectangle(color, bounds) => {
+                self.fill_rectangle(frame, color, *bounds);
             }
         }
     }
 }
 
-impl RendererTrait for Renderer {
+impl crate::graphics::Renderer for Renderer {
     type Frame = self::Frame;
-    type Primitive = self::Primitive;
     type Pipeline = self::Pipeline;
 
     fn create_frame(&mut self, viewport: &Viewport) -> Self::Frame {
@@ -106,7 +75,7 @@ impl RendererTrait for Renderer {
     }
 
     fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
-        Pipeline::new()
+        Pipeline::new(self.display)
     }
 
     fn perform_pipeline(
@@ -116,7 +85,7 @@ impl RendererTrait for Renderer {
         viewport: &Viewport,
         background_color: Color,
     ) {
-        let alloc_background_color = self.alloc_color(&background_color);
+        let alloc_background_color = pipeline.alloc_color(&background_color);
 
         self.fill_rectangle(
             frame,
@@ -124,7 +93,9 @@ impl RendererTrait for Renderer {
             PhysicalRectangle::from(viewport.physical_size()),
         );
 
-        self.process_primitives(frame, &pipeline.primitives());
+        for draw_op in pipeline.draw_ops() {
+            self.process_draw_op(draw_op, frame);
+        }
 
         self.commit(frame, viewport.physical_size());
     }

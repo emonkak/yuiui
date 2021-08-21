@@ -11,7 +11,7 @@ use x11::xlib;
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::graphics::{wgpu as graphics, Color};
-use rust_ui::render::context::RenderContext;
+use rust_ui::render::RenderContext;
 use rust_ui::ui::application;
 use rust_ui::ui::x11::error_handler;
 use rust_ui::ui::x11::event_loop::XEventLoop;

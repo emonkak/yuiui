@@ -1,11 +1,11 @@
-use super::{Color, Viewport};
+use super::color::Color;
+use super::pipeline::Pipeline;
+use super::viewport::Viewport;
 
 pub trait Renderer {
     type Frame;
 
-    type Primitive: Default;
-
-    type Pipeline: self::Pipeline<Self::Primitive>;
+    type Pipeline: self::Pipeline;
 
     fn create_frame(&mut self, viewport: &Viewport) -> Self::Frame;
 
@@ -18,10 +18,4 @@ pub trait Renderer {
         viewport: &Viewport,
         background_color: Color,
     );
-}
-
-pub trait Pipeline<Primitive> {
-    fn push(&mut self, primitive: &Primitive, depth: usize);
-
-    fn finish(&mut self) {}
 }

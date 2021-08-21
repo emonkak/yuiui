@@ -1,6 +1,7 @@
 use crate::geometrics::{Rectangle, Vector};
 use crate::graphics::{Background, Color};
 
+#[derive(Debug)]
 pub enum Primitive {
     None,
     Batch(Vec<Primitive>),

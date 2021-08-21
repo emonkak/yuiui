@@ -1,3 +1,6 @@
-pub mod context;
+mod context;
 mod reconciler;
-pub mod tree;
+mod tree;
+
+pub use context::RenderContext;
+pub use tree::RenderTree;

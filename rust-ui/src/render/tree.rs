@@ -2,7 +2,6 @@ use std::any::TypeId;
 use std::fmt;
 use std::mem;
 
-use crate::graphics::Renderer;
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
@@ -38,7 +37,7 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-impl<Renderer: self::Renderer> RenderTree<Renderer> {
+impl<Renderer> RenderTree<Renderer> {
     pub fn new() -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));

@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use crate::graphics::Renderer;
 use crate::support::tree::{Link, NodeId, Tree};
 
 use super::element::{BoxedWidget, Children, Element, Key};
@@ -28,11 +27,10 @@ pub enum Patch<Renderer> {
     Remove(NodeId),
 }
 
-impl<Renderer: self::Renderer> WidgetPod<Renderer> {
+impl<Renderer> WidgetPod<Renderer> {
     #[inline]
     pub fn new<Widget>(widget: Widget, children: impl Into<Children<Renderer>>) -> Self
     where
-        Renderer: self::Renderer,
         Widget: self::Widget<Renderer> + Send + Sync + 'static,
         Widget::State: 'static,
     {
@@ -62,7 +60,7 @@ impl<Renderer: self::Renderer> WidgetPod<Renderer> {
     }
 }
 
-impl<Renderer: self::Renderer> From<Element<Renderer>> for WidgetPod<Renderer> {
+impl<Renderer> From<Element<Renderer>> for WidgetPod<Renderer> {
     #[inline]
     fn from(element: Element<Renderer>) -> Self {
         Self {

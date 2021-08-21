@@ -4,9 +4,7 @@ use std::sync::Arc;
 use rust_ui_derive::WidgetMeta;
 
 use crate::event::{EventHandler, HandlerId};
-use crate::graphics::Renderer;
-use crate::paint::context::PaintContext;
-use crate::paint::lifecycle::Lifecycle;
+use crate::paint::{Lifecycle, PaintContext};
 
 use super::element::Children;
 use super::{Widget, WidgetMeta};
@@ -21,7 +19,7 @@ pub struct SubscriberState {
     registered_handler_ids: Vec<HandlerId>,
 }
 
-impl<Renderer: self::Renderer> Subscriber<Renderer> {
+impl<Renderer> Subscriber<Renderer> {
     pub fn new() -> Self {
         Self {
             handlers: Vec::new(),
@@ -37,7 +35,7 @@ impl<Renderer: self::Renderer> Subscriber<Renderer> {
     }
 }
 
-impl<Renderer: self::Renderer> Widget<Renderer> for Subscriber<Renderer> {
+impl<Renderer> Widget<Renderer> for Subscriber<Renderer> {
     type State = SubscriberState;
 
     fn should_update(

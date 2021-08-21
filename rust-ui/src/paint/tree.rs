@@ -4,7 +4,7 @@ use std::sync::mpsc::Sender;
 
 use crate::event::{EventManager, GenericEvent};
 use crate::geometrics::{Rectangle, Size, Vector};
-use crate::graphics::{Pipeline, Renderer};
+use crate::graphics::{Pipeline, Primitive};
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
@@ -18,34 +18,32 @@ use super::layout::{BoxConstraints, LayoutRequest};
 use super::lifecycle::Lifecycle;
 
 #[derive(Debug)]
-pub struct PaintTree<Renderer, Primitive> {
+pub struct PaintTree<Renderer> {
     tree: WidgetTree<Renderer>,
     root_id: NodeId,
-    paint_states: SlotVec<PaintState<Renderer, Primitive>>,
+    paint_states: SlotVec<PaintState<Renderer>>,
     event_manager: EventManager<Renderer>,
 }
 
 #[derive(Debug)]
-struct PaintState<Renderer, Primitive> {
+struct PaintState<Renderer> {
     bounds: Rectangle,
     absolute_point: Vector,
     box_constraints: BoxConstraints,
     mounted_pod: Option<WidgetPod<Renderer>>,
     deleted_children: Vec<WidgetPod<Renderer>>,
     flags: BitFlags<PaintFlag>,
-    primitive: Primitive,
+    draw_cache: Primitive,
 }
 
 #[derive(Debug)]
 enum PaintFlag {
-    #[allow(dead_code)]
-    None = 0b000,
     Dirty = 0b001,
     NeedsLayout = 0b010,
     NeedsPaint = 0b100,
 }
 
-impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
+impl<Renderer> PaintTree<Renderer> {
     pub fn new(viewport_size: Size) -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
@@ -210,7 +208,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
         }
     }
 
-    pub fn paint(&mut self, pipeline: &mut Renderer::Pipeline, renderer: &mut Renderer) {
+    pub fn paint<Pipeline: self::Pipeline>(&mut self, pipeline: &mut Pipeline, renderer: &mut Renderer) {
         let mut tree_walker = self.tree.walk(self.root_id);
 
         let mut absolute_point = Vector::ZERO;
@@ -238,7 +236,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
             latest_point = bounds.point().into();
 
             if !paint_state.flags.contains(PaintFlag::NeedsPaint) {
-                pipeline.push(&paint_state.primitive, depth);
+                pipeline.push(&paint_state.draw_cache, depth);
                 continue;
             }
 
@@ -258,7 +256,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
                 pipeline.push(&primitive, depth);
 
                 paint_state.absolute_point = absolute_point;
-                paint_state.primitive = primitive;
+                paint_state.draw_cache = primitive;
             }
 
             if direction == WalkDirection::Upward || !node.has_child() {
@@ -329,7 +327,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
     }
 }
 
-impl<Renderer, Primitive> fmt::Display for PaintTree<Renderer, Primitive> {
+impl<Renderer> fmt::Display for PaintTree<Renderer> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.format(
             f,
@@ -362,7 +360,7 @@ impl<Renderer, Primitive> fmt::Display for PaintTree<Renderer, Primitive> {
     }
 }
 
-impl<Renderer, Primitive: Default> Default for PaintState<Renderer, Primitive> {
+impl<Renderer> Default for PaintState<Renderer> {
     fn default() -> Self {
         Self {
             bounds: Rectangle::ZERO,
@@ -376,7 +374,7 @@ impl<Renderer, Primitive: Default> Default for PaintState<Renderer, Primitive> {
                 PaintFlag::NeedsPaint,
             ]
             .into(),
-            primitive: Primitive::default(),
+            draw_cache: Primitive::None,
         }
     }
 }

@@ -1,5 +1,7 @@
 mod background;
 mod color;
+mod primitive;
+mod pipeline;
 mod renderer;
 mod transformation;
 mod viewport;
@@ -9,6 +11,8 @@ pub mod x11;
 
 pub use background::Background;
 pub use color::Color;
-pub use renderer::{Pipeline, Renderer};
+pub use pipeline::Pipeline;
+pub use primitive::Primitive;
+pub use renderer::Renderer;
 pub use transformation::Transformation;
 pub use viewport::Viewport;

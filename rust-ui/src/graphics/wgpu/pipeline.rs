@@ -1,11 +1,9 @@
 use std::mem;
 
 use crate::geometrics::{Rectangle, Vector};
-use crate::graphics::{Background, Pipeline as PipelineTrait, Transformation, Viewport};
+use crate::graphics::{Background, Primitive};
 
-use super::primitive::Primitive;
-use super::quad;
-use super::settings::Settings;
+use super::quad::Quad;
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -16,15 +14,10 @@ pub struct Pipeline {
 }
 
 #[derive(Debug)]
-struct Layer {
+pub struct Layer {
     depth: usize,
     bounds: Rectangle,
-    quads: Vec<quad::Quad>,
-}
-
-#[derive(Debug)]
-pub struct Backend {
-    quad_pipeline: quad::Pipeline,
+    quads: Vec<Quad>,
 }
 
 impl Pipeline {
@@ -35,6 +28,14 @@ impl Pipeline {
             finished_layers: Vec::new(),
             translations: Vec::new(),
         }
+    }
+
+    pub fn primary_layer(&self) -> &Layer {
+        &self.primary_layer
+    }
+
+    pub fn finished_layers(&self) -> &[Layer] {
+        &self.finished_layers
     }
 
     fn switch_layer(&mut self, layer: Layer) {
@@ -90,7 +91,7 @@ impl Pipeline {
                 border_color,
             } => {
                 let translated_bounds = bounds.translate(*translation);
-                self.primary_layer.quads.push(quad::Quad {
+                self.primary_layer.quads.push(Quad {
                     position: [translated_bounds.x, translated_bounds.y],
                     size: [translated_bounds.width, translated_bounds.height],
                     color: match background {
@@ -105,7 +106,7 @@ impl Pipeline {
     }
 }
 
-impl PipelineTrait<Primitive> for Pipeline {
+impl crate::graphics::Pipeline for Pipeline {
     fn push(&mut self, primitive: &Primitive, depth: usize) {
         let mut translation = self.get_translation(depth);
         if self.primary_layer.depth <= depth {
@@ -128,76 +129,12 @@ impl Layer {
             quads: Vec::new(),
         }
     }
-}
 
-impl Backend {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, _settings: Settings) -> Self {
-        let quad_pipeline = quad::Pipeline::new(device, format);
-
-        Self { quad_pipeline }
+    pub fn bounds(&self) -> Rectangle {
+        self.bounds
     }
 
-    pub fn draw(
-        &mut self,
-        device: &wgpu::Device,
-        staging_belt: &mut wgpu::util::StagingBelt,
-        encoder: &mut wgpu::CommandEncoder,
-        frame: &wgpu::TextureView,
-        pipeline: &Pipeline,
-        viewport: &Viewport,
-    ) {
-        let scale_factor = viewport.scale_factor() as f32;
-        let transformation = viewport.projection();
-
-        self.flush(
-            device,
-            staging_belt,
-            encoder,
-            &frame,
-            &pipeline.primary_layer,
-            Rectangle::from(viewport.logical_size()),
-            scale_factor,
-            transformation,
-        );
-
-        for layer in &pipeline.finished_layers {
-            self.flush(
-                device,
-                staging_belt,
-                encoder,
-                &frame,
-                &layer,
-                layer.bounds,
-                scale_factor,
-                transformation,
-            );
-        }
-    }
-
-    fn flush(
-        &mut self,
-        device: &wgpu::Device,
-        staging_belt: &mut wgpu::util::StagingBelt,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        layer: &Layer,
-        bounds: Rectangle,
-        scale_factor: f32,
-        transformation: Transformation,
-    ) {
-        let bounds = bounds.scale(scale_factor).snap();
-
-        if !layer.quads.is_empty() {
-            self.quad_pipeline.draw(
-                device,
-                staging_belt,
-                encoder,
-                target,
-                &layer.quads,
-                bounds,
-                scale_factor,
-                transformation,
-            );
-        }
+    pub fn quads(&self) -> &[Quad] {
+        &self.quads
     }
 }

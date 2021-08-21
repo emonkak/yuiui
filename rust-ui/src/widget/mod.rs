@@ -11,21 +11,16 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::geometrics::{Rectangle, Size};
-use crate::graphics::Renderer;
-use crate::paint::context::PaintContext;
-use crate::paint::layout::{BoxConstraints, LayoutRequest};
-use crate::paint::lifecycle::Lifecycle;
-use crate::render::context::RenderContext;
+use crate::graphics::Primitive;
+use crate::paint::{BoxConstraints, LayoutRequest, Lifecycle, PaintContext};
+use crate::render::RenderContext;
 use crate::support::generator::Generator;
 use crate::support::tree::NodeId;
 
 use self::element::{Children, Element, IntoElement, Key};
 use self::tree::WidgetTree;
 
-pub trait Widget<Renderer>: Send + Sync + WidgetMeta
-where
-    Renderer: self::Renderer,
-{
+pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     type State: Default + Send + Sync;
 
     #[inline]
@@ -85,12 +80,12 @@ where
         _state: &mut Self::State,
         _renderer: &mut Renderer,
         _context: &mut PaintContext<Renderer>,
-    ) -> Renderer::Primitive {
-        Renderer::Primitive::default()
+    ) -> Primitive {
+        Primitive::None
     }
 }
 
-pub trait PolymophicWidget<Renderer: self::Renderer>: Send + Sync + WidgetMeta {
+pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
     fn initial_state(&self) -> Box<dyn Any + Send + Sync>;
 
     fn should_update(
@@ -131,7 +126,7 @@ pub trait PolymophicWidget<Renderer: self::Renderer>: Send + Sync + WidgetMeta {
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
-    ) -> Renderer::Primitive;
+    ) -> Primitive;
 }
 
 pub trait WidgetMeta {
@@ -164,7 +159,6 @@ impl<Renderer> fmt::Debug for dyn PolymophicWidget<Renderer> {
 
 impl<Widget, Renderer> PolymophicWidget<Renderer> for Widget
 where
-    Renderer: self::Renderer,
     Widget: self::Widget<Renderer> + 'static,
     Widget::State: 'static,
 {
@@ -245,14 +239,13 @@ where
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
-    ) -> Renderer::Primitive {
+    ) -> Primitive {
         self.draw(bounds, state.downcast_mut().unwrap(), renderer, context)
     }
 }
 
 impl<Widget, Renderer> IntoElement<Renderer> for Widget
 where
-    Renderer: self::Renderer,
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
@@ -271,7 +264,6 @@ where
 
 impl<Widget, Renderer> IntoElement<Renderer> for WithKey<Widget>
 where
-    Renderer: self::Renderer,
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
 {

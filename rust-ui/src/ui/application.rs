@@ -2,11 +2,11 @@ use std::any::TypeId;
 use std::sync::mpsc::{channel, sync_channel};
 use std::thread;
 
-use crate::event::window::WindowResize;
 use crate::event::EventType;
+use crate::event::window::WindowResize;
 use crate::graphics::{Color, Renderer, Viewport};
-use crate::paint::tree::PaintTree;
-use crate::render::tree::RenderTree;
+use crate::paint::PaintTree;
+use crate::render::RenderTree;
 use crate::widget::element::Element;
 
 use super::event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy};

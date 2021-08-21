@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::array;
 use std::iter::FromIterator;
 use std::marker::PhantomData;

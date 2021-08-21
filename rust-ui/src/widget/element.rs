@@ -2,8 +2,6 @@ use std::array;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::graphics::Renderer;
-
 use super::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
@@ -117,7 +115,6 @@ impl<Renderer> From<Element<Renderer>> for Child<Renderer> {
 
 impl<Renderer, Widget> From<Widget> for Child<Renderer>
 where
-    Renderer: self::Renderer,
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
 {
