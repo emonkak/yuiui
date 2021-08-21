@@ -1,6 +1,11 @@
 use std::os::raw::*;
 use x11::xlib;
 
+pub unsafe fn install(
+) -> Option<unsafe extern "C" fn(*mut xlib::Display, *mut xlib::XErrorEvent) -> c_int> {
+    xlib::XSetErrorHandler(Some(handle))
+}
+
 unsafe extern "C" fn handle(display: *mut xlib::Display, error: *mut xlib::XErrorEvent) -> c_int {
     let error_message = x11_get_error_message(display, (*error).error_code as i32);
     let request_message = x11_get_request_description(display, (*error).request_code as i32);
@@ -11,11 +16,6 @@ unsafe extern "C" fn handle(display: *mut xlib::Display, error: *mut xlib::XErro
         (*error).resourceid
     );
     0
-}
-
-pub unsafe fn install(
-) -> Option<unsafe extern "C" fn(*mut xlib::Display, *mut xlib::XErrorEvent) -> c_int> {
-    xlib::XSetErrorHandler(Some(handle))
 }
 
 unsafe fn x11_get_error_message(display: *mut xlib::Display, error_code: i32) -> String {

@@ -7,12 +7,16 @@ use crate::geometrics::PhysicalRectangle;
 use crate::ui::window::Window;
 
 pub struct XWindow {
-    pub display: *mut xlib::Display,
-    pub window: xlib::Window,
+    display: *mut xlib::Display,
+    window: xlib::Window,
 }
 
 impl XWindow {
-    pub fn new(display: *mut xlib::Display, width: u32, height: u32) -> Self {
+    pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
+        Self { display, window }
+    }
+
+    pub fn create(display: *mut xlib::Display, width: u32, height: u32) -> Self {
         let window = unsafe {
             let screen = xlib::XDefaultScreenOfDisplay(display);
             let screen_number = xlib::XScreenNumberOfScreen(screen);

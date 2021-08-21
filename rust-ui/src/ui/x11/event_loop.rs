@@ -40,7 +40,7 @@ struct XWindowState {
 }
 
 impl XEventLoop {
-    pub fn new(display: *mut xlib::Display) -> io::Result<Self> {
+    pub fn create(display: *mut xlib::Display) -> io::Result<Self> {
         let poll = Poll::new()?;
 
         let fd = unsafe { xlib::XConnectionNumber(display) };

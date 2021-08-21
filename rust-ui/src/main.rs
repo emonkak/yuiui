@@ -10,9 +10,10 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::graphics::{wgpu as graphics, Color};
+use rust_ui::graphics::{wgpu, x11 as x_window_system, Color};
 use rust_ui::render::RenderContext;
 use rust_ui::ui::application;
+use rust_ui::ui::window::Window;
 use rust_ui::ui::x11::error_handler;
 use rust_ui::ui::x11::event_loop::XEventLoop;
 use rust_ui::ui::x11::window::XWindow;
@@ -33,15 +34,15 @@ impl App {
     }
 }
 
-impl Widget<graphics::Renderer> for App {
+impl<Renderer: 'static> Widget<Renderer> for App {
     type State = bool;
 
     fn render(
         &self,
-        _children: Children<graphics::Renderer>,
+        _children: Children<Renderer>,
         state: &Self::State,
-        context: &mut RenderContext<Self, graphics::Renderer, Self::State>,
-    ) -> Children<graphics::Renderer> {
+        context: &mut RenderContext<Self, Renderer, Self::State>,
+    ) -> Children<Renderer> {
         element!(
             Subscriber::new().on(context.use_handler::<MouseDown>(Self::on_click)) => {
                 Padding::uniform(32.0) => {
@@ -101,23 +102,30 @@ fn main() {
         );
     }
 
-    let event_loop = XEventLoop::new(display).unwrap();
-    let window = XWindow::new(display, 640, 480);
+    let event_loop = XEventLoop::create(display).unwrap();
+    let window = XWindow::create(display, 640, 480);
 
     unsafe {
         xlib::XSelectInput(
             display,
-            window.window,
+            window.window_id(),
             xlib::ButtonPressMask
                 | xlib::ButtonReleaseMask
                 | xlib::ExposureMask
                 | xlib::StructureNotifyMask,
         );
-        xlib::XMapWindow(display, window.window);
+        xlib::XMapWindow(display, window.window_id());
         xlib::XFlush(display);
     }
 
-    let renderer = graphics::Renderer::new(&window, graphics::Settings::default()).unwrap();
-
-    application::run(event_loop, renderer, window, element!(App));
+    match env::var("RENDERER") {
+        Ok(renderer_var) if renderer_var == "x11" => {
+            let renderer = x_window_system::Renderer::new(display, window.window_id());
+            application::run(event_loop, renderer, window, element!(App));
+        }
+        _ => {
+            let renderer = wgpu::Renderer::new(&window, wgpu::Settings::default()).unwrap();
+            application::run(event_loop, renderer, window, element!(App));
+        }
+    };
 }
