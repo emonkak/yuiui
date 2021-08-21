@@ -1,4 +1,6 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, Sub};
+
+use super::Vector;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Point<T = f32> {
@@ -8,7 +10,7 @@ pub struct Point<T = f32> {
 
 pub type PhysicalPoint = Point<u32>;
 
-impl Point<f32> {
+impl Point {
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
 }
 
@@ -32,54 +34,56 @@ impl From<Point<f32>> for Point<u32> {
     }
 }
 
-impl<T> Add for Point<T>
+impl<T> From<Point<T>> for Vector<T> {
+    #[inline]
+    fn from(point: Point<T>) -> Vector<T> {
+        Vector {
+            dx: point.x,
+            dy: point.y,
+        }
+    }
+}
+
+impl<T> Add<Vector<T>> for Point<T>
 where
     T: Add<Output = T>,
 {
     type Output = Self;
 
     #[inline]
-    fn add(self, other: Self) -> Self {
+    fn add(self, vector: Vector<T>) -> Self {
         Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
+            x: self.x + vector.dx,
+            y: self.y + vector.dy,
         }
     }
 }
 
-impl<T> AddAssign for Point<T>
-where
-    T: AddAssign,
-{
-    #[inline]
-    fn add_assign(&mut self, other: Self) {
-        self.x += other.x;
-        self.y += other.y;
-    }
-}
-
-impl<T> Sub for Point<T>
+impl<T> Sub<Vector<T>> for Point<T>
 where
     T: Sub<Output = T>,
 {
     type Output = Self;
 
     #[inline]
-    fn sub(self, other: Self) -> Self {
+    fn sub(self, vector: Vector<T>) -> Self {
         Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
+            x: self.x - vector.dx,
+            y: self.y - vector.dy,
         }
     }
 }
 
-impl<T> SubAssign for Point<T>
+impl<T> Sub<Point<T>> for Point<T>
 where
-    T: SubAssign,
+    T: Sub<Output = T>,
 {
-    #[inline]
-    fn sub_assign(&mut self, other: Self) {
-        self.x -= other.x;
-        self.y -= other.y;
+    type Output = Vector<T>;
+
+    fn sub(self, other: Point<T>) -> Vector<T> {
+        Vector {
+            dx: self.x - other.x,
+            dy: self.y - other.y,
+        }
     }
 }

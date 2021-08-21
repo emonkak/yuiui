@@ -2,7 +2,10 @@ use std::ptr;
 use x11::xlib;
 
 use crate::geometrics::{PhysicalRectangle, PhysicalSize};
-use crate::graphics::{Color, Pipeline as PipelineTrait, Renderer as RendererTrait, Viewport};
+use crate::graphics::{Color, Renderer as RendererTrait, Viewport};
+
+use super::pipeline::Pipeline;
+use super::primitive::Primitive;
 
 #[derive(Debug)]
 pub struct Renderer {
@@ -15,18 +18,6 @@ pub struct Frame {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
-}
-
-#[derive(Debug)]
-pub struct Pipeline {
-    primitives: Vec<Primitive>,
-}
-
-#[derive(Clone, Debug)]
-pub enum Primitive {
-    None,
-    Batch(Vec<Primitive>),
-    FillRectangle(Color, PhysicalRectangle),
 }
 
 impl Renderer {
@@ -133,7 +124,7 @@ impl RendererTrait for Renderer {
             PhysicalRectangle::from(viewport.physical_size()),
         );
 
-        self.process_primitives(frame, &pipeline.primitives);
+        self.process_primitives(frame, &pipeline.primitives());
 
         self.commit(frame, viewport.physical_size());
     }
@@ -166,25 +157,5 @@ impl Drop for Frame {
             xlib::XFreeGC(self.display, self.gc);
             xlib::XFreePixmap(self.display, self.pixmap);
         }
-    }
-}
-
-impl Pipeline {
-    pub fn new() -> Self {
-        Self {
-            primitives: Vec::new(),
-        }
-    }
-}
-
-impl PipelineTrait<Primitive> for Pipeline {
-    fn push(&mut self, primitive: &Primitive) {
-        self.primitives.push(primitive.clone());
-    }
-}
-
-impl Default for Primitive {
-    fn default() -> Self {
-        Primitive::None
     }
 }

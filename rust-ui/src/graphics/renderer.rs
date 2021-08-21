@@ -21,5 +21,7 @@ pub trait Renderer {
 }
 
 pub trait Pipeline<Primitive> {
-    fn push(&mut self, primitive: &Primitive);
+    fn push(&mut self, primitive: &Primitive, depth: usize);
+
+    fn finish(&mut self) {}
 }

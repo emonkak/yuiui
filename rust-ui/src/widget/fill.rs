@@ -62,7 +62,9 @@ impl Widget<wgpu::Renderer> for Fill {
         _renderer: &mut wgpu::Renderer,
         _context: &mut PaintContext<wgpu::Renderer>,
     ) -> wgpu::Primitive {
-        wgpu::Primitive::Quad {
+        use self::wgpu::Primitive::*;
+
+        Quad {
             bounds,
             background: Background::Color(self.color),
             border_radius: 8.0,

@@ -7,8 +7,8 @@ mod viewport;
 pub mod wgpu;
 pub mod x11;
 
-pub use background::*;
-pub use color::*;
-pub use renderer::*;
-pub use transformation::*;
-pub use viewport::*;
+pub use background::Background;
+pub use color::Color;
+pub use renderer::{Pipeline, Renderer};
+pub use transformation::Transformation;
+pub use viewport::Viewport;

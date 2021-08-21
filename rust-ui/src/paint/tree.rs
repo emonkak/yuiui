@@ -3,7 +3,7 @@ use std::mem;
 use std::sync::mpsc::Sender;
 
 use crate::event::{EventManager, GenericEvent};
-use crate::geometrics::{Point, Rectangle, Size};
+use crate::geometrics::{Rectangle, Size, Vector};
 use crate::graphics::{Pipeline, Renderer};
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
@@ -28,7 +28,7 @@ pub struct PaintTree<Renderer, Primitive> {
 #[derive(Debug)]
 struct PaintState<Renderer, Primitive> {
     bounds: Rectangle,
-    absolute_point: Point,
+    absolute_point: Vector,
     box_constraints: BoxConstraints,
     mounted_pod: Option<WidgetPod<Renderer>>,
     deleted_children: Vec<WidgetPod<Renderer>>,
@@ -213,8 +213,9 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
     pub fn paint(&mut self, pipeline: &mut Renderer::Pipeline, renderer: &mut Renderer) {
         let mut tree_walker = self.tree.walk(self.root_id);
 
-        let mut absolute_point = Point { x: 0.0, y: 0.0 };
-        let mut latest_point = Point { x: 0.0, y: 0.0 };
+        let mut absolute_point = Vector::ZERO;
+        let mut latest_point = Vector::ZERO;
+        let mut depth = 0;
 
         while let Some((node_id, node, direction)) = tree_walker
             .next_match(|node_id, _| self.paint_states[node_id].flags.contains(PaintFlag::Dirty))
@@ -224,20 +225,20 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
 
             match direction {
                 WalkDirection::Downward => {
-                    absolute_point += latest_point;
-                    latest_point = bounds.point();
-                }
-                WalkDirection::Sideward => {
-                    latest_point = bounds.point();
+                    absolute_point = absolute_point + latest_point;
+                    depth += 1;
                 }
                 WalkDirection::Upward => {
-                    absolute_point -= bounds.point();
-                    latest_point = bounds.point();
+                    absolute_point = absolute_point - bounds.point().into();
+                    depth -= 1;
                 }
+                WalkDirection::Sideward => {}
             }
 
+            latest_point = bounds.point().into();
+
             if !paint_state.flags.contains(PaintFlag::NeedsPaint) {
-                pipeline.push(&paint_state.primitive);
+                pipeline.push(&paint_state.primitive, depth);
                 continue;
             }
 
@@ -245,7 +246,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
 
             if matches!(direction, WalkDirection::Downward | WalkDirection::Sideward) {
                 let WidgetPod { widget, state, .. } = &**node;
-                let absolute_bounds = bounds.offset(absolute_point.x, absolute_point.y);
+                let absolute_bounds = bounds.translate(absolute_point);
 
                 let primitive = widget.draw(
                     absolute_bounds,
@@ -254,7 +255,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
                     &mut context,
                 );
 
-                pipeline.push(&primitive);
+                pipeline.push(&primitive, depth);
 
                 paint_state.absolute_point = absolute_point;
                 paint_state.primitive = primitive;
@@ -307,6 +308,8 @@ impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
                 paint_state.flags -= PaintFlag::NeedsPaint;
             }
         }
+
+        pipeline.finish()
     }
 
     pub fn dispatch(&self, event: &GenericEvent, update_notifier: &Sender<NodeId>) {
@@ -363,7 +366,7 @@ impl<Renderer, Primitive: Default> Default for PaintState<Renderer, Primitive> {
     fn default() -> Self {
         Self {
             bounds: Rectangle::ZERO,
-            absolute_point: Point::ZERO,
+            absolute_point: Vector::ZERO,
             box_constraints: BoxConstraints::LOOSE,
             mounted_pod: None,
             deleted_children: Vec::new(),

@@ -2,13 +2,11 @@ use futures::task::{FutureObj, Spawn};
 use raw_window_handle::HasRawWindowHandle;
 
 use crate::geometrics::Rectangle;
-use crate::graphics::{
-    Background, Color, Pipeline as PipelineTrait, Renderer as RendererTrait, Transformation,
-    Viewport,
-};
+use crate::graphics::{Color, Renderer as RendererTrait, Viewport};
 
-use super::quad::{self, Quad};
-use super::Settings;
+use super::pipeline::{Backend, Pipeline};
+use super::primitive::Primitive;
+use super::settings::Settings;
 
 pub struct Renderer {
     settings: Settings,
@@ -26,35 +24,6 @@ pub enum RequstError {
     AdapterNotFound,
     TextureFormatNotFound,
     RequestDeviceError(wgpu::RequestDeviceError),
-}
-
-#[derive(Debug)]
-pub struct Pipeline {
-    primary_layer: Layer,
-    layers: Vec<Layer>,
-}
-
-pub enum Primitive {
-    None,
-    Batch(Vec<Primitive>),
-    Quad {
-        bounds: Rectangle,
-        background: Background,
-        border_radius: f32,
-        border_width: f32,
-        border_color: Color,
-    },
-}
-
-#[derive(Debug)]
-struct Layer {
-    bounds: Rectangle,
-    quads: Vec<Quad>,
-}
-
-#[derive(Debug)]
-struct Backend {
-    quad_pipeline: quad::Pipeline,
 }
 
 impl Renderer {
@@ -105,7 +74,7 @@ impl Renderer {
 
         let staging_belt = wgpu::util::StagingBelt::new(Self::CHUNK_SIZE);
         let local_pool = futures::executor::LocalPool::new();
-        let backend = Backend::new(&device, settings, format);
+        let backend = Backend::new(&device, format, settings);
 
         Ok(Self {
             settings,
@@ -151,6 +120,8 @@ impl RendererTrait for Renderer {
         viewport: &Viewport,
         background_color: Color,
     ) {
+        dbg!(&pipeline);
+
         let frame = swap_chain.get_current_frame().expect("Next frame");
 
         let mut encoder = self
@@ -199,126 +170,5 @@ impl RendererTrait for Renderer {
             .expect("Recall staging belt");
 
         self.local_pool.run_until_stalled();
-    }
-}
-
-impl Pipeline {
-    pub fn new(bounds: Rectangle) -> Self {
-        Self {
-            primary_layer: Layer {
-                quads: Vec::new(),
-                bounds,
-            },
-            layers: Vec::new(),
-        }
-    }
-}
-
-impl PipelineTrait<Primitive> for Pipeline {
-    fn push(&mut self, primitive: &Primitive) {
-        match primitive {
-            Primitive::None => {}
-            Primitive::Batch(primitives) => {
-                for primitive in primitives {
-                    self.push(primitive);
-                }
-            }
-            Primitive::Quad {
-                bounds,
-                background,
-                border_radius,
-                border_width,
-                border_color,
-            } => {
-                self.primary_layer.quads.push(Quad {
-                    position: [bounds.x, bounds.y],
-                    size: [bounds.width, bounds.height],
-                    color: match background {
-                        Background::Color(color) => color.into_linear(),
-                    },
-                    border_radius: *border_radius,
-                    border_width: *border_width,
-                    border_color: border_color.into_linear(),
-                });
-            }
-        }
-    }
-}
-
-impl Default for Primitive {
-    fn default() -> Self {
-        Primitive::None
-    }
-}
-
-impl Backend {
-    pub fn new(device: &wgpu::Device, _settings: Settings, format: wgpu::TextureFormat) -> Self {
-        let quad_pipeline = quad::Pipeline::new(device, format);
-
-        Self { quad_pipeline }
-    }
-
-    pub fn draw(
-        &mut self,
-        device: &wgpu::Device,
-        staging_belt: &mut wgpu::util::StagingBelt,
-        encoder: &mut wgpu::CommandEncoder,
-        frame: &wgpu::TextureView,
-        pipeline: &Pipeline,
-        viewport: &Viewport,
-    ) {
-        let scale_factor = viewport.scale_factor() as f32;
-        let transformation = viewport.projection();
-
-        self.flush(
-            device,
-            staging_belt,
-            encoder,
-            &frame,
-            &pipeline.primary_layer,
-            Rectangle::from(viewport.logical_size()),
-            scale_factor,
-            transformation,
-        );
-
-        for layer in &pipeline.layers {
-            self.flush(
-                device,
-                staging_belt,
-                encoder,
-                &frame,
-                &layer,
-                layer.bounds,
-                scale_factor,
-                transformation,
-            );
-        }
-    }
-
-    fn flush(
-        &mut self,
-        device: &wgpu::Device,
-        staging_belt: &mut wgpu::util::StagingBelt,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        layer: &Layer,
-        bounds: Rectangle,
-        scale_factor: f32,
-        transformation: Transformation,
-    ) {
-        let bounds = bounds.scale(scale_factor).snap();
-
-        if !layer.quads.is_empty() {
-            self.quad_pipeline.draw(
-                device,
-                staging_belt,
-                encoder,
-                target,
-                &layer.quads,
-                bounds,
-                scale_factor,
-                transformation,
-            );
-        }
     }
 }
