@@ -3,7 +3,7 @@ use std::mem;
 use std::sync::mpsc::Sender;
 
 use crate::event::{EventManager, GenericEvent};
-use crate::geometrics::{Rectangle, Size, Vector};
+use crate::geometrics::{Point, Rectangle, Size, Vector};
 use crate::graphics::{Pipeline, Primitive};
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
@@ -28,12 +28,12 @@ pub struct PaintTree<Renderer> {
 #[derive(Debug)]
 struct PaintState<Renderer> {
     bounds: Rectangle,
-    absolute_point: Vector,
+    absolute_translation: Vector,
     box_constraints: BoxConstraints,
     mounted_pod: Option<WidgetPod<Renderer>>,
     deleted_children: Vec<WidgetPod<Renderer>>,
     flags: BitFlags<PaintFlag>,
-    draw_cache: Primitive,
+    draw_cache: Option<Primitive>,
 }
 
 #[derive(Debug)]
@@ -211,8 +211,8 @@ impl<Renderer> PaintTree<Renderer> {
     pub fn paint<Pipeline: self::Pipeline>(&mut self, pipeline: &mut Pipeline, renderer: &mut Renderer) {
         let mut tree_walker = self.tree.walk(self.root_id);
 
-        let mut absolute_point = Vector::ZERO;
-        let mut latest_point = Vector::ZERO;
+        let mut absolute_translation = Vector::ZERO;
+        let mut latest_point = Point::ZERO;
         let mut depth = 0;
 
         while let Some((node_id, node, direction)) = tree_walker
@@ -221,45 +221,63 @@ impl<Renderer> PaintTree<Renderer> {
             let paint_state = &mut self.paint_states[node_id];
             let bounds = paint_state.bounds;
 
+            let draw_phase;
+            let lifecycle_phase;
+
             match direction {
                 WalkDirection::Downward => {
-                    absolute_point = absolute_point + latest_point;
+                    absolute_translation = absolute_translation + latest_point.into();
                     depth += 1;
+                    draw_phase = true;
+                    lifecycle_phase = !node.has_child();
+                }
+                WalkDirection::Sideward => {
+                    draw_phase = false;
+                    lifecycle_phase = !node.has_child();
                 }
                 WalkDirection::Upward => {
-                    absolute_point = absolute_point - bounds.point().into();
+                    absolute_translation = absolute_translation - bounds.point().into();
                     depth -= 1;
+                    draw_phase = false;
+                    lifecycle_phase = true;
                 }
-                WalkDirection::Sideward => {}
             }
 
-            latest_point = bounds.point().into();
+            latest_point = bounds.point();
 
-            if !paint_state.flags.contains(PaintFlag::NeedsPaint) {
-                pipeline.push(&paint_state.draw_cache, depth);
+            if !draw_phase && !lifecycle_phase {
+                continue;
+            }
+
+            if draw_phase && !paint_state.flags.contains(PaintFlag::NeedsPaint) {
+                if let Some(primitive) = &paint_state.draw_cache {
+                    pipeline.push(primitive, depth);
+                }
                 continue;
             }
 
             let mut context = PaintContext::new(&mut self.event_manager);
 
-            if matches!(direction, WalkDirection::Downward | WalkDirection::Sideward) {
+            if draw_phase {
                 let WidgetPod { widget, state, .. } = &**node;
-                let absolute_bounds = bounds.translate(absolute_point);
+                let absolute_bounds = bounds.translate(absolute_translation);
 
-                let primitive = widget.draw(
+                let draw_result = widget.draw(
                     absolute_bounds,
                     &mut **state.lock().unwrap(),
                     renderer,
                     &mut context,
                 );
 
-                pipeline.push(&primitive, depth);
+                if let Some(primitive) = &draw_result {
+                    pipeline.push(primitive, depth);
+                }
 
-                paint_state.absolute_point = absolute_point;
-                paint_state.draw_cache = primitive;
+                paint_state.absolute_translation = absolute_translation;
+                paint_state.draw_cache = draw_result;
             }
 
-            if direction == WalkDirection::Upward || !node.has_child() {
+            if lifecycle_phase {
                 for WidgetPod {
                     widget,
                     state,
@@ -364,7 +382,7 @@ impl<Renderer> Default for PaintState<Renderer> {
     fn default() -> Self {
         Self {
             bounds: Rectangle::ZERO,
-            absolute_point: Vector::ZERO,
+            absolute_translation: Vector::ZERO,
             box_constraints: BoxConstraints::LOOSE,
             mounted_pod: None,
             deleted_children: Vec::new(),
@@ -374,7 +392,7 @@ impl<Renderer> Default for PaintState<Renderer> {
                 PaintFlag::NeedsPaint,
             ]
             .into(),
-            draw_cache: Primitive::None,
+            draw_cache: None,
         }
     }
 }

@@ -80,8 +80,8 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
         _state: &mut Self::State,
         _renderer: &mut Renderer,
         _context: &mut PaintContext<Renderer>,
-    ) -> Primitive {
-        Primitive::None
+    ) -> Option<Primitive> {
+        None
     }
 }
 
@@ -126,7 +126,7 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
-    ) -> Primitive;
+    ) -> Option<Primitive>;
 }
 
 pub trait WidgetMeta {
@@ -239,7 +239,7 @@ where
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
-    ) -> Primitive {
+    ) -> Option<Primitive> {
         self.draw(bounds, state.downcast_mut().unwrap(), renderer, context)
     }
 }

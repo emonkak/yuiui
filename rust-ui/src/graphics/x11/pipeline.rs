@@ -50,7 +50,6 @@ impl Pipeline {
 
     fn process_primitive(&mut self, primitive: &Primitive, depth: usize) {
         match primitive {
-            Primitive::None => {}
             Primitive::Batch(primitives) => {
                 for primitive in primitives {
                     self.process_primitive(primitive, depth)

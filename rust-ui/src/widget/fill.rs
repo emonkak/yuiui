@@ -37,13 +37,13 @@ impl<Renderer> Widget<Renderer> for Fill {
         _state: &mut Self::State,
         _renderer: &mut Renderer,
         _context: &mut PaintContext<Renderer>,
-    ) -> Primitive {
+    ) -> Option<Primitive> {
         Primitive::Quad {
             bounds,
             background: Background::Color(self.color),
             border_radius: 8.0,
             border_width: 0.0,
             border_color: Color::TRANSPARENT,
-        }
+        }.into()
     }
 }

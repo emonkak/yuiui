@@ -3,7 +3,6 @@ use crate::graphics::{Background, Color};
 
 #[derive(Debug)]
 pub enum Primitive {
-    None,
     Batch(Vec<Primitive>),
     Translate(Vector),
     Clip(Rectangle),
@@ -14,10 +13,4 @@ pub enum Primitive {
         border_width: f32,
         border_color: Color,
     },
-}
-
-impl Default for Primitive {
-    fn default() -> Self {
-        Primitive::None
-    }
 }
