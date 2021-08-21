@@ -1,6 +1,5 @@
 use futures::task::{FutureObj, Spawn};
 use raw_window_handle::HasRawWindowHandle;
-use std::io;
 
 use crate::base::Rectangle;
 use crate::graphics::color::Color;
@@ -16,23 +15,27 @@ pub struct Renderer {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    format: wgpu::TextureFormat,
     staging_belt: wgpu::util::StagingBelt,
     local_pool: futures::executor::LocalPool,
-    format: wgpu::TextureFormat,
     backend: Backend,
+}
+
+#[derive(Debug)]
+pub enum RequstError {
+    AdapterNotFound,
+    TextureFormatNotFound,
+    RequestDeviceError(wgpu::RequestDeviceError),
 }
 
 impl Renderer {
     const CHUNK_SIZE: u64 = 10 * 1024;
 
-    pub fn new<W: HasRawWindowHandle>(window: &W, settings: Settings) -> io::Result<Self> {
-        futures::executor::block_on(Self::request(settings, window)).ok_or(io::Error::new(
-            io::ErrorKind::NotFound,
-            "A suitable graphics adapter or device could not be found",
-        ))
+    pub fn new<W: HasRawWindowHandle>(window: &W, settings: Settings) -> Result<Self, RequstError> {
+        futures::executor::block_on(Self::request(window, settings))
     }
 
-    pub async fn request<W: HasRawWindowHandle>(settings: Settings, window: &W) -> Option<Self> {
+    pub async fn request<W: HasRawWindowHandle>(window: &W, settings: Settings) -> Result<Self, RequstError> {
         let instance = wgpu::Instance::new(settings.internal_backend);
 
         let surface = unsafe { instance.create_surface(window) };
@@ -46,9 +49,11 @@ impl Renderer {
                 },
                 compatible_surface: Some(&surface),
             })
-            .await?;
+            .await
+            .ok_or(RequstError::AdapterNotFound)?;
 
-        let format = adapter.get_swap_chain_preferred_format(&surface)?;
+        let format = adapter.get_swap_chain_preferred_format(&surface)
+            .ok_or(RequstError::TextureFormatNotFound)?;
 
         let (device, queue) = adapter
             .request_device(
@@ -63,21 +68,20 @@ impl Renderer {
                 None,
             )
             .await
-            .ok()?;
+            .map_err(RequstError::RequestDeviceError)?;
 
         let staging_belt = wgpu::util::StagingBelt::new(Self::CHUNK_SIZE);
         let local_pool = futures::executor::LocalPool::new();
-
         let backend = Backend::new(&device, settings, format);
 
-        Some(Self {
-            surface,
+        Ok(Self {
             settings,
+            surface,
             device,
             queue,
+            format,
             staging_belt,
             local_pool,
-            format,
             backend,
         })
     }
