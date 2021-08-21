@@ -2,12 +2,13 @@ use futures::task::{FutureObj, Spawn};
 use raw_window_handle::HasRawWindowHandle;
 
 use crate::base::Rectangle;
+use crate::graphics::background::Background;
 use crate::graphics::color::Color;
-use crate::graphics::renderer::Renderer as RendererTrait;
+use crate::graphics::renderer::{Pipeline as PipelineTrait, Renderer as RendererTrait};
 use crate::graphics::viewport::Viewport;
 
 use super::backend::Backend;
-use super::pipeline::{Layer, Pipeline};
+use super::quad::Quad;
 use super::settings::Settings;
 
 pub struct Renderer {
@@ -28,6 +29,30 @@ pub enum RequstError {
     RequestDeviceError(wgpu::RequestDeviceError),
 }
 
+#[derive(Debug, Clone)]
+pub struct Pipeline {
+    pub(crate) primary_layer: Layer,
+    pub(crate) layers: Vec<Layer>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Layer {
+    pub(crate) quads: Vec<Quad>,
+    pub(crate) bounds: Rectangle,
+}
+
+pub enum Primitive {
+    None,
+    Batch(Vec<Primitive>),
+    Quad {
+        bounds: Rectangle,
+        background: Background,
+        border_radius: f32,
+        border_width: f32,
+        border_color: Color,
+    },
+}
+
 impl Renderer {
     const CHUNK_SIZE: u64 = 10 * 1024;
 
@@ -35,7 +60,10 @@ impl Renderer {
         futures::executor::block_on(Self::request(window, settings))
     }
 
-    pub async fn request<W: HasRawWindowHandle>(window: &W, settings: Settings) -> Result<Self, RequstError> {
+    pub async fn request<W: HasRawWindowHandle>(
+        window: &W,
+        settings: Settings,
+    ) -> Result<Self, RequstError> {
         let instance = wgpu::Instance::new(settings.internal_backend);
 
         let surface = unsafe { instance.create_surface(window) };
@@ -52,7 +80,8 @@ impl Renderer {
             .await
             .ok_or(RequstError::AdapterNotFound)?;
 
-        let format = adapter.get_swap_chain_preferred_format(&surface)
+        let format = adapter
+            .get_swap_chain_preferred_format(&surface)
             .ok_or(RequstError::TextureFormatNotFound)?;
 
         let (device, queue) = adapter
@@ -88,10 +117,11 @@ impl Renderer {
 }
 
 impl RendererTrait for Renderer {
-    type View = wgpu::SwapChain;
+    type DrawArea = wgpu::SwapChain;
+    type Primitive = self::Primitive;
     type Pipeline = self::Pipeline;
 
-    fn create_view(&mut self, viewport: &Viewport) -> Self::View {
+    fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea {
         let physical_size = viewport.physical_size();
         self.device.create_swap_chain(
             &self.surface,
@@ -118,7 +148,7 @@ impl RendererTrait for Renderer {
 
     fn perform_pipeline(
         &mut self,
-        swap_chain: &mut Self::View,
+        swap_chain: &mut Self::DrawArea,
         pipeline: &Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
@@ -171,5 +201,42 @@ impl RendererTrait for Renderer {
             .expect("Recall staging belt");
 
         self.local_pool.run_until_stalled();
+    }
+}
+
+impl PipelineTrait<Primitive> for Pipeline {
+    fn push(&mut self, primitive: &Primitive) {
+        match primitive {
+            Primitive::None => {}
+            Primitive::Batch(primitives) => {
+                for primitive in primitives {
+                    self.push(primitive);
+                }
+            }
+            Primitive::Quad {
+                bounds,
+                background,
+                border_radius,
+                border_width,
+                border_color,
+            } => {
+                self.primary_layer.quads.push(Quad {
+                    position: [bounds.x, bounds.y],
+                    size: [bounds.width, bounds.height],
+                    color: match background {
+                        Background::Color(color) => color.into_linear(),
+                    },
+                    border_radius: *border_radius,
+                    border_width: *border_width,
+                    border_color: border_color.into_linear(),
+                });
+            }
+        }
+    }
+}
+
+impl Default for Primitive {
+    fn default() -> Self {
+        Primitive::None
     }
 }

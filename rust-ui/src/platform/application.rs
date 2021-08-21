@@ -47,8 +47,8 @@ pub fn run<Window, EventLoop, Renderer>(
 
     let mut viewport = Viewport::new(window.get_bounds().size(), 1.0);
     let mut paint_tree = PaintTree::new(viewport.logical_size());
-    let mut redner_view = renderer.create_view(&viewport);
-    let mut render_pipeline = renderer.create_pipeline(&viewport);
+    let mut draw_area = renderer.create_draw_area(&viewport);
+    let mut pipeline = renderer.create_pipeline(&viewport);
 
     event_loop.run(|event| {
         match event {
@@ -60,16 +60,11 @@ pub fn run<Window, EventLoop, Renderer>(
 
                     paint_tree.layout_subtree(node_id, &mut renderer);
 
-                    render_pipeline = renderer.create_pipeline(&viewport);
-                    paint_tree.paint(&mut render_pipeline, &mut renderer);
+                    pipeline = renderer.create_pipeline(&viewport);
+                    paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                renderer.perform_pipeline(
-                    &mut redner_view,
-                    &render_pipeline,
-                    &viewport,
-                    Color::WHITE,
-                );
+                renderer.perform_pipeline(&mut draw_area, &pipeline, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
                 if window_event.type_id == TypeId::of::<WindowResize>() {
@@ -78,9 +73,9 @@ pub fn run<Window, EventLoop, Renderer>(
                     viewport = Viewport::new(resize_event.size, 1.0);
                     paint_tree.layout_root(viewport.logical_size(), &mut renderer);
 
-                    redner_view = renderer.create_view(&viewport);
-                    render_pipeline = renderer.create_pipeline(&viewport);
-                    paint_tree.paint(&mut render_pipeline, &mut renderer);
+                    draw_area = renderer.create_draw_area(&viewport);
+                    pipeline = renderer.create_pipeline(&viewport);
+                    paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
                 paint_tree.dispatch(&window_event, &update_sender);

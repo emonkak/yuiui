@@ -6,7 +6,7 @@ use crate::base::{Point, Rectangle, Size};
 use crate::bit_flags::BitFlags;
 use crate::event::{EventManager, GenericEvent};
 use crate::generator::GeneratorState;
-use crate::graphics::renderer::Renderer;
+use crate::graphics::renderer::{Pipeline, Renderer};
 use crate::slot_vec::SlotVec;
 use crate::tree::walk::WalkDirection;
 use crate::tree::{NodeId, Tree};
@@ -17,21 +17,22 @@ use super::layout::{BoxConstraints, LayoutRequest};
 use super::{Lifecycle, LifecycleContext};
 
 #[derive(Debug)]
-pub struct PaintTree<Renderer> {
+pub struct PaintTree<Renderer, Primitive> {
     tree: WidgetTree<Renderer>,
     root_id: NodeId,
-    paint_states: SlotVec<PaintState<Renderer>>,
+    paint_states: SlotVec<PaintState<Renderer, Primitive>>,
     event_manager: EventManager<Renderer>,
 }
 
 #[derive(Debug)]
-pub struct PaintState<Renderer> {
+pub struct PaintState<Renderer, Primitive> {
     bounds: Rectangle,
     absolute_point: Point,
     box_constraints: BoxConstraints,
     mounted_pod: Option<WidgetPod<Renderer>>,
     deleted_children: Vec<WidgetPod<Renderer>>,
     flags: BitFlags<PaintFlag>,
+    primitive: Primitive,
 }
 
 #[derive(Debug)]
@@ -42,7 +43,7 @@ pub enum PaintFlag {
     NeedsPaint = 0b100,
 }
 
-impl<Renderer: self::Renderer> PaintTree<Renderer> {
+impl<Renderer: self::Renderer> PaintTree<Renderer, Renderer::Primitive> {
     pub fn new(viewport_size: Size) -> Self {
         let mut tree = Tree::new();
         let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
@@ -234,6 +235,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
             }
 
             if !paint_state.flags.contains(PaintFlag::NeedsPaint) {
+                pipeline.push(&paint_state.primitive);
                 continue;
             }
 
@@ -245,15 +247,17 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
                 let WidgetPod { widget, state, .. } = &**node;
                 let absolute_bounds = bounds.offset(absolute_point.x, absolute_point.y);
 
-                widget.draw(
-                    pipeline,
+                let primitive = widget.draw(
                     absolute_bounds,
                     &mut **state.lock().unwrap(),
                     renderer,
                     &mut context,
                 );
 
+                pipeline.push(&primitive);
+
                 paint_state.absolute_point = absolute_point;
+                paint_state.primitive = primitive;
             }
 
             if direction == WalkDirection::Upward || !node.has_child() {
@@ -322,7 +326,7 @@ impl<Renderer: self::Renderer> PaintTree<Renderer> {
     }
 }
 
-impl<Renderer> fmt::Display for PaintTree<Renderer> {
+impl<Renderer, Primitive> fmt::Display for PaintTree<Renderer, Primitive> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.format(
             f,
@@ -355,7 +359,7 @@ impl<Renderer> fmt::Display for PaintTree<Renderer> {
     }
 }
 
-impl<Renderer> Default for PaintState<Renderer> {
+impl<Renderer, Primitive: Default> Default for PaintState<Renderer, Primitive> {
     fn default() -> Self {
         Self {
             bounds: Rectangle::ZERO,
@@ -369,6 +373,7 @@ impl<Renderer> Default for PaintState<Renderer> {
                 PaintFlag::NeedsPaint,
             ]
             .into(),
+            primitive: Primitive::default(),
         }
     }
 }

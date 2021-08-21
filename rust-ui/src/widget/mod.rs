@@ -80,12 +80,12 @@ where
     #[inline]
     fn draw(
         &self,
-        _pipeline: &mut Renderer::Pipeline,
         _bounds: Rectangle,
         _state: &mut Self::State,
         _renderer: &mut Renderer,
         _context: &mut LifecycleContext<Renderer>,
-    ) {
+    ) -> Renderer::Primitive {
+        Renderer::Primitive::default()
     }
 }
 
@@ -126,12 +126,11 @@ pub trait PolymophicWidget<Renderer: self::Renderer>: Send + Sync + WidgetMeta {
 
     fn draw(
         &self,
-        pipeline: &mut Renderer::Pipeline,
         bounds: Rectangle,
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut LifecycleContext<Renderer>,
-    );
+    ) -> Renderer::Primitive;
 }
 
 pub trait WidgetMeta {
@@ -241,19 +240,12 @@ where
     #[inline]
     fn draw(
         &self,
-        pipeline: &mut Renderer::Pipeline,
         bounds: Rectangle,
         state: &mut dyn Any,
         renderer: &mut Renderer,
         context: &mut LifecycleContext<Renderer>,
-    ) {
-        self.draw(
-            pipeline,
-            bounds,
-            state.downcast_mut().unwrap(),
-            renderer,
-            context,
-        )
+    ) -> Renderer::Primitive {
+        self.draw(bounds, state.downcast_mut().unwrap(), renderer, context)
     }
 }
 

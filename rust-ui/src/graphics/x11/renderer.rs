@@ -3,20 +3,32 @@ use x11::xlib;
 
 use crate::base::{PhysicalRectangle, PhysicalSize};
 use crate::graphics::color::Color;
-use crate::graphics::renderer::Renderer as RendererTrait;
+use crate::graphics::renderer::{Pipeline as PipelineTrait, Renderer as RendererTrait};
 use crate::graphics::viewport::Viewport;
 
-use super::pipeline::{DrawOp, Pipeline};
-
+#[derive(Debug)]
 pub struct Renderer {
     display: *mut xlib::Display,
     window: xlib::Window,
 }
 
-pub struct View {
+#[derive(Debug)]
+pub struct DrawArea {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
+}
+
+#[derive(Debug)]
+pub struct Pipeline {
+    pub(crate) primitives: Vec<Primitive>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Primitive {
+    None,
+    Batch(Vec<Primitive>),
+    FillRectangle(Color, PhysicalRectangle),
 }
 
 impl Renderer {
@@ -46,13 +58,18 @@ impl Renderer {
         color
     }
 
-    fn fill_rectangle(&mut self, view: &View, color: &xlib::XColor, bounds: PhysicalRectangle) {
+    fn fill_rectangle(
+        &self,
+        draw_area: &DrawArea,
+        color: &xlib::XColor,
+        bounds: PhysicalRectangle,
+    ) {
         unsafe {
-            xlib::XSetForeground(self.display, view.gc, color.pixel);
+            xlib::XSetForeground(self.display, draw_area.gc, color.pixel);
             xlib::XFillRectangle(
                 self.display,
-                view.pixmap,
-                view.gc,
+                draw_area.pixmap,
+                draw_area.gc,
                 bounds.x as _,
                 bounds.y as _,
                 bounds.width as _,
@@ -61,7 +78,7 @@ impl Renderer {
         }
     }
 
-    fn commit(&mut self, draw_area: &View, size: PhysicalSize) {
+    fn commit(&self, draw_area: &DrawArea, size: PhysicalSize) {
         unsafe {
             xlib::XCopyArea(
                 self.display,
@@ -78,15 +95,30 @@ impl Renderer {
             xlib::XFlush(self.display);
         }
     }
+
+    fn process_primitives(&self, draw_area: &DrawArea, primitives: &[Primitive]) {
+        for primitive in primitives {
+            match primitive {
+                Primitive::None => {}
+                Primitive::Batch(primitives) => {
+                    self.process_primitives(draw_area, primitives);
+                }
+                Primitive::FillRectangle(color, bounds) => {
+                    let alloc_color = self.alloc_color(color);
+                    self.fill_rectangle(draw_area, &alloc_color, *bounds);
+                }
+            }
+        }
+    }
 }
 
 impl RendererTrait for Renderer {
-    type View = self::View;
+    type DrawArea = self::DrawArea;
+    type Primitive = self::Primitive;
+    type Pipeline = self::Pipeline;
 
-    type Pipeline = Pipeline;
-
-    fn create_view(&mut self, viewport: &Viewport) -> Self::View {
-        View::new(self.display, viewport.physical_size())
+    fn create_draw_area(&mut self, viewport: &Viewport) -> Self::DrawArea {
+        DrawArea::new(self.display, viewport.physical_size())
     }
 
     fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
@@ -95,7 +127,7 @@ impl RendererTrait for Renderer {
 
     fn perform_pipeline(
         &mut self,
-        view: &mut Self::View,
+        draw_area: &mut Self::DrawArea,
         pipeline: &Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
@@ -103,25 +135,18 @@ impl RendererTrait for Renderer {
         let alloc_background_color = self.alloc_color(&background_color);
 
         self.fill_rectangle(
-            view,
+            draw_area,
             &alloc_background_color,
             PhysicalRectangle::from(viewport.physical_size()),
         );
 
-        for draw_op in &pipeline.draw_ops {
-            match draw_op {
-                DrawOp::FillRectangle(color, bounds) => {
-                    let alloc_color = self.alloc_color(color);
-                    self.fill_rectangle(view, &alloc_color, *bounds);
-                }
-            }
-        }
+        self.process_primitives(draw_area, &pipeline.primitives);
 
-        self.commit(view, viewport.physical_size());
+        self.commit(draw_area, viewport.physical_size());
     }
 }
 
-impl View {
+impl DrawArea {
     pub fn new(display: *mut xlib::Display, size: PhysicalSize) -> Self {
         unsafe {
             let pixmap = {
@@ -142,11 +167,31 @@ impl View {
     }
 }
 
-impl Drop for View {
+impl Drop for DrawArea {
     fn drop(&mut self) {
         unsafe {
             xlib::XFreeGC(self.display, self.gc);
             xlib::XFreePixmap(self.display, self.pixmap);
         }
+    }
+}
+
+impl Pipeline {
+    pub fn new() -> Self {
+        Self {
+            primitives: Vec::new(),
+        }
+    }
+}
+
+impl PipelineTrait<Primitive> for Pipeline {
+    fn push(&mut self, primitive: &Primitive) {
+        self.primitives.push(primitive.clone());
+    }
+}
+
+impl Default for Primitive {
+    fn default() -> Self {
+        Primitive::None
     }
 }

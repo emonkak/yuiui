@@ -2,8 +2,8 @@ use crate::base::Rectangle;
 use crate::graphics::transformation::Transformation;
 use crate::graphics::viewport::Viewport;
 
-use super::pipeline::{Layer, Pipeline};
 use super::quad;
+use super::renderer::{Layer, Pipeline};
 use super::settings::Settings;
 
 #[derive(Debug)]
