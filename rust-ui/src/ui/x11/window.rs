@@ -48,6 +48,7 @@ impl XWindow {
 impl Window for XWindow {
     type WindowId = xlib::Window;
 
+    #[inline]
     fn window_id(&self) -> Self::WindowId {
         self.window
     }
@@ -94,10 +95,12 @@ impl Window for XWindow {
 }
 
 unsafe impl HasRawWindowHandle for XWindow {
+    #[inline]
     fn raw_window_handle(&self) -> RawWindowHandle {
-        let mut handle = XlibHandle::empty();
-        handle.window = self.window;
-        handle.display = self.display as *mut _;
-        RawWindowHandle::Xlib(handle)
+        RawWindowHandle::Xlib(XlibHandle {
+            window: self.window,
+            display: self.display as *mut _,
+            ..XlibHandle::empty()
+        })
     }
 }

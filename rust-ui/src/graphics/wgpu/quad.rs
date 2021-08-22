@@ -262,7 +262,7 @@ impl Pipeline {
 impl Uniforms {
     fn new(transformation: Transformation, scale: f32) -> Uniforms {
         Self {
-            transform: transformation.into(),
+            transform: *transformation.as_ref(),
             scale,
             _padding: [0.0; 3],
         }

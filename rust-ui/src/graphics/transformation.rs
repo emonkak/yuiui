@@ -5,44 +5,43 @@ use std::ops::Mul;
 pub struct Transformation(Mat4);
 
 impl Transformation {
-    pub fn identity() -> Transformation {
-        Transformation(Mat4::IDENTITY)
+    #[inline]
+    pub fn identity() -> Self {
+        Self(Mat4::IDENTITY)
     }
 
     #[rustfmt::skip]
-    pub fn orthographic(width: u32, height: u32) -> Transformation {
-        Transformation(Mat4::orthographic_rh_gl(
+    #[inline]
+    pub fn orthographic(width: u32, height: u32) -> Self {
+        Self(Mat4::orthographic_rh_gl(
             0.0, width as f32,
             height as f32, 0.0,
             -1.0, 1.0
         ))
     }
 
-    pub fn translate(x: f32, y: f32) -> Transformation {
-        Transformation(Mat4::from_translation(Vec3::new(x, y, 0.0)))
+    #[inline]
+    pub fn translate(x: f32, y: f32) -> Self {
+        Self(Mat4::from_translation(Vec3::new(x, y, 0.0)))
     }
 
-    pub fn scale(x: f32, y: f32) -> Transformation {
-        Transformation(Mat4::from_scale(Vec3::new(x, y, 1.0)))
+    #[inline]
+    pub fn scale(x: f32, y: f32) -> Self {
+        Self(Mat4::from_scale(Vec3::new(x, y, 1.0)))
     }
 }
 
 impl Mul for Transformation {
     type Output = Self;
 
+    #[inline]
     fn mul(self, rhs: Self) -> Self {
-        Transformation(self.0 * rhs.0)
+        Self(self.0 * rhs.0)
     }
 }
 
 impl AsRef<[f32; 16]> for Transformation {
     fn as_ref(&self) -> &[f32; 16] {
         self.0.as_ref()
-    }
-}
-
-impl From<Transformation> for [f32; 16] {
-    fn from(t: Transformation) -> [f32; 16] {
-        *t.as_ref()
     }
 }

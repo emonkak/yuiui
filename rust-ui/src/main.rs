@@ -5,12 +5,11 @@ extern crate x11;
 use std::any::Any;
 use std::env;
 use std::ptr;
-
 use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::graphics::{wgpu, x11 as x_window_system, Color};
+use rust_ui::graphics::{wgpu, x11 as x_graphics, Color};
 use rust_ui::render::RenderContext;
 use rust_ui::ui::application;
 use rust_ui::ui::window::Window;
@@ -120,7 +119,7 @@ fn main() {
 
     match env::var("RENDERER") {
         Ok(renderer_var) if renderer_var == "x11" => {
-            let renderer = x_window_system::Renderer::new(display, window.window_id());
+            let renderer = x_graphics::Renderer::new(display, window.window_id());
             application::run(event_loop, renderer, window, element!(App));
         }
         _ => {

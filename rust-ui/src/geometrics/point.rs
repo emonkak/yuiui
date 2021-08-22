@@ -80,6 +80,7 @@ where
 {
     type Output = Vector<T>;
 
+    #[inline]
     fn sub(self, other: Point<T>) -> Vector<T> {
         Vector {
             dx: self.x - other.x,

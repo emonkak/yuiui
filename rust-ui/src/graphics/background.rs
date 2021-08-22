@@ -6,13 +6,8 @@ pub enum Background {
 }
 
 impl From<Color> for Background {
+    #[inline]
     fn from(color: Color) -> Self {
         Background::Color(color)
-    }
-}
-
-impl From<Color> for Option<Background> {
-    fn from(color: Color) -> Self {
-        Some(Background::from(color))
     }
 }

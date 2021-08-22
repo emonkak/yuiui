@@ -51,6 +51,7 @@ pub trait EventLoopProxy: Send {
 }
 
 impl ControlFlow {
+    #[inline]
     pub fn trans(&mut self, next: Self) {
         match self {
             Self::Exit => {}

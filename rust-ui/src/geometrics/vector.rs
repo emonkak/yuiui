@@ -16,6 +16,7 @@ where
 {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             dx: self.dx + other.dx,
@@ -30,6 +31,7 @@ where
 {
     type Output = Self;
 
+    #[inline]
     fn sub(self, other: Self) -> Self {
         Self {
             dx: self.dx - other.dx,
@@ -44,6 +46,7 @@ where
 {
     type Output = Self;
 
+    #[inline]
     fn mul(self, scale: T) -> Self {
         Self {
             dx: self.dx * scale,

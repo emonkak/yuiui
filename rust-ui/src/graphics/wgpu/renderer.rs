@@ -20,15 +20,15 @@ pub struct Renderer {
 }
 
 #[derive(Debug)]
-struct Backend {
-    quad_pipeline: quad::Pipeline,
-}
-
-#[derive(Debug)]
 pub enum RequstError {
     AdapterNotFound,
     TextureFormatNotFound,
     RequestDeviceError(wgpu::RequestDeviceError),
+}
+
+#[derive(Debug)]
+struct Backend {
+    quad_pipeline: quad::Pipeline,
 }
 
 impl Renderer {
