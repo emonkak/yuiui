@@ -3,3 +3,4 @@ members = [
     "rust-ui",
     "rust-ui-derive",
 ]
+resolver = "2"

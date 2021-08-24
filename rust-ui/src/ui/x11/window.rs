@@ -6,6 +6,7 @@ use x11::xlib;
 use crate::geometrics::PhysicalRectangle;
 use crate::ui::window::Window;
 
+#[derive(Clone, Debug)]
 pub struct XWindow {
     display: *mut xlib::Display,
     window: xlib::Window,

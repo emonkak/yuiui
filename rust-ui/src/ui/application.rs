@@ -45,7 +45,7 @@ pub fn run<Window, EventLoop, Renderer>(
 
     let mut viewport = Viewport::new(window.get_bounds().size(), 1.0);
     let mut paint_tree = PaintTree::new(viewport.logical_size());
-    let mut frame = renderer.create_frame(&viewport);
+    let mut surface = renderer.create_surface(&viewport);
     let mut pipeline = renderer.create_pipeline(&viewport);
 
     event_loop.run(|event| {
@@ -62,7 +62,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                renderer.perform_pipeline(&mut frame, &mut pipeline, &viewport, Color::WHITE);
+                renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
                 if window_event.type_id == TypeId::of::<WindowResize>() {
@@ -71,7 +71,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     viewport = Viewport::new(resize_event.size, 1.0);
                     paint_tree.layout_root(viewport.logical_size(), &mut renderer);
 
-                    frame = renderer.create_frame(&viewport);
+                    renderer.configure_surface(&mut surface, &viewport);
                     pipeline = renderer.create_pipeline(&viewport);
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }

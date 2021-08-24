@@ -8,15 +8,16 @@ use super::pipeline::{Layer, Pipeline};
 use super::quad;
 use super::settings::Settings;
 
-pub struct Renderer {
+pub struct Renderer<Window> {
     settings: Settings,
-    surface: wgpu::Surface,
+    instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
     format: wgpu::TextureFormat,
     staging_belt: wgpu::util::StagingBelt,
     local_pool: futures::executor::LocalPool,
     backend: Backend,
+    window: Window,
 }
 
 #[derive(Debug)]
@@ -31,20 +32,20 @@ struct Backend {
     quad_pipeline: quad::Pipeline,
 }
 
-impl Renderer {
+impl<Window: HasRawWindowHandle> Renderer<Window> {
     const CHUNK_SIZE: u64 = 10 * 1024;
 
-    pub fn new<W: HasRawWindowHandle>(window: &W, settings: Settings) -> Result<Self, RequstError> {
+    pub fn new(window: Window, settings: Settings) -> Result<Self, RequstError> {
         futures::executor::block_on(Self::request(window, settings))
     }
 
-    pub async fn request<W: HasRawWindowHandle>(
-        window: &W,
+    pub async fn request(
+        window: Window,
         settings: Settings,
     ) -> Result<Self, RequstError> {
         let instance = wgpu::Instance::new(settings.internal_backend);
 
-        let surface = unsafe { instance.create_surface(window) };
+        let compatible_surface = unsafe { instance.create_surface(&window) };
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -53,13 +54,13 @@ impl Renderer {
                 } else {
                     wgpu::PowerPreference::HighPerformance
                 },
-                compatible_surface: Some(&surface),
+                compatible_surface: Some(&compatible_surface),
             })
             .await
             .ok_or(RequstError::AdapterNotFound)?;
 
-        let format = adapter
-            .get_swap_chain_preferred_format(&surface)
+        let format = compatible_surface
+            .get_preferred_format(&adapter)
             .ok_or(RequstError::TextureFormatNotFound)?;
 
         let (device, queue) = adapter
@@ -83,27 +84,34 @@ impl Renderer {
 
         Ok(Self {
             settings,
-            surface,
+            instance,
             device,
             queue,
             format,
             staging_belt,
             local_pool,
             backend,
+            window,
         })
     }
 }
 
-impl crate::graphics::Renderer for Renderer {
-    type Frame = wgpu::SwapChain;
+impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> {
+    type Surface = wgpu::Surface;
     type Pipeline = Pipeline;
 
-    fn create_frame(&mut self, viewport: &Viewport) -> Self::Frame {
+    fn create_surface(&mut self, viewport: &Viewport) -> Self::Surface {
+        let mut surface = unsafe { self.instance.create_surface(&self.window) };
+        self.configure_surface(&mut surface, viewport);
+        surface
+    }
+
+    fn configure_surface(&mut self, surface: &mut Self::Surface, viewport: &Viewport) {
         let physical_size = viewport.physical_size();
-        self.device.create_swap_chain(
-            &self.surface,
-            &wgpu::SwapChainDescriptor {
-                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+        surface.configure(
+            &self.device,
+            &wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
                 format: self.format,
                 present_mode: self.settings.present_mode,
                 width: physical_size.width,
@@ -119,12 +127,12 @@ impl crate::graphics::Renderer for Renderer {
 
     fn perform_pipeline(
         &mut self,
-        swap_chain: &mut Self::Frame,
+        surface: &mut Self::Surface,
         pipeline: &mut Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
     ) {
-        let frame = swap_chain.get_current_frame().expect("Next frame");
+        let frame = surface.get_current_frame().expect("Next frame");
 
         let mut encoder = self
             .device
@@ -132,10 +140,12 @@ impl crate::graphics::Renderer for Renderer {
                 label: Some(concat!(module_path!(), " encoder")),
             });
 
+        let view = frame.output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         let _ = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some(concat!(module_path!(), " render pass")),
             color_attachments: &[wgpu::RenderPassColorAttachment {
-                view: &frame.output.view,
+                view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear({
@@ -158,7 +168,7 @@ impl crate::graphics::Renderer for Renderer {
             &mut self.device,
             &mut self.staging_belt,
             &mut encoder,
-            &frame.output.view,
+            &view,
             pipeline,
             viewport,
         );

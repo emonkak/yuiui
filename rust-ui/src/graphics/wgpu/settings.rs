@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct Settings {
     pub present_mode: wgpu::PresentMode,
-    pub internal_backend: wgpu::BackendBit,
+    pub internal_backend: wgpu::Backends,
     pub default_font: Option<&'static [u8]>,
     pub default_text_size: u16,
     pub antialiasing: Option<Antialiasing>,
@@ -19,7 +19,7 @@ impl Default for Settings {
     fn default() -> Settings {
         Settings {
             present_mode: wgpu::PresentMode::Mailbox,
-            internal_backend: wgpu::BackendBit::PRIMARY,
+            internal_backend: wgpu::Backends::PRIMARY,
             default_font: None,
             default_text_size: 20,
             antialiasing: None,

@@ -13,7 +13,7 @@ pub struct Renderer {
 }
 
 #[derive(Debug)]
-pub struct Frame {
+pub struct Surface {
     display: *mut xlib::Display,
     pixmap: xlib::Pixmap,
     gc: xlib::GC,
@@ -24,13 +24,13 @@ impl Renderer {
         Self { display, window }
     }
 
-    fn fill_rectangle(&self, frame: &Frame, color: &xlib::XColor, bounds: PhysicalRectangle) {
+    fn fill_rectangle(&self, surface: &Surface, color: &xlib::XColor, bounds: PhysicalRectangle) {
         unsafe {
-            xlib::XSetForeground(self.display, frame.gc, color.pixel);
+            xlib::XSetForeground(self.display, surface.gc, color.pixel);
             xlib::XFillRectangle(
                 self.display,
-                frame.pixmap,
-                frame.gc,
+                surface.pixmap,
+                surface.gc,
                 bounds.x as _,
                 bounds.y as _,
                 bounds.width as _,
@@ -39,13 +39,13 @@ impl Renderer {
         }
     }
 
-    fn commit(&self, frame: &Frame, size: PhysicalSize) {
+    fn commit(&self, surface: &Surface, size: PhysicalSize) {
         unsafe {
             xlib::XCopyArea(
                 self.display,
-                frame.pixmap,
+                surface.pixmap,
                 self.window,
-                frame.gc,
+                surface.gc,
                 0,
                 0,
                 size.width,
@@ -57,21 +57,25 @@ impl Renderer {
         }
     }
 
-    fn process_draw_op(&self, draw_op: &DrawOp, frame: &Frame) {
+    fn process_draw_op(&self, draw_op: &DrawOp, surface: &Surface) {
         match draw_op {
             DrawOp::FillRectangle(color, bounds) => {
-                self.fill_rectangle(frame, color, *bounds);
+                self.fill_rectangle(surface, color, *bounds);
             }
         }
     }
 }
 
 impl crate::graphics::Renderer for Renderer {
-    type Frame = self::Frame;
+    type Surface = self::Surface;
     type Pipeline = self::Pipeline;
 
-    fn create_frame(&mut self, viewport: &Viewport) -> Self::Frame {
-        Frame::new(self.display, viewport.physical_size())
+    fn create_surface(&mut self, viewport: &Viewport) -> Self::Surface {
+        Surface::new(self.display, viewport.physical_size())
+    }
+
+    fn configure_surface(&mut self, surface: &mut Self::Surface, viewport: &Viewport) {
+        *surface = Surface::new(self.display, viewport.physical_size())
     }
 
     fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
@@ -80,7 +84,7 @@ impl crate::graphics::Renderer for Renderer {
 
     fn perform_pipeline(
         &mut self,
-        frame: &mut Self::Frame,
+        surface: &mut Self::Surface,
         pipeline: &mut Self::Pipeline,
         viewport: &Viewport,
         background_color: Color,
@@ -88,20 +92,20 @@ impl crate::graphics::Renderer for Renderer {
         let alloc_background_color = pipeline.alloc_color(&background_color);
 
         self.fill_rectangle(
-            frame,
+            surface,
             &alloc_background_color,
             PhysicalRectangle::from(viewport.physical_size()),
         );
 
         for draw_op in pipeline.draw_ops() {
-            self.process_draw_op(draw_op, frame);
+            self.process_draw_op(draw_op, surface);
         }
 
-        self.commit(frame, viewport.physical_size());
+        self.commit(surface, viewport.physical_size());
     }
 }
 
-impl Frame {
+impl Surface {
     pub fn new(display: *mut xlib::Display, size: PhysicalSize) -> Self {
         unsafe {
             let pixmap = {
@@ -122,7 +126,7 @@ impl Frame {
     }
 }
 
-impl Drop for Frame {
+impl Drop for Surface {
     fn drop(&mut self) {
         unsafe {
             xlib::XFreeGC(self.display, self.gc);

@@ -3,6 +3,7 @@ name = "rust-ui"
 version = "0.0.0"
 authors = ["Shota Nozaki <emonkak@gmail.com>"]
 edition = "2018"
+resolver = "2"
 
 [features]
 default = ["xlib"]
@@ -14,7 +15,7 @@ futures = "0.3"
 glam = "0.17"
 mio = { version = "0.7", features = ["os-ext"] }
 raw-window-handle = "0.3"
-wgpu = "0.9"
+wgpu = "0.10"
 x11 = { version = "2.18", features = ["xft", "xinerama", "xlib"] }
 
 [dependencies.rust-ui-derive]
