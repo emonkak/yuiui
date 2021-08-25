@@ -188,10 +188,8 @@ where
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         pipeline: &Pipeline,
-        viewport: &Viewport,
+        scale_factor: f32,
     ) {
-        let scale_factor = viewport.scale_factor() as f32;
-
         self.flush_layer(encoder, &target, pipeline.primary_layer(), scale_factor);
 
         for layer in pipeline.finished_layers() {
@@ -206,7 +204,7 @@ where
         layer: &Layer,
         scale_factor: f32,
     ) {
-        let scaled_bounds = layer.bounds.scale(scale_factor).snap();
+        let bounds = layer.bounds.scale(scale_factor).snap();
 
         if !layer.quads.is_empty() {
             self.quad_pipeline.run(
@@ -215,7 +213,7 @@ where
                 encoder,
                 target,
                 &layer.quads,
-                scaled_bounds,
+                bounds,
                 layer.transformation,
                 scale_factor,
             );
@@ -228,7 +226,7 @@ where
                 encoder,
                 target,
                 &layer.texts,
-                scaled_bounds,
+                bounds,
                 layer.transformation,
                 scale_factor,
             );
@@ -312,7 +310,12 @@ where
             depth_stencil_attachment: None,
         });
 
-        self.flush_pipeline(&mut encoder, &view, pipeline, viewport);
+        self.flush_pipeline(
+            &mut encoder,
+            &view,
+            pipeline,
+            viewport.scale_factor()
+        );
 
         self.staging_belt.finish();
         self.queue.submit(Some(encoder.finish()));

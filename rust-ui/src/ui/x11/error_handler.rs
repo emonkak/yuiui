@@ -1,7 +1,7 @@
 use std::os::raw::*;
 use x11::xlib;
 
-pub unsafe fn install(
+pub unsafe fn install_error_handler(
 ) -> Option<unsafe extern "C" fn(*mut xlib::Display, *mut xlib::XErrorEvent) -> c_int> {
     xlib::XSetErrorHandler(Some(handle))
 }

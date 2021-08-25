@@ -6,18 +6,30 @@ use super::Transformation;
 pub struct Viewport {
     physical_size: PhysicalSize,
     logical_size: Size,
-    scale_factor: f64,
+    scale_factor: f32,
 }
 
 impl Viewport {
     #[inline]
-    pub fn new(physical_size: PhysicalSize, scale_factor: f64) -> Viewport {
+    pub fn from_physical(physical_size: PhysicalSize, scale_factor: f32) -> Viewport {
         Viewport {
             physical_size,
             logical_size: Size {
-                width: (physical_size.width as f64 / scale_factor) as f32,
-                height: (physical_size.height as f64 / scale_factor) as f32,
+                width: (physical_size.width as f32 / scale_factor),
+                height: (physical_size.height as f32 / scale_factor),
             },
+            scale_factor,
+        }
+    }
+
+    #[inline]
+    pub fn from_logical(logical_size: Size, scale_factor: f32) -> Viewport {
+        Viewport {
+            physical_size: PhysicalSize {
+                width: (logical_size.width * scale_factor).round() as u32,
+                height: (logical_size.height * scale_factor).round() as u32,
+            },
+            logical_size,
             scale_factor,
         }
     }
@@ -33,7 +45,7 @@ impl Viewport {
     }
 
     #[inline]
-    pub fn scale_factor(&self) -> f64 {
+    pub fn scale_factor(&self) -> f32 {
         self.scale_factor
     }
 

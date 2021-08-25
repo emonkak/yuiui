@@ -43,7 +43,7 @@ pub fn run<Window, EventLoop, Renderer>(
         }
     });
 
-    let mut viewport = Viewport::new(window.get_bounds().size(), 1.0);
+    let mut viewport = window.get_viewport();
     let mut paint_tree = PaintTree::new(viewport.logical_size());
     let mut surface = renderer.create_surface(&viewport);
     let mut pipeline = renderer.create_pipeline(&viewport);
@@ -68,7 +68,7 @@ pub fn run<Window, EventLoop, Renderer>(
                 if window_event.type_id == TypeId::of::<WindowResize>() {
                     let resize_event = WindowResize::downcast(&window_event).unwrap();
 
-                    viewport = Viewport::new(resize_event.size, 1.0);
+                    viewport = Viewport::from_physical(resize_event.size, viewport.scale_factor());
                     paint_tree.layout_root(viewport.logical_size(), &mut renderer);
 
                     renderer.configure_surface(&mut surface, &viewport);

@@ -14,12 +14,12 @@ use crate::event::mouse::MouseDown;
 use crate::event::window::{WindowClose, WindowCloseEvent, WindowResize};
 use crate::event::EventType;
 use crate::geometrics::{PhysicalPoint, PhysicalSize};
-use crate::ui::event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy, StartCause};
+use crate::ui::{ControlFlow, Event, StartCause};
 
 const WINDOE_EVENT_TOKEN: Token = Token(0);
 const REDRAW_REQUEST_TOKEN: Token = Token(1);
 
-pub struct XEventLoop {
+pub struct EventLoop {
     display: *mut xlib::Display,
     poll: Poll,
     redraw_receiver: Receiver<xlib::Window>,
@@ -28,7 +28,7 @@ pub struct XEventLoop {
     window_states: HashMap<xlib::Window, XWindowState>,
 }
 
-pub struct XEventLoopProxy {
+pub struct EventLoopProxy {
     waker: Arc<Waker>,
     redraw_sender: Sender<xlib::Window>,
 }
@@ -39,7 +39,7 @@ struct XWindowState {
     size: PhysicalSize,
 }
 
-impl XEventLoop {
+impl EventLoop {
     pub fn create(display: *mut xlib::Display) -> io::Result<Self> {
         let poll = Poll::new()?;
 
@@ -59,9 +59,7 @@ impl XEventLoop {
             window_states: HashMap::new(),
         })
     }
-}
 
-impl XEventLoop {
     fn drain_events<F>(&mut self, callback: &mut F, control_flow: &mut ControlFlow)
     where
         F: FnMut(Event<xlib::Window>) -> ControlFlow,
@@ -153,12 +151,12 @@ impl XEventLoop {
     }
 }
 
-impl EventLoop for XEventLoop {
+impl crate::ui::EventLoop for EventLoop {
     type WindowId = xlib::Window;
-    type Proxy = XEventLoopProxy;
+    type Proxy = EventLoopProxy;
 
     fn create_proxy(&self) -> Self::Proxy {
-        XEventLoopProxy {
+        EventLoopProxy {
             waker: Arc::clone(&self.waker),
             redraw_sender: self.redraw_sender.clone(),
         }
@@ -239,7 +237,7 @@ impl EventLoop for XEventLoop {
     }
 }
 
-impl EventLoopProxy for XEventLoopProxy {
+impl crate::ui::EventLoopProxy for EventLoopProxy {
     type WindowId = xlib::Window;
 
     fn request_redraw(&self, window_id: Self::WindowId) {

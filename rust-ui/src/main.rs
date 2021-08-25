@@ -9,15 +9,14 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::graphics::{wgpu, x11 as x_graphics, Color};
+use rust_ui::geometrics::{PhysicalPoint, Size};
+use rust_ui::graphics::{Color, Viewport, wgpu, x11 as x11_graphics};
 use rust_ui::render::RenderContext;
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
+use rust_ui::ui::Window;
 use rust_ui::ui::application;
-use rust_ui::ui::window::Window;
-use rust_ui::ui::x11::error_handler;
-use rust_ui::ui::x11::event_loop::XEventLoop;
-use rust_ui::ui::x11::window::XWindow;
+use rust_ui::ui::x11 as x11_ui;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
@@ -99,7 +98,7 @@ impl WidgetMeta for App {
 
 fn main() {
     unsafe {
-        error_handler::install();
+        x11_ui::install_error_handler();
     };
 
     let display = unsafe { xlib::XOpenDisplay(ptr::null()) };
@@ -110,30 +109,25 @@ fn main() {
         );
     }
 
-    let event_loop = XEventLoop::create(display).unwrap();
-    let window = XWindow::create(display, 640, 480);
+    let viewport = Viewport::from_logical(Size {
+        width: 640.0,
+        height: 480.0,
+    }, 2.0);
+    let event_loop = x11_ui::EventLoop::create(display).unwrap();
+    let window = x11_ui::Window::create(display, viewport, PhysicalPoint {
+        x: 0,
+        y: 0,
+    });
 
-    unsafe {
-        xlib::XSelectInput(
-            display,
-            window.window_id(),
-            xlib::ButtonPressMask
-                | xlib::ButtonReleaseMask
-                | xlib::ExposureMask
-                | xlib::StructureNotifyMask,
-        );
-        xlib::XMapWindow(display, window.window_id());
-        xlib::XFlush(display);
-    }
-
-    let font_loader = FontLoader;
+    window.show();
 
     match env::var("RENDERER") {
         Ok(renderer_var) if renderer_var == "x11" => {
-            let renderer = x_graphics::Renderer::new(display, window.window_id());
+            let renderer = x11_graphics::Renderer::new(display, window.window_id());
             application::run(event_loop, renderer, window, element!(App));
         }
         _ => {
+            let font_loader = FontLoader;
             let renderer =
                 wgpu::Renderer::new(window.clone(), font_loader, wgpu::Settings::default())
                     .unwrap();

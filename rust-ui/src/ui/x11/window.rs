@@ -3,21 +3,22 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use std::mem::MaybeUninit;
 use x11::xlib;
 
-use crate::geometrics::PhysicalRectangle;
-use crate::ui::window::Window;
+use crate::geometrics::{PhysicalPoint, PhysicalRectangle};
+use crate::graphics::Viewport;
 
 #[derive(Clone, Debug)]
-pub struct XWindow {
+pub struct Window {
     display: *mut xlib::Display,
     window: xlib::Window,
+    scale_factor: f32,
 }
 
-impl XWindow {
-    pub fn new(display: *mut xlib::Display, window: xlib::Window) -> Self {
-        Self { display, window }
+impl Window {
+    pub fn new(display: *mut xlib::Display, window: xlib::Window, scale_factor: f32) -> Self {
+        Self { display, window, scale_factor }
     }
 
-    pub fn create(display: *mut xlib::Display, width: u32, height: u32) -> Self {
+    pub fn create(display: *mut xlib::Display, viewport: Viewport, point: PhysicalPoint) -> Self {
         let window = unsafe {
             let screen = xlib::XDefaultScreenOfDisplay(display);
             let screen_number = xlib::XScreenNumberOfScreen(screen);
@@ -26,13 +27,15 @@ impl XWindow {
             let mut attributes: xlib::XSetWindowAttributes = MaybeUninit::zeroed().assume_init();
             attributes.background_pixel = xlib::XWhitePixel(display, screen_number);
 
+            let physical_size = viewport.physical_size();
+
             xlib::XCreateWindow(
                 display,
                 root,
-                0,
-                0,
-                width,
-                height,
+                point.x as i32,
+                point.y as i32,
+                physical_size.width,
+                physical_size.height,
                 0,
                 xlib::CopyFromParent,
                 xlib::InputOutput as u32,
@@ -42,11 +45,25 @@ impl XWindow {
             )
         };
 
-        Self { display, window }
+        unsafe {
+            xlib::XSelectInput(
+                display,
+                window,
+                xlib::ExposureMask
+                    | xlib::StructureNotifyMask
+                    | xlib::KeyPressMask
+                    | xlib::KeyReleaseMask
+                    | xlib::ButtonPressMask
+                    | xlib::ButtonReleaseMask
+                    | xlib::PointerMotionMask,
+            );
+        }
+
+        Self { display, window, scale_factor: viewport.scale_factor() }
     }
 }
 
-impl Window for XWindow {
+impl crate::ui::Window for Window {
     type WindowId = xlib::Window;
 
     #[inline]
@@ -66,6 +83,10 @@ impl Window for XWindow {
                 height: attributes.height as _,
             }
         }
+    }
+
+    fn get_scale_factor(&self) -> f32 {
+        self.scale_factor
     }
 
     fn invalidate(&self, bounds: PhysicalRectangle) {
@@ -93,9 +114,16 @@ impl Window for XWindow {
             xlib::XFlush(self.display);
         }
     }
+
+    fn show(&self) {
+        unsafe {
+            xlib::XMapWindow(self.display, self.window);
+            xlib::XFlush(self.display);
+        }
+    }
 }
 
-unsafe impl HasRawWindowHandle for XWindow {
+unsafe impl HasRawWindowHandle for Window {
     #[inline]
     fn raw_window_handle(&self) -> RawWindowHandle {
         RawWindowHandle::Xlib(XlibHandle {
