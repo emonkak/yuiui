@@ -2,7 +2,7 @@ use std::ptr;
 use x11::xlib;
 
 use crate::geometrics::{PhysicalRectangle, PhysicalSize};
-use crate::graphics::{Color, Viewport};
+use crate::graphics::{Color, Primitive, Viewport};
 
 use super::pipeline::{DrawOp, Pipeline};
 
@@ -102,6 +102,15 @@ impl crate::graphics::Renderer for Renderer {
         }
 
         self.commit(surface, viewport.physical_size());
+    }
+
+    fn update_pipeline(
+        &mut self,
+        pipeline: &mut Self::Pipeline,
+        primitive: &Primitive,
+        depth: usize,
+    ) {
+        pipeline.push(primitive, depth);
     }
 }
 

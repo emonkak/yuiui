@@ -4,6 +4,7 @@ pub mod flex;
 pub mod null;
 pub mod padding;
 pub mod subscriber;
+pub mod text;
 pub mod tree;
 
 use std::any::{self, Any};

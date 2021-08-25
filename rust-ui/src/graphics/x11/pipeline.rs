@@ -48,11 +48,11 @@ impl Pipeline {
         color
     }
 
-    fn process_primitive(&mut self, primitive: &Primitive, depth: usize) {
+    pub fn push(&mut self, primitive: &Primitive, depth: usize) {
         match primitive {
             Primitive::Batch(primitives) => {
                 for primitive in primitives {
-                    self.process_primitive(primitive, depth)
+                    self.push(primitive, depth)
                 }
             }
             Primitive::Translate(_vector) => {
@@ -70,12 +70,9 @@ impl Pipeline {
                 self.draw_ops
                     .push(DrawOp::FillRectangle(background_color, (*bounds).into()));
             }
+            Primitive::Text { .. } => {
+                // TODO:
+            }
         }
-    }
-}
-
-impl crate::graphics::Pipeline for Pipeline {
-    fn push(&mut self, primitive: &Primitive, depth: usize) {
-        self.process_primitive(primitive, depth);
     }
 }

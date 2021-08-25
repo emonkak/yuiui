@@ -77,3 +77,9 @@ impl Color {
         ]
     }
 }
+
+impl From<Color> for [f32; 4] {
+    fn from(color: Color) -> Self {
+        [color.r, color.g, color.b, color.a]
+    }
+}

@@ -89,6 +89,50 @@ impl<T> Rectangle<T> {
             height: self.height,
         }
     }
+
+    #[inline]
+    pub fn top_left(&self) -> Point<T>
+    where
+        T: Copy,
+    {
+        Point {
+            x: self.x,
+            y: self.y,
+        }
+    }
+
+    #[inline]
+    pub fn top_right(&self) -> Point<T>
+    where
+        T: Copy + Add<Output = T>,
+    {
+        Point {
+            x: self.x + self.width,
+            y: self.y,
+        }
+    }
+
+    #[inline]
+    pub fn bottom_left(&self) -> Point<T>
+    where
+        T: Copy + Add<Output = T>,
+    {
+        Point {
+            x: self.x,
+            y: self.y + self.height,
+        }
+    }
+
+    #[inline]
+    pub fn bottom_right(&self) -> Point<T>
+    where
+        T: Copy + Add<Output = T>,
+    {
+        Point {
+            x: self.x + self.width,
+            y: self.y + self.height,
+        }
+    }
 }
 
 impl From<Rectangle<u32>> for Rectangle<f32> {

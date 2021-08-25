@@ -13,9 +13,12 @@ xlib = []
 bytemuck = { version = "1.7", features = ["derive"] }
 futures = "0.3"
 glam = "0.17"
+glyph_brush = "0.7"
 mio = { version = "0.7", features = ["os-ext"] }
 raw-window-handle = "0.3"
+servo-fontconfig = "0.5"
 wgpu = "0.10"
+wgpu_glyph = "0.14"
 x11 = { version = "2.18", features = ["xft", "xinerama", "xlib"] }
 
 [dependencies.rust-ui-derive]

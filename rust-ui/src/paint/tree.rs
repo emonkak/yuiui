@@ -4,7 +4,7 @@ use std::sync::mpsc::Sender;
 
 use crate::event::{EventManager, GenericEvent};
 use crate::geometrics::{Point, Rectangle, Size, Vector};
-use crate::graphics::{Pipeline, Primitive};
+use crate::graphics::{Primitive, Renderer};
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
@@ -208,11 +208,10 @@ impl<Renderer> PaintTree<Renderer> {
         }
     }
 
-    pub fn paint<Pipeline: self::Pipeline>(
-        &mut self,
-        pipeline: &mut Pipeline,
-        renderer: &mut Renderer,
-    ) {
+    pub fn paint(&mut self, pipeline: &mut Renderer::Pipeline, renderer: &mut Renderer)
+    where
+        Renderer: self::Renderer,
+    {
         let mut tree_walker = self.tree.walk(self.root_id);
 
         let mut absolute_translation = Vector::ZERO;
@@ -255,7 +254,7 @@ impl<Renderer> PaintTree<Renderer> {
 
             if draw_phase && !paint_state.flags.contains(PaintFlag::NeedsPaint) {
                 if let Some(primitive) = &paint_state.draw_cache {
-                    pipeline.push(primitive, depth);
+                    renderer.update_pipeline(pipeline, primitive, depth);
                 }
                 continue;
             }
@@ -274,7 +273,7 @@ impl<Renderer> PaintTree<Renderer> {
                 );
 
                 if let Some(primitive) = &draw_result {
-                    pipeline.push(primitive, depth);
+                    renderer.update_pipeline(pipeline, primitive, depth);
                 }
 
                 paint_state.absolute_translation = absolute_translation;
@@ -329,7 +328,7 @@ impl<Renderer> PaintTree<Renderer> {
             }
         }
 
-        pipeline.finish()
+        renderer.finish_pipeline(pipeline);
     }
 
     pub fn dispatch(&self, event: &GenericEvent, update_notifier: &Sender<NodeId>) {

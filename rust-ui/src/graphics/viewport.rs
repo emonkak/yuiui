@@ -7,7 +7,6 @@ pub struct Viewport {
     physical_size: PhysicalSize,
     logical_size: Size,
     scale_factor: f64,
-    projection: Transformation,
 }
 
 impl Viewport {
@@ -20,7 +19,6 @@ impl Viewport {
                 height: (physical_size.height as f64 / scale_factor) as f32,
             },
             scale_factor,
-            projection: Transformation::orthographic(physical_size.width, physical_size.height),
         }
     }
 
@@ -41,6 +39,6 @@ impl Viewport {
 
     #[inline]
     pub fn projection(&self) -> Transformation {
-        self.projection
+        Transformation::orthographic(self.physical_size.width, self.physical_size.height)
     }
 }

@@ -1,14 +1,19 @@
 use futures::task::{FutureObj, Spawn};
 use raw_window_handle::HasRawWindowHandle;
+use std::collections::HashMap;
+use std::io;
+use wgpu_glyph::ab_glyph;
 
-use crate::geometrics::Rectangle;
-use crate::graphics::{Color, Transformation, Viewport};
+use crate::geometrics::{Rectangle, Size};
+use crate::graphics::{Color, Primitive, Viewport};
+use crate::text::{FontDescriptor, FontLoader};
 
 use super::pipeline::{Layer, Pipeline};
 use super::quad;
 use super::settings::Settings;
+use super::text;
 
-pub struct Renderer<Window> {
+pub struct Renderer<Window, FontLoader, FontBundle, FontId> {
     settings: Settings,
     instance: wgpu::Instance,
     device: wgpu::Device,
@@ -16,31 +21,42 @@ pub struct Renderer<Window> {
     format: wgpu::TextureFormat,
     staging_belt: wgpu::util::StagingBelt,
     local_pool: futures::executor::LocalPool,
-    backend: Backend,
     window: Window,
+    font_loader: FontLoader,
+    font_bundle_map: HashMap<FontDescriptor, Option<FontBundle>>,
+    draw_font_map: HashMap<FontId, Option<wgpu_glyph::FontId>>,
+    quad_pipeline: quad::Pipeline,
+    text_pipeline: text::Pipeline,
 }
 
 #[derive(Debug)]
 pub enum RequstError {
     AdapterNotFound,
     TextureFormatNotFound,
-    RequestDeviceError(wgpu::RequestDeviceError),
+    RequestDeviceFailed(wgpu::RequestDeviceError),
+    DefaultFontNotFound,
+    FontLoadingFailed(io::Error),
+    InvalidFont(ab_glyph::InvalidFont),
 }
 
-#[derive(Debug)]
-struct Backend {
-    quad_pipeline: quad::Pipeline,
-}
-
-impl<Window: HasRawWindowHandle> Renderer<Window> {
+impl<Window, FontLoader> Renderer<Window, FontLoader, FontLoader::Bundle, FontLoader::FontId>
+where
+    Window: HasRawWindowHandle,
+    FontLoader: self::FontLoader,
+{
     const CHUNK_SIZE: u64 = 10 * 1024;
 
-    pub fn new(window: Window, settings: Settings) -> Result<Self, RequstError> {
-        futures::executor::block_on(Self::request(window, settings))
+    pub fn new(
+        window: Window,
+        font_loader: FontLoader,
+        settings: Settings,
+    ) -> Result<Self, RequstError> {
+        futures::executor::block_on(Self::request(window, font_loader, settings))
     }
 
     pub async fn request(
         window: Window,
+        mut font_loader: FontLoader,
         settings: Settings,
     ) -> Result<Self, RequstError> {
         let instance = wgpu::Instance::new(settings.internal_backend);
@@ -49,11 +65,7 @@ impl<Window: HasRawWindowHandle> Renderer<Window> {
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: if settings.antialiasing.is_none() {
-                    wgpu::PowerPreference::LowPower
-                } else {
-                    wgpu::PowerPreference::HighPerformance
-                },
+                power_preference: settings.power_preference,
                 compatible_surface: Some(&compatible_surface),
             })
             .await
@@ -76,11 +88,25 @@ impl<Window: HasRawWindowHandle> Renderer<Window> {
                 None,
             )
             .await
-            .map_err(RequstError::RequestDeviceError)?;
+            .map_err(RequstError::RequestDeviceFailed)?;
 
         let staging_belt = wgpu::util::StagingBelt::new(Self::CHUNK_SIZE);
         let local_pool = futures::executor::LocalPool::new();
-        let backend = Backend::new(&device, format, &settings);
+
+        let default_font = {
+            let default_bundle = font_loader
+                .load_bundle(&settings.default_font)
+                .ok_or(RequstError::DefaultFontNotFound)?;
+            let primary_font = font_loader.get_primary_font(&default_bundle);
+            let font_bytes = font_loader
+                .load_font(primary_font)
+                .map_err(RequstError::FontLoadingFailed)?;
+            ab_glyph::FontArc::try_from_vec(font_bytes).map_err(RequstError::InvalidFont)?
+        };
+
+        let quad_pipeline = quad::Pipeline::new(&device, format);
+        let text_pipeline =
+            text::Pipeline::new(&device, format, default_font, settings.text_multithreading);
 
         Ok(Self {
             settings,
@@ -90,13 +116,132 @@ impl<Window: HasRawWindowHandle> Renderer<Window> {
             format,
             staging_belt,
             local_pool,
-            backend,
             window,
+            font_loader,
+            font_bundle_map: HashMap::new(),
+            draw_font_map: HashMap::new(),
+            quad_pipeline,
+            text_pipeline,
         })
+    }
+
+    pub fn measure_text(
+        &mut self,
+        content: &str,
+        segments: Vec<text::Segment>,
+        font_size: f32,
+        size: Size,
+    ) -> Size {
+        self.text_pipeline
+            .measure(content, segments, font_size, size)
+    }
+
+    pub fn compute_segments(
+        &mut self,
+        content: &str,
+        font_descriptor: FontDescriptor,
+    ) -> Vec<text::Segment> {
+        let font_loader = &mut self.font_loader;
+        let text_pipeline = &mut self.text_pipeline;
+
+        let bundle = self
+            .font_bundle_map
+            .entry(font_descriptor)
+            .or_insert_with_key(|font_descriptor| font_loader.load_bundle(font_descriptor))
+            .as_ref();
+
+        match bundle {
+            None => {
+                vec![text::Segment {
+                    font_id: wgpu_glyph::FontId(0),
+                    start: 0,
+                    end: content.len(),
+                }]
+            }
+            Some(bundle) => {
+                let mut segments = Vec::new();
+                for (loader_font_id, range) in font_loader.split_segments(bundle, content) {
+                    let font_id = self
+                        .draw_font_map
+                        .entry(loader_font_id)
+                        .or_insert_with(|| {
+                            if let Ok(font_bytes) = font_loader.load_font(loader_font_id) {
+                                text_pipeline.add_font(font_bytes).ok()
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(wgpu_glyph::FontId(0));
+                    segments.push(text::Segment {
+                        font_id,
+                        start: range.start,
+                        end: range.end,
+                    });
+                }
+                segments
+            }
+        }
+    }
+
+    fn flush_pipeline(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        pipeline: &Pipeline,
+        viewport: &Viewport,
+    ) {
+        let scale_factor = viewport.scale_factor() as f32;
+
+        self.flush_layer(encoder, &target, pipeline.primary_layer(), scale_factor);
+
+        for layer in pipeline.finished_layers() {
+            self.flush_layer(encoder, &target, &layer, scale_factor);
+        }
+    }
+
+    fn flush_layer(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        layer: &Layer,
+        scale_factor: f32,
+    ) {
+        let scaled_bounds = layer.bounds.scale(scale_factor).snap();
+
+        if !layer.quads.is_empty() {
+            self.quad_pipeline.run(
+                &self.device,
+                &mut self.staging_belt,
+                encoder,
+                target,
+                &layer.quads,
+                scaled_bounds,
+                layer.transformation,
+                scale_factor,
+            );
+        }
+
+        if !layer.texts.is_empty() {
+            self.text_pipeline.run(
+                &self.device,
+                &mut self.staging_belt,
+                encoder,
+                target,
+                &layer.texts,
+                scaled_bounds,
+                layer.transformation,
+                scale_factor,
+            );
+        }
     }
 }
 
-impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> {
+impl<Window, FontLoader> crate::graphics::Renderer
+    for Renderer<Window, FontLoader, FontLoader::Bundle, FontLoader::FontId>
+where
+    Window: HasRawWindowHandle,
+    FontLoader: self::FontLoader,
+{
     type Surface = wgpu::Surface;
     type Pipeline = Pipeline;
 
@@ -122,7 +267,8 @@ impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> 
 
     fn create_pipeline(&mut self, viewport: &Viewport) -> Self::Pipeline {
         let bounds = Rectangle::from(viewport.logical_size());
-        Pipeline::new(bounds)
+        let transformation = viewport.projection();
+        Pipeline::new(bounds, transformation)
     }
 
     fn perform_pipeline(
@@ -140,7 +286,10 @@ impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> 
                 label: Some(concat!(module_path!(), " encoder")),
             });
 
-        let view = frame.output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = frame
+            .output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let _ = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some(concat!(module_path!(), " render pass")),
@@ -150,7 +299,6 @@ impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> 
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear({
                         let [r, g, b, a] = background_color.into_linear();
-
                         wgpu::Color {
                             r: f64::from(r),
                             g: f64::from(g),
@@ -164,14 +312,7 @@ impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> 
             depth_stencil_attachment: None,
         });
 
-        self.backend.run(
-            &mut self.device,
-            &mut self.staging_belt,
-            &mut encoder,
-            &view,
-            pipeline,
-            viewport,
-        );
+        self.flush_pipeline(&mut encoder, &view, pipeline, viewport);
 
         self.staging_belt.finish();
         self.queue.submit(Some(encoder.finish()));
@@ -183,75 +324,18 @@ impl<Window: HasRawWindowHandle> crate::graphics::Renderer for Renderer<Window> 
 
         self.local_pool.run_until_stalled();
     }
-}
 
-impl Backend {
-    fn new(device: &wgpu::Device, format: wgpu::TextureFormat, _settings: &Settings) -> Self {
-        let quad_pipeline = quad::Pipeline::new(device, format);
-        Self { quad_pipeline }
+    fn update_pipeline(
+        &mut self,
+        pipeline: &mut Self::Pipeline,
+        primitive: &Primitive,
+        depth: usize,
+    ) {
+        pipeline.push(primitive, depth, self)
     }
 
-    fn run(
-        &mut self,
-        device: &wgpu::Device,
-        staging_belt: &mut wgpu::util::StagingBelt,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        pipeline: &Pipeline,
-        viewport: &Viewport,
-    ) {
-        let scale_factor = viewport.scale_factor() as f32;
-        let transformation = viewport.projection();
-
-        self.flush(
-            device,
-            staging_belt,
-            encoder,
-            &target,
-            pipeline.primary_layer(),
-            Rectangle::from(viewport.logical_size()),
-            scale_factor,
-            transformation,
-        );
-
-        for layer in pipeline.finished_layers() {
-            self.flush(
-                device,
-                staging_belt,
-                encoder,
-                &target,
-                &layer,
-                layer.bounds(),
-                scale_factor,
-                transformation,
-            );
-        }
-    }
-
-    fn flush(
-        &mut self,
-        device: &wgpu::Device,
-        staging_belt: &mut wgpu::util::StagingBelt,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        layer: &Layer,
-        bounds: Rectangle,
-        scale_factor: f32,
-        transformation: Transformation,
-    ) {
-        let bounds = bounds.scale(scale_factor).snap();
-
-        if !layer.quads().is_empty() {
-            self.quad_pipeline.run(
-                device,
-                staging_belt,
-                encoder,
-                target,
-                &layer.quads(),
-                bounds,
-                scale_factor,
-                transformation,
-            );
-        }
+    fn finish_pipeline(&mut self, pipeline: &mut Self::Pipeline) {
+        pipeline.finish();
+        self.text_pipeline.trim_measurement_cache();
     }
 }
