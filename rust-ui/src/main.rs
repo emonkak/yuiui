@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rust_ui;
 extern crate x11;
+extern crate env_logger;
 
 use std::any::Any;
 use std::env;
@@ -97,6 +98,8 @@ impl WidgetMeta for App {
 }
 
 fn main() {
+    env_logger::init();
+
     unsafe {
         x11_ui::install_error_handler();
     };

@@ -11,9 +11,11 @@ xlib = []
 
 [dependencies]
 bytemuck = { version = "1.7", features = ["derive"] }
+env_logger = "0.9"
 futures = "0.3"
 glam = "0.17"
 glyph_brush = "0.7"
+log = "0.4"
 mio = { version = "0.7", features = ["os-ext"] }
 raw-window-handle = "0.3"
 servo-fontconfig = "0.5"
