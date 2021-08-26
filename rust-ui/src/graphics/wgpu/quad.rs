@@ -1,6 +1,5 @@
 use bytemuck::{Pod, Zeroable};
 use std::mem;
-use wgpu::util::DeviceExt;
 
 use crate::geometrics::PhysicalRectangle;
 use crate::graphics::Transformation;
@@ -10,8 +9,6 @@ pub struct Pipeline {
     pipeline: wgpu::RenderPipeline,
     constants: wgpu::BindGroup,
     constants_buffer: wgpu::Buffer,
-    vertices: wgpu::Buffer,
-    indices: wgpu::Buffer,
     instances: wgpu::Buffer,
 }
 
@@ -37,15 +34,6 @@ struct Uniforms {
     scale: f32,
     _padding: [f32; 3],
 }
-
-const QUAD_INDICES: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-const QUAD_VERTS: [Vertex; 4] = [
-    Vertex(0.0, 0.0),
-    Vertex(1.0, 0.0),
-    Vertex(1.0, 1.0),
-    Vertex(0.0, 1.0),
-];
 
 const MAX_INSTANCES: usize = 100_000;
 
@@ -104,24 +92,15 @@ impl Pipeline {
                 entry_point: "vs_main",
                 buffers: &[
                     wgpu::VertexBufferLayout {
-                        array_stride: mem::size_of::<Vertex>() as u64,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &[wgpu::VertexAttribute {
-                            shader_location: 0,
-                            format: wgpu::VertexFormat::Float32x2,
-                            offset: 0,
-                        }],
-                    },
-                    wgpu::VertexBufferLayout {
                         array_stride: mem::size_of::<Quad>() as u64,
                         step_mode: wgpu::VertexStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array!(
+                            0 => Float32x2,
                             1 => Float32x2,
-                            2 => Float32x2,
+                            2 => Float32x4,
                             3 => Float32x4,
-                            4 => Float32x4,
+                            4 => Float32,
                             5 => Float32,
-                            6 => Float32,
                         ),
                     },
                 ],
@@ -147,7 +126,7 @@ impl Pipeline {
                 }],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
                 front_face: wgpu::FrontFace::Cw,
                 ..Default::default()
             },
@@ -157,18 +136,6 @@ impl Pipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-        });
-
-        let vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(concat!(module_path!(), " vertex buffer")),
-            contents: bytemuck::cast_slice(&QUAD_VERTS),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(concat!(module_path!(), " index buffer")),
-            contents: bytemuck::cast_slice(&QUAD_INDICES),
-            usage: wgpu::BufferUsages::INDEX,
         });
 
         let instances = device.create_buffer(&wgpu::BufferDescriptor {
@@ -182,8 +149,6 @@ impl Pipeline {
             pipeline,
             constants,
             constants_buffer,
-            vertices,
-            indices,
             instances,
         }
     }
@@ -242,12 +207,10 @@ impl Pipeline {
 
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.constants, &[]);
-            render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.set_vertex_buffer(0, self.vertices.slice(..));
-            render_pass.set_vertex_buffer(1, self.instances.slice(..));
+            render_pass.set_vertex_buffer(0, self.instances.slice(..));
             render_pass.set_scissor_rect(bounds.x, bounds.y, bounds.width, bounds.height);
 
-            render_pass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..count as u32);
+            render_pass.draw(0..4, 0..count as u32);
         }
     }
 }
