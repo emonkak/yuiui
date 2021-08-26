@@ -15,7 +15,11 @@ pub struct Window {
 
 impl Window {
     pub fn new(display: *mut xlib::Display, window: xlib::Window, scale_factor: f32) -> Self {
-        Self { display, window, scale_factor }
+        Self {
+            display,
+            window,
+            scale_factor,
+        }
     }
 
     pub fn create(display: *mut xlib::Display, viewport: Viewport, point: PhysicalPoint) -> Self {
@@ -59,7 +63,11 @@ impl Window {
             );
         }
 
-        Self { display, window, scale_factor: viewport.scale_factor() }
+        Self {
+            display,
+            window,
+            scale_factor: viewport.scale_factor(),
+        }
     }
 }
 

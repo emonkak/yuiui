@@ -1,7 +1,7 @@
 use wgpu_glyph::{ab_glyph, GlyphCruncher};
 
 use crate::geometrics::{PhysicalRectangle, Rectangle, Size};
-use crate::graphics::{Color, Transformation};
+use crate::graphics::{Color, Transform};
 use crate::text::{HorizontalAlign, VerticalAlign};
 
 #[derive(Debug)]
@@ -56,7 +56,8 @@ impl Pipeline {
         target: &wgpu::TextureView,
         texts: &[Text],
         bounds: PhysicalRectangle,
-        transformation: Transformation,
+        projection: Transform,
+        transform: Transform,
         scale_factor: f32,
     ) {
         for text in texts {
@@ -70,7 +71,7 @@ impl Pipeline {
                 staging_belt,
                 encoder,
                 target,
-                *transformation.as_ref(),
+                (projection * transform).into(),
                 wgpu_glyph::Region {
                     x: bounds.x,
                     y: bounds.y,

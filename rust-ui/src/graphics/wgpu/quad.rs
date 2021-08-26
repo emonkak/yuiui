@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use std::mem;
 
 use crate::geometrics::PhysicalRectangle;
-use crate::graphics::Transformation;
+use crate::graphics::Transform;
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -25,13 +25,10 @@ pub struct Quad {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
-struct Vertex(f32, f32);
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
 struct Uniforms {
+    projection: [f32; 16],
     transform: [f32; 16],
-    scale: f32,
+    scale_factor: f32,
     _padding: [f32; 3],
 }
 
@@ -43,7 +40,7 @@ impl Pipeline {
             label: Some(concat!(module_path!(), " uniforms layout")),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -90,20 +87,18 @@ impl Pipeline {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[
-                    wgpu::VertexBufferLayout {
-                        array_stride: mem::size_of::<Quad>() as u64,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array!(
-                            0 => Float32x2,
-                            1 => Float32x2,
-                            2 => Float32x4,
-                            3 => Float32x4,
-                            4 => Float32,
-                            5 => Float32,
-                        ),
-                    },
-                ],
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: mem::size_of::<Quad>() as u64,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &wgpu::vertex_attr_array!(
+                        0 => Float32x2,
+                        1 => Float32x2,
+                        2 => Float32x4,
+                        3 => Float32x4,
+                        4 => Float32,
+                        5 => Float32,
+                    ),
+                }],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -161,11 +156,12 @@ impl Pipeline {
         target: &wgpu::TextureView,
         instances: &[Quad],
         bounds: PhysicalRectangle,
-        transformation: Transformation,
+        projection: Transform,
+        transform: Transform,
         scale_factor: f32,
     ) {
         {
-            let uniforms = Uniforms::new(transformation, scale_factor);
+            let uniforms = Uniforms::new(projection, transform, scale_factor);
             let mut constants_buffer = staging_belt.write_buffer(
                 encoder,
                 &self.constants_buffer,
@@ -216,10 +212,15 @@ impl Pipeline {
 }
 
 impl Uniforms {
-    fn new(transformation: Transformation, scale: f32) -> Uniforms {
+    fn new(
+        projection: Transform,
+        transform: Transform,
+        scale_factor: f32,
+    ) -> Uniforms {
         Self {
-            transform: *transformation.as_ref(),
-            scale,
+            projection: projection.into(),
+            transform: transform.into(),
+            scale_factor,
             _padding: [0.0; 3],
         }
     }

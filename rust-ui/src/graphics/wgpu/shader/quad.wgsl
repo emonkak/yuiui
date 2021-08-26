@@ -1,6 +1,7 @@
 [[block]]
 struct Uniforms {
     projection: mat4x4<f32>;
+    transform: mat4x4<f32>;
     scale_factor: f32;
 };
 
@@ -43,12 +44,14 @@ fn vs_main(input: VertexInput) -> VertexOutput {
         min(input.size.x, input.size.y) / 2.0
     );
 
-    let transform: mat4x4<f32> = mat4x4<f32>(
-        vec4<f32>(size.x, 0.0, 0.0, 0.0),
-        vec4<f32>(0.0, size.y, 0.0, 0.0),
-        vec4<f32>(0.0, 0.0, 1.0, 0.0),
-        vec4<f32>(position, 0.0, 1.0)
-    );
+    let transform: mat4x4<f32> = uniforms.projection
+        * uniforms.transform
+        * mat4x4<f32>(
+            vec4<f32>(size.x, 0.0, 0.0, 0.0),
+            vec4<f32>(0.0, size.y, 0.0, 0.0),
+            vec4<f32>(0.0, 0.0, 1.0, 0.0),
+            vec4<f32>(position, 0.0, 1.0)
+        );
 
     let rectangle_position: vec2<f32> = RECTANGLE_POSITIONS[input.vertex_index];
 
@@ -59,7 +62,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.border_color = input.border_color;
     output.border_radius = border_radius * uniforms.scale_factor;
     output.border_width = input.border_width * uniforms.scale_factor;
-    output.coord = uniforms.projection * transform * vec4<f32>(rectangle_position, 0.0, 1.0);
+    output.coord = transform * vec4<f32>(rectangle_position, 0.0, 1.0);
 
     return output;
 }
@@ -87,9 +90,9 @@ fn round_corner_distance(
 
 
 [[stage(fragment)]]
-fn fs_main(
-    input: VertexOutput
-) -> [[location(0)]] vec4<f32> {
+fn fs_main(input: VertexOutput) -> [[location(0)]] vec4<f32> {
+    let coord = input.coord * uniforms.transform;
+
     var mixed_color: vec4<f32> = input.color;
 
     if (input.border_width > 0.0) {
@@ -99,7 +102,7 @@ fn fs_main(
         );
 
         let internal_distance: f32 = round_corner_distance(
-            input.coord.xy,
+            coord.xy,
             input.position + vec2<f32>(input.border_width, input.border_width),
             input.size - vec2<f32>(input.border_width * 2.0, input.border_width * 2.0),
             internal_border
@@ -115,7 +118,7 @@ fn fs_main(
     }
 
     let round_corner_distance: f32 = round_corner_distance(
-        input.coord.xy,
+        coord.xy,
         input.position,
         input.size,
         input.border_radius

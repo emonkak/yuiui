@@ -1,8 +1,8 @@
 use raw_window_handle::HasRawWindowHandle;
 use std::mem;
 
-use crate::geometrics::{Rectangle, Vector};
-use crate::graphics::{Background, Primitive, Transformation};
+use crate::geometrics::Rectangle;
+use crate::graphics::{Background, Primitive, Transform};
 use crate::text::FontLoader;
 
 use super::quad::Quad;
@@ -14,25 +14,23 @@ pub struct Pipeline {
     primary_layer: Layer,
     standby_layers: Vec<Layer>,
     finished_layers: Vec<Layer>,
-    translations: Vec<(usize, Vector)>,
 }
 
 #[derive(Debug)]
 pub struct Layer {
     depth: usize,
     pub bounds: Rectangle,
-    pub transformation: Transformation,
+    pub transform: Transform,
     pub quads: Vec<Quad>,
     pub texts: Vec<Text>,
 }
 
 impl Pipeline {
-    pub fn new(bounds: Rectangle, transformation: Transformation) -> Self {
+    pub fn new(bounds: Rectangle) -> Self {
         Self {
-            primary_layer: Layer::new(0, bounds, transformation),
+            primary_layer: Layer::new(0, bounds, Transform::IDENTITY),
             standby_layers: Vec::new(),
             finished_layers: Vec::new(),
-            translations: Vec::new(),
         }
     }
 
@@ -53,11 +51,10 @@ impl Pipeline {
         Window: HasRawWindowHandle,
         FontLoader: self::FontLoader,
     {
-        let mut translation = self.get_translation(depth);
-        if self.primary_layer.depth <= depth {
+        if self.primary_layer.depth >= depth {
             self.restore_layer();
         }
-        self.process_primitive(primitive, depth, &mut translation, renderer);
+        self.process_primitive(primitive, depth, renderer);
     }
 
     pub fn finish(&mut self) {
@@ -69,7 +66,6 @@ impl Pipeline {
         &mut self,
         primitive: &Primitive,
         depth: usize,
-        translation: &mut Vector,
         renderer: &mut Renderer<Window, FontLoader, FontLoader::Bundle, FontLoader::FontId>,
     ) where
         Window: HasRawWindowHandle,
@@ -78,19 +74,14 @@ impl Pipeline {
         match primitive {
             Primitive::Batch(primitives) => {
                 for primitive in primitives {
-                    self.process_primitive(primitive, depth, translation, renderer);
+                    self.process_primitive(primitive, depth, renderer);
                 }
             }
-            Primitive::Translate(vector) => {
-                *translation = *translation + *vector;
-                self.translations.push((depth, *vector));
+            Primitive::Transform(transform) => {
+                self.switch_layer(Layer::new(depth, self.primary_layer.bounds, self.primary_layer.transform * *transform));
             }
             Primitive::Clip(bounds) => {
-                self.switch_layer(Layer::new(
-                    depth,
-                    *bounds,
-                    self.primary_layer.transformation,
-                ));
+                self.switch_layer(Layer::new(depth, *bounds, self.primary_layer.transform));
             }
             Primitive::Quad {
                 bounds,
@@ -99,10 +90,9 @@ impl Pipeline {
                 border_width,
                 border_color,
             } => {
-                let translated_bounds = bounds.translate(*translation);
                 self.primary_layer.quads.push(Quad {
-                    position: [translated_bounds.x, translated_bounds.y],
-                    size: [translated_bounds.width, translated_bounds.height],
+                    position: [bounds.x, bounds.y],
+                    size: [bounds.width, bounds.height],
                     color: match background {
                         Background::Color(color) => color.into_linear(),
                     },
@@ -148,29 +138,14 @@ impl Pipeline {
             false
         }
     }
-
-    fn get_translation(&mut self, depth: usize) -> Vector {
-        let mut vector = Vector::ZERO;
-
-        for i in 0..self.translations.len() {
-            let (trans_depth, trans_vector) = &self.translations[i];
-            if *trans_depth <= depth {
-                self.translations.drain(i..);
-                break;
-            }
-            vector = vector + *trans_vector;
-        }
-
-        vector
-    }
 }
 
 impl Layer {
-    fn new(depth: usize, bounds: Rectangle, transformation: Transformation) -> Self {
+    fn new(depth: usize, bounds: Rectangle, transform: Transform) -> Self {
         Self {
             depth,
             bounds,
-            transformation,
+            transform,
             quads: Vec::new(),
             texts: Vec::new(),
         }

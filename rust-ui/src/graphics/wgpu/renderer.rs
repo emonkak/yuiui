@@ -5,7 +5,7 @@ use std::io;
 use wgpu_glyph::ab_glyph;
 
 use crate::geometrics::{Rectangle, Size};
-use crate::graphics::{Color, Primitive, Viewport};
+use crate::graphics::{Color, Primitive, Transform, Viewport};
 use crate::text::{FontDescriptor, FontLoader};
 
 use super::pipeline::{Layer, Pipeline};
@@ -188,12 +188,21 @@ where
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         pipeline: &Pipeline,
-        scale_factor: f32,
+        viewport: &Viewport,
     ) {
-        self.flush_layer(encoder, &target, pipeline.primary_layer(), scale_factor);
+        let projection = viewport.projection();
+        let scale_factor = viewport.scale_factor();
+
+        self.flush_layer(
+            encoder,
+            &target,
+            pipeline.primary_layer(),
+            projection,
+            scale_factor,
+        );
 
         for layer in pipeline.finished_layers() {
-            self.flush_layer(encoder, &target, &layer, scale_factor);
+            self.flush_layer(encoder, &target, &layer, projection, scale_factor);
         }
     }
 
@@ -202,6 +211,7 @@ where
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         layer: &Layer,
+        projection: Transform,
         scale_factor: f32,
     ) {
         let bounds = layer.bounds.scale(scale_factor).snap();
@@ -214,7 +224,8 @@ where
                 target,
                 &layer.quads,
                 bounds,
-                layer.transformation,
+                projection,
+                layer.transform,
                 scale_factor,
             );
         }
@@ -227,7 +238,8 @@ where
                 target,
                 &layer.texts,
                 bounds,
-                layer.transformation,
+                projection,
+                layer.transform,
                 scale_factor,
             );
         }
@@ -265,8 +277,7 @@ where
 
     fn create_pipeline(&mut self, viewport: &Viewport) -> Self::Pipeline {
         let bounds = Rectangle::from(viewport.logical_size());
-        let transformation = viewport.projection();
-        Pipeline::new(bounds, transformation)
+        Pipeline::new(bounds)
     }
 
     fn perform_pipeline(
@@ -310,12 +321,7 @@ where
             depth_stencil_attachment: None,
         });
 
-        self.flush_pipeline(
-            &mut encoder,
-            &view,
-            pipeline,
-            viewport.scale_factor()
-        );
+        self.flush_pipeline(&mut encoder, &view, pipeline, viewport);
 
         self.staging_belt.finish();
         self.queue.submit(Some(encoder.finish()));

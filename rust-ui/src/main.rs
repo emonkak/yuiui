@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rust_ui;
-extern crate x11;
 extern crate env_logger;
+extern crate x11;
 
 use std::any::Any;
 use std::env;
@@ -10,8 +10,9 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::geometrics::{PhysicalPoint, Size};
-use rust_ui::graphics::{Color, Viewport, wgpu, x11 as x11_graphics};
+use rust_ui::geometrics::{Rectangle, PhysicalPoint, Size};
+use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Viewport};
+use rust_ui::paint::PaintContext;
 use rust_ui::render::RenderContext;
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
@@ -71,7 +72,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
                         }
                         FlexItem::new(1.0).with_key(3) => {
                             Padding::uniform(16.0) => Text {
-                                content: "QSとはQuality Startの略であり、1985年にスポーツライター John Lowe により提唱された。".to_owned(),
+                                content: "QSとはQuality Startの略であり、1985年にスポーツライターJohn Loweにより提唱された。".to_owned(),
                                 color: Color::BLACK,
                                 font: FontDescriptor {
                                     family: FontFamily::SansSerif,
@@ -88,6 +89,17 @@ impl<Renderer: 'static> Widget<Renderer> for App {
             }
         )
         .into()
+    }
+
+    fn draw(
+        &self,
+        _bounds: Rectangle,
+        _state: &mut Self::State,
+        _renderer: &mut Renderer,
+        _context: &mut PaintContext<Renderer>,
+    ) -> Option<Primitive> {
+        None
+        // Primitive::Transform(Transform::rotation(10.0f32.to_radians())).into()
     }
 }
 
@@ -112,15 +124,15 @@ fn main() {
         );
     }
 
-    let viewport = Viewport::from_logical(Size {
-        width: 640.0,
-        height: 480.0,
-    }, 2.0);
+    let viewport = Viewport::from_logical(
+        Size {
+            width: 640.0,
+            height: 480.0,
+        },
+        1.0,
+    );
     let event_loop = x11_ui::EventLoop::create(display).unwrap();
-    let window = x11_ui::Window::create(display, viewport, PhysicalPoint {
-        x: 0,
-        y: 0,
-    });
+    let window = x11_ui::Window::create(display, viewport, PhysicalPoint { x: 0, y: 0 });
 
     window.show();
 

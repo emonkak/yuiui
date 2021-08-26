@@ -1,6 +1,6 @@
 use crate::geometrics::{PhysicalSize, Size};
 
-use super::Transformation;
+use super::Transform;
 
 #[derive(Debug, Clone)]
 pub struct Viewport {
@@ -50,7 +50,7 @@ impl Viewport {
     }
 
     #[inline]
-    pub fn projection(&self) -> Transformation {
-        Transformation::orthographic(self.physical_size.width, self.physical_size.height)
+    pub fn projection(&self) -> Transform {
+        Transform::orthographic(self.physical_size.width, self.physical_size.height)
     }
 }

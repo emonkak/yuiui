@@ -2,7 +2,7 @@ mod background;
 mod color;
 mod primitive;
 mod renderer;
-mod transformation;
+mod transform;
 mod viewport;
 
 pub mod wgpu;
@@ -12,5 +12,5 @@ pub use background::Background;
 pub use color::Color;
 pub use primitive::Primitive;
 pub use renderer::Renderer;
-pub use transformation::Transformation;
+pub use transform::Transform;
 pub use viewport::Viewport;

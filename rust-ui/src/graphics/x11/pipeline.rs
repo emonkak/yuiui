@@ -55,7 +55,7 @@ impl Pipeline {
                     self.push(primitive, depth)
                 }
             }
-            Primitive::Translate(_vector) => {
+            Primitive::Transform(_) => {
                 // TODO:
             }
             Primitive::Clip(_bounds) => {

@@ -2,13 +2,10 @@ use glam::{Mat4, Vec3};
 use std::ops::Mul;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Transformation(Mat4);
+pub struct Transform(Mat4);
 
-impl Transformation {
-    #[inline]
-    pub fn identity() -> Self {
-        Self(Mat4::IDENTITY)
-    }
+impl Transform {
+    pub const IDENTITY: Self = Self(Mat4::IDENTITY);
 
     #[rustfmt::skip]
     #[inline]
@@ -21,7 +18,7 @@ impl Transformation {
     }
 
     #[inline]
-    pub fn translate(x: f32, y: f32) -> Self {
+    pub fn translation(x: f32, y: f32) -> Self {
         Self(Mat4::from_translation(Vec3::new(x, y, 0.0)))
     }
 
@@ -29,9 +26,19 @@ impl Transformation {
     pub fn scale(x: f32, y: f32) -> Self {
         Self(Mat4::from_scale(Vec3::new(x, y, 1.0)))
     }
+
+    #[inline]
+    pub fn rotation(angle: f32) -> Self {
+        Self(Mat4::from_rotation_z(angle))
+    }
+
+    #[inline]
+    pub fn inverse(&self) -> Self {
+        Self(self.0.inverse())
+    }
 }
 
-impl Mul for Transformation {
+impl Mul for Transform {
     type Output = Self;
 
     #[inline]
@@ -40,8 +47,14 @@ impl Mul for Transformation {
     }
 }
 
-impl AsRef<[f32; 16]> for Transformation {
+impl AsRef<[f32; 16]> for Transform {
     fn as_ref(&self) -> &[f32; 16] {
         self.0.as_ref()
+    }
+}
+
+impl From<Transform> for [f32; 16] {
+    fn from(transform: Transform) -> Self {
+        *transform.0.as_ref()
     }
 }

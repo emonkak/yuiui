@@ -1,11 +1,11 @@
-use crate::geometrics::{Rectangle, Vector};
-use crate::graphics::{Background, Color};
+use crate::geometrics::{Rectangle};
+use crate::graphics::{Background, Color, Transform};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
 #[derive(Debug, Clone)]
 pub enum Primitive {
     Batch(Vec<Primitive>),
-    Translate(Vector),
+    Transform(Transform),
     Clip(Rectangle),
     Quad {
         bounds: Rectangle,
