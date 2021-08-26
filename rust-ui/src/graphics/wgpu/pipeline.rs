@@ -13,24 +13,24 @@ use super::text::Text;
 pub struct Pipeline {
     primary_layer: Layer,
     standby_layers: Vec<Layer>,
-    finished_layers: Vec<Layer>,
+    prepared_layers: Vec<Layer>,
 }
 
 #[derive(Debug)]
 pub struct Layer {
     depth: usize,
-    pub bounds: Rectangle,
+    pub bounds: Option<Rectangle>,
     pub transform: Transform,
     pub quads: Vec<Quad>,
     pub texts: Vec<Text>,
 }
 
 impl Pipeline {
-    pub fn new(bounds: Rectangle) -> Self {
+    pub fn new() -> Self {
         Self {
-            primary_layer: Layer::new(0, bounds, Transform::IDENTITY),
+            primary_layer: Layer::new(0, None, Transform::IDENTITY),
             standby_layers: Vec::new(),
-            finished_layers: Vec::new(),
+            prepared_layers: Vec::new(),
         }
     }
 
@@ -38,8 +38,8 @@ impl Pipeline {
         &self.primary_layer
     }
 
-    pub fn finished_layers(&self) -> &[Layer] {
-        &self.finished_layers
+    pub fn prepared_layers(&self) -> &[Layer] {
+        &self.prepared_layers
     }
 
     pub fn push<Window, FontLoader>(
@@ -78,10 +78,18 @@ impl Pipeline {
                 }
             }
             Primitive::Transform(transform) => {
-                self.switch_layer(Layer::new(depth, self.primary_layer.bounds, self.primary_layer.transform * *transform));
+                self.switch_layer(
+                    depth,
+                    self.primary_layer.bounds,
+                    self.primary_layer.transform * *transform,
+                );
             }
-            Primitive::Clip(bounds) => {
-                self.switch_layer(Layer::new(depth, *bounds, self.primary_layer.transform));
+            Primitive::Clip(clip_bounds) => {
+                let bounds = match self.primary_layer.bounds {
+                    Some(bounds) => bounds.intersection(clip_bounds).unwrap_or(Rectangle::ZERO),
+                    None => *clip_bounds,
+                };
+                self.switch_layer(depth, Some(bounds), self.primary_layer.transform);
             }
             Primitive::Quad {
                 bounds,
@@ -124,14 +132,21 @@ impl Pipeline {
         }
     }
 
-    fn switch_layer(&mut self, layer: Layer) {
-        self.standby_layers
-            .push(mem::replace(&mut self.primary_layer, layer));
+    fn switch_layer(&mut self, depth: usize, bounds: Option<Rectangle>, transform: Transform) {
+        if self.primary_layer.is_empty() {
+            debug_assert!(self.primary_layer.depth <= depth);
+            self.primary_layer.bounds = bounds;
+            self.primary_layer.transform = transform;
+        } else {
+            let layer = Layer::new(depth, bounds, transform);
+            self.standby_layers
+                .push(mem::replace(&mut self.primary_layer, layer));
+        }
     }
 
     fn restore_layer(&mut self) -> bool {
         if let Some(standby_layer) = self.standby_layers.pop() {
-            self.finished_layers
+            self.prepared_layers
                 .push(mem::replace(&mut self.primary_layer, standby_layer));
             true
         } else {
@@ -141,7 +156,7 @@ impl Pipeline {
 }
 
 impl Layer {
-    fn new(depth: usize, bounds: Rectangle, transform: Transform) -> Self {
+    fn new(depth: usize, bounds: Option<Rectangle>, transform: Transform) -> Self {
         Self {
             depth,
             bounds,
@@ -149,5 +164,9 @@ impl Layer {
             quads: Vec::new(),
             texts: Vec::new(),
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.quads.is_empty() && self.texts.is_empty()
     }
 }

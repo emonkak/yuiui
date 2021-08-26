@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io;
 use wgpu_glyph::ab_glyph;
 
-use crate::geometrics::{Rectangle, Size};
+use crate::geometrics::Size;
 use crate::graphics::{Color, Primitive, Transform, Viewport};
 use crate::text::{FontDescriptor, FontLoader};
 
@@ -201,7 +201,7 @@ where
             scale_factor,
         );
 
-        for layer in pipeline.finished_layers() {
+        for layer in pipeline.prepared_layers() {
             self.flush_layer(encoder, &target, &layer, projection, scale_factor);
         }
     }
@@ -214,7 +214,7 @@ where
         projection: Transform,
         scale_factor: f32,
     ) {
-        let bounds = layer.bounds.scale(scale_factor).snap();
+        let scissor_bounds = layer.bounds.map(|bounds| bounds.scale(scale_factor).snap());
 
         if !layer.quads.is_empty() {
             self.quad_pipeline.run(
@@ -223,7 +223,7 @@ where
                 encoder,
                 target,
                 &layer.quads,
-                bounds,
+                scissor_bounds,
                 projection,
                 layer.transform,
                 scale_factor,
@@ -237,7 +237,7 @@ where
                 encoder,
                 target,
                 &layer.texts,
-                bounds,
+                scissor_bounds,
                 projection,
                 layer.transform,
                 scale_factor,
@@ -275,9 +275,8 @@ where
         )
     }
 
-    fn create_pipeline(&mut self, viewport: &Viewport) -> Self::Pipeline {
-        let bounds = Rectangle::from(viewport.logical_size());
-        Pipeline::new(bounds)
+    fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
+        Pipeline::new()
     }
 
     fn perform_pipeline(

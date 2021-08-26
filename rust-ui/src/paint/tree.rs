@@ -62,6 +62,15 @@ impl<Renderer> PaintTree<Renderer> {
         }
     }
 
+    pub fn mark_update_root(&mut self, node_id: NodeId) {
+        self.paint_states[node_id].flags |= [
+            PaintFlag::Dirty,
+            PaintFlag::NeedsLayout,
+            PaintFlag::NeedsPaint,
+        ];
+        self.mark_parents_as_dirty(node_id);
+    }
+
     pub fn apply_patch(&mut self, patch: Patch<Renderer>) {
         match patch {
             Patch::Append(parent_id, widget_pod) => {
@@ -110,20 +119,20 @@ impl<Renderer> PaintTree<Renderer> {
     }
 
     pub fn layout_root(&mut self, viewport_size: Size, renderer: &mut Renderer) {
-        self.do_layout(self.root_id, BoxConstraints::tight(viewport_size), renderer);
+        self.layout(self.root_id, BoxConstraints::tight(viewport_size), renderer);
     }
 
     pub fn layout_subtree(&mut self, target_id: NodeId, renderer: &mut Renderer) {
         let mut current_id = target_id;
         let mut box_constraints = self.paint_states[target_id].box_constraints;
 
-        while let Some(parent_id) = self.do_layout(current_id, box_constraints, renderer) {
+        while let Some(parent_id) = self.layout(current_id, box_constraints, renderer) {
             current_id = parent_id;
             box_constraints = self.paint_states[parent_id].box_constraints;
         }
     }
 
-    fn do_layout(
+    fn layout(
         &mut self,
         initial_id: NodeId,
         initial_box_constraints: BoxConstraints,

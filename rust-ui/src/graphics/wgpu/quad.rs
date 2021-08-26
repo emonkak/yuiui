@@ -155,7 +155,7 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         instances: &[Quad],
-        bounds: PhysicalRectangle,
+        scissor_bounds: Option<PhysicalRectangle>,
         projection: Transform,
         transform: Transform,
         scale_factor: f32,
@@ -204,7 +204,10 @@ impl Pipeline {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.constants, &[]);
             render_pass.set_vertex_buffer(0, self.instances.slice(..));
-            render_pass.set_scissor_rect(bounds.x, bounds.y, bounds.width, bounds.height);
+
+            if let Some(bounds) = scissor_bounds {
+                render_pass.set_scissor_rect(bounds.x, bounds.y, bounds.width, bounds.height);
+            }
 
             render_pass.draw(0..4, 0..count as u32);
         }
@@ -212,11 +215,7 @@ impl Pipeline {
 }
 
 impl Uniforms {
-    fn new(
-        projection: Transform,
-        transform: Transform,
-        scale_factor: f32,
-    ) -> Uniforms {
+    fn new(projection: Transform, transform: Transform, scale_factor: f32) -> Uniforms {
         Self {
             projection: projection.into(),
             transform: transform.into(),

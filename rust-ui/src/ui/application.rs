@@ -52,6 +52,8 @@ pub fn run<Window, EventLoop, Renderer>(
         match event {
             Event::RedrawRequested(_) => {
                 if let Some((node_id, patches)) = patch_receiver.try_recv().ok() {
+                    paint_tree.mark_update_root(node_id);
+
                     for patch in patches {
                         paint_tree.apply_patch(patch);
                     }

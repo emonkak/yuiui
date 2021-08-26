@@ -68,7 +68,7 @@ impl Pipeline {
                     Background::Color(color) => self.alloc_color(color),
                 };
                 self.draw_ops
-                    .push(DrawOp::FillRectangle(background_color, (*bounds).into()));
+                    .push(DrawOp::FillRectangle(background_color, bounds.snap()));
             }
             Primitive::Text { .. } => {
                 // TODO:

@@ -47,10 +47,10 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let transform: mat4x4<f32> = uniforms.projection
         * uniforms.transform
         * mat4x4<f32>(
-            vec4<f32>(size.x, 0.0, 0.0, 0.0),
-            vec4<f32>(0.0, size.y, 0.0, 0.0),
+            vec4<f32>(size.x + 1.0, 0.0, 0.0, 0.0),
+            vec4<f32>(0.0, size.y + 1.0, 0.0, 0.0),
             vec4<f32>(0.0, 0.0, 1.0, 0.0),
-            vec4<f32>(position, 0.0, 1.0)
+            vec4<f32>(position - vec2<f32>(0.5), 0.0, 1.0)
         );
 
     let rectangle_position: vec2<f32> = RECTANGLE_POSITIONS[input.vertex_index];

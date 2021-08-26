@@ -1,4 +1,4 @@
-use crate::geometrics::{Rectangle};
+use crate::geometrics::Rectangle;
 use crate::graphics::{Background, Color, Transform};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 

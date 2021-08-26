@@ -55,7 +55,7 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         texts: &[Text],
-        bounds: PhysicalRectangle,
+        scissor_bounds: Option<PhysicalRectangle>,
         projection: Transform,
         transform: Transform,
         scale_factor: f32,
@@ -65,21 +65,33 @@ impl Pipeline {
             self.draw_brush.queue(section);
         }
 
-        self.draw_brush
-            .draw_queued_with_transform_and_scissoring(
-                device,
-                staging_belt,
-                encoder,
-                target,
-                (projection * transform).into(),
-                wgpu_glyph::Region {
-                    x: bounds.x,
-                    y: bounds.y,
-                    width: bounds.width,
-                    height: bounds.height,
-                },
-            )
-            .expect("Draw text");
+        if let Some(bounds) = scissor_bounds {
+            self.draw_brush
+                .draw_queued_with_transform_and_scissoring(
+                    device,
+                    staging_belt,
+                    encoder,
+                    target,
+                    (projection * transform).into(),
+                    wgpu_glyph::Region {
+                        x: bounds.x,
+                        y: bounds.y,
+                        width: bounds.width,
+                        height: bounds.height,
+                    },
+                )
+                .expect("Draw text");
+        } else {
+            self.draw_brush
+                .draw_queued_with_transform(
+                    device,
+                    staging_belt,
+                    encoder,
+                    target,
+                    (projection * transform).into(),
+                )
+                .expect("Draw text");
+        }
     }
 
     pub fn add_font(

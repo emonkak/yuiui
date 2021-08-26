@@ -29,6 +29,28 @@ impl Rectangle {
             height: self.height as u32,
         }
     }
+
+    #[inline]
+    pub fn intersection(&self, other: &Self) -> Option<Self> {
+        let left = self.x.max(other.x);
+        let top = self.y.max(other.y);
+        let right = (self.x + self.width).min(other.x + other.width);
+        let bottom = (self.y + self.height).min(other.y + other.height);
+
+        let width = right - left;
+        let height = bottom - top;
+
+        if width > 0.0 && height > 0.0 {
+            Some(Self {
+                x: left,
+                y: top,
+                width,
+                height,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 impl<T> Rectangle<T> {
@@ -87,74 +109,6 @@ impl<T> Rectangle<T> {
             y: self.y + vector.dy,
             width: self.width,
             height: self.height,
-        }
-    }
-
-    #[inline]
-    pub fn top_left(&self) -> Point<T>
-    where
-        T: Copy,
-    {
-        Point {
-            x: self.x,
-            y: self.y,
-        }
-    }
-
-    #[inline]
-    pub fn top_right(&self) -> Point<T>
-    where
-        T: Copy + Add<Output = T>,
-    {
-        Point {
-            x: self.x + self.width,
-            y: self.y,
-        }
-    }
-
-    #[inline]
-    pub fn bottom_left(&self) -> Point<T>
-    where
-        T: Copy + Add<Output = T>,
-    {
-        Point {
-            x: self.x,
-            y: self.y + self.height,
-        }
-    }
-
-    #[inline]
-    pub fn bottom_right(&self) -> Point<T>
-    where
-        T: Copy + Add<Output = T>,
-    {
-        Point {
-            x: self.x + self.width,
-            y: self.y + self.height,
-        }
-    }
-}
-
-impl From<Rectangle<u32>> for Rectangle<f32> {
-    #[inline]
-    fn from(rectangle: Rectangle<u32>) -> Self {
-        Self {
-            x: rectangle.x as _,
-            y: rectangle.y as _,
-            width: rectangle.width as _,
-            height: rectangle.height as _,
-        }
-    }
-}
-
-impl From<Rectangle<f32>> for Rectangle<u32> {
-    #[inline]
-    fn from(rectangle: Rectangle<f32>) -> Self {
-        Self {
-            x: rectangle.x as _,
-            y: rectangle.y as _,
-            width: rectangle.width as _,
-            height: rectangle.height as _,
         }
     }
 }

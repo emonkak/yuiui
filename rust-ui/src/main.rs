@@ -10,15 +10,15 @@ use x11::xlib;
 
 use rust_ui::event::handler::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::geometrics::{Rectangle, PhysicalPoint, Size};
-use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Viewport};
+use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
+use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Transform, Viewport};
 use rust_ui::paint::PaintContext;
 use rust_ui::render::RenderContext;
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
-use rust_ui::ui::Window;
 use rust_ui::ui::application;
 use rust_ui::ui::x11 as x11_ui;
+use rust_ui::ui::Window;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
@@ -30,15 +30,15 @@ use rust_ui::widget::{Widget, WidgetMeta};
 struct App;
 
 impl App {
-    fn on_click(&self, _event: &MouseEvent, state: &mut bool, context: &mut EventContext) {
-        *state = !*state;
+    fn on_click(&self, _event: &MouseEvent, state: &mut usize, context: &mut EventContext) {
+        *state = *state + 1;
 
         context.notify_changes();
     }
 }
 
 impl<Renderer: 'static> Widget<Renderer> for App {
-    type State = bool;
+    type State = usize;
 
     fn render(
         &self,
@@ -50,7 +50,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
             Subscriber::new().on(context.use_handler::<MouseDown>(Self::on_click)) => {
                 Padding::uniform(32.0) => {
                     Flex::column() => {
-                        if *state {
+                        if state % 2 == 0 {
                             None
                         } else {
                             Some(element!(FlexItem::new(1.0).with_key(1) => {
@@ -94,12 +94,15 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     fn draw(
         &self,
         _bounds: Rectangle,
-        _state: &mut Self::State,
+        state: &mut Self::State,
         _renderer: &mut Renderer,
         _context: &mut PaintContext<Renderer>,
     ) -> Option<Primitive> {
-        None
-        // Primitive::Transform(Transform::rotation(10.0f32.to_radians())).into()
+        if (*state + 1) % 3 == 0 {
+            Primitive::Transform(Transform::rotation(5.0f32.to_radians())).into()
+        } else {
+            None
+        }
     }
 }
 
