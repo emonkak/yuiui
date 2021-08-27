@@ -1,9 +1,11 @@
 use std::any::TypeId;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use crate::event::handler::{EventContext, WidgetHandler};
 use crate::event::EventType;
 use crate::support::tree::NodeId;
+use crate::widget::StateCell;
 
 pub struct RenderContext<Widget: ?Sized, Renderer, State> {
     node_id: NodeId,
@@ -26,9 +28,9 @@ where
         }
     }
 
-    pub fn use_handler<EventType>(
+    pub fn use_callback<EventType>(
         &self,
-        callback: fn(&Widget, &EventType::Event, &mut State, &mut EventContext),
+        callback: fn(Arc<Widget>, &EventType::Event, StateCell<State>, &mut EventContext),
     ) -> WidgetHandler<EventType::Event, Widget, State>
     where
         EventType: self::EventType + 'static,

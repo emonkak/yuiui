@@ -1,15 +1,16 @@
 use std::any::{Any, TypeId};
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 
 use crate::support::tree::NodeId;
-use crate::widget::tree::{WidgetPod, WidgetTree};
+use crate::widget::{downcast_widget, StateCell, WidgetPod, WidgetTree};
 
 use super::EventHandler;
 
 pub struct WidgetHandler<Event, Widget, State> {
     type_id: TypeId,
     node_id: NodeId,
-    callback: fn(&Widget, &Event, &mut State, &mut EventContext),
+    callback: fn(Arc<Widget>, &Event, StateCell<State>, &mut EventContext),
 }
 
 pub struct EventContext<'a> {
@@ -26,7 +27,7 @@ where
     pub fn new(
         type_id: TypeId,
         node_id: NodeId,
-        callback: fn(&Widget, &Event, &mut State, &mut EventContext),
+        callback: fn(Arc<Widget>, &Event, StateCell<State>, &mut EventContext),
     ) -> Self {
         Self {
             type_id,
@@ -39,7 +40,7 @@ where
 impl<Event, Widget, Renderer, State> EventHandler<Renderer> for WidgetHandler<Event, Widget, State>
 where
     Event: 'static,
-    Widget: 'static,
+    Widget: 'static + Any + Send + Sync,
     State: 'static,
 {
     fn dispatch(
@@ -50,9 +51,9 @@ where
     ) {
         let WidgetPod { widget, state, .. } = &*tree[self.node_id];
         (self.callback)(
-            widget.as_any().downcast_ref::<Widget>().unwrap(),
+            downcast_widget(widget.clone()).unwrap(),
             event.downcast_ref::<Event>().unwrap(),
-            state.lock().unwrap().downcast_mut::<State>().unwrap(),
+            StateCell::new(state.clone()),
             &mut EventContext {
                 node_id: self.node_id,
                 update_notifier,

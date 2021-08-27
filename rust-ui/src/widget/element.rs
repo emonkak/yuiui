@@ -2,11 +2,11 @@ use std::array;
 use std::fmt;
 use std::sync::Arc;
 
-use super::{PolymophicWidget, Widget, WidgetMeta};
+use super::widget::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
 pub struct Element<Renderer> {
-    pub widget: BoxedWidget<Renderer>,
+    pub widget: Arc<dyn PolymophicWidget<Renderer>>,
     pub children: Children<Renderer>,
     pub key: Option<Key>,
 }
@@ -17,8 +17,6 @@ pub enum Child<Renderer> {
     Single(Element<Renderer>),
     None,
 }
-
-pub type BoxedWidget<Renderer> = Arc<dyn PolymophicWidget<Renderer>>;
 
 pub type Children<Renderer> = Arc<Vec<Element<Renderer>>>;
 

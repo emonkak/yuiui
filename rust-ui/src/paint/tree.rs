@@ -11,7 +11,7 @@ use crate::support::slot_vec::SlotVec;
 use crate::support::tree::walk::WalkDirection;
 use crate::support::tree::{NodeId, Tree};
 use crate::widget::null::Null;
-use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
+use crate::widget::{WidgetPod, WidgetTree, WidgetTreePatch};
 
 use super::context::PaintContext;
 use super::layout::{BoxConstraints, LayoutRequest};
@@ -71,19 +71,19 @@ impl<Renderer> PaintTree<Renderer> {
         self.mark_parents_as_dirty(node_id);
     }
 
-    pub fn apply_patch(&mut self, patch: Patch<Renderer>) {
+    pub fn apply_patch(&mut self, patch: WidgetTreePatch<Renderer>) {
         match patch {
-            Patch::Append(parent_id, widget_pod) => {
+            WidgetTreePatch::Append(parent_id, widget_pod) => {
                 let child_id = self.tree.append_child(parent_id, widget_pod);
                 self.paint_states.insert_at(child_id, PaintState::default());
                 self.mark_parents_as_dirty(child_id);
             }
-            Patch::Insert(ref_id, widget_pod) => {
+            WidgetTreePatch::Insert(ref_id, widget_pod) => {
                 let child_id = self.tree.insert_before(ref_id, widget_pod);
                 self.paint_states.insert_at(child_id, PaintState::default());
                 self.mark_parents_as_dirty(child_id);
             }
-            Patch::Update(target_id, new_element) => {
+            WidgetTreePatch::Update(target_id, new_element) => {
                 self.tree[target_id].update(new_element);
                 let paint_state = &mut self.paint_states[target_id];
                 paint_state.flags |= [
@@ -93,10 +93,10 @@ impl<Renderer> PaintTree<Renderer> {
                 ];
                 self.mark_parents_as_dirty(target_id);
             }
-            Patch::Placement(target_id, ref_id) => {
+            WidgetTreePatch::Placement(target_id, ref_id) => {
                 self.tree.move_position(target_id).insert_before(ref_id);
             }
-            Patch::Remove(target_id) => {
+            WidgetTreePatch::Remove(target_id) => {
                 let (node, subtree) = self.tree.detach(target_id);
                 let mut deleted_children = Vec::new();
 
@@ -146,7 +146,7 @@ impl<Renderer> PaintTree<Renderer> {
                 initial_id,
                 initial_box_constraints,
                 &self.tree,
-                &mut **state.lock().unwrap(),
+                state.clone(),
                 renderer,
             )
         });
@@ -174,7 +174,7 @@ impl<Renderer> PaintTree<Renderer> {
                                 child_id,
                                 child_box_constraints,
                                 &self.tree,
-                                &mut **state.lock().unwrap(),
+                                state.clone(),
                                 renderer,
                             ),
                         );
@@ -274,12 +274,8 @@ impl<Renderer> PaintTree<Renderer> {
                 let WidgetPod { widget, state, .. } = &**node;
                 let absolute_bounds = bounds.translate(absolute_translation);
 
-                let draw_result = widget.draw(
-                    absolute_bounds,
-                    &mut **state.lock().unwrap(),
-                    renderer,
-                    &mut context,
-                );
+                let draw_result =
+                    widget.draw(absolute_bounds, state.clone(), renderer, &mut context);
 
                 if let Some(primitive) = &draw_result {
                     renderer.update_pipeline(pipeline, primitive, depth);
@@ -299,7 +295,7 @@ impl<Renderer> PaintTree<Renderer> {
                 {
                     widget.on_lifecycle(
                         Lifecycle::DidUnmount(&children),
-                        &mut **state.lock().unwrap(),
+                        state.clone(),
                         renderer,
                         &mut context,
                     );
@@ -320,14 +316,14 @@ impl<Renderer> PaintTree<Renderer> {
                             &*old_widget_pod.widget,
                             &old_widget_pod.children,
                         ),
-                        &mut **state.lock().unwrap(),
+                        state.clone(),
                         renderer,
                         &mut context,
                     );
                 } else {
                     widget.on_lifecycle(
                         Lifecycle::DidMount(children),
-                        &mut **state.lock().unwrap(),
+                        state.clone(),
                         renderer,
                         &mut context,
                     );

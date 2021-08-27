@@ -5,7 +5,9 @@ use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 use crate::support::tree::NodeId;
 
-use super::{Widget, WidgetMeta, WidgetTree};
+use super::state::StateCell;
+use super::widget::{Widget, WidgetMeta};
+use super::widget_tree::WidgetTree;
 
 #[derive(WidgetMeta)]
 pub struct Padding {
@@ -34,7 +36,7 @@ impl<Renderer> Widget<Renderer> for Padding {
         node_id: NodeId,
         box_constraints: BoxConstraints,
         tree: &'a WidgetTree<Renderer>,
-        _state: &mut Self::State,
+        _state: StateCell<Self::State>,
         _renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {

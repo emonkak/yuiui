@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::NodeId;
-use crate::widget::tree::WidgetTree;
+use crate::widget::WidgetTree;
 
 #[derive(Debug)]
 pub struct EventManager<Renderer> {

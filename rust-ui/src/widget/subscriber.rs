@@ -7,7 +7,8 @@ use crate::event::{EventHandler, HandlerId};
 use crate::paint::{Lifecycle, PaintContext};
 
 use super::element::Children;
-use super::{Widget, WidgetMeta};
+use super::state::StateCell;
+use super::widget::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
 pub struct Subscriber<Renderer: 'static> {
@@ -43,7 +44,7 @@ impl<Renderer> Widget<Renderer> for Subscriber<Renderer> {
         new_widget: &Self,
         old_children: &Children<Renderer>,
         new_children: &Children<Renderer>,
-        _state: &Self::State,
+        _state: StateCell<Self::State>,
     ) -> bool {
         !Arc::ptr_eq(&old_children, &new_children) || self.handlers != new_widget.handlers
     }
@@ -52,10 +53,12 @@ impl<Renderer> Widget<Renderer> for Subscriber<Renderer> {
     fn on_lifecycle(
         &self,
         lifecycle: Lifecycle<&Self, &Children<Renderer>>,
-        state: &mut Self::State,
+        state: StateCell<Self::State>,
         _renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
     ) {
+        let mut state = state.borrow();
+
         match lifecycle {
             Lifecycle::DidMount(_children) => {
                 for handler in self.handlers.iter() {

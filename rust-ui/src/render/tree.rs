@@ -6,8 +6,7 @@ use crate::support::slot_vec::SlotVec;
 use crate::support::tree::{NodeId, Tree};
 use crate::widget::element::{Children, Element, Key};
 use crate::widget::null::Null;
-use crate::widget::tree::{Patch, WidgetPod, WidgetTree};
-use crate::widget::PolymophicWidget;
+use crate::widget::{PolymophicWidget, WidgetPod, WidgetTree, WidgetTreePatch};
 
 use super::reconciler::{ReconcileResult, Reconciler};
 
@@ -57,7 +56,7 @@ impl<Renderer> RenderTree<Renderer> {
         self.root_id
     }
 
-    pub fn render(&mut self, element: Element<Renderer>) -> Vec<Patch<Renderer>> {
+    pub fn render(&mut self, element: Element<Renderer>) -> Vec<WidgetTreePatch<Renderer>> {
         *self.tree[self.root_id] = WidgetPod::new(Null, vec![element]);
 
         let mut patches = Vec::new();
@@ -70,7 +69,7 @@ impl<Renderer> RenderTree<Renderer> {
         patches
     }
 
-    pub fn update(&mut self, target_id: NodeId) -> Vec<Patch<Renderer>> {
+    pub fn update(&mut self, target_id: NodeId) -> Vec<WidgetTreePatch<Renderer>> {
         let mut patches = Vec::new();
         let mut current_id = target_id;
 
@@ -85,7 +84,7 @@ impl<Renderer> RenderTree<Renderer> {
         &mut self,
         target_id: NodeId,
         initial_id: NodeId,
-        patches: &mut Vec<Patch<Renderer>>,
+        patches: &mut Vec<WidgetTreePatch<Renderer>>,
     ) -> Option<NodeId> {
         let WidgetPod {
             widget,
@@ -104,8 +103,7 @@ impl<Renderer> RenderTree<Renderer> {
             RenderStatus::Skipped => unreachable!("Skipped widget"),
             RenderStatus::Fresh | RenderStatus::Rendered => {}
         }
-        let rendered_children =
-            widget.render(children.clone(), &mut **state.lock().unwrap(), target_id);
+        let rendered_children = widget.render(children.clone(), state.clone(), target_id);
         for result in self.reconcile_children(target_id, rendered_children) {
             self.handle_reconcile_result(target_id, result, patches);
         }
@@ -142,7 +140,7 @@ impl<Renderer> RenderTree<Renderer> {
         &mut self,
         target_id: NodeId,
         result: ReconcileResult<NodeId, Element<Renderer>>,
-        patches: &mut Vec<Patch<Renderer>>,
+        patches: &mut Vec<WidgetTreePatch<Renderer>>,
     ) {
         match result {
             ReconcileResult::New(new_element) => {
@@ -150,21 +148,21 @@ impl<Renderer> RenderTree<Renderer> {
                 let node_id = self.tree.append_child(target_id, widget_pod.clone());
                 self.render_states
                     .insert_at(node_id, RenderState::default());
-                patches.push(Patch::Append(target_id, widget_pod));
+                patches.push(WidgetTreePatch::Append(target_id, widget_pod));
             }
             ReconcileResult::Insertion(ref_id, new_element) => {
                 let widget_pod = WidgetPod::from(new_element);
                 let node_id = self.tree.insert_before(ref_id, widget_pod.clone());
                 self.render_states
                     .insert_at(node_id, RenderState::default());
-                patches.push(Patch::Insert(ref_id, widget_pod));
+                patches.push(WidgetTreePatch::Insert(ref_id, widget_pod));
             }
             ReconcileResult::Update(target_id, new_element) => {
                 let widget_pod = &mut self.tree[target_id];
                 if widget_pod.should_update(&new_element) {
                     self.render_states[target_id].status =
                         RenderStatus::Pending(new_element.clone());
-                    patches.push(Patch::Update(target_id, new_element));
+                    patches.push(WidgetTreePatch::Update(target_id, new_element));
                 } else {
                     self.render_states[target_id].status = RenderStatus::Skipped;
                 }
@@ -174,12 +172,12 @@ impl<Renderer> RenderTree<Renderer> {
                 if widget_pod.should_update(&new_element) {
                     self.render_states[target_id].status =
                         RenderStatus::Pending(new_element.clone());
-                    patches.push(Patch::Update(target_id, new_element));
+                    patches.push(WidgetTreePatch::Update(target_id, new_element));
                 } else {
                     self.render_states[target_id].status = RenderStatus::Skipped;
                 }
                 self.tree.move_position(target_id).insert_before(ref_id);
-                patches.push(Patch::Placement(target_id, ref_id));
+                patches.push(WidgetTreePatch::Placement(target_id, ref_id));
             }
             ReconcileResult::Deletion(target_id) => {
                 let (_, subtree) = self.tree.detach(target_id);
@@ -190,7 +188,7 @@ impl<Renderer> RenderTree<Renderer> {
                     self.render_states.remove(child_id);
                 }
 
-                patches.push(Patch::Remove(target_id));
+                patches.push(WidgetTreePatch::Remove(target_id));
             }
         }
     }

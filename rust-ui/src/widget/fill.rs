@@ -5,7 +5,8 @@ use crate::graphics::{Background, Color, Primitive};
 use crate::paint::PaintContext;
 
 use super::element::Children;
-use super::{Widget, WidgetMeta};
+use super::state::StateCell;
+use super::widget::{Widget, WidgetMeta};
 
 #[derive(PartialEq, WidgetMeta)]
 pub struct Fill {
@@ -26,7 +27,7 @@ impl<Renderer> Widget<Renderer> for Fill {
         new_widget: &Self,
         _old_children: &Children<Renderer>,
         _new_children: &Children<Renderer>,
-        _state: &Self::State,
+        _state: StateCell<Self::State>,
     ) -> bool {
         self != new_widget
     }
@@ -34,7 +35,7 @@ impl<Renderer> Widget<Renderer> for Fill {
     fn draw(
         &self,
         bounds: Rectangle,
-        _state: &mut Self::State,
+        _state: StateCell<Self::State>,
         _renderer: &mut Renderer,
         _context: &mut PaintContext<Renderer>,
     ) -> Option<Primitive> {

@@ -1,6 +1,6 @@
 use rust_ui_derive::WidgetMeta;
 
-use super::{Widget, WidgetMeta};
+use super::widget::{Widget, WidgetMeta};
 
 #[derive(WidgetMeta)]
 pub struct Null;

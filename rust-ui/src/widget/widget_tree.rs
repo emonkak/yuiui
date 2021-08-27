@@ -1,10 +1,10 @@
-use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use crate::support::tree::{Link, NodeId, Tree};
 
-use super::element::{BoxedWidget, Children, Element, Key};
-use super::Widget;
+use super::element::{Children, Element, Key};
+use super::state::State;
+use super::widget::{PolymophicWidget, Widget};
 
 pub type WidgetTree<Renderer> = Tree<WidgetPod<Renderer>>;
 
@@ -12,14 +12,14 @@ pub type WidgetNode<Renderer> = Link<WidgetPod<Renderer>>;
 
 #[derive(Debug)]
 pub struct WidgetPod<Renderer> {
-    pub widget: BoxedWidget<Renderer>,
+    pub widget: Arc<dyn PolymophicWidget<Renderer>>,
     pub children: Children<Renderer>,
     pub key: Option<Key>,
-    pub state: Arc<Mutex<Box<dyn Any + Send + Sync>>>,
+    pub state: Arc<State>,
 }
 
 #[derive(Debug)]
-pub enum Patch<Renderer> {
+pub enum WidgetTreePatch<Renderer> {
     Append(NodeId, WidgetPod<Renderer>),
     Insert(NodeId, WidgetPod<Renderer>),
     Update(NodeId, Element<Renderer>),
@@ -48,7 +48,7 @@ impl<Renderer> WidgetPod<Renderer> {
             &*element.widget,
             &self.children,
             &element.children,
-            &**self.state.lock().unwrap(),
+            self.state.clone(),
         )
     }
 
