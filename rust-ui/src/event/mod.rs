@@ -6,5 +6,5 @@ mod handler;
 mod manager;
 
 pub use event::{EventType, GenericEvent};
-pub use handler::{EventContext, EventHandler, HandlerId, WidgetHandler};
-pub use manager::{EventManager};
+pub use handler::EventHandler;
+pub use manager::{EventManager, EventHandlerId};

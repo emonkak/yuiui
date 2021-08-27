@@ -1,22 +1,33 @@
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
-use crate::event::{EventHandler, EventManager, HandlerId};
+use crate::event::{EventHandler, EventManager, EventHandlerId};
+use crate::widget::WidgetId;
 
-#[derive(Debug)]
-pub struct PaintContext<'a, Renderer> {
-    event_manager: &'a mut EventManager<Renderer>,
+pub struct PaintContext<'a> {
+    widget_id: WidgetId,
+    event_manager: &'a mut EventManager,
+    update_sender: Sender<WidgetId>,
 }
 
-impl<'a, Renderer> PaintContext<'a, Renderer> {
-    pub fn new(event_manager: &'a mut EventManager<Renderer>) -> Self {
-        Self { event_manager }
+impl<'a> PaintContext<'a> {
+    pub fn new(
+        widget_id: WidgetId,
+        event_manager: &'a mut EventManager,
+        update_sender: Sender<WidgetId>,
+    ) -> Self {
+        Self { widget_id, event_manager, update_sender }
     }
 
-    pub fn add_handler(&mut self, handler: Arc<dyn EventHandler<Renderer>>) -> HandlerId {
+    pub fn add_handler(&mut self, handler: Arc<EventHandler>) -> EventHandlerId {
         self.event_manager.add(handler)
     }
 
-    pub fn remove_handler(&mut self, handler_id: HandlerId) -> Arc<dyn EventHandler<Renderer>> {
+    pub fn remove_handler(&mut self, handler_id: EventHandlerId) -> Arc<EventHandler> {
         self.event_manager.remove(handler_id)
+    }
+
+    pub fn request_update(&self) {
+        self.update_sender.send(self.widget_id).unwrap();
     }
 }

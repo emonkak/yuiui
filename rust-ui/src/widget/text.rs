@@ -1,4 +1,5 @@
 use rust_ui_derive::WidgetMeta;
+use std::sync::Arc;
 
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
@@ -24,20 +25,21 @@ impl<Renderer> Widget<Renderer> for Text {
 
     fn should_update(
         &self,
-        new_widget: &Self,
-        _old_children: &Children<Renderer>,
-        _new_children: &Children<Renderer>,
+        _children: &Children<Renderer>,
         _state: StateCell<Self::State>,
+        new_widget: &Self,
+        _new_children: &Children<Renderer>,
     ) -> bool {
         self != new_widget
     }
 
     fn draw(
-        &self,
-        bounds: Rectangle,
+        self: Arc<Self>,
+        _children: Children<Renderer>,
         _state: StateCell<Self::State>,
+        bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut PaintContext<Renderer>,
+        _context: &mut PaintContext,
     ) -> Option<Primitive> {
         Primitive::Text {
             bounds,

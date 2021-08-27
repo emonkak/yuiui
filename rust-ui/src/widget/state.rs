@@ -17,11 +17,11 @@ pub struct WeakStateCell<T> {
 
 #[derive(Debug)]
 pub struct StateRef<'a, T> {
-    guard: MutexGuard<'a, Box<dyn Any + Send + Sync>>,
+    guard: MutexGuard<'a, Box<dyn Any + Send>>,
     _type: PhantomData<T>,
 }
 
-pub type State = Mutex<Box<dyn Any + Send + Sync>>;
+pub type State = Mutex<Box<dyn Any + Send>>;
 
 impl<T> StateCell<T> {
     pub fn new(state: Arc<State>) -> Self {

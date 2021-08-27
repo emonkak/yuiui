@@ -1,6 +1,7 @@
 use std::any::TypeId;
 use std::fmt;
 use std::mem;
+use std::sync::mpsc::Sender;
 
 use crate::support::slot_vec::SlotVec;
 use crate::widget::element::{Children, Element, Key};
@@ -10,12 +11,14 @@ use crate::widget::{
 };
 
 use super::reconciler::{ReconcileResult, Reconciler};
+use super::context::RenderContext;
 
 #[derive(Debug)]
 pub struct RenderTree<Renderer> {
     tree: WidgetTree<Renderer>,
     root_id: WidgetId,
     render_states: SlotVec<RenderState<Renderer>>,
+    update_sender: Sender<WidgetId>,
 }
 
 #[derive(Debug)]
@@ -38,7 +41,7 @@ enum TypedKey {
 }
 
 impl<Renderer> RenderTree<Renderer> {
-    pub fn new() -> Self {
+    pub fn new(update_sender: Sender<WidgetId>) -> Self {
         let (tree, root_id) = create_widget_tree();
         let mut render_states = SlotVec::new();
 
@@ -48,6 +51,7 @@ impl<Renderer> RenderTree<Renderer> {
             tree,
             root_id,
             render_states,
+            update_sender,
         }
     }
 
@@ -92,10 +96,12 @@ impl<Renderer> RenderTree<Renderer> {
             state,
             ..
         } = &mut *self.tree[target_id];
-        match mem::replace(
+
+        let old_status = mem::replace(
             &mut self.render_states[target_id].status,
             RenderStatus::Rendered,
-        ) {
+        );
+        match old_status {
             RenderStatus::Pending(element) => {
                 *widget = element.widget;
                 *children = element.children;
@@ -103,10 +109,16 @@ impl<Renderer> RenderTree<Renderer> {
             RenderStatus::Skipped => unreachable!("Skipped widget"),
             RenderStatus::Fresh | RenderStatus::Rendered => {}
         }
-        let rendered_children = widget.render(children.clone(), state.clone(), target_id);
+
+        let context = RenderContext::new(target_id, self.update_sender.clone());
+        let rendered_children = widget
+            .clone()
+            .render(children.clone(), state.clone(), context);
+
         for result in self.reconcile_children(target_id, rendered_children) {
             self.handle_reconcile_result(target_id, result, patches);
         }
+
         self.next_render_target(target_id, initial_id)
     }
 

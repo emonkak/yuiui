@@ -28,37 +28,41 @@ pub fn run<Window, EventLoop, Renderer>(
     let proxy = event_loop.create_proxy();
     let window_id = window.window_id();
 
-    thread::spawn(move || {
-        let mut render_tree = RenderTree::new();
+    {
+        let update_sender = update_sender.clone();
 
-        let patches = render_tree.render(element);
-        patch_senter.send((render_tree.root_id(), patches)).unwrap();
-        proxy.request_redraw(window_id);
+        thread::spawn(move || {
+            let mut render_tree = RenderTree::new(update_sender);
 
-        loop {
-            let target_id = update_receiver.recv().unwrap();
-            let patches = render_tree.update(target_id);
-            patch_senter.send((target_id, patches)).unwrap();
+            let patches = render_tree.render(element);
+            patch_senter.send((render_tree.root_id(), patches)).unwrap();
             proxy.request_redraw(window_id);
-        }
-    });
+
+            loop {
+                let target_id = update_receiver.recv().unwrap();
+                let patches = render_tree.update(target_id);
+                patch_senter.send((target_id, patches)).unwrap();
+                proxy.request_redraw(window_id);
+            }
+        });
+    }
 
     let mut viewport = window.get_viewport();
-    let mut paint_tree = PaintTree::new(viewport.logical_size());
+    let mut paint_tree = PaintTree::new(viewport.logical_size(), update_sender);
     let mut surface = renderer.create_surface(&viewport);
     let mut pipeline = renderer.create_pipeline(&viewport);
 
     event_loop.run(|event| {
         match event {
             Event::RedrawRequested(_) => {
-                if let Some((node_id, patches)) = patch_receiver.try_recv().ok() {
-                    paint_tree.mark_update_root(node_id);
+                if let Some((widget_id, patches)) = patch_receiver.try_recv().ok() {
+                    paint_tree.mark_update_root(widget_id);
 
                     for patch in patches {
                         paint_tree.apply_patch(patch);
                     }
 
-                    paint_tree.layout_subtree(node_id, &mut renderer);
+                    paint_tree.layout_subtree(widget_id, &mut renderer);
 
                     pipeline = renderer.create_pipeline(&viewport);
                     paint_tree.paint(&mut pipeline, &mut renderer);
@@ -78,7 +82,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                paint_tree.dispatch(&window_event, &update_sender);
+                paint_tree.dispatch(&window_event);
             }
             _ => {}
         }

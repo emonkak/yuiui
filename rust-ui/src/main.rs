@@ -9,7 +9,6 @@ use std::ptr;
 use std::sync::Arc;
 use x11::xlib;
 
-use rust_ui::event::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
 use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Transform, Viewport};
@@ -17,9 +16,9 @@ use rust_ui::paint::PaintContext;
 use rust_ui::render::RenderContext;
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
-use rust_ui::ui::Window;
 use rust_ui::ui::application;
 use rust_ui::ui::x11 as x11_ui;
+use rust_ui::ui::Window;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
@@ -35,17 +34,17 @@ struct App {
 
 impl App {
     fn on_click(
-        self: Arc<Self>,
+        self: &Arc<App>,
         _event: &MouseEvent,
-        state: StateCell<usize>,
-        context: EventContext,
+        state: &StateCell<usize>,
+        context: &RenderContext,
     ) {
         {
             let mut state = state.borrow();
             *state = *state + 1;
         }
 
-        context.notify_changes();
+        context.request_update();
     }
 }
 
@@ -53,13 +52,17 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
 
     fn render(
-        &self,
+        self: Arc<Self>,
         _children: Children<Renderer>,
         state: StateCell<Self::State>,
-        context: &mut RenderContext<Self, Renderer, Self::State>,
+        context: RenderContext,
     ) -> Children<Renderer> {
+        let self_clone = self.clone();
+        let state_clone = state.clone();
         element!(
-            Subscriber::new().on(context.use_callback::<MouseDown>(Self::on_click)) => {
+            Subscriber::new().on(MouseDown, move |event| {
+                self_clone.on_click(event, &state_clone, &context);
+            }) => {
                 Padding::uniform(32.0) => {
                     Flex::column() => {
                         if *state.borrow() % 2 == 0 {
@@ -104,11 +107,12 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     }
 
     fn draw(
-        &self,
-        _bounds: Rectangle,
+        self: Arc<Self>,
+        _children: Children<Renderer>,
         state: StateCell<Self::State>,
+        _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut PaintContext<Renderer>,
+        _context: &mut PaintContext,
     ) -> Option<Primitive> {
         if (*state.borrow() + 1) % 3 == 0 {
             Primitive::Transform(Transform::rotation(5.0f32.to_radians())).into()

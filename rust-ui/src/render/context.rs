@@ -1,38 +1,24 @@
-use std::any::TypeId;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
-use crate::event::{EventType, EventContext, WidgetHandler};
-use crate::widget::{StateCell, WidgetId};
+use crate::widget::WidgetId;
 
-pub struct RenderContext<Widget: ?Sized, Renderer, State> {
+#[derive(Debug, Clone)]
+pub struct RenderContext {
     widget_id: WidgetId,
-    _widget: PhantomData<Widget>,
-    _handle: PhantomData<Renderer>,
-    _state: PhantomData<State>,
+    update_sender: Sender<WidgetId>,
 }
 
-impl<Widget, Painter, State> RenderContext<Widget, Painter, State>
-where
-    Widget: 'static,
-    State: 'static,
-{
-    pub fn new(widget_id: WidgetId) -> Self {
+impl RenderContext {
+    pub fn new(widget_id: WidgetId, update_sender: Sender<WidgetId>) -> Self {
         Self {
             widget_id,
-            _widget: PhantomData,
-            _handle: PhantomData,
-            _state: PhantomData,
+            update_sender,
         }
     }
 
-    pub fn use_callback<EventType>(
-        &self,
-        callback: fn(Arc<Widget>, &EventType::Event, StateCell<State>, EventContext),
-    ) -> WidgetHandler<EventType::Event, Widget, State>
-    where
-        EventType: self::EventType + 'static,
-    {
-        WidgetHandler::new(TypeId::of::<EventType>(), self.widget_id, callback)
+    pub fn request_update(&self) {
+        self.update_sender.send(self.widget_id).unwrap();
     }
 }
+
+unsafe impl Sync for RenderContext {}

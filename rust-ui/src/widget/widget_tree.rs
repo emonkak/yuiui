@@ -34,7 +34,7 @@ impl<Renderer> WidgetPod<Renderer> {
     #[inline]
     pub fn new<Widget>(widget: Widget, children: impl Into<Children<Renderer>>) -> Self
     where
-        Widget: self::Widget<Renderer> + Send + Sync + 'static,
+        Widget: self::Widget<Renderer> + Send + 'static,
         Widget::State: 'static,
     {
         Self {
@@ -48,10 +48,10 @@ impl<Renderer> WidgetPod<Renderer> {
     #[inline]
     pub fn should_update(&self, element: &Element<Renderer>) -> bool {
         self.widget.should_update(
-            &*element.widget,
             &self.children,
-            &element.children,
             self.state.clone(),
+            &*element.widget,
+            &element.children,
         )
     }
 
