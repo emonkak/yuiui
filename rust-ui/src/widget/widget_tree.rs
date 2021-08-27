@@ -3,8 +3,11 @@ use std::sync::{Arc, Mutex};
 use crate::support::tree::{Link, NodeId, Tree};
 
 use super::element::{Children, Element, Key};
+use super::null::Null;
 use super::state::State;
 use super::widget::{PolymophicWidget, Widget};
+
+pub type WidgetId = NodeId;
 
 pub type WidgetTree<Renderer> = Tree<WidgetPod<Renderer>>;
 
@@ -20,11 +23,11 @@ pub struct WidgetPod<Renderer> {
 
 #[derive(Debug)]
 pub enum WidgetTreePatch<Renderer> {
-    Append(NodeId, WidgetPod<Renderer>),
-    Insert(NodeId, WidgetPod<Renderer>),
-    Update(NodeId, Element<Renderer>),
-    Placement(NodeId, NodeId),
-    Remove(NodeId),
+    Append(WidgetId, WidgetPod<Renderer>),
+    Insert(WidgetId, WidgetPod<Renderer>),
+    Update(WidgetId, Element<Renderer>),
+    Placement(WidgetId, WidgetId),
+    Remove(WidgetId),
 }
 
 impl<Renderer> WidgetPod<Renderer> {
@@ -82,4 +85,10 @@ impl<Renderer> Clone for WidgetPod<Renderer> {
             state: Arc::clone(&self.state),
         }
     }
+}
+
+pub fn create_widget_tree<Renderer>() -> (WidgetTree<Renderer>, WidgetId) {
+    let mut tree = Tree::new();
+    let root_id = tree.attach(WidgetPod::new(Null, Vec::new()));
+    (tree, root_id)
 }

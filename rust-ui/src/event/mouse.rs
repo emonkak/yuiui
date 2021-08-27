@@ -1,7 +1,7 @@
 use crate::geometrics::Point;
 use crate::support::bit_flags::BitFlags;
 
-use super::EventType;
+use super::event::EventType;
 
 #[derive(Debug)]
 pub struct MouseEvent {

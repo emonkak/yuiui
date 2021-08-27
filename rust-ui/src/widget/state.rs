@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Weak, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 #[derive(Debug, Clone)]
 pub struct StateCell<T> {

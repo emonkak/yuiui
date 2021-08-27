@@ -3,11 +3,10 @@ use rust_ui_derive::WidgetMeta;
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
-use crate::support::tree::NodeId;
 
 use super::state::StateCell;
 use super::widget::{PolymophicWidget, Widget, WidgetMeta};
-use super::widget_tree::WidgetTree;
+use super::widget_tree::{WidgetId, WidgetTree};
 
 #[derive(WidgetMeta)]
 pub struct Flex {
@@ -65,9 +64,9 @@ impl<Renderer> Widget<Renderer> for Flex {
 
     fn layout<'a>(
         &'a self,
-        node_id: NodeId,
+        widget_id: WidgetId,
+        widget_tree: &'a WidgetTree<Renderer>,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Renderer>,
         _state: StateCell<Self::State>,
         _renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
@@ -76,8 +75,8 @@ impl<Renderer> Widget<Renderer> for Flex {
             let mut total_non_flex = 0.0;
             let mut minor = self.direction.minor(&box_constraints.min);
 
-            let children = tree
-                .children(node_id)
+            let children = widget_tree
+                .children(widget_id)
                 .map(|(child_id, child)| (child_id, get_params(&*child.widget)))
                 .collect::<Vec<_>>();
 

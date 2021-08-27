@@ -2,13 +2,11 @@ use std::any::TypeId;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::event::handler::{EventContext, WidgetHandler};
-use crate::event::EventType;
-use crate::support::tree::NodeId;
-use crate::widget::StateCell;
+use crate::event::{EventType, EventContext, WidgetHandler};
+use crate::widget::{StateCell, WidgetId};
 
 pub struct RenderContext<Widget: ?Sized, Renderer, State> {
-    node_id: NodeId,
+    widget_id: WidgetId,
     _widget: PhantomData<Widget>,
     _handle: PhantomData<Renderer>,
     _state: PhantomData<State>,
@@ -19,9 +17,9 @@ where
     Widget: 'static,
     State: 'static,
 {
-    pub fn new(node_id: NodeId) -> Self {
+    pub fn new(widget_id: WidgetId) -> Self {
         Self {
-            node_id: node_id,
+            widget_id,
             _widget: PhantomData,
             _handle: PhantomData,
             _state: PhantomData,
@@ -30,11 +28,11 @@ where
 
     pub fn use_callback<EventType>(
         &self,
-        callback: fn(Arc<Widget>, &EventType::Event, StateCell<State>, &mut EventContext),
+        callback: fn(Arc<Widget>, &EventType::Event, StateCell<State>, EventContext),
     ) -> WidgetHandler<EventType::Event, Widget, State>
     where
         EventType: self::EventType + 'static,
     {
-        WidgetHandler::new(TypeId::of::<EventType>(), self.node_id, callback)
+        WidgetHandler::new(TypeId::of::<EventType>(), self.widget_id, callback)
     }
 }

@@ -50,9 +50,9 @@ impl<Renderer> Widget<Renderer> for Subscriber<Renderer> {
     }
 
     #[inline]
-    fn on_lifecycle(
-        &self,
-        lifecycle: Lifecycle<&Self, &Children<Renderer>>,
+    fn lifecycle(
+        self: Arc<Self>,
+        lifecycle: Lifecycle<Arc<Self>, Children<Renderer>>,
         state: StateCell<Self::State>,
         _renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,

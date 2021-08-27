@@ -9,7 +9,7 @@ use std::ptr;
 use std::sync::Arc;
 use x11::xlib;
 
-use rust_ui::event::handler::EventContext;
+use rust_ui::event::EventContext;
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
 use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
 use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Transform, Viewport};
@@ -34,7 +34,12 @@ struct App {
 }
 
 impl App {
-    fn on_click(self: Arc<Self>, _event: &MouseEvent, state: StateCell<usize>, context: &mut EventContext) {
+    fn on_click(
+        self: Arc<Self>,
+        _event: &MouseEvent,
+        state: StateCell<usize>,
+        context: EventContext,
+    ) {
         {
             let mut state = state.borrow();
             *state = *state + 1;
@@ -147,7 +152,9 @@ fn main() {
     window.show();
 
     let app = App {
-        message: "QSとはQuality Startの略であり、1985年にスポーツライターJohn Loweにより提唱された。".to_string()
+        message:
+            "QSとはQuality Startの略であり、1985年にスポーツライターJohn Loweにより提唱された。"
+                .to_string(),
     };
 
     match env::var("RENDERER") {

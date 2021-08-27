@@ -12,4 +12,6 @@ mod widget_tree;
 
 pub use state::StateCell;
 pub use widget::{downcast_widget, PolymophicWidget, Widget, WidgetMeta, WithKey};
-pub use widget_tree::{WidgetNode, WidgetPod, WidgetTree, WidgetTreePatch};
+pub use widget_tree::{
+    create_widget_tree, WidgetId, WidgetNode, WidgetPod, WidgetTree, WidgetTreePatch,
+};

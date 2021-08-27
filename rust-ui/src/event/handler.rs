@@ -1,39 +1,40 @@
 use std::any::{Any, TypeId};
-use std::sync::mpsc::Sender;
+use std::fmt;
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
-use crate::support::tree::NodeId;
-use crate::widget::{downcast_widget, StateCell, WidgetPod, WidgetTree};
+use crate::widget::{downcast_widget, StateCell, WidgetId, WidgetPod, WidgetTree};
 
-use super::EventHandler;
+#[derive(Clone, Debug)]
+pub struct EventContext {
+    widget_id: WidgetId,
+    update_notifier: Sender<WidgetId>,
+}
 
 pub struct WidgetHandler<Event, Widget, State> {
     type_id: TypeId,
-    node_id: NodeId,
-    callback: fn(Arc<Widget>, &Event, StateCell<State>, &mut EventContext),
+    widget_id: WidgetId,
+    callback: fn(Arc<Widget>, &Event, StateCell<State>, EventContext),
 }
 
-pub struct EventContext<'a> {
-    node_id: NodeId,
-    update_notifier: &'a Sender<NodeId>,
+pub trait EventHandler<Renderer>: Send + Sync {
+    fn dispatch(
+        &self,
+        tree: &WidgetTree<Renderer>,
+        event: &Box<dyn Any>,
+        update_notifier: &Sender<WidgetId>,
+    );
+
+    fn subscribed_type(&self) -> TypeId;
+
+    fn as_ptr(&self) -> *const ();
 }
 
-impl<Event, Widget, State> WidgetHandler<Event, Widget, State>
-where
-    Event: 'static,
-    Widget: 'static,
-    State: 'static,
-{
-    pub fn new(
-        type_id: TypeId,
-        node_id: NodeId,
-        callback: fn(Arc<Widget>, &Event, StateCell<State>, &mut EventContext),
-    ) -> Self {
-        Self {
-            type_id,
-            node_id,
-            callback,
-        }
+pub type HandlerId = usize;
+
+impl EventContext {
+    pub fn notify_changes(&self) {
+        self.update_notifier.send(self.widget_id).unwrap();
     }
 }
 
@@ -47,16 +48,16 @@ where
         &self,
         tree: &WidgetTree<Renderer>,
         event: &Box<dyn Any>,
-        update_notifier: &Sender<NodeId>,
+        update_notifier: &Sender<WidgetId>,
     ) {
-        let WidgetPod { widget, state, .. } = &*tree[self.node_id];
+        let WidgetPod { widget, state, .. } = &*tree[self.widget_id];
         (self.callback)(
-            downcast_widget(widget.clone()).unwrap(),
+            downcast_widget(widget.clone()),
             event.downcast_ref::<Event>().unwrap(),
             StateCell::new(state.clone()),
-            &mut EventContext {
-                node_id: self.node_id,
-                update_notifier,
+            EventContext {
+                widget_id: self.widget_id,
+                update_notifier: update_notifier.clone(),
             },
         )
     }
@@ -70,8 +71,38 @@ where
     }
 }
 
-impl<'a> EventContext<'a> {
-    pub fn notify_changes(&self) {
-        self.update_notifier.send(self.node_id).unwrap();
+impl<Renderer> PartialEq for dyn EventHandler<Renderer> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ptr() == other.as_ptr()
+    }
+}
+
+impl<Renderer> Eq for dyn EventHandler<Renderer> {}
+
+impl<Renderer> fmt::Debug for dyn EventHandler<Renderer> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter
+            .debug_tuple("EventHandler")
+            .field(&self.as_ptr())
+            .finish()
+    }
+}
+
+impl<Event, Widget, State> WidgetHandler<Event, Widget, State>
+where
+    Event: 'static,
+    Widget: 'static,
+    State: 'static,
+{
+    pub fn new(
+        type_id: TypeId,
+        widget_id: WidgetId,
+        callback: fn(Arc<Widget>, &Event, StateCell<State>, EventContext),
+    ) -> Self {
+        Self {
+            type_id,
+            widget_id,
+            callback,
+        }
     }
 }

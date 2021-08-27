@@ -3,11 +3,10 @@ use rust_ui_derive::WidgetMeta;
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
-use crate::support::tree::NodeId;
 
 use super::state::StateCell;
 use super::widget::{Widget, WidgetMeta};
-use super::widget_tree::WidgetTree;
+use super::widget_tree::{WidgetId, WidgetTree};
 
 #[derive(WidgetMeta)]
 pub struct Padding {
@@ -33,16 +32,16 @@ impl<Renderer> Widget<Renderer> for Padding {
 
     fn layout<'a>(
         &'a self,
-        node_id: NodeId,
+        widget_id: WidgetId,
+        widget_tree: &'a WidgetTree<Renderer>,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Renderer>,
         _state: StateCell<Self::State>,
         _renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
-            let child_id = tree[node_id]
+            let child_id = widget_tree[widget_id]
                 .first_child()
-                .filter(|&child| tree[child].next_sibling().is_none())
+                .filter(|&child| widget_tree[child].next_sibling().is_none())
                 .expect("Padding expected to receive a single element child.");
             let child_box_constraints = BoxConstraints {
                 min: Size {

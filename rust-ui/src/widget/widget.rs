@@ -7,11 +7,10 @@ use crate::graphics::Primitive;
 use crate::paint::{BoxConstraints, LayoutRequest, Lifecycle, PaintContext};
 use crate::render::RenderContext;
 use crate::support::generator::Generator;
-use crate::support::tree::NodeId;
 
 use super::element::{Children, Element, IntoElement, Key};
 use super::state::{State, StateCell};
-use super::widget_tree::WidgetTree;
+use super::widget_tree::{WidgetId, WidgetTree};
 
 pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     type State: Default + Send + Sync;
@@ -28,16 +27,6 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     }
 
     #[inline]
-    fn on_lifecycle(
-        &self,
-        _lifecycle: Lifecycle<&Self, &Children<Renderer>>,
-        _state: StateCell<Self::State>,
-        _renderer: &mut Renderer,
-        _context: &mut PaintContext<Renderer>,
-    ) {
-    }
-
-    #[inline]
     fn render(
         &self,
         children: Children<Renderer>,
@@ -48,16 +37,26 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     }
 
     #[inline]
+    fn lifecycle(
+        self: Arc<Self>,
+        _lifecycle: Lifecycle<Arc<Self>, Children<Renderer>>,
+        _state: StateCell<Self::State>,
+        _renderer: &mut Renderer,
+        _context: &mut PaintContext<Renderer>,
+    ) {
+    }
+
+    #[inline]
     fn layout<'a>(
         &'a self,
-        node_id: NodeId,
+        widget_id: WidgetId,
+        widget_tree: &'a WidgetTree<Renderer>,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Renderer>,
         _state: StateCell<Self::State>,
         _renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
-            if let Some(child_id) = tree[node_id].first_child() {
+            if let Some(child_id) = widget_tree[widget_id].first_child() {
                 co.suspend(LayoutRequest::LayoutChild(child_id, box_constraints))
                     .await
             } else {
@@ -89,26 +88,26 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
         state: Arc<State>,
     ) -> bool;
 
-    fn on_lifecycle(
+    fn render(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
+        children: Children<Renderer>,
+        state: Arc<State>,
+        widget_id: WidgetId,
+    ) -> Children<Renderer>;
+
+    fn lifecycle(
+        self: Arc<Self>,
+        lifecycle: Lifecycle<Arc<dyn PolymophicWidget<Renderer>>, Children<Renderer>>,
         state: Arc<State>,
         renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
     );
 
-    fn render(
-        &self,
-        children: Children<Renderer>,
-        state: Arc<State>,
-        node_id: NodeId,
-    ) -> Children<Renderer>;
-
     fn layout<'a>(
         &'a self,
-        node_id: NodeId,
+        widget_id: WidgetId,
+        widget_tree: &'a WidgetTree<Renderer>,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Renderer>,
         state: Arc<State>,
         renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size>;
@@ -157,8 +156,7 @@ where
 {
     #[inline]
     fn initial_state(&self) -> Box<dyn Any + Send + Sync> {
-        let initial_state: Widget::State = Default::default();
-        Box::new(initial_state)
+        Box::new(Widget::State::default())
     }
 
     #[inline]
@@ -178,15 +176,29 @@ where
     }
 
     #[inline]
-    fn on_lifecycle(
+    fn render(
         &self,
-        lifecycle: Lifecycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
+        children: Children<Renderer>,
+        state: Arc<State>,
+        widget_id: WidgetId,
+    ) -> Children<Renderer> {
+        self.render(
+            children,
+            StateCell::new(state),
+            &mut RenderContext::new(widget_id),
+        )
+    }
+
+    #[inline]
+    fn lifecycle(
+        self: Arc<Self>,
+        lifecycle: Lifecycle<Arc<dyn PolymophicWidget<Renderer>>, Children<Renderer>>,
         state: Arc<State>,
         renderer: &mut Renderer,
         context: &mut PaintContext<Renderer>,
     ) {
-        self.on_lifecycle(
-            lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
+        self.lifecycle(
+            lifecycle.map(downcast_widget),
             StateCell::new(state),
             renderer,
             context,
@@ -194,32 +206,18 @@ where
     }
 
     #[inline]
-    fn render(
-        &self,
-        children: Children<Renderer>,
-        state: Arc<State>,
-        node_id: NodeId,
-    ) -> Children<Renderer> {
-        self.render(
-            children,
-            StateCell::new(state),
-            &mut RenderContext::new(node_id),
-        )
-    }
-
-    #[inline]
     fn layout<'a>(
         &'a self,
-        node_id: NodeId,
+        widget_id: WidgetId,
+        widget_tree: &'a WidgetTree<Renderer>,
         box_constraints: BoxConstraints,
-        tree: &'a WidgetTree<Renderer>,
         state: Arc<State>,
         renderer: &mut Renderer,
     ) -> Generator<LayoutRequest, Size, Size> {
         self.layout(
-            node_id,
+            widget_id,
+            widget_tree,
             box_constraints,
-            tree,
             StateCell::new(state),
             renderer,
         )
@@ -272,17 +270,14 @@ where
 
 pub fn downcast_widget<Widget, Renderer>(
     widget: Arc<dyn PolymophicWidget<Renderer>>,
-) -> Option<Arc<Widget>>
+) -> Arc<Widget>
 where
     Widget: 'static,
 {
-    if widget.as_any().is::<Widget>() {
-        unsafe {
-            let ptr = Arc::into_raw(widget.clone()).cast::<Widget>();
-            Some(Arc::from_raw(ptr))
-        }
-    } else {
-        None
+    assert!(widget.as_any().is::<Widget>());
+    unsafe {
+        let ptr = Arc::into_raw(widget).cast::<Widget>();
+        Arc::from_raw(ptr)
     }
 }
 
