@@ -1,5 +1,4 @@
 use rust_ui_derive::WidgetMeta;
-use std::sync::Arc;
 
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
@@ -7,7 +6,6 @@ use crate::paint::PaintContext;
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
 use super::element::Children;
-use super::state::StateCell;
 use super::widget::{Widget, WidgetMeta};
 
 #[derive(PartialEq, WidgetMeta)]
@@ -26,7 +24,7 @@ impl<Renderer> Widget<Renderer> for Text {
     fn should_update(
         &self,
         _children: &Children<Renderer>,
-        _state: StateCell<Self::State>,
+        _state: &Self::State,
         new_widget: &Self,
         _new_children: &Children<Renderer>,
     ) -> bool {
@@ -34,9 +32,9 @@ impl<Renderer> Widget<Renderer> for Text {
     }
 
     fn draw(
-        self: Arc<Self>,
-        _children: Children<Renderer>,
-        _state: StateCell<Self::State>,
+        &self,
+        _children: &Children<Renderer>,
+        _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut PaintContext,

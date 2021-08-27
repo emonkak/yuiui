@@ -82,7 +82,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                paint_tree.dispatch(&window_event);
+                paint_tree.dispatch_event(&window_event);
             }
             _ => {}
         }

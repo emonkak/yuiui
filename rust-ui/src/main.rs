@@ -10,6 +10,7 @@ use std::sync::Arc;
 use x11::xlib;
 
 use rust_ui::event::mouse::{MouseDown, MouseEvent};
+use rust_ui::event::EventContext;
 use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
 use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Transform, Viewport};
 use rust_ui::paint::PaintContext;
@@ -23,9 +24,8 @@ use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
 use rust_ui::widget::padding::Padding;
-use rust_ui::widget::subscriber::Subscriber;
 use rust_ui::widget::text::Text;
-use rust_ui::widget::{StateCell, Widget, WidgetMeta};
+use rust_ui::widget::{Widget, WidgetMeta};
 
 #[derive(Debug)]
 struct App {
@@ -33,16 +33,14 @@ struct App {
 }
 
 impl App {
-    fn on_click(
-        self: &Arc<App>,
+    fn on_click<Renderer>(
+        self: Arc<App>,
+        _children: Children<Renderer>,
+        state: &mut usize,
         _event: &MouseEvent,
-        state: &StateCell<usize>,
-        context: &RenderContext,
+        context: EventContext,
     ) {
-        {
-            let mut state = state.borrow();
-            *state = *state + 1;
-        }
+        *state = *state + 1;
 
         context.request_update();
     }
@@ -52,52 +50,47 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
 
     fn render(
-        self: Arc<Self>,
-        _children: Children<Renderer>,
-        state: StateCell<Self::State>,
-        context: RenderContext,
+        &self,
+        _children: &Children<Renderer>,
+        state: &Self::State,
+        context: &mut RenderContext<Self, Renderer>,
     ) -> Children<Renderer> {
-        let self_clone = self.clone();
-        let state_clone = state.clone();
+        context.use_listener(MouseDown, Self::on_click);
         element!(
-            Subscriber::new().on(MouseDown, move |event| {
-                self_clone.on_click(event, &state_clone, &context);
-            }) => {
-                Padding::uniform(32.0) => {
-                    Flex::column() => {
-                        if *state.borrow() % 2 == 0 {
-                            None
-                        } else {
-                            Some(element!(FlexItem::new(1.0).with_key(1) => {
-                                Padding::uniform(16.0) => Fill::new(Color {
-                                    r: 1.0,
-                                    g: 0.0,
-                                    b: 0.0,
-                                    a: 1.0,
-                                })
-                            }))
-                        },
-                        FlexItem::new(1.0).with_key(2) => {
+            Padding::uniform(32.0) => {
+                Flex::column() => {
+                    if *state % 2 == 0 {
+                        None
+                    } else {
+                        Some(element!(FlexItem::new(1.0).with_key(1) => {
                             Padding::uniform(16.0) => Fill::new(Color {
-                                r: 0.0,
-                                g: 1.0,
+                                r: 1.0,
+                                g: 0.0,
                                 b: 0.0,
                                 a: 1.0,
                             })
-                        }
-                        FlexItem::new(1.0).with_key(3) => {
-                            Padding::uniform(16.0) => Text {
-                                content: self.message.clone(),
-                                color: Color::BLACK,
-                                font: FontDescriptor {
-                                    family: FontFamily::SansSerif,
-                                    weight: FontWeight::BOLD,
-                                    ..FontDescriptor::default()
-                                },
-                                font_size: 16.0,
-                                horizontal_align: HorizontalAlign::Center,
-                                vertical_align: VerticalAlign::Middle,
-                            }
+                        }))
+                    },
+                    FlexItem::new(1.0).with_key(2) => {
+                        Padding::uniform(16.0) => Fill::new(Color {
+                            r: 0.0,
+                            g: 1.0,
+                            b: 0.0,
+                            a: 1.0,
+                        })
+                    }
+                    FlexItem::new(1.0).with_key(3) => {
+                        Padding::uniform(16.0) => Text {
+                            content: self.message.clone(),
+                            color: Color::BLACK,
+                            font: FontDescriptor {
+                                family: FontFamily::SansSerif,
+                                weight: FontWeight::BOLD,
+                                ..FontDescriptor::default()
+                            },
+                            font_size: 16.0,
+                            horizontal_align: HorizontalAlign::Center,
+                            vertical_align: VerticalAlign::Middle,
                         }
                     }
                 }
@@ -107,14 +100,14 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     }
 
     fn draw(
-        self: Arc<Self>,
-        _children: Children<Renderer>,
-        state: StateCell<Self::State>,
+        &self,
+        _children: &Children<Renderer>,
+        state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut PaintContext,
     ) -> Option<Primitive> {
-        if (*state.borrow() + 1) % 3 == 0 {
+        if (*state + 1) % 3 == 0 {
             Primitive::Transform(Transform::rotation(5.0f32.to_radians())).into()
         } else {
             None

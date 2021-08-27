@@ -1,11 +1,11 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use crate::support::tree::{Link, NodeId, Tree};
 
+use super::effect::Effect;
 use super::element::{Children, Element, Key};
 use super::null::Null;
-use super::state::State;
-use super::widget::{PolymophicWidget, Widget};
+use super::widget::{PolymophicWidget, Widget, StateHolder};
 
 pub type WidgetId = NodeId;
 
@@ -18,16 +18,17 @@ pub struct WidgetPod<Renderer> {
     pub widget: Arc<dyn PolymophicWidget<Renderer>>,
     pub children: Children<Renderer>,
     pub key: Option<Key>,
-    pub state: Arc<State>,
+    pub state: StateHolder,
 }
 
 #[derive(Debug)]
-pub enum WidgetTreePatch<Renderer> {
+pub enum WidgetPatch<Renderer> {
     Append(WidgetId, WidgetPod<Renderer>),
     Insert(WidgetId, WidgetPod<Renderer>),
     Update(WidgetId, Element<Renderer>),
-    Placement(WidgetId, WidgetId),
+    Move(WidgetId, WidgetId),
     Remove(WidgetId),
+    Effect(WidgetId, Vec<Effect<Renderer>>),
 }
 
 impl<Renderer> WidgetPod<Renderer> {
@@ -38,7 +39,7 @@ impl<Renderer> WidgetPod<Renderer> {
         Widget::State: 'static,
     {
         Self {
-            state: Arc::new(Mutex::new(Box::new(Widget::State::default()))),
+            state: Arc::new(RwLock::new(Box::new(Widget::State::default()))),
             widget: Arc::new(widget),
             children: children.into(),
             key: None,
@@ -49,7 +50,7 @@ impl<Renderer> WidgetPod<Renderer> {
     pub fn should_update(&self, element: &Element<Renderer>) -> bool {
         self.widget.should_update(
             &self.children,
-            self.state.clone(),
+            &self.state,
             &*element.widget,
             &element.children,
         )
@@ -67,7 +68,7 @@ impl<Renderer> From<Element<Renderer>> for WidgetPod<Renderer> {
     #[inline]
     fn from(element: Element<Renderer>) -> Self {
         Self {
-            state: Arc::new(Mutex::new(element.widget.initial_state())),
+            state: Arc::new(RwLock::new(element.widget.initial_state())),
             widget: element.widget,
             children: element.children,
             key: element.key,
@@ -79,10 +80,10 @@ impl<Renderer> Clone for WidgetPod<Renderer> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
-            widget: Arc::clone(&self.widget),
-            children: Arc::clone(&self.children),
+            widget: self.widget.clone(),
+            children: self.children.clone(),
             key: self.key,
-            state: Arc::clone(&self.state),
+            state: self.state.clone(),
         }
     }
 }

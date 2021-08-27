@@ -1,12 +1,10 @@
 use rust_ui_derive::WidgetMeta;
-use std::sync::Arc;
 
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 
 use super::element::Children;
-use super::state::StateCell;
 use super::widget::{Widget, WidgetMeta};
 use super::widget_tree::{WidgetId, WidgetTree};
 
@@ -33,9 +31,9 @@ impl<Renderer> Widget<Renderer> for Padding {
     type State = ();
 
     fn layout<'a>(
-        self: Arc<Self>,
-        _children: Children<Renderer>,
-        _state: StateCell<Self::State>,
+        &'a self,
+        _children: &Children<Renderer>,
+        _state: &mut Self::State,
         box_constraints: BoxConstraints,
         widget_id: WidgetId,
         widget_tree: &'a WidgetTree<Renderer>,
