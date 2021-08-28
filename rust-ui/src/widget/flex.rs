@@ -1,12 +1,11 @@
 use rust_ui_derive::WidgetMeta;
 
 use crate::geometrics::{Point, Size};
-use crate::paint::{BoxConstraints, LayoutRequest};
+use crate::paint::{BoxConstraints, LayoutRequest, PaintContext};
 use crate::support::generator::{Coroutine, Generator};
 
-use super::element::Children;
+use super::element::{Children, ElementId, ElementTree};
 use super::widget::{PolymophicWidget, Widget, WidgetMeta};
-use super::widget_tree::{WidgetId, WidgetTree};
 
 #[derive(WidgetMeta)]
 pub struct Flex {
@@ -61,23 +60,26 @@ impl Flex {
 
 impl<Renderer> Widget<Renderer> for Flex {
     type State = ();
+    type Message = ();
+    type PaintObject = ();
 
     fn layout<'a>(
         &'a self,
         _children: &Children<Renderer>,
-        _state: &mut Self::State,
+        _paint_object: &mut Self::PaintObject,
         box_constraints: BoxConstraints,
-        widget_id: WidgetId,
-        widget_tree: &'a WidgetTree<Renderer>,
+        element_id: ElementId,
+        element_tree: &'a ElementTree<Renderer>,
         _renderer: &mut Renderer,
+        _context: &mut PaintContext,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
             let mut total_non_flex = 0.0;
             let mut minor = self.direction.minor(&box_constraints.min);
 
-            let children = widget_tree
-                .children(widget_id)
+            let children = element_tree
+                .children(element_id)
                 .map(|(child_id, child)| (child_id, get_params(&*child.widget)))
                 .collect::<Vec<_>>();
 
@@ -136,6 +138,8 @@ impl FlexItem {
 
 impl<Renderer> Widget<Renderer> for FlexItem {
     type State = ();
+    type Message = ();
+    type PaintObject = ();
 }
 
 impl Axis {

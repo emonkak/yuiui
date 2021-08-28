@@ -2,6 +2,9 @@ use std::array;
 use std::fmt;
 use std::sync::Arc;
 
+use crate::support::tree::{Link, NodeId, Tree};
+
+use super::null::Null;
 use super::widget::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(Debug)]
@@ -18,6 +21,21 @@ pub enum Child<Renderer> {
     None,
 }
 
+#[derive(Debug)]
+pub enum Patch<Renderer> {
+    Append(ElementId, Element<Renderer>),
+    Insert(ElementId, Element<Renderer>),
+    Update(ElementId, Element<Renderer>),
+    Move(ElementId, ElementId),
+    Remove(ElementId),
+}
+
+pub type ElementId = NodeId;
+
+pub type ElementTree<Renderer> = Tree<Element<Renderer>>;
+
+pub type ElementNode<Renderer> = Link<Element<Renderer>>;
+
 pub type Children<Renderer> = Arc<Vec<Element<Renderer>>>;
 
 pub type Key = usize;
@@ -27,6 +45,24 @@ pub trait IntoElement<Renderer> {
 }
 
 impl<Renderer> Element<Renderer> {
+    pub fn new<Widget>(
+        widget: Widget,
+        children: impl Into<Children<Renderer>>,
+        key: Option<Key>,
+    ) -> Self
+    where
+        Widget: self::Widget<Renderer> + Send + 'static,
+        Widget::State: 'static,
+        Widget::Message: 'static,
+        Widget::PaintObject: 'static,
+    {
+        Self {
+            widget: Arc::new(widget),
+            children: children.into(),
+            key,
+        }
+    }
+
     pub fn build<const N: usize>(
         widget: impl IntoElement<Renderer> + 'static,
         children: [Child<Renderer>; N],
@@ -115,6 +151,8 @@ impl<Renderer, Widget> From<Widget> for Child<Renderer>
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
+    Widget::Message: 'static,
+    Widget::PaintObject: 'static,
 {
     fn from(widget: Widget) -> Self {
         Child::Single(Element {
@@ -123,6 +161,12 @@ where
             key: None,
         })
     }
+}
+
+pub fn create_element_tree<Renderer>() -> (ElementTree<Renderer>, ElementId) {
+    let mut tree = Tree::new();
+    let root_id = tree.attach(Element::new(Null, Vec::new(), None));
+    (tree, root_id)
 }
 
 #[macro_export]

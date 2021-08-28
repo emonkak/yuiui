@@ -1,10 +1,10 @@
 use crate::geometrics::{Point, Size};
-use crate::widget::WidgetId;
+use crate::widget::element::ElementId;
 
 #[derive(Debug)]
 pub enum LayoutRequest {
-    ArrangeChild(WidgetId, Point),
-    LayoutChild(WidgetId, BoxConstraints),
+    ArrangeChild(ElementId, Point),
+    LayoutChild(ElementId, BoxConstraints),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

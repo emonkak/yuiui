@@ -1,40 +1,37 @@
 use std::fmt;
 use std::mem;
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
 
 use crate::event::{EventManager, GenericEvent};
 use crate::geometrics::{Point, Rectangle, Size, Vector};
 use crate::graphics::{Primitive, Renderer};
+use crate::paint::PaintContext;
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::walk::WalkDirection;
-use crate::widget::{
-    create_widget_tree, Effect, EffectContext, EffectFinalizer, WidgetId, WidgetPatch, WidgetPod,
-    WidgetTree,
-};
+use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
+use crate::widget::message::AnyMessage;
+use crate::widget::AnyPaintObject;
 
-use super::context::PaintContext;
 use super::layout::{BoxConstraints, LayoutRequest};
 use super::lifecycle::Lifecycle;
 
 pub struct PaintTree<Renderer> {
-    tree: WidgetTree<Renderer>,
-    root_id: WidgetId,
+    tree: ElementTree<Renderer>,
+    root_id: ElementId,
     paint_states: SlotVec<PaintState<Renderer>>,
-    event_manager: Arc<Mutex<EventManager<Renderer>>>,
-    update_sender: Sender<WidgetId>,
+    message_sender: Sender<(ElementId, AnyMessage)>,
+    event_manager: EventManager,
 }
 
 struct PaintState<Renderer> {
+    paint_object: AnyPaintObject,
     bounds: Rectangle,
     absolute_translation: Vector,
     box_constraints: BoxConstraints,
-    queued_effects: Vec<Effect<Renderer>>,
-    queued_finalizers: Vec<EffectFinalizer>,
-    mounted_pod: Option<WidgetPod<Renderer>>,
-    deleted_nodes: Vec<(WidgetPod<Renderer>, PaintState<Renderer>)>,
+    mounted_element: Option<Element<Renderer>>,
+    deleted_nodes: Vec<(ElementId, Element<Renderer>, PaintState<Renderer>)>,
     flags: BitFlags<PaintFlag>,
     draw_cache: Option<Primitive>,
 }
@@ -44,19 +41,19 @@ enum PaintFlag {
     Dirty = 0b1,
     NeedsLayout = 0b10,
     NeedsPaint = 0b100,
-    NeedsEffect = 0b1000,
+    NeedsLifecycle = 0b1000,
 }
 
 impl<Renderer> PaintTree<Renderer> {
-    pub fn new(viewport_size: Size, update_sender: Sender<WidgetId>) -> Self {
-        let (tree, root_id) = create_widget_tree();
+    pub fn new(viewport_size: Size, message_sender: Sender<(ElementId, AnyMessage)>) -> Self {
+        let (tree, root_id) = create_element_tree();
         let mut paint_states = SlotVec::new();
 
         paint_states.insert_at(
             root_id,
             PaintState {
                 box_constraints: BoxConstraints::tight(viewport_size),
-                ..PaintState::default()
+                ..PaintState::new(Box::new(()))
             },
         );
 
@@ -64,65 +61,64 @@ impl<Renderer> PaintTree<Renderer> {
             tree,
             root_id,
             paint_states,
-            event_manager: Arc::new(Mutex::new(EventManager::new())),
-            update_sender,
+            message_sender,
+            event_manager: EventManager::new(),
         }
     }
 
-    pub fn mark_update_root(&mut self, widget_id: WidgetId) {
-        self.paint_states[widget_id].flags |= [
+    pub fn mark_update_root(&mut self, element_id: ElementId) {
+        self.paint_states[element_id].flags |= [
             PaintFlag::Dirty,
             PaintFlag::NeedsLayout,
             PaintFlag::NeedsPaint,
-            PaintFlag::NeedsEffect,
+            PaintFlag::NeedsLifecycle,
         ];
-        self.mark_parents_as_dirty(widget_id);
+        self.mark_parents_as_dirty(element_id);
     }
 
-    pub fn apply_patch(&mut self, patch: WidgetPatch<Renderer>) {
+    pub fn apply_patch(&mut self, patch: Patch<Renderer>) {
         match patch {
-            WidgetPatch::Append(parent_id, widget_pod) => {
-                let child_id = self.tree.append_child(parent_id, widget_pod);
-                self.paint_states.insert_at(child_id, PaintState::default());
+            Patch::Append(parent_id, element) => {
+                let paint_state = PaintState::new(element.widget.initial_paint_object());
+                let child_id = self.tree.append_child(parent_id, element);
+                self.paint_states.insert_at(child_id, paint_state);
                 self.mark_parents_as_dirty(child_id);
             }
-            WidgetPatch::Insert(ref_id, widget_pod) => {
-                let child_id = self.tree.insert_before(ref_id, widget_pod);
-                self.paint_states.insert_at(child_id, PaintState::default());
+            Patch::Insert(ref_id, element) => {
+                let paint_state = PaintState::new(element.widget.initial_paint_object());
+                let child_id = self.tree.insert_before(ref_id, element);
+                self.paint_states.insert_at(child_id, paint_state);
                 self.mark_parents_as_dirty(child_id);
             }
-            WidgetPatch::Update(target_id, new_element) => {
-                self.tree[target_id].update(new_element);
+            Patch::Update(target_id, new_element) => {
+                *self.tree[target_id] = new_element;
                 let paint_state = &mut self.paint_states[target_id];
                 paint_state.flags |= [
                     PaintFlag::Dirty,
                     PaintFlag::NeedsLayout,
                     PaintFlag::NeedsPaint,
-                    PaintFlag::NeedsEffect,
+                    PaintFlag::NeedsLifecycle,
                 ];
                 self.mark_parents_as_dirty(target_id);
             }
-            WidgetPatch::Move(target_id, ref_id) => {
+            Patch::Move(target_id, ref_id) => {
                 self.tree.move_position(target_id).insert_before(ref_id);
             }
-            WidgetPatch::Remove(target_id) => {
+            Patch::Remove(target_id) => {
                 let (node, subtree) = self.tree.detach(target_id);
                 let mut deleted_nodes = Vec::new();
 
                 for (child_id, child) in subtree {
                     let paint_state = self.paint_states.remove(child_id);
-                    deleted_nodes.push((child.into_inner(), paint_state));
+                    deleted_nodes.push((child_id, child.into_inner(), paint_state));
                 }
 
                 let parent_id = node.parent().expect("root removed");
                 let paint_state = self.paint_states.remove(target_id);
-                deleted_nodes.push((node.into_inner(), paint_state));
+                deleted_nodes.push((target_id, node.into_inner(), paint_state));
 
                 let parent_paint_state = &mut self.paint_states[parent_id];
                 parent_paint_state.deleted_nodes.extend(deleted_nodes);
-            }
-            WidgetPatch::Effect(target_id, effects) => {
-                self.paint_states[target_id].queued_effects.extend(effects)
             }
         }
     }
@@ -131,7 +127,7 @@ impl<Renderer> PaintTree<Renderer> {
         self.layout(self.root_id, BoxConstraints::tight(viewport_size), renderer);
     }
 
-    pub fn layout_subtree(&mut self, target_id: WidgetId, renderer: &mut Renderer) {
+    pub fn layout_subtree(&mut self, target_id: ElementId, renderer: &mut Renderer) {
         let mut current_id = target_id;
         let mut box_constraints = self.paint_states[target_id].box_constraints;
 
@@ -143,33 +139,34 @@ impl<Renderer> PaintTree<Renderer> {
 
     fn layout(
         &mut self,
-        initial_id: WidgetId,
+        initial_id: ElementId,
         initial_box_constraints: BoxConstraints,
         renderer: &mut Renderer,
-    ) -> Option<WidgetId> {
+    ) -> Option<ElementId> {
         let initial_node = &self.tree[initial_id];
 
-        let mut context = (initial_id, initial_box_constraints, {
-            let WidgetPod {
-                widget,
-                children,
-                state,
-                ..
+        let mut layout_context = (initial_id, initial_box_constraints, {
+            let Element {
+                widget, children, ..
             } = &**initial_node;
+            let paint_state = &mut self.paint_states[initial_id];
+            let mut context = PaintContext::new(initial_id, &mut self.event_manager);
+
             widget.layout(
                 children,
-                state,
+                &mut paint_state.paint_object,
                 initial_box_constraints,
                 initial_id,
                 &self.tree,
                 renderer,
+                &mut context,
             )
         });
-        let mut context_stack = Vec::new();
+        let mut layout_stack = Vec::new();
         let mut calculated_size = Size::ZERO;
 
         loop {
-            let (_, _, ref mut layout) = context;
+            let (_, _, ref mut layout) = layout_context;
 
             match layout.resume(calculated_size) {
                 GeneratorState::Yielded(LayoutRequest::LayoutChild(
@@ -180,23 +177,23 @@ impl<Renderer> PaintTree<Renderer> {
                     if paint_state.flags.contains(PaintFlag::NeedsLayout)
                         || paint_state.box_constraints != child_box_constraints
                     {
-                        let WidgetPod {
-                            widget,
-                            children,
-                            state,
-                            ..
+                        let Element {
+                            widget, children, ..
                         } = &*self.tree[child_id];
-                        context_stack.push(context);
-                        context = (
+                        let paint_state = &mut self.paint_states[child_id];
+                        let mut context = PaintContext::new(initial_id, &mut self.event_manager);
+                        layout_stack.push(layout_context);
+                        layout_context = (
                             child_id,
                             child_box_constraints,
                             widget.layout(
                                 children,
-                                state,
+                                &mut paint_state.paint_object,
                                 child_box_constraints,
                                 child_id,
                                 &self.tree,
                                 renderer,
+                                &mut context,
                             ),
                         );
                     } else {
@@ -210,9 +207,9 @@ impl<Renderer> PaintTree<Renderer> {
                     calculated_size = paint_state.bounds.size();
                 }
                 GeneratorState::Complete(size) => {
-                    let (widget_id, box_constraints, _) = context;
+                    let (element_id, box_constraints, _) = layout_context;
 
-                    let mut paint_state = &mut self.paint_states[widget_id];
+                    let mut paint_state = &mut self.paint_states[element_id];
                     paint_state.box_constraints = box_constraints;
                     paint_state.flags -= PaintFlag::NeedsLayout;
 
@@ -223,8 +220,8 @@ impl<Renderer> PaintTree<Renderer> {
                         paint_state.flags |= [PaintFlag::Dirty, PaintFlag::NeedsPaint];
                     }
 
-                    if let Some(next_context) = context_stack.pop() {
-                        context = next_context;
+                    if let Some(next_layout_context) = layout_stack.pop() {
+                        layout_context = next_layout_context;
                         calculated_size = size;
                     } else {
                         return if size_changed {
@@ -248,39 +245,39 @@ impl<Renderer> PaintTree<Renderer> {
         let mut latest_point = Point::ZERO;
         let mut depth = 0;
 
-        while let Some((widget_id, node, direction)) = tree_walker.next_match(|widget_id, _| {
-            self.paint_states[widget_id]
+        while let Some((element_id, node, direction)) = tree_walker.next_match(|element_id, _| {
+            self.paint_states[element_id]
                 .flags
                 .contains(PaintFlag::Dirty)
         }) {
-            let paint_state = &mut self.paint_states[widget_id];
+            let paint_state = &mut self.paint_states[element_id];
             let bounds = paint_state.bounds;
 
             let draw_phase;
-            let effect_phase;
+            let lifecycle_phase;
 
             match direction {
                 WalkDirection::Downward => {
                     absolute_translation = absolute_translation + latest_point.into();
                     depth += 1;
                     draw_phase = true;
-                    effect_phase = !node.has_child();
+                    lifecycle_phase = !node.has_child();
                 }
                 WalkDirection::Sideward => {
                     draw_phase = false;
-                    effect_phase = !node.has_child();
+                    lifecycle_phase = !node.has_child();
                 }
                 WalkDirection::Upward => {
                     absolute_translation = absolute_translation - bounds.point().into();
                     depth -= 1;
                     draw_phase = false;
-                    effect_phase = true;
+                    lifecycle_phase = true;
                 }
             }
 
             latest_point = bounds.point();
 
-            if !draw_phase && !effect_phase {
+            if !draw_phase && !lifecycle_phase {
                 continue;
             }
 
@@ -291,19 +288,21 @@ impl<Renderer> PaintTree<Renderer> {
                 continue;
             }
 
-            let mut context = PaintContext::new(widget_id, self.update_sender.clone());
+            let mut context = PaintContext::new(element_id, &mut self.event_manager);
 
             if draw_phase {
-                let WidgetPod {
-                    widget,
-                    children,
-                    state,
-                    ..
+                let Element {
+                    widget, children, ..
                 } = &**node;
                 let absolute_bounds = bounds.translate(absolute_translation);
 
-                let draw_result =
-                    widget.draw(children, state, absolute_bounds, renderer, &mut context);
+                let draw_result = widget.draw(
+                    children,
+                    &mut paint_state.paint_object,
+                    absolute_bounds,
+                    renderer,
+                    &mut context,
+                );
 
                 if let Some(primitive) = &draw_result {
                     renderer.update_pipeline(pipeline, primitive, depth);
@@ -313,75 +312,48 @@ impl<Renderer> PaintTree<Renderer> {
                 paint_state.draw_cache = draw_result;
             }
 
-            if effect_phase {
-                for (WidgetPod {
-                    widget,
-                    state,
-                    children,
-                    ..
-                }, paint_state) in mem::take(&mut paint_state.deleted_nodes)
+            if lifecycle_phase {
+                if paint_state.flags.contains(PaintFlag::NeedsLifecycle) {
+                    let element = &**node;
+                    let Element {
+                        widget, children, ..
+                    } = element;
+                    let lifecycle = if let Some(old_element) = paint_state.mounted_element.take() {
+                        Lifecycle::DidUpdate(old_element.widget, old_element.children)
+                    } else {
+                        Lifecycle::DidMount()
+                    };
+
+                    widget.lifecycle(
+                        children,
+                        &mut paint_state.paint_object,
+                        lifecycle,
+                        renderer,
+                        &mut context,
+                    );
+
+                    paint_state.mounted_element = Some(element.clone());
+                }
+
+                for (
+                    element_id,
+                    Element {
+                        widget, children, ..
+                    },
+                    mut paint_state,
+                ) in mem::take(&mut paint_state.deleted_nodes)
                 {
+                    let mut context = PaintContext::new(element_id, &mut self.event_manager);
                     widget.lifecycle(
                         &children,
-                        &state,
+                        &mut paint_state.paint_object,
                         Lifecycle::DidUnmount(),
                         renderer,
                         &mut context,
                     );
-
-                    for finalizer in paint_state.queued_finalizers {
-                        finalizer();
-                    }
                 }
 
-                let widget_pod = &**node;
-                let WidgetPod {
-                    widget,
-                    state,
-                    children,
-                    ..
-                } = widget_pod;
-                let old_widget_pod = paint_state.mounted_pod.replace(widget_pod.clone());
-
-                if let Some(old_widget_pod) = old_widget_pod {
-                    widget.lifecycle(
-                        children,
-                        state,
-                        Lifecycle::DidUpdate(old_widget_pod.widget, old_widget_pod.children),
-                        renderer,
-                        &mut context,
-                    );
-                } else {
-                    widget.lifecycle(
-                        children,
-                        state,
-                        Lifecycle::DidMount(),
-                        renderer,
-                        &mut context,
-                    );
-                }
-
-                if paint_state.flags.contains(PaintFlag::NeedsEffect) {
-                    for finalizer in mem::take(&mut paint_state.queued_finalizers) {
-                        finalizer();
-                    }
-
-                    if paint_state.queued_effects.len() > 0 {
-                        let context = EffectContext::new(
-                            widget_id,
-                            self.update_sender.clone(),
-                            self.event_manager.clone(),
-                        );
-
-                        for effect in mem::take(&mut paint_state.queued_effects) {
-                            if let Some(finalizer) = effect.apply(&widget, &children, &state, &context) {
-                                paint_state.queued_finalizers.push(finalizer);
-                            }
-                        }
-                    }
-                }
-
-                paint_state.flags -= [PaintFlag::NeedsPaint, PaintFlag::NeedsEffect];
+                paint_state.flags -= [PaintFlag::NeedsPaint, PaintFlag::NeedsLifecycle];
             }
         }
 
@@ -389,13 +361,14 @@ impl<Renderer> PaintTree<Renderer> {
     }
 
     pub fn dispatch_event(&self, event: &GenericEvent) {
-        self.event_manager
-            .lock()
-            .unwrap()
-            .dispatch_event(event, &self.update_sender, &self.tree);
+        let listeners = self.event_manager.get_listeners(event.type_id);
+
+        for (_subscriber_id, listener) in listeners {
+            listener.dispatch(&event.payload, &self.message_sender);
+        }
     }
 
-    fn mark_parents_as_dirty(&mut self, target_id: WidgetId) {
+    fn mark_parents_as_dirty(&mut self, target_id: ElementId) {
         for (parent_id, _) in self.tree.ancestors(target_id) {
             let paint_state = &mut self.paint_states[parent_id];
             if paint_state.flags.contains(PaintFlag::Dirty) {
@@ -411,10 +384,10 @@ impl<Renderer> fmt::Display for PaintTree<Renderer> {
         self.tree.format(
             f,
             self.root_id,
-            |f, widget_id, node| {
-                let paint_state = &self.paint_states[widget_id];
+            |f, element_id, node| {
+                let paint_state = &self.paint_states[element_id];
                 write!(f, "<{}", node.widget.name())?;
-                write!(f, " id=\"{}\"", widget_id)?;
+                write!(f, " id=\"{}\"", element_id)?;
                 if let Some(key) = node.key {
                     write!(f, " key=\"{}\"", key)?;
                 }
@@ -439,21 +412,20 @@ impl<Renderer> fmt::Display for PaintTree<Renderer> {
     }
 }
 
-impl<Renderer> Default for PaintState<Renderer> {
-    fn default() -> Self {
+impl<Renderer> PaintState<Renderer> {
+    fn new(paint_object: AnyPaintObject) -> Self {
         Self {
+            paint_object,
             bounds: Rectangle::ZERO,
             absolute_translation: Vector::ZERO,
             box_constraints: BoxConstraints::LOOSE,
-            mounted_pod: None,
-            queued_effects: Vec::new(),
-            queued_finalizers: Vec::new(),
+            mounted_element: None,
             deleted_nodes: Vec::new(),
             flags: [
                 PaintFlag::Dirty,
                 PaintFlag::NeedsLayout,
                 PaintFlag::NeedsPaint,
-                PaintFlag::NeedsEffect,
+                PaintFlag::NeedsLifecycle,
             ]
             .into(),
             draw_cache: None,

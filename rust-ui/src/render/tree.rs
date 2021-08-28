@@ -4,30 +4,31 @@ use std::mem;
 use std::sync::mpsc::Sender;
 
 use crate::support::slot_vec::SlotVec;
-use crate::widget::element::{Children, Element, Key};
-use crate::widget::null::Null;
-use crate::widget::{
-    create_widget_tree, PolymophicWidget, WidgetId, WidgetPatch, WidgetPod, WidgetTree,
+use crate::widget::element::{
+    create_element_tree, Children, Element, ElementId, ElementTree, Key, Patch,
 };
+use crate::widget::message::AnyMessage;
+use crate::widget::null::Null;
+use crate::widget::{AnyState, PolymophicWidget};
 
-use super::context::RenderContext;
 use super::reconciler::{ReconcileResult, Reconciler};
 
 #[derive(Debug)]
 pub struct RenderTree<Renderer> {
-    tree: WidgetTree<Renderer>,
-    root_id: WidgetId,
+    tree: ElementTree<Renderer>,
+    root_id: ElementId,
     render_states: SlotVec<RenderState<Renderer>>,
-    update_sender: Sender<WidgetId>,
+    message_sender: Sender<(ElementId, AnyMessage)>,
 }
 
 #[derive(Debug)]
 struct RenderState<Renderer> {
-    status: RenderStatus<Renderer>,
+    phase: RenderPhase<Renderer>,
+    state: AnyState,
 }
 
 #[derive(Debug)]
-enum RenderStatus<Renderer> {
+enum RenderPhase<Renderer> {
     Fresh,
     Pending(Element<Renderer>),
     Rendered,
@@ -41,27 +42,27 @@ enum TypedKey {
 }
 
 impl<Renderer> RenderTree<Renderer> {
-    pub fn new(update_sender: Sender<WidgetId>) -> Self {
-        let (tree, root_id) = create_widget_tree();
+    pub fn new(message_sender: Sender<(ElementId, AnyMessage)>) -> Self {
+        let (tree, root_id) = create_element_tree();
         let mut render_states = SlotVec::new();
 
-        render_states.insert_at(root_id, RenderState::default());
+        render_states.insert_at(root_id, RenderState::new(Box::new(())));
 
         Self {
             tree,
             root_id,
             render_states,
-            update_sender,
+            message_sender,
         }
     }
 
     #[inline]
-    pub fn root_id(&self) -> WidgetId {
+    pub fn root_id(&self) -> ElementId {
         self.root_id
     }
 
-    pub fn render(&mut self, element: Element<Renderer>) -> Vec<WidgetPatch<Renderer>> {
-        *self.tree[self.root_id] = WidgetPod::new(Null, vec![element]);
+    pub fn render(&mut self, element: Element<Renderer>) -> Vec<Patch<Renderer>> {
+        *self.tree[self.root_id] = Element::new(Null, vec![element], None);
 
         let mut patches = Vec::new();
         let mut current_id = self.root_id;
@@ -73,12 +74,18 @@ impl<Renderer> RenderTree<Renderer> {
         patches
     }
 
-    pub fn update(&mut self, target_id: WidgetId) -> Vec<WidgetPatch<Renderer>> {
-        let mut patches = Vec::new();
-        let mut current_id = target_id;
+    pub fn update(&mut self, target_id: ElementId, message: AnyMessage) -> Vec<Patch<Renderer>> {
+        let Element { widget, .. } = &*self.tree[target_id];
+        let state = &mut self.render_states[target_id].state;
 
-        while let Some(next_id) = self.render_step(current_id, target_id, &mut patches) {
-            current_id = next_id;
+        let mut patches = Vec::new();
+
+        if widget.update(state, message) {
+            let mut current_id = target_id;
+
+            while let Some(next_id) = self.render_step(current_id, target_id, &mut patches) {
+                current_id = next_id;
+            }
         }
 
         patches
@@ -86,37 +93,26 @@ impl<Renderer> RenderTree<Renderer> {
 
     fn render_step(
         &mut self,
-        target_id: WidgetId,
-        initial_id: WidgetId,
-        patches: &mut Vec<WidgetPatch<Renderer>>,
-    ) -> Option<WidgetId> {
-        let WidgetPod {
-            widget,
-            children,
-            state,
-            ..
+        target_id: ElementId,
+        initial_id: ElementId,
+        patches: &mut Vec<Patch<Renderer>>,
+    ) -> Option<ElementId> {
+        let Element {
+            widget, children, ..
         } = &mut *self.tree[target_id];
+        let render_state = &mut self.render_states[target_id];
 
-        let old_status = mem::replace(
-            &mut self.render_states[target_id].status,
-            RenderStatus::Rendered,
-        );
+        let old_status = mem::replace(&mut render_state.phase, RenderPhase::Rendered);
         match old_status {
-            RenderStatus::Pending(element) => {
+            RenderPhase::Pending(element) => {
                 *widget = element.widget;
                 *children = element.children;
             }
-            RenderStatus::Skipped => unreachable!("Skipped widget"),
-            RenderStatus::Fresh | RenderStatus::Rendered => {}
+            RenderPhase::Skipped => unreachable!("Skipped widget"),
+            RenderPhase::Fresh | RenderPhase::Rendered => {}
         }
 
-        let mut effects = Vec::new();
-        let mut context = RenderContext::new(target_id, &mut effects);
-        let rendered_children = widget.clone().render(children, state, &mut context);
-
-        if !effects.is_empty() {
-            patches.push(WidgetPatch::Effect(target_id, effects))
-        }
+        let rendered_children = widget.render(children, &render_state.state, target_id);
 
         for result in self.reconcile_children(target_id, rendered_children) {
             self.handle_reconcile_result(target_id, result, patches);
@@ -127,16 +123,16 @@ impl<Renderer> RenderTree<Renderer> {
 
     fn reconcile_children(
         &mut self,
-        target_id: WidgetId,
+        target_id: ElementId,
         children: Children<Renderer>,
-    ) -> Reconciler<TypedKey, WidgetId, Element<Renderer>> {
+    ) -> Reconciler<TypedKey, ElementId, Element<Renderer>> {
         let mut old_keys: Vec<TypedKey> = Vec::new();
-        let mut old_widget_ids: Vec<Option<WidgetId>> = Vec::new();
+        let mut old_element_ids: Vec<Option<ElementId>> = Vec::new();
 
         for (index, (child_id, child)) in self.tree.children(target_id).enumerate() {
             let key = TypedKey::new(&*child.widget, index, child.key);
             old_keys.push(key);
-            old_widget_ids.push(Some(child_id));
+            old_element_ids.push(Some(child_id));
         }
 
         let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
@@ -148,51 +144,61 @@ impl<Renderer> RenderTree<Renderer> {
             new_elements.push(Some(element.clone()));
         }
 
-        Reconciler::new(old_keys, old_widget_ids, new_keys, new_elements)
+        Reconciler::new(old_keys, old_element_ids, new_keys, new_elements)
     }
 
     fn handle_reconcile_result(
         &mut self,
-        target_id: WidgetId,
-        result: ReconcileResult<WidgetId, Element<Renderer>>,
-        patches: &mut Vec<WidgetPatch<Renderer>>,
+        target_id: ElementId,
+        result: ReconcileResult<ElementId, Element<Renderer>>,
+        patches: &mut Vec<Patch<Renderer>>,
     ) {
         match result {
             ReconcileResult::New(new_element) => {
-                let widget_pod = WidgetPod::from(new_element);
-                let widget_id = self.tree.append_child(target_id, widget_pod.clone());
-                self.render_states
-                    .insert_at(widget_id, RenderState::default());
-                patches.push(WidgetPatch::Append(target_id, widget_pod));
+                let widget_pod = Element::from(new_element);
+                let element_id = self.tree.append_child(target_id, widget_pod.clone());
+                self.render_states.insert_at(
+                    element_id,
+                    RenderState::new(widget_pod.widget.initial_state()),
+                );
+                patches.push(Patch::Append(target_id, widget_pod));
             }
             ReconcileResult::Insertion(ref_id, new_element) => {
-                let widget_pod = WidgetPod::from(new_element);
-                let widget_id = self.tree.insert_before(ref_id, widget_pod.clone());
-                self.render_states
-                    .insert_at(widget_id, RenderState::default());
-                patches.push(WidgetPatch::Insert(ref_id, widget_pod));
+                let widget_pod = Element::from(new_element);
+                let element_id = self.tree.insert_before(ref_id, widget_pod.clone());
+                self.render_states.insert_at(
+                    element_id,
+                    RenderState::new(widget_pod.widget.initial_state()),
+                );
+                patches.push(Patch::Insert(ref_id, widget_pod));
             }
             ReconcileResult::Update(target_id, new_element) => {
-                let widget_pod = &mut self.tree[target_id];
-                if widget_pod.should_update(&new_element) {
-                    self.render_states[target_id].status =
-                        RenderStatus::Pending(new_element.clone());
-                    patches.push(WidgetPatch::Update(target_id, new_element));
+                let Element {
+                    widget, children, ..
+                } = &mut *self.tree[target_id];
+                let state = &self.render_states[target_id].state;
+                if widget.should_render(children, state, &new_element.widget, &new_element.children)
+                {
+                    self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
+                    patches.push(Patch::Update(target_id, new_element));
                 } else {
-                    self.render_states[target_id].status = RenderStatus::Skipped;
+                    self.render_states[target_id].phase = RenderPhase::Skipped;
                 }
             }
             ReconcileResult::UpdateAndPlacement(target_id, ref_id, new_element) => {
-                let widget_pod = &mut self.tree[target_id];
-                if widget_pod.should_update(&new_element) {
-                    self.render_states[target_id].status =
-                        RenderStatus::Pending(new_element.clone());
-                    patches.push(WidgetPatch::Update(target_id, new_element));
+                let Element {
+                    widget, children, ..
+                } = &mut *self.tree[target_id];
+                let state = &self.render_states[target_id].state;
+                if widget.should_render(children, state, &new_element.widget, &new_element.children)
+                {
+                    self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
+                    patches.push(Patch::Update(target_id, new_element));
                 } else {
-                    self.render_states[target_id].status = RenderStatus::Skipped;
+                    self.render_states[target_id].phase = RenderPhase::Skipped;
                 }
                 self.tree.move_position(target_id).insert_before(ref_id);
-                patches.push(WidgetPatch::Move(target_id, ref_id));
+                patches.push(Patch::Move(target_id, ref_id));
             }
             ReconcileResult::Deletion(target_id) => {
                 let (_, subtree) = self.tree.detach(target_id);
@@ -203,16 +209,16 @@ impl<Renderer> RenderTree<Renderer> {
                     self.render_states.remove(child_id);
                 }
 
-                patches.push(WidgetPatch::Remove(target_id));
+                patches.push(Patch::Remove(target_id));
             }
         }
     }
 
-    fn next_render_target(&self, target_id: WidgetId, initial_id: WidgetId) -> Option<WidgetId> {
+    fn next_render_target(&self, target_id: ElementId, initial_id: ElementId) -> Option<ElementId> {
         let mut current_node = &self.tree[target_id];
 
         if let Some(child_id) = self.tree[target_id].first_child() {
-            if !matches!(self.render_states[child_id].status, RenderStatus::Skipped) {
+            if !matches!(self.render_states[child_id].phase, RenderPhase::Skipped) {
                 return Some(child_id);
             }
             current_node = &self.tree[child_id];
@@ -220,7 +226,7 @@ impl<Renderer> RenderTree<Renderer> {
 
         loop {
             while let Some(sibling_id) = current_node.next_sibling() {
-                if !matches!(self.render_states[sibling_id].status, RenderStatus::Skipped) {
+                if !matches!(self.render_states[sibling_id].phase, RenderPhase::Skipped) {
                     return Some(sibling_id);
                 }
                 current_node = &self.tree[sibling_id];
@@ -243,18 +249,18 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
         self.tree.format(
             f,
             self.root_id,
-            |f, widget_id, node| {
-                let render_state = &self.render_states[widget_id];
+            |f, element_id, node| {
+                let render_state = &self.render_states[element_id];
                 write!(f, "<{}", node.widget.name())?;
-                write!(f, " id=\"{}\"", widget_id)?;
+                write!(f, " id=\"{}\"", element_id)?;
                 if let Some(key) = node.key {
                     write!(f, " key=\"{}\"", key)?;
                 }
-                match &render_state.status {
-                    RenderStatus::Fresh => write!(f, " fresh")?,
-                    RenderStatus::Pending(_) => write!(f, " pending")?,
-                    RenderStatus::Rendered => write!(f, " rendered")?,
-                    RenderStatus::Skipped => write!(f, " skip")?,
+                match &render_state.phase {
+                    RenderPhase::Fresh => write!(f, " fresh")?,
+                    RenderPhase::Pending(_) => write!(f, " pending")?,
+                    RenderPhase::Rendered => write!(f, " rendered")?,
+                    RenderPhase::Skipped => write!(f, " skip")?,
                 }
                 write!(f, ">")?;
                 Ok(())
@@ -264,10 +270,11 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
     }
 }
 
-impl<Renderer> Default for RenderState<Renderer> {
-    fn default() -> Self {
+impl<Renderer> RenderState<Renderer> {
+    fn new(state: AnyState) -> Self {
         Self {
-            status: RenderStatus::Fresh,
+            phase: RenderPhase::Fresh,
+            state,
         }
     }
 }

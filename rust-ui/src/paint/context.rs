@@ -1,21 +1,30 @@
-use std::sync::mpsc::Sender;
+use std::sync::Arc;
 
-use crate::widget::WidgetId;
+use crate::event::{EventListener, EventListenerId, EventManager};
+use crate::widget::element::ElementId;
 
-pub struct PaintContext {
-    widget_id: WidgetId,
-    update_sender: Sender<WidgetId>,
+#[derive(Debug)]
+pub struct PaintContext<'a> {
+    element_id: ElementId,
+    event_manager: &'a mut EventManager,
 }
 
-impl PaintContext {
-    pub fn new(widget_id: WidgetId, update_sender: Sender<WidgetId>) -> Self {
+impl<'a> PaintContext<'a> {
+    pub fn new(element_id: ElementId, event_manager: &'a mut EventManager) -> Self {
         Self {
-            widget_id,
-            update_sender,
+            element_id: element_id,
+            event_manager,
         }
     }
 
-    pub fn request_update(&self) {
-        self.update_sender.send(self.widget_id).unwrap();
+    pub fn add_listener(&mut self, listener: Arc<EventListener>) -> EventListenerId {
+        self.event_manager.add_listener(self.element_id, listener)
+    }
+
+    pub fn remove_listener(
+        &mut self,
+        listener_id: EventListenerId,
+    ) -> (ElementId, Arc<EventListener>) {
+        self.event_manager.remove_listener(listener_id)
     }
 }

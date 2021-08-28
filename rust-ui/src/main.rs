@@ -6,24 +6,23 @@ extern crate x11;
 use std::any::Any;
 use std::env;
 use std::ptr;
-use std::sync::Arc;
 use x11::xlib;
 
-use rust_ui::event::mouse::{MouseDown, MouseEvent};
-use rust_ui::event::EventContext;
+use rust_ui::event::mouse::MouseDown;
 use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
-use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Transform, Viewport};
+use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Viewport};
 use rust_ui::paint::PaintContext;
-use rust_ui::render::RenderContext;
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
+use rust_ui::ui::Window;
 use rust_ui::ui::application;
 use rust_ui::ui::x11 as x11_ui;
-use rust_ui::ui::Window;
 use rust_ui::widget::element::Children;
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
+use rust_ui::widget::message::MessageContext;
 use rust_ui::widget::padding::Padding;
+use rust_ui::widget::subscriber::Subscriber;
 use rust_ui::widget::text::Text;
 use rust_ui::widget::{Widget, WidgetMeta};
 
@@ -32,65 +31,64 @@ struct App {
     message: String,
 }
 
-impl App {
-    fn on_click<Renderer>(
-        self: Arc<App>,
-        _children: Children<Renderer>,
-        state: &mut usize,
-        _event: &MouseEvent,
-        context: EventContext,
-    ) {
-        *state = *state + 1;
-
-        context.request_update();
-    }
-}
-
 impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
+    type Message = ();
+    type PaintObject = ();
+
+    fn update(&self, state: &mut Self::State, _message: Self::Message) -> bool {
+        *state += 1;
+        true
+    }
 
     fn render(
         &self,
         _children: &Children<Renderer>,
         state: &Self::State,
-        context: &mut RenderContext<Self, Renderer>,
+        message_context: MessageContext<Self::Message>,
     ) -> Children<Renderer> {
-        context.use_listener(MouseDown, Self::on_click);
         element!(
-            Padding::uniform(32.0) => {
-                Flex::column() => {
-                    if *state % 2 == 0 {
-                        None
-                    } else {
-                        Some(element!(FlexItem::new(1.0).with_key(1) => {
+            Subscriber::new().on(message_context, MouseDown, move |_event, message_sink| {
+                let message_sink = message_sink.share();
+                std::thread::spawn(move || {
+                    message_sink.send(());
+                });
+            }) => {
+                Padding::uniform(32.0) => {
+                    Flex::column() => {
+                        if *state % 2 == 0 {
+                            None
+                        } else {
+                            Some(element!(FlexItem::new(1.0).with_key(1) => {
+                                Padding::uniform(16.0) => Fill::new(Color {
+                                    r: 1.0,
+                                    g: 0.0,
+                                    b: 0.0,
+                                    a: 1.0,
+                                })
+                            }))
+                        },
+                        FlexItem::new(1.0).with_key(2) => {
                             Padding::uniform(16.0) => Fill::new(Color {
-                                r: 1.0,
-                                g: 0.0,
+                                r: 0.0,
+                                g: 1.0,
                                 b: 0.0,
                                 a: 1.0,
                             })
-                        }))
-                    },
-                    FlexItem::new(1.0).with_key(2) => {
-                        Padding::uniform(16.0) => Fill::new(Color {
-                            r: 0.0,
-                            g: 1.0,
-                            b: 0.0,
-                            a: 1.0,
-                        })
-                    }
-                    FlexItem::new(1.0).with_key(3) => {
-                        Padding::uniform(16.0) => Text {
-                            content: self.message.clone(),
-                            color: Color::BLACK,
-                            font: FontDescriptor {
-                                family: FontFamily::SansSerif,
-                                weight: FontWeight::BOLD,
-                                ..FontDescriptor::default()
-                            },
-                            font_size: 16.0,
-                            horizontal_align: HorizontalAlign::Center,
-                            vertical_align: VerticalAlign::Middle,
+                        }
+                        FlexItem::new(1.0).with_key(3) => {
+                            Padding::uniform(16.0) => Text {
+                                content: self.message.clone(),
+                                color: Color::BLACK,
+                                font: FontDescriptor {
+                                    family: FontFamily::SansSerif,
+                                    weight: FontWeight::BOLD,
+                                    ..FontDescriptor::default()
+                                },
+                                font_size: 16.0,
+                                horizontal_align: HorizontalAlign::Center,
+                                vertical_align: VerticalAlign::Middle,
+                            }
                         }
                     }
                 }
@@ -102,16 +100,12 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     fn draw(
         &self,
         _children: &Children<Renderer>,
-        state: &mut Self::State,
+        _paint_object: &mut Self::PaintObject,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut PaintContext,
     ) -> Option<Primitive> {
-        if (*state + 1) % 3 == 0 {
-            Primitive::Transform(Transform::rotation(5.0f32.to_radians())).into()
-        } else {
-            None
-        }
+        None
     }
 }
 

@@ -20,8 +20,10 @@ pub struct Text {
 
 impl<Renderer> Widget<Renderer> for Text {
     type State = ();
+    type Message = ();
+    type PaintObject = ();
 
-    fn should_update(
+    fn should_render(
         &self,
         _children: &Children<Renderer>,
         _state: &Self::State,
@@ -34,7 +36,7 @@ impl<Renderer> Widget<Renderer> for Text {
     fn draw(
         &self,
         _children: &Children<Renderer>,
-        _state: &mut Self::State,
+        _paint_object: &mut Self::PaintObject,
         bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut PaintContext,
