@@ -1,13 +1,15 @@
-pub mod ancestors;
-pub mod detach_subtree;
-pub mod move_position;
-pub mod post_ordered_descendants;
-pub mod pre_ordered_descendants;
-pub mod siblings;
-pub mod walk;
+mod ancestors;
+mod detach_subtree;
+mod move_position;
+mod post_ordered_descendants;
+mod pre_ordered_descendants;
+mod siblings;
+mod walk;
 
 #[cfg(test)]
 mod tests;
+
+pub use walk::WalkDirection;
 
 use std::fmt;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
@@ -20,7 +22,7 @@ use move_position::MovePosition;
 use post_ordered_descendants::{PostOrderedDescendants, PostOrderedDescendantsMut};
 use pre_ordered_descendants::{PreOrderedDescendants, PreOrderedDescendantsMut};
 use siblings::{Siblings, SiblingsMut};
-use walk::{WalkDirection, Walker, WalkerMut};
+use walk::{Walker, WalkerMut};
 
 #[derive(Clone, Debug)]
 pub struct Tree<T> {
@@ -37,9 +39,9 @@ pub struct Link<T> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Node<T> {
-    data: T,
-    first_child: Option<NodeId>,
-    last_child: Option<NodeId>,
+    pub data: T,
+    pub first_child: Option<NodeId>,
+    pub last_child: Option<NodeId>,
 }
 
 pub type NodeId = usize;
@@ -566,8 +568,8 @@ impl<T> DerefMut for Link<T> {
 
 impl<T> From<T> for Node<T> {
     #[inline]
-    fn from(data: T) -> Node<T> {
-        Node {
+    fn from(data: T) -> Self {
+        Self {
             data,
             first_child: None,
             last_child: None,

@@ -9,7 +9,7 @@ use crate::paint::PaintContext;
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
-use crate::support::tree::walk::WalkDirection;
+use crate::support::tree::WalkDirection;
 use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
 use crate::widget::message::AnyMessage;
 use crate::widget::AnyPaintObject;
