@@ -40,7 +40,12 @@ impl Subscriber {
         ListenerFn:
             Fn(&EventType::Event, MessageSink<Message, &MessageSender>) + Send + Sync + 'static,
     {
-        let listener = EventListener::new(message_context.element_id, event_type, listener_fn);
+        let listener = EventListener::new(
+            message_context.element_id,
+            message_context.version,
+            event_type,
+            listener_fn
+        );
         self.listeners.push(Arc::new(listener));
         self
     }

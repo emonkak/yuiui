@@ -1,6 +1,5 @@
 use std::fmt;
 use std::mem;
-use std::sync::mpsc::Sender;
 
 use crate::event::{EventManager, GenericEvent};
 use crate::geometrics::{Point, Rectangle, Size, Vector};
@@ -11,7 +10,7 @@ use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::WalkDirection;
 use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
-use crate::widget::message::AnyMessage;
+use crate::widget::message::MessageSender;
 use crate::widget::AnyPaintObject;
 
 use super::layout::{BoxConstraints, LayoutRequest};
@@ -21,7 +20,7 @@ pub struct PaintTree<Renderer> {
     tree: ElementTree<Renderer>,
     root_id: ElementId,
     paint_states: SlotVec<PaintState<Renderer>>,
-    message_sender: Sender<(ElementId, AnyMessage)>,
+    message_sender: MessageSender,
     event_manager: EventManager,
 }
 
@@ -45,7 +44,7 @@ enum PaintFlag {
 }
 
 impl<Renderer> PaintTree<Renderer> {
-    pub fn new(viewport_size: Size, message_sender: Sender<(ElementId, AnyMessage)>) -> Self {
+    pub fn new(viewport_size: Size, message_sender: MessageSender) -> Self {
         let (tree, root_id) = create_element_tree();
         let mut paint_states = SlotVec::new();
 

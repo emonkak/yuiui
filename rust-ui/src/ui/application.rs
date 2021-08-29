@@ -41,10 +41,12 @@ pub fn run<Window, EventLoop, Renderer>(
             proxy.request_redraw(window_id);
 
             loop {
-                let (target_id, messsge) = message_receiver.recv().unwrap();
-                let patches = render_tree.update(target_id, messsge);
-                update_senter.send((target_id, patches)).unwrap();
-                proxy.request_redraw(window_id);
+                let (target_id, version, messsge) = message_receiver.recv().unwrap();
+                let patches = render_tree.update(target_id, version, messsge);
+                if !patches.is_empty() {
+                    update_senter.send((target_id, patches)).unwrap();
+                    proxy.request_redraw(window_id);
+                }
             }
         });
     }

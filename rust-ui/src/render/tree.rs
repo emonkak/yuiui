@@ -1,13 +1,12 @@
 use std::any::TypeId;
 use std::fmt;
 use std::mem;
-use std::sync::mpsc::Sender;
 
 use crate::support::slot_vec::SlotVec;
 use crate::widget::element::{
     create_element_tree, Children, Element, ElementId, ElementTree, Key, Patch,
 };
-use crate::widget::message::AnyMessage;
+use crate::widget::message::{AnyMessage, MessageSender};
 use crate::widget::null::Null;
 use crate::widget::{AnyState, PolymophicWidget};
 
@@ -18,13 +17,14 @@ pub struct RenderTree<Renderer> {
     tree: ElementTree<Renderer>,
     root_id: ElementId,
     render_states: SlotVec<RenderState<Renderer>>,
-    message_sender: Sender<(ElementId, AnyMessage)>,
+    message_sender: MessageSender,
 }
 
 #[derive(Debug)]
 struct RenderState<Renderer> {
     phase: RenderPhase<Renderer>,
     state: AnyState,
+    version: usize,
 }
 
 #[derive(Debug)]
@@ -42,11 +42,11 @@ enum TypedKey {
 }
 
 impl<Renderer> RenderTree<Renderer> {
-    pub fn new(message_sender: Sender<(ElementId, AnyMessage)>) -> Self {
+    pub fn new(message_sender: MessageSender) -> Self {
         let (tree, root_id) = create_element_tree();
         let mut render_states = SlotVec::new();
 
-        render_states.insert_at(root_id, RenderState::new(Box::new(())));
+        render_states.insert_at(root_id, RenderState::new(Box::new(()), tree.version()));
 
         Self {
             tree,
@@ -74,17 +74,19 @@ impl<Renderer> RenderTree<Renderer> {
         patches
     }
 
-    pub fn update(&mut self, target_id: ElementId, message: AnyMessage) -> Vec<Patch<Renderer>> {
-        let Element { widget, .. } = &*self.tree[target_id];
-        let state = &mut self.render_states[target_id].state;
-
+    pub fn update(&mut self, target_id: ElementId, version: usize, message: AnyMessage) -> Vec<Patch<Renderer>> {
         let mut patches = Vec::new();
+        let render_state = &mut self.render_states[target_id];
 
-        if widget.update(state, message) {
-            let mut current_id = target_id;
+        if render_state.version == version {
+            let Element { widget, .. } = &*self.tree[target_id];
 
-            while let Some(next_id) = self.render_step(current_id, target_id, &mut patches) {
-                current_id = next_id;
+            if widget.update(&mut render_state.state, message) {
+                let mut current_id = target_id;
+
+                while let Some(next_id) = self.render_step(current_id, target_id, &mut patches) {
+                    current_id = next_id;
+                }
             }
         }
 
@@ -112,7 +114,12 @@ impl<Renderer> RenderTree<Renderer> {
             RenderPhase::Fresh | RenderPhase::Rendered => {}
         }
 
-        let rendered_children = widget.render(children, &render_state.state, target_id);
+        let rendered_children = widget.render(
+            children,
+            &render_state.state,
+            target_id,
+            render_state.version
+        );
 
         for result in self.reconcile_children(target_id, rendered_children) {
             self.handle_reconcile_result(target_id, result, patches);
@@ -159,7 +166,7 @@ impl<Renderer> RenderTree<Renderer> {
                 let element_id = self.tree.append_child(target_id, widget_pod.clone());
                 self.render_states.insert_at(
                     element_id,
-                    RenderState::new(widget_pod.widget.initial_state()),
+                    RenderState::new(widget_pod.widget.initial_state(), self.tree.version()),
                 );
                 patches.push(Patch::Append(target_id, widget_pod));
             }
@@ -168,7 +175,7 @@ impl<Renderer> RenderTree<Renderer> {
                 let element_id = self.tree.insert_before(ref_id, widget_pod.clone());
                 self.render_states.insert_at(
                     element_id,
-                    RenderState::new(widget_pod.widget.initial_state()),
+                    RenderState::new(widget_pod.widget.initial_state(), self.tree.version()),
                 );
                 patches.push(Patch::Insert(ref_id, widget_pod));
             }
@@ -271,10 +278,11 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
 }
 
 impl<Renderer> RenderState<Renderer> {
-    fn new(state: AnyState) -> Self {
+    fn new(state: AnyState, version: usize) -> Self {
         Self {
             phase: RenderPhase::Fresh,
             state,
+            version,
         }
     }
 }

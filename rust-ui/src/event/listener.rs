@@ -25,6 +25,7 @@ impl fmt::Debug for EventListener {
 impl EventListener {
     pub fn new<Message, EventType, ListenerFn>(
         element_id: ElementId,
+        version: usize,
         event_type: EventType,
         listener_fn: ListenerFn,
     ) -> Self
@@ -40,7 +41,7 @@ impl EventListener {
             callback: Box::new(move |event, message_sender| {
                 listener_fn(
                     event.downcast_ref::<EventType::Event>().unwrap(),
-                    MessageSink::new(element_id, message_sender),
+                    MessageSink::new(element_id, version, message_sender),
                 );
             }),
         }

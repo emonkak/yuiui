@@ -108,6 +108,7 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
         children: &Children<Renderer>,
         state: &AnyState,
         element_id: ElementId,
+        version: usize,
     ) -> Children<Renderer>;
 
     fn lifecycle(
@@ -224,11 +225,12 @@ where
         children: &Children<Renderer>,
         state: &AnyState,
         element_id: ElementId,
+        version: usize,
     ) -> Children<Renderer> {
         self.render(
             children,
             state.downcast_ref().unwrap(),
-            MessageContext::new(element_id),
+            MessageContext::new(element_id, version),
         )
     }
 

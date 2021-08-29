@@ -27,6 +27,7 @@ use walk::{Walker, WalkerMut};
 #[derive(Clone, Debug)]
 pub struct Tree<T> {
     arena: SlotVec<Link<T>>,
+    version: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,9 +48,10 @@ pub struct Node<T> {
 pub type NodeId = usize;
 
 impl<T> Tree<T> {
-    pub const fn new() -> Tree<T> {
-        Tree {
+    pub const fn new() -> Self {
+        Self {
             arena: SlotVec::new(),
+            version: 0,
         }
     }
 
@@ -61,6 +63,11 @@ impl<T> Tree<T> {
     #[inline]
     pub fn next_node_id(&self) -> NodeId {
         self.arena.next_slot_index()
+    }
+
+    #[inline]
+    pub fn version(&self) -> usize {
+        self.version
     }
 
     #[inline]
@@ -179,7 +186,7 @@ impl<T> Tree<T> {
             arena.insert_at(child_id, current.clone());
         }
 
-        Tree { arena }
+        Self { arena, version: self.version }
     }
 
     #[inline]
@@ -189,6 +196,7 @@ impl<T> Tree<T> {
     ) -> (Link<T>, impl Iterator<Item = (NodeId, Link<T>)> + '_) {
         let link = self.arena.remove(target_id);
         self.detach_link(&link);
+        self.version += 1;
         let subtree = DetachSubtree {
             root_id: target_id,
             next: link
