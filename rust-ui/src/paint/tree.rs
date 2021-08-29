@@ -386,7 +386,7 @@ impl<Renderer> fmt::Display for PaintTree<Renderer> {
             self.root_id,
             |f, element_id, node| {
                 let paint_state = &self.paint_states[element_id];
-                write!(f, "<{}", node.widget.name())?;
+                write!(f, "<{}", node.widget.short_type_name())?;
                 write!(f, " id=\"{}\"", element_id)?;
                 if let Some(key) = node.key {
                     write!(f, " key=\"{}\"", key)?;
@@ -407,7 +407,7 @@ impl<Renderer> fmt::Display for PaintTree<Renderer> {
                 write!(f, ">")?;
                 Ok(())
             },
-            |f, _, node| write!(f, "</{}>", node.widget.name()),
+            |f, _, node| write!(f, "</{}>", node.widget.short_type_name()),
         )
     }
 }

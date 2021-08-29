@@ -251,7 +251,7 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
             self.root_id,
             |f, element_id, node| {
                 let render_state = &self.render_states[element_id];
-                write!(f, "<{}", node.widget.name())?;
+                write!(f, "<{}", node.widget.short_type_name())?;
                 write!(f, " id=\"{}\"", element_id)?;
                 if let Some(key) = node.key {
                     write!(f, " key=\"{}\"", key)?;
@@ -265,7 +265,7 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
                 write!(f, ">")?;
                 Ok(())
             },
-            |f, _, node| write!(f, "</{}>", node.widget.name()),
+            |f, _, node| write!(f, "</{}>", node.widget.short_type_name()),
         )
     }
 }

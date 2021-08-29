@@ -142,7 +142,12 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
 
 pub trait WidgetMeta {
     #[inline]
-    fn name(&self) -> &'static str {
+    fn type_name(&self) -> &'static str {
+        any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn short_type_name(&self) -> &'static str {
         get_short_type_name(any::type_name::<Self>())
     }
 
@@ -168,7 +173,7 @@ pub type AnyPaintObject = Box<dyn Any>;
 
 impl<Renderer> fmt::Debug for dyn PolymophicWidget<Renderer> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {{ .. }}", self.name())
+        write!(f, "{} {{ .. }}", self.short_type_name())
     }
 }
 
@@ -335,21 +340,12 @@ where
 }
 
 fn get_short_type_name(name: &str) -> &str {
-    let mut cursor = 0;
-
-    while let Some(separator_offset) = name[cursor..].find("::") {
-        let slice_name = &name[cursor..cursor + separator_offset];
-        if let Some(generics_offset) = slice_name.find("<") {
-            return &name[cursor..cursor + generics_offset];
-        }
-        cursor += separator_offset + 2;
-    }
-
-    if let Some(generics_offset) = name[cursor..].find("<") {
-        &name[cursor..cursor + generics_offset]
-    } else {
-        &name[cursor..]
-    }
+    name.split('<')
+        .next()
+        .unwrap_or(name)
+        .split("::")
+        .last()
+        .unwrap_or(name)
 }
 
 #[cfg(test)]
