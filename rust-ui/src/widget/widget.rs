@@ -7,7 +7,7 @@ use crate::graphics::Primitive;
 use crate::paint::{BoxConstraints, LayoutRequest, Lifecycle, PaintContext};
 use crate::support::generator::Generator;
 
-use super::element::{Children, Element, ElementId, ElementTree, IntoElement, Key};
+use super::element::{Children, Element, ElementId, ElementTree, BuildElement, Key};
 use super::message::{AnyMessage, MessageContext};
 
 pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
@@ -286,7 +286,7 @@ where
     }
 }
 
-impl<Widget, Renderer> IntoElement<Renderer> for Widget
+impl<Widget, Renderer> BuildElement<Renderer> for Widget
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
@@ -294,7 +294,7 @@ where
     Widget::PaintObject: 'static,
 {
     #[inline]
-    fn into_element(self, children: Children<Renderer>) -> Element<Renderer>
+    fn build_element(self, children: Children<Renderer>) -> Element<Renderer>
     where
         Self: Sized,
     {
@@ -306,7 +306,7 @@ where
     }
 }
 
-impl<Widget, Renderer> IntoElement<Renderer> for WithKey<Widget>
+impl<Widget, Renderer> BuildElement<Renderer> for WithKey<Widget>
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
@@ -314,7 +314,7 @@ where
     Widget::PaintObject: 'static,
 {
     #[inline]
-    fn into_element(self, children: Children<Renderer>) -> Element<Renderer> {
+    fn build_element(self, children: Children<Renderer>) -> Element<Renderer> {
         Element {
             widget: Arc::new(self.inner),
             children,

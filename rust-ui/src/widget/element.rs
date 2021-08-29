@@ -40,8 +40,8 @@ pub type Children<Renderer> = Arc<Vec<Element<Renderer>>>;
 
 pub type Key = usize;
 
-pub trait IntoElement<Renderer> {
-    fn into_element(self, children: Children<Renderer>) -> Element<Renderer>;
+pub trait BuildElement<Renderer> {
+    fn build_element(self, children: Children<Renderer>) -> Element<Renderer>;
 }
 
 impl<Renderer> Element<Renderer> {
@@ -64,7 +64,7 @@ impl<Renderer> Element<Renderer> {
     }
 
     pub fn build<const N: usize>(
-        widget: impl IntoElement<Renderer> + 'static,
+        widget: impl BuildElement<Renderer> + 'static,
         children: [Child<Renderer>; N],
     ) -> Self {
         let mut flatten_children = Vec::with_capacity(N);
@@ -81,7 +81,7 @@ impl<Renderer> Element<Renderer> {
             }
         }
 
-        widget.into_element(Arc::new(flatten_children))
+        widget.build_element(Arc::new(flatten_children))
     }
 }
 
