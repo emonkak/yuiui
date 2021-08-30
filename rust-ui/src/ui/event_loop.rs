@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::event::GenericEvent;
+use crate::event::WindowEvent;
 
 #[derive(Debug)]
 pub enum ControlFlow {
@@ -27,7 +27,7 @@ pub enum StartCause {
 #[derive(Debug)]
 pub enum Event<WindowId> {
     Tick(StartCause),
-    WindowEvent(WindowId, GenericEvent),
+    WindowEvent(WindowId, WindowEvent),
     RedrawRequested(WindowId),
     EventsConsumed,
     LoopExited,

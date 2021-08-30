@@ -1,9 +1,8 @@
-use std::any::TypeId;
+use std::any::Any;
 use std::sync::mpsc::{channel, sync_channel};
 use std::thread;
 
-use crate::event::window::WindowResize;
-use crate::event::EventType;
+use crate::event::{GenericEvent, WindowEvent};
 use crate::graphics::{Color, Renderer, Viewport};
 use crate::paint::PaintTree;
 use crate::render::RenderTree;
@@ -75,18 +74,24 @@ pub fn run<Window, EventLoop, Renderer>(
                 renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
-                if window_event.type_id == TypeId::of::<WindowResize>() {
-                    let resize_event = WindowResize::downcast(&window_event).unwrap();
+                match window_event {
+                    WindowEvent::WindowResize(size) => {
+                        viewport = Viewport::from_physical(size, viewport.scale_factor());
+                        paint_tree.layout_root(viewport.logical_size(), &mut renderer);
 
-                    viewport = Viewport::from_physical(resize_event.size, viewport.scale_factor());
-                    paint_tree.layout_root(viewport.logical_size(), &mut renderer);
-
-                    renderer.configure_surface(&mut surface, &viewport);
-                    pipeline = renderer.create_pipeline(&viewport);
-                    paint_tree.paint(&mut pipeline, &mut renderer);
+                        renderer.configure_surface(&mut surface, &viewport);
+                        pipeline = renderer.create_pipeline(&viewport);
+                        paint_tree.paint(&mut pipeline, &mut renderer);
+                    }
+                    _ => {}
                 }
 
-                paint_tree.dispatch_event(&window_event);
+                let generic_event = GenericEvent {
+                    type_id: window_event.type_id(),
+                    payload: Box::new(window_event),
+                };
+
+                paint_tree.dispatch_event(&generic_event);
             }
             _ => {}
         }

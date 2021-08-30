@@ -1,5 +1,18 @@
 use std::any::{Any, TypeId};
 
+use crate::geometrics::PhysicalSize;
+
+use super::mouse::MouseEvent;
+
+#[derive(Debug)]
+pub enum WindowEvent {
+    MouseDown(MouseEvent),
+    MouseUp(MouseEvent),
+    MouseMove(MouseEvent),
+    WindowResize(PhysicalSize),
+    WindowClose,
+}
+
 #[derive(Debug)]
 pub struct GenericEvent {
     pub type_id: TypeId,

@@ -21,9 +21,3 @@ pub struct WindowResize;
 impl EventType for WindowResize {
     type Event = WindowResizeEvent;
 }
-
-impl From<PhysicalSize> for WindowResizeEvent {
-    fn from(size: PhysicalSize) -> Self {
-        Self { size }
-    }
-}

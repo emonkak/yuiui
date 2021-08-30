@@ -11,7 +11,7 @@ pub struct BitFlags<T> {
 
 impl<T> BitFlags<T> {
     #[inline]
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         Self {
             flags: 0,
             _type: PhantomData,
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_is_empty() {
-        assert_eq!((BitFlags::new() as BitFlags<Button>).is_empty(), true);
+        assert_eq!((BitFlags::empty() as BitFlags<Button>).is_empty(), true);
         assert_eq!((BitFlags::from([]) as BitFlags<Button>).is_empty(), true);
         assert_eq!((BitFlags::from(Button::None)).is_empty(), true);
         assert_eq!((BitFlags::from(Button::Left)).is_empty(), false);
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_bit_or() {
-        let buttons = BitFlags::new();
+        let buttons = BitFlags::empty();
         assert_eq!(buttons | Button::Left, [Button::Left].into());
         assert_eq!(
             buttons | Button::Left | Button::Right,
@@ -282,11 +282,11 @@ mod tests {
 
     #[test]
     fn test_bit_or_assign() {
-        let mut buttons = BitFlags::new();
+        let mut buttons = BitFlags::empty();
         buttons |= Button::Left;
         assert_eq!(buttons, [Button::Left].into());
 
-        let mut buttons = BitFlags::new();
+        let mut buttons = BitFlags::empty();
         buttons |= Button::Left;
         buttons |= Button::Right;
         assert_eq!(buttons, [Button::Left, Button::Right].into());
