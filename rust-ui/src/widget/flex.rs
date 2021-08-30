@@ -63,12 +63,11 @@ impl<Renderer> Widget<Renderer> for Flex {
     type State = ();
     type Inbound = ();
     type Outbound = ();
-    type PaintObject = ();
 
     fn layout<'a>(
         &'a self,
         _children: &Children<Renderer>,
-        _paint_object: &mut Self::PaintObject,
+        _state: &mut Self::State,
         box_constraints: BoxConstraints,
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
@@ -142,7 +141,6 @@ impl<Renderer> Widget<Renderer> for FlexItem {
     type State = ();
     type Inbound = ();
     type Outbound = ();
-    type PaintObject = ();
 }
 
 impl Axis {

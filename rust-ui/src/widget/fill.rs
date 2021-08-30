@@ -22,7 +22,6 @@ impl<Renderer> Widget<Renderer> for Fill {
     type State = ();
     type Inbound = ();
     type Outbound = ();
-    type PaintObject = ();
 
     fn should_render(
         &self,
@@ -37,7 +36,7 @@ impl<Renderer> Widget<Renderer> for Fill {
     fn draw(
         &self,
         _children: &Children<Renderer>,
-        _paint_object: &mut Self::PaintObject,
+        _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut InboundEmitter<Self::Inbound>,

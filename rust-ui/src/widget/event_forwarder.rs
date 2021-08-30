@@ -35,7 +35,6 @@ where
     type State = Child::State;
     type Inbound = Child::Inbound;
     type Outbound = Child::Outbound;
-    type PaintObject = Child::PaintObject;
 
     fn update(
         &self,
@@ -82,37 +81,37 @@ where
     fn lifecycle(
         &self,
         children: &Children<Renderer>,
-        paint_object: &mut Self::PaintObject,
+        state: &mut Self::State,
         lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         renderer: &mut Renderer,
         context: &mut InboundEmitter<Self::Inbound>,
     ) {
-        self.child.lifecycle(children, paint_object, lifecycle.map(|widget| &widget.child), renderer, context)
+        self.child.lifecycle(children, state, lifecycle.map(|widget| &widget.child), renderer, context)
     }
 
     #[inline]
     fn layout<'a>(
         &'a self,
         children: &Children<Renderer>,
-        paint_object: &mut Self::PaintObject,
+        state: &mut Self::State,
         box_constraints: BoxConstraints,
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
         renderer: &mut Renderer,
         context: &mut InboundEmitter<Self::Inbound>,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
-        self.child.layout(children, paint_object, box_constraints, element_id, element_tree, renderer, context)
+        self.child.layout(children, state, box_constraints, element_id, element_tree, renderer, context)
     }
 
     #[inline]
     fn draw(
         &self,
         children: &Children<Renderer>,
-        paint_object: &mut Self::PaintObject,
+        state: &mut Self::State,
         bounds: Rectangle,
         renderer: &mut Renderer,
         context: &mut InboundEmitter<Self::Inbound>,
     ) -> Option<Primitive> {
-        self.child.draw(children, paint_object, bounds, renderer, context)
+        self.child.draw(children, state, bounds, renderer, context)
     }
 }

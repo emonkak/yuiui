@@ -9,7 +9,6 @@ use crate::support::slot_vec::SlotVec;
 use crate::support::tree::WalkDirection;
 use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
 use crate::widget::message::{AnyMessage, Message, MessageSender};
-use crate::widget::AnyPaintObject;
 
 use super::layout::{BoxConstraints, LayoutRequest};
 use super::lifecycle::Lifecycle;
@@ -22,7 +21,6 @@ pub struct PaintTree<Renderer> {
 }
 
 struct PaintState<Renderer> {
-    paint_object: AnyPaintObject,
     bounds: Rectangle,
     absolute_translation: Vector,
     box_constraints: BoxConstraints,
@@ -49,7 +47,7 @@ impl<Renderer> PaintTree<Renderer> {
             root_id,
             PaintState {
                 box_constraints: BoxConstraints::tight(viewport_size),
-                ..PaintState::new(Box::new(()))
+                ..PaintState::new()
             },
         );
 
@@ -74,13 +72,13 @@ impl<Renderer> PaintTree<Renderer> {
     pub fn apply_patch(&mut self, patch: Patch<Renderer>) {
         match patch {
             Patch::Append(parent_id, element) => {
-                let paint_state = PaintState::new(element.widget.initial_paint_object());
+                let paint_state = PaintState::new();
                 let child_id = self.tree.append_child(parent_id, element);
                 self.paint_states.insert_at(child_id, paint_state);
                 self.mark_parents_as_dirty(child_id);
             }
             Patch::Insert(ref_id, element) => {
-                let paint_state = PaintState::new(element.widget.initial_paint_object());
+                let paint_state = PaintState::new();
                 let child_id = self.tree.insert_before(ref_id, element);
                 self.paint_states.insert_at(child_id, paint_state);
                 self.mark_parents_as_dirty(child_id);
@@ -144,11 +142,10 @@ impl<Renderer> PaintTree<Renderer> {
             let Element {
                 widget, children, ..
             } = &**initial_node;
-            let paint_state = &mut self.paint_states[initial_id];
 
             widget.layout(
                 children,
-                &mut paint_state.paint_object,
+                &mut widget.initial_state(),
                 initial_box_constraints,
                 initial_id,
                 &self.tree,
@@ -174,14 +171,13 @@ impl<Renderer> PaintTree<Renderer> {
                         let Element {
                             widget, children, ..
                         } = &*self.tree[child_id];
-                        let paint_state = &mut self.paint_states[child_id];
                         layout_stack.push(layout_context);
                         layout_context = (
                             child_id,
                             child_box_constraints,
                             widget.layout(
                                 children,
-                                &mut paint_state.paint_object,
+                                &mut widget.initial_state(),
                                 child_box_constraints,
                                 child_id,
                                 &self.tree,
@@ -289,7 +285,7 @@ impl<Renderer> PaintTree<Renderer> {
 
                 let draw_result = widget.draw(
                     children,
-                    &mut paint_state.paint_object,
+                    &mut widget.initial_state(),
                     absolute_bounds,
                     renderer,
                     element_id,
@@ -314,7 +310,7 @@ impl<Renderer> PaintTree<Renderer> {
                     if let Some(old_element) = paint_state.mounted_element.take() {
                         widget.lifecycle(
                             children,
-                            &mut paint_state.paint_object,
+                            &mut widget.initial_state(),
                             Lifecycle::DidUpdate(&*old_element.widget, &old_element.children),
                             renderer,
                             element_id,
@@ -323,7 +319,7 @@ impl<Renderer> PaintTree<Renderer> {
                     } else {
                         widget.lifecycle(
                             children,
-                            &mut paint_state.paint_object,
+                            &mut widget.initial_state(),
                             Lifecycle::DidMount(),
                             renderer,
                             element_id,
@@ -339,12 +335,12 @@ impl<Renderer> PaintTree<Renderer> {
                     Element {
                         widget, children, ..
                     },
-                    mut paint_state,
+                    _paint_state,
                 ) in mem::take(&mut paint_state.deleted_nodes)
                 {
                     widget.lifecycle(
                         &children,
-                        &mut paint_state.paint_object,
+                        &mut widget.initial_state(),
                         Lifecycle::DidUnmount(),
                         renderer,
                         element_id,
@@ -412,9 +408,8 @@ impl<Renderer> fmt::Display for PaintTree<Renderer> {
 }
 
 impl<Renderer> PaintState<Renderer> {
-    fn new(paint_object: AnyPaintObject) -> Self {
+    fn new() -> Self {
         Self {
-            paint_object,
             bounds: Rectangle::ZERO,
             absolute_translation: Vector::ZERO,
             box_constraints: BoxConstraints::LOOSE,

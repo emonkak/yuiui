@@ -55,7 +55,6 @@ impl<Renderer> Element<Renderer> {
         Widget::State: 'static,
         Widget::Inbound: 'static,
         Widget::Outbound: 'static,
-        Widget::PaintObject: 'static,
     {
         Self {
             widget: Arc::new(widget),
@@ -154,7 +153,6 @@ where
     Widget::State: 'static,
     Widget::Inbound: 'static,
     Widget::Outbound: 'static,
-    Widget::PaintObject: 'static,
 {
     fn from(widget: Widget) -> Self {
         Child::Single(Element {

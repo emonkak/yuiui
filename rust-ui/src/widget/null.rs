@@ -9,5 +9,4 @@ impl<Renderer> Widget<Renderer> for Null {
     type State = ();
     type Inbound = ();
     type Outbound = ();
-    type PaintObject = ();
 }

@@ -18,8 +18,6 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
 
     type Outbound: Send + Sync;
 
-    type PaintObject: Default;
-
     #[inline]
     fn update(
         &self,
@@ -56,7 +54,7 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     fn lifecycle(
         &self,
         _children: &Children<Renderer>,
-        _paint_object: &mut Self::PaintObject,
+        _state: &mut Self::State,
         _lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         _renderer: &mut Renderer,
         _context: &mut InboundEmitter<Self::Inbound>,
@@ -67,7 +65,7 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     fn layout<'a>(
         &'a self,
         _children: &Children<Renderer>,
-        _paint_object: &mut Self::PaintObject,
+        _state: &mut Self::State,
         box_constraints: BoxConstraints,
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
@@ -88,7 +86,7 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     fn draw(
         &self,
         _children: &Children<Renderer>,
-        _paint_object: &mut Self::PaintObject,
+        _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut InboundEmitter<Self::Inbound>,
@@ -99,8 +97,6 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
 
 pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
     fn initial_state(&self) -> AnyState;
-
-    fn initial_paint_object(&self) -> AnyPaintObject;
 
     fn inbound_type(&self) -> TypeId;
 
@@ -132,7 +128,7 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
     fn lifecycle(
         &self,
         children: &Children<Renderer>,
-        paint_object: &mut AnyPaintObject,
+        state: &mut AnyState,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
         renderer: &mut Renderer,
         element_id: ElementId,
@@ -142,7 +138,7 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
     fn layout<'a>(
         &'a self,
         children: &Children<Renderer>,
-        paint_object: &mut AnyPaintObject,
+        state: &mut AnyState,
         box_constraints: BoxConstraints,
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
@@ -153,7 +149,7 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
     fn draw(
         &self,
         children: &Children<Renderer>,
-        paint_object: &mut AnyPaintObject,
+        state: &mut AnyState,
         bounds: Rectangle,
         renderer: &mut Renderer,
         element_id: ElementId,
@@ -190,8 +186,6 @@ pub struct WithKey<Inner> {
 
 pub type AnyState = Box<dyn Any>;
 
-pub type AnyPaintObject = Box<dyn Any>;
-
 impl<Renderer> fmt::Debug for dyn PolymophicWidget<Renderer> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {{ .. }}", self.short_type_name())
@@ -204,16 +198,10 @@ where
     Widget::State: 'static,
     Widget::Inbound: 'static,
     Widget::Outbound: 'static,
-    Widget::PaintObject: 'static,
 {
     #[inline]
     fn initial_state(&self) -> AnyState {
         Box::new(Widget::State::default())
-    }
-
-    #[inline]
-    fn initial_paint_object(&self) -> AnyPaintObject {
-        Box::new(Widget::PaintObject::default())
     }
 
     #[inline]
@@ -276,7 +264,7 @@ where
     fn lifecycle(
         &self,
         children: &Children<Renderer>,
-        paint_object: &mut AnyPaintObject,
+        state: &mut AnyState,
         lifecycle: Lifecycle<&dyn PolymophicWidget<Renderer>, &Children<Renderer>>,
         renderer: &mut Renderer,
         element_id: ElementId,
@@ -284,7 +272,7 @@ where
     ) {
         self.lifecycle(
             children,
-            paint_object.downcast_mut().unwrap(),
+            state.downcast_mut().unwrap(),
             lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             renderer,
             &mut InboundEmitter::new(element_id, message_sender),
@@ -295,7 +283,7 @@ where
     fn layout<'a>(
         &'a self,
         children: &Children<Renderer>,
-        paint_object: &mut AnyPaintObject,
+        state: &mut AnyState,
         box_constraints: BoxConstraints,
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
@@ -304,7 +292,7 @@ where
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         self.layout(
             children,
-            paint_object.downcast_mut().unwrap(),
+            state.downcast_mut().unwrap(),
             box_constraints,
             element_id,
             element_tree,
@@ -317,7 +305,7 @@ where
     fn draw(
         &self,
         children: &Children<Renderer>,
-        paint_object: &mut AnyPaintObject,
+        state: &mut AnyState,
         bounds: Rectangle,
         renderer: &mut Renderer,
         element_id: ElementId,
@@ -325,7 +313,7 @@ where
     ) -> Option<Primitive> {
         self.draw(
             children,
-            paint_object.downcast_mut().unwrap(),
+            state.downcast_mut().unwrap(),
             bounds,
             renderer,
             &mut InboundEmitter::new(element_id, message_sender),
@@ -339,7 +327,6 @@ where
     Widget::State: 'static,
     Widget::Inbound: 'static,
     Widget::Outbound: 'static,
-    Widget::PaintObject: 'static,
 {
     #[inline]
     fn build_element(self, children: Children<Renderer>) -> Element<Renderer>
@@ -360,7 +347,6 @@ where
     Widget::State: 'static,
     Widget::Inbound: 'static,
     Widget::Outbound: 'static,
-    Widget::PaintObject: 'static,
 {
     #[inline]
     fn build_element(self, children: Children<Renderer>) -> Element<Renderer> {

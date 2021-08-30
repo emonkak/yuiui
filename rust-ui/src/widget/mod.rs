@@ -10,4 +10,4 @@ pub mod text;
 
 mod widget;
 
-pub use widget::{AnyPaintObject, AnyState, PolymophicWidget, Widget, WidgetMeta, WithKey};
+pub use widget::{AnyState, PolymophicWidget, Widget, WidgetMeta, WithKey};

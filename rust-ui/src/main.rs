@@ -32,7 +32,6 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
     type Inbound = ();
     type Outbound = ();
-    type PaintObject = ();
 
     fn update(
         &self,
@@ -97,7 +96,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     fn draw(
         &self,
         _children: &Children<Renderer>,
-        _paint_object: &mut Self::PaintObject,
+        _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
         _context: &mut InboundEmitter<Self::Inbound>
