@@ -1,13 +1,9 @@
-pub mod mouse;
-pub mod window;
-pub mod keyboard;
-
 mod emitter;
-mod event;
-mod listener;
-mod manager;
+mod keyboard;
+mod mouse;
+mod window;
 
 pub use emitter::{InboundEmitter, OutboundEmitter};
-pub use event::{EventType, GenericEvent, WindowEvent};
-pub use listener::EventListener;
-pub use manager::{EventListenerId, EventManager};
+pub use keyboard::Modifier;
+pub use mouse::{MouseButton, MouseEvent, MouseUp, MouseDown};
+pub use window::{WindowClose, WindowResize};

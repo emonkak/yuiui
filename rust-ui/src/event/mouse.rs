@@ -1,7 +1,6 @@
 use crate::geometrics::PhysicalPoint;
 use crate::support::bit_flags::BitFlags;
 
-use super::event::EventType;
 use super::keyboard::Modifier;
 
 #[derive(Debug, Clone)]
@@ -12,23 +11,9 @@ pub struct MouseEvent {
     pub modifiers: BitFlags<Modifier>,
 }
 
-pub struct Click;
+pub struct MouseUp(pub MouseEvent);
 
-pub struct MouseUp;
-
-pub struct MouseDown;
-
-impl EventType for Click {
-    type Event = MouseEvent;
-}
-
-impl EventType for MouseUp {
-    type Event = MouseEvent;
-}
-
-impl EventType for MouseDown {
-    type Event = MouseEvent;
-}
+pub struct MouseDown(pub MouseEvent);
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[repr(u8)]

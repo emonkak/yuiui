@@ -1,9 +1,7 @@
 use std::os::raw::*;
 use x11::xlib;
 
-use crate::event::mouse::{MouseButton, MouseEvent};
-use crate::event::keyboard::Modifier;
-use crate::event::window::{WindowResizeEvent};
+use crate::event::{WindowResize, Modifier, MouseButton, MouseEvent};
 use crate::geometrics::{PhysicalSize, PhysicalPoint};
 use crate::support::bit_flags::BitFlags;
 
@@ -21,14 +19,12 @@ impl From<&xlib::XButtonEvent> for MouseEvent {
     }
 }
 
-impl From<&xlib::XConfigureEvent> for WindowResizeEvent {
+impl From<&xlib::XConfigureEvent> for WindowResize {
     fn from(event: &xlib::XConfigureEvent) -> Self {
-        Self {
-            size: PhysicalSize {
-                width: event.width as _,
-                height: event.height as _,
-            },
-        }
+        Self(PhysicalSize {
+            width: event.width as _,
+            height: event.height as _,
+        })
     }
 }
 

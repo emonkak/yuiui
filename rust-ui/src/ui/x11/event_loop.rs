@@ -10,8 +10,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use x11::xlib;
 
-use crate::event::mouse::MouseEvent;
-use crate::event::WindowEvent;
+use crate::event::{MouseEvent, MouseDown, MouseUp, WindowClose, WindowResize};
 use crate::geometrics::{PhysicalPoint, PhysicalSize};
 use crate::ui::{ControlFlow, Event, StartCause};
 
@@ -117,21 +116,21 @@ impl EventLoop {
                 let event: &xlib::XButtonEvent = event.as_ref();
                 control_flow.trans(callback(Event::WindowEvent(
                     event.window,
-                    WindowEvent::MouseDown(MouseEvent::from(event)),
+                    Box::new(MouseDown(MouseEvent::from(event)),)
                 )));
             }
             xlib::ButtonRelease => {
                 let event: &xlib::XButtonEvent = event.as_ref();
                 control_flow.trans(callback(Event::WindowEvent(
                     event.window,
-                    WindowEvent::MouseUp(MouseEvent::from(event)),
+                    Box::new(MouseUp(MouseEvent::from(event)),)
                 )));
             }
             xlib::DestroyNotify => {
                 let event: &xlib::XDestroyWindowEvent = event.as_ref();
                 control_flow.trans(callback(Event::WindowEvent(
                     event.window,
-                    WindowEvent::WindowClose,
+                    Box::new(WindowClose),
                 )));
             }
             xlib::ConfigureNotify => {
@@ -148,7 +147,7 @@ impl EventLoop {
                     window_state.size = size;
                     control_flow.trans(callback(Event::WindowEvent(
                         event.window,
-                        WindowEvent::WindowResize(size),
+                        Box::new(WindowResize(size)),
                     )));
                 }
             }

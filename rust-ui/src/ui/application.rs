@@ -1,7 +1,7 @@
 use std::sync::mpsc::{channel, sync_channel};
 use std::thread;
 
-use crate::event::WindowEvent;
+use crate::event::WindowResize;
 use crate::graphics::{Color, Renderer, Viewport};
 use crate::paint::PaintTree;
 use crate::render::RenderTree;
@@ -87,19 +87,16 @@ pub fn run<Window, EventLoop, Renderer>(
                 renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, window_event) => {
-                match window_event {
-                    WindowEvent::WindowResize(size) => {
-                        viewport = Viewport::from_physical(size, viewport.scale_factor());
-                        paint_tree.layout_root(viewport.logical_size(), &mut renderer);
+                if let Some(WindowResize(size)) = window_event.downcast_ref() {
+                    viewport = Viewport::from_physical(*size, viewport.scale_factor());
+                    paint_tree.layout_root(viewport.logical_size(), &mut renderer);
 
-                        renderer.configure_surface(&mut surface, &viewport);
-                        pipeline = renderer.create_pipeline(&viewport);
-                        paint_tree.paint(&mut pipeline, &mut renderer);
-                    }
-                    _ => {}
+                    renderer.configure_surface(&mut surface, &viewport);
+                    pipeline = renderer.create_pipeline(&viewport);
+                    paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                paint_tree.broadcast_event(Box::new(window_event));
+                paint_tree.broadcast_event(window_event);
             }
             _ => {}
         }
