@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::collections::HashMap;
 use std::fmt;
 use std::mem;
 
@@ -18,13 +19,18 @@ pub struct RenderTree<Renderer> {
     root_id: ElementId,
     render_states: SlotVec<RenderState<Renderer>>,
     message_sender: MessageSender,
+    event_manager: EventManager,
 }
 
 #[derive(Debug)]
 struct RenderState<Renderer> {
     phase: RenderPhase<Renderer>,
     state: AnyState,
-    version: usize,
+}
+
+#[derive(Debug)]
+struct EventManager {
+    event_subscribers: HashMap<TypeId, Vec<ElementId>>,
 }
 
 #[derive(Debug)]
@@ -46,13 +52,14 @@ impl<Renderer> RenderTree<Renderer> {
         let (tree, root_id) = create_element_tree();
         let mut render_states = SlotVec::new();
 
-        render_states.insert_at(root_id, RenderState::new(Box::new(()), tree.version()));
+        render_states.insert_at(root_id, RenderState::new(Box::new(())));
 
         Self {
             tree,
             root_id,
             render_states,
             message_sender,
+            event_manager: EventManager::new(),
         }
     }
 
@@ -74,24 +81,27 @@ impl<Renderer> RenderTree<Renderer> {
         patches
     }
 
-    pub fn update(&mut self, target_id: ElementId, version: usize, message: AnyMessage) -> Vec<Patch<Renderer>> {
-        let mut patches = Vec::new();
+    pub fn broadcast_event(&mut self, event: &AnyMessage, patches: &mut Vec<Patch<Renderer>>) {
+        let subscriber_ids = self.event_manager.get_subscribers(event.type_id());
+        for subscriber_id in subscriber_ids.collect::<Vec<_>>() {
+            self.send_event(subscriber_id, event, patches);
+        }
+    }
+
+    pub fn send_event(&mut self, target_id: ElementId, event: &AnyMessage, patches: &mut Vec<Patch<Renderer>>) {
         let render_state = &mut self.render_states[target_id];
 
-        if render_state.version == version {
-            let Element { widget, .. } = &*self.tree[target_id];
+        let Element { widget, children, .. } = &*self.tree[target_id];
 
-            if widget.update(&mut render_state.state, message) {
-                let mut current_id = target_id;
+        if widget.update(children, &mut render_state.state, &event, &self.message_sender) {
+            let mut current_id = target_id;
 
-                while let Some(next_id) = self.render_step(current_id, target_id, &mut patches) {
-                    current_id = next_id;
-                }
+            while let Some(next_id) = self.render_step(current_id, target_id, patches) {
+                current_id = next_id;
             }
         }
-
-        patches
     }
+
 
     fn render_step(
         &mut self,
@@ -118,7 +128,6 @@ impl<Renderer> RenderTree<Renderer> {
             children,
             &render_state.state,
             target_id,
-            render_state.version
         );
 
         for result in self.reconcile_children(target_id, rendered_children) {
@@ -161,30 +170,30 @@ impl<Renderer> RenderTree<Renderer> {
         patches: &mut Vec<Patch<Renderer>>,
     ) {
         match result {
-            ReconcileResult::New(new_element) => {
-                let widget_pod = Element::from(new_element);
-                let element_id = self.tree.append_child(target_id, widget_pod.clone());
+            ReconcileResult::New(element) => {
+                let element_id = self.tree.append_child(target_id, element.clone());
                 self.render_states.insert_at(
                     element_id,
-                    RenderState::new(widget_pod.widget.initial_state(), self.tree.version()),
+                    RenderState::new(element.widget.initial_state()),
                 );
-                patches.push(Patch::Append(target_id, widget_pod));
+                self.event_manager.add_subscriber(element_id, &element);
+                patches.push(Patch::Append(target_id, element));
             }
-            ReconcileResult::Insertion(ref_id, new_element) => {
-                let widget_pod = Element::from(new_element);
-                let element_id = self.tree.insert_before(ref_id, widget_pod.clone());
+            ReconcileResult::Insertion(ref_id, element) => {
+                let element_id = self.tree.insert_before(ref_id, element.clone());
                 self.render_states.insert_at(
                     element_id,
-                    RenderState::new(widget_pod.widget.initial_state(), self.tree.version()),
+                    RenderState::new(element.widget.initial_state()),
                 );
-                patches.push(Patch::Insert(ref_id, widget_pod));
+                self.event_manager.add_subscriber(element_id, &element);
+                patches.push(Patch::Insert(ref_id, element));
             }
             ReconcileResult::Update(target_id, new_element) => {
                 let Element {
                     widget, children, ..
                 } = &mut *self.tree[target_id];
                 let state = &self.render_states[target_id].state;
-                if widget.should_render(children, state, &new_element.widget, &new_element.children)
+                if widget.should_render(children, state, &*new_element.widget, &new_element.children)
                 {
                     self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
                     patches.push(Patch::Update(target_id, new_element));
@@ -197,7 +206,7 @@ impl<Renderer> RenderTree<Renderer> {
                     widget, children, ..
                 } = &mut *self.tree[target_id];
                 let state = &self.render_states[target_id].state;
-                if widget.should_render(children, state, &new_element.widget, &new_element.children)
+                if widget.should_render(children, state, &*new_element.widget, &new_element.children)
                 {
                     self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
                     patches.push(Patch::Update(target_id, new_element));
@@ -208,12 +217,14 @@ impl<Renderer> RenderTree<Renderer> {
                 patches.push(Patch::Move(target_id, ref_id));
             }
             ReconcileResult::Deletion(target_id) => {
-                let (_, subtree) = self.tree.detach(target_id);
+                let (node, subtree) = self.tree.detach(target_id);
 
                 self.render_states.remove(target_id);
+                self.event_manager.remove_subscriber(target_id, &*node);
 
-                for (child_id, _) in subtree {
+                for (child_id, child) in subtree {
                     self.render_states.remove(child_id);
+                    self.event_manager.remove_subscriber(target_id, &*child);
                 }
 
                 patches.push(Patch::Remove(target_id));
@@ -278,11 +289,43 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
 }
 
 impl<Renderer> RenderState<Renderer> {
-    fn new(state: AnyState, version: usize) -> Self {
+    fn new(state: AnyState) -> Self {
         Self {
             phase: RenderPhase::Fresh,
             state,
-            version,
+        }
+    }
+}
+
+impl EventManager {
+    fn new() -> Self {
+        Self {
+            event_subscribers: HashMap::new(),
+        }
+    }
+
+    fn get_subscribers(&self, type_id: TypeId) -> impl Iterator<Item = ElementId> + '_ {
+        self.event_subscribers
+            .get(&type_id)
+            .map_or(&[] as &[ElementId], |element_ids| element_ids.as_slice())
+            .iter()
+            .copied()
+    }
+
+    fn add_subscriber<Renderer>(&mut self, element_id: ElementId, element: &Element<Renderer>) {
+        self.event_subscribers
+            .entry(element.widget.inbound_type())
+            .or_default()
+            .push(element_id);
+    }
+
+    fn remove_subscriber<Renderer>(&mut self, element_id: ElementId, element: &Element<Renderer>) {
+        let found_buckets = self.event_subscribers.get_mut(&element.widget.inbound_type());
+        if let Some(buckets) = found_buckets {
+            let found_index = buckets.iter().position(|id| *id == element_id);
+            if let Some(index) = found_index {
+                buckets.remove(index);
+            }
         }
     }
 }

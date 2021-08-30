@@ -7,6 +7,7 @@ pub struct Null;
 
 impl<Renderer> Widget<Renderer> for Null {
     type State = ();
-    type Message = ();
+    type Inbound = ();
+    type Outbound = ();
     type PaintObject = ();
 }

@@ -1,16 +1,14 @@
 use std::fmt;
 use std::mem;
 
-use crate::event::{EventManager, GenericEvent};
 use crate::geometrics::{Point, Rectangle, Size, Vector};
 use crate::graphics::{Primitive, Renderer};
-use crate::paint::PaintContext;
 use crate::support::bit_flags::BitFlags;
 use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::WalkDirection;
 use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
-use crate::widget::message::MessageSender;
+use crate::widget::message::{AnyMessage, Message, MessageSender};
 use crate::widget::AnyPaintObject;
 
 use super::layout::{BoxConstraints, LayoutRequest};
@@ -21,7 +19,6 @@ pub struct PaintTree<Renderer> {
     root_id: ElementId,
     paint_states: SlotVec<PaintState<Renderer>>,
     message_sender: MessageSender,
-    event_manager: EventManager,
 }
 
 struct PaintState<Renderer> {
@@ -61,7 +58,6 @@ impl<Renderer> PaintTree<Renderer> {
             root_id,
             paint_states,
             message_sender,
-            event_manager: EventManager::new(),
         }
     }
 
@@ -149,7 +145,6 @@ impl<Renderer> PaintTree<Renderer> {
                 widget, children, ..
             } = &**initial_node;
             let paint_state = &mut self.paint_states[initial_id];
-            let mut context = PaintContext::new(initial_id, &mut self.event_manager);
 
             widget.layout(
                 children,
@@ -158,7 +153,7 @@ impl<Renderer> PaintTree<Renderer> {
                 initial_id,
                 &self.tree,
                 renderer,
-                &mut context,
+                &self.message_sender,
             )
         });
         let mut layout_stack = Vec::new();
@@ -180,7 +175,6 @@ impl<Renderer> PaintTree<Renderer> {
                             widget, children, ..
                         } = &*self.tree[child_id];
                         let paint_state = &mut self.paint_states[child_id];
-                        let mut context = PaintContext::new(initial_id, &mut self.event_manager);
                         layout_stack.push(layout_context);
                         layout_context = (
                             child_id,
@@ -192,7 +186,7 @@ impl<Renderer> PaintTree<Renderer> {
                                 child_id,
                                 &self.tree,
                                 renderer,
-                                &mut context,
+                                &self.message_sender,
                             ),
                         );
                     } else {
@@ -287,8 +281,6 @@ impl<Renderer> PaintTree<Renderer> {
                 continue;
             }
 
-            let mut context = PaintContext::new(element_id, &mut self.event_manager);
-
             if draw_phase {
                 let Element {
                     widget, children, ..
@@ -300,7 +292,8 @@ impl<Renderer> PaintTree<Renderer> {
                     &mut paint_state.paint_object,
                     absolute_bounds,
                     renderer,
-                    &mut context,
+                    element_id,
+                    &self.message_sender,
                 );
 
                 if let Some(primitive) = &draw_result {
@@ -317,19 +310,26 @@ impl<Renderer> PaintTree<Renderer> {
                     let Element {
                         widget, children, ..
                     } = element;
-                    let lifecycle = if let Some(old_element) = paint_state.mounted_element.take() {
-                        Lifecycle::DidUpdate(old_element.widget, old_element.children)
-                    } else {
-                        Lifecycle::DidMount()
-                    };
 
-                    widget.lifecycle(
-                        children,
-                        &mut paint_state.paint_object,
-                        lifecycle,
-                        renderer,
-                        &mut context,
-                    );
+                    if let Some(old_element) = paint_state.mounted_element.take() {
+                        widget.lifecycle(
+                            children,
+                            &mut paint_state.paint_object,
+                            Lifecycle::DidUpdate(&*old_element.widget, &old_element.children),
+                            renderer,
+                            element_id,
+                            &self.message_sender,
+                        );
+                    } else {
+                        widget.lifecycle(
+                            children,
+                            &mut paint_state.paint_object,
+                            Lifecycle::DidMount(),
+                            renderer,
+                            element_id,
+                            &self.message_sender,
+                        );
+                    };
 
                     paint_state.mounted_element = Some(element.clone());
                 }
@@ -342,13 +342,13 @@ impl<Renderer> PaintTree<Renderer> {
                     mut paint_state,
                 ) in mem::take(&mut paint_state.deleted_nodes)
                 {
-                    let mut context = PaintContext::new(element_id, &mut self.event_manager);
                     widget.lifecycle(
                         &children,
                         &mut paint_state.paint_object,
                         Lifecycle::DidUnmount(),
                         renderer,
-                        &mut context,
+                        element_id,
+                        &self.message_sender,
                     );
                 }
 
@@ -359,12 +359,12 @@ impl<Renderer> PaintTree<Renderer> {
         renderer.finish_pipeline(pipeline);
     }
 
-    pub fn dispatch_event(&self, event: &GenericEvent) {
-        let listeners = self.event_manager.get_listeners(event.type_id);
+    pub fn broadcast_event(&self, event: AnyMessage) {
+        self.message_sender.send(Message::Broadcast(event)).unwrap();
+    }
 
-        for (_subscriber_id, listener) in listeners {
-            listener.dispatch(&event.payload, &self.message_sender);
-        }
+    pub fn send_event(&self, element_id: ElementId, event: AnyMessage) {
+        self.message_sender.send(Message::Send(element_id, event)).unwrap();
     }
 
     fn mark_parents_as_dirty(&mut self, target_id: ElementId) {

@@ -1,8 +1,8 @@
 use rust_ui_derive::WidgetMeta;
 
+use crate::event::InboundEmitter;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
-use crate::paint::PaintContext;
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
 use super::element::Children;
@@ -20,7 +20,8 @@ pub struct Text {
 
 impl<Renderer> Widget<Renderer> for Text {
     type State = ();
-    type Message = ();
+    type Inbound = ();
+    type Outbound = ();
     type PaintObject = ();
 
     fn should_render(
@@ -39,7 +40,7 @@ impl<Renderer> Widget<Renderer> for Text {
         _paint_object: &mut Self::PaintObject,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut PaintContext,
+        _context: &mut InboundEmitter<Self::Inbound>,
     ) -> Option<Primitive> {
         Primitive::Text {
             bounds,

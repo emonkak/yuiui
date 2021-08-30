@@ -53,7 +53,8 @@ impl<Renderer> Element<Renderer> {
     where
         Widget: self::Widget<Renderer> + Send + 'static,
         Widget::State: 'static,
-        Widget::Message: 'static,
+        Widget::Inbound: 'static,
+        Widget::Outbound: 'static,
         Widget::PaintObject: 'static,
     {
         Self {
@@ -151,7 +152,8 @@ impl<Renderer, Widget> From<Widget> for Child<Renderer>
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
-    Widget::Message: 'static,
+    Widget::Inbound: 'static,
+    Widget::Outbound: 'static,
     Widget::PaintObject: 'static,
 {
     fn from(widget: Widget) -> Self {

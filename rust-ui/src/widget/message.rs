@@ -5,10 +5,14 @@ use std::sync::mpsc::Sender;
 
 use super::element::ElementId;
 
+pub enum Message {
+    Broadcast(AnyMessage),
+    Send(ElementId, AnyMessage),
+}
+
 #[derive(Debug, Clone)]
 pub struct MessageSink<Message, Sender> {
     element_id: ElementId,
-    version: usize,
     message_sender: Sender,
     message_type: PhantomData<Message>,
 }
@@ -16,19 +20,17 @@ pub struct MessageSink<Message, Sender> {
 #[derive(Debug)]
 pub struct MessageContext<Message> {
     pub element_id: ElementId,
-    pub version: usize,
     message_type: PhantomData<Message>,
 }
 
-pub type MessageSender = Sender<(ElementId, usize, AnyMessage)>;
+pub type MessageSender = Sender<Message>;
 
 pub type AnyMessage = Box<dyn Any + Send>;
 
 impl<Message, Sender> MessageSink<Message, Sender> {
-    pub fn new(element_id: ElementId, version: usize, message_sender: Sender) -> Self {
+    pub fn new(element_id: ElementId, message_sender: Sender) -> Self {
         Self {
             element_id,
-            version,
             message_sender,
             message_type: PhantomData,
         }
@@ -41,7 +43,7 @@ impl<Message, Sender> MessageSink<Message, Sender> {
     {
         self.message_sender
             .borrow()
-            .send((self.element_id, self.version, Box::new(message)))
+            .send(self::Message::Send(self.element_id, Box::new(message)))
             .unwrap();
     }
 
@@ -52,7 +54,6 @@ impl<Message, Sender> MessageSink<Message, Sender> {
     {
         MessageSink {
             element_id: self.element_id,
-            version: self.version,
             message_sender: self.message_sender.borrow().clone(),
             message_type: self.message_type,
         }
@@ -60,10 +61,9 @@ impl<Message, Sender> MessageSink<Message, Sender> {
 }
 
 impl<Message> MessageContext<Message> {
-    pub fn new(element_id: ElementId, version: usize) -> Self {
+    pub fn new(element_id: ElementId) -> Self {
         Self {
             element_id,
-            version,
             message_type: PhantomData,
         }
     }
@@ -73,7 +73,6 @@ impl<Message> Clone for MessageContext<Message> {
     fn clone(&self) -> Self {
         Self {
             element_id: self.element_id,
-            version: self.version,
             message_type: self.message_type,
         }
     }
