@@ -1,5 +1,6 @@
 use std::any::Any;
-use std::borrow::{Borrow};
+use std::borrow::Borrow;
+use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::sync::mpsc::Sender;
 
@@ -8,6 +9,60 @@ use super::element::ElementId;
 pub enum Message {
     Broadcast(AnyMessage),
     Send(ElementId, AnyMessage),
+}
+
+pub struct MessageQueue {
+    queue: VecDeque<Message>,
+}
+
+pub struct MessageEmitter<'a, Message> {
+    origin_id: ElementId,
+    message_sender: &'a MessageSender,
+    inbound_type: PhantomData<Message>,
+}
+
+impl MessageQueue {
+    pub fn new() -> Self {
+        Self {
+            queue: VecDeque::new(),
+        }
+    }
+
+    pub fn dequeue(&mut self) -> Option<Message> {
+        self.queue.pop_front()
+    }
+
+    pub fn enqueue(&mut self, message: Message) {
+        self.queue.push_back(message)
+    }
+}
+
+impl<'a, Message> MessageEmitter<'a, Message> {
+    pub fn new(origin_id: ElementId, message_sender: &'a MessageSender) -> Self {
+        Self {
+            origin_id,
+            message_sender,
+            inbound_type: PhantomData,
+        }
+    }
+
+    pub fn emit(&mut self, event: Message)
+    where
+        Message: Send + 'static
+    {
+        self.message_sender
+            .send(self::Message::Send(self.origin_id, Box::new(event)))
+            .unwrap();
+    }
+
+    pub fn broadcast(&mut self, event: Message)
+    where
+        Message: Send + 'static,
+    {
+        self.message_sender
+            .send(self::Message::Broadcast(Box::new(event)))
+            .unwrap();
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -1,11 +1,11 @@
 use rust_ui_derive::WidgetMeta;
 
-use crate::event::InboundEmitter;
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, ElementId, ElementTree};
+use super::message::MessageEmitter;
 use super::widget::{PolymophicWidget, Widget, WidgetMeta};
 
 #[derive(WidgetMeta)]
@@ -61,8 +61,7 @@ impl Flex {
 
 impl<Renderer> Widget<Renderer> for Flex {
     type State = ();
-    type Inbound = ();
-    type Outbound = ();
+    type Message = ();
 
     fn layout<'a>(
         &'a self,
@@ -72,7 +71,7 @@ impl<Renderer> Widget<Renderer> for Flex {
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>,
+        _context: &mut MessageEmitter<Self::Message>,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
@@ -139,8 +138,7 @@ impl FlexItem {
 
 impl<Renderer> Widget<Renderer> for FlexItem {
     type State = ();
-    type Inbound = ();
-    type Outbound = ();
+    type Message = ();
 }
 
 impl Axis {

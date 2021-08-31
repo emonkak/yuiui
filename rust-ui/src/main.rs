@@ -8,7 +8,6 @@ use std::env;
 use std::ptr;
 use x11::xlib;
 
-use rust_ui::event::{OutboundEmitter, InboundEmitter};
 use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
 use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Viewport};
 use rust_ui::text::fontconfig::FontLoader;
@@ -19,6 +18,7 @@ use rust_ui::ui::x11 as x11_ui;
 use rust_ui::widget::element::{Children, ElementId};
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::{Flex, FlexItem};
+use rust_ui::widget::message::{MessageEmitter, MessageQueue};
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::text::Text;
 use rust_ui::widget::{Widget, WidgetMeta};
@@ -30,15 +30,14 @@ struct App {
 
 impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
-    type Inbound = ();
-    type Outbound = ();
+    type Message = ();
 
     fn update(
         &self,
         _children: &Children<Renderer>,
         state: &mut Self::State,
-        _event: &Self::Inbound,
-        _context: &mut OutboundEmitter<Self::Outbound>
+        _event: &Self::Message,
+        _message_queue: &mut MessageQueue,
     ) -> bool {
         *state += 1;
         true
@@ -99,7 +98,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
         _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>
+        _context: &mut MessageEmitter<Self::Message>
     ) -> Option<Primitive> {
         None
     }

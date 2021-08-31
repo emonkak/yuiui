@@ -7,7 +7,7 @@ use crate::support::slot_vec::SlotVec;
 use crate::widget::element::{
     create_element_tree, Children, Element, ElementId, ElementTree, Key, Patch,
 };
-use crate::widget::message::{AnyMessage, MessageSender};
+use crate::widget::message::{AnyMessage, Message, MessageQueue, MessageSender};
 use crate::widget::null::Null;
 use crate::widget::{AnyState, PolymophicWidget};
 
@@ -81,19 +81,42 @@ impl<Renderer> RenderTree<Renderer> {
         patches
     }
 
-    pub fn broadcast_event(&mut self, event: &AnyMessage, patches: &mut Vec<Patch<Renderer>>) {
-        let subscriber_ids = self.event_manager.get_subscribers(event.type_id());
-        for subscriber_id in subscriber_ids.collect::<Vec<_>>() {
-            self.send_event(subscriber_id, event, patches);
+    pub fn update(&mut self, message: Message, patches: &mut Vec<Patch<Renderer>>) {
+        let mut message_queue = MessageQueue::new();
+        let mut message = message;
+
+        loop {
+            match message {
+                Message::Broadcast(payload) => {
+                    let subscriber_ids = self.event_manager.get_subscribers(payload.type_id());
+                    for subscriber_id in subscriber_ids.collect::<Vec<_>>() {
+                        self.send_event(subscriber_id, &payload, patches, &mut message_queue);
+                    }
+                },
+                Message::Send(target_id, payload) => {
+                    self.send_event(target_id, &payload, patches, &mut message_queue);
+                },
+            }
+
+            if let Some(next_message) = message_queue.dequeue() {
+                message = next_message;
+            } else {
+                break;
+            }
         }
     }
 
-    pub fn send_event(&mut self, target_id: ElementId, event: &AnyMessage, patches: &mut Vec<Patch<Renderer>>) {
+    fn send_event(
+        &mut self,
+        target_id: ElementId,
+        event: &AnyMessage,
+        patches: &mut Vec<Patch<Renderer>>,
+        message_queue: &mut MessageQueue,
+    ) {
         let render_state = &mut self.render_states[target_id];
-
         let Element { widget, children, .. } = &*self.tree[target_id];
 
-        if widget.update(children, &mut render_state.state, &event, &self.message_sender) {
+        if widget.update(children, &mut render_state.state, &event, message_queue) {
             let mut current_id = target_id;
 
             while let Some(next_id) = self.render_step(current_id, target_id, patches) {
@@ -101,7 +124,6 @@ impl<Renderer> RenderTree<Renderer> {
             }
         }
     }
-
 
     fn render_step(
         &mut self,

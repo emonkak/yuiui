@@ -10,13 +10,14 @@ use super::element::{ElementId, ElementTree, Children};
 use super::{Widget, WidgetMeta};
 
 #[derive(Debug, WidgetMeta)]
-pub struct EventFowarder<Child: 'static, ListenerFn: 'static> {
+pub struct MouseDownBehavior<Child: 'static, ListenerFn: 'static, Outbound: 'static> {
     child: Child,
     listener_id: ElementId,
     listener_fn: ListenerFn,
+    outbound_type: PhantomData<Outbound>,
 }
 
-impl<Child, ListenerFn> EventFowarder<Child, ListenerFn> {
+impl<Child, ListenerFn> MouseDownBehavior<Child, ListenerFn> {
     pub fn new(child: Child, listener_id: ElementId, listener_fn: ListenerFn) -> Self {
         Self {
             child,
@@ -26,21 +27,20 @@ impl<Child, ListenerFn> EventFowarder<Child, ListenerFn> {
     }
 }
 
-impl<Child, ListenerFn, Renderer> Widget<Renderer> for EventFowarder<Child, ListenerFn>
+impl<Child, ListenerFn, Renderer> Widget<Renderer> for MouseDownBehavior<Child, ListenerFn>
 where
     Child: Widget<Renderer>,
-    ListenerFn: Fn(&Child::Outbound, &mut MessageEmitter<Child::Outbound>) + Send + Sync + 'static,
+    ListenerFn: Fn(&MouseDown, &mut MessageEmitter<Child::Outbound>) + Send + Sync + 'static,
     Renderer: 'static,
 {
-    type State = Child::State;
-    type Message = Child::Message;
-    type Outbound = Child::Outbound;
+    type State = ();
+    type Message = MouseDown;
 
     fn update(
         &self,
         children: &Children<Renderer>,
         state: &mut Self::State,
-        event: &Self::Message,
+        event: &Self::Inbound,
         context: &mut OutboundEmitter<Self::Outbound>,
     ) -> bool {
         let result = self.child.update(children, state, event, context);
@@ -84,7 +84,7 @@ where
         state: &mut Self::State,
         lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         renderer: &mut Renderer,
-        context: &mut MessageEmitter<Self::Message>,
+        context: &mut InboundEmitter<Self::Inbound>,
     ) {
         self.child.lifecycle(children, state, lifecycle.map(|widget| &widget.child), renderer, context)
     }
@@ -98,7 +98,7 @@ where
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
         renderer: &mut Renderer,
-        context: &mut MessageEmitter<Self::Message>,
+        context: &mut InboundEmitter<Self::Inbound>,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         self.child.layout(children, state, box_constraints, element_id, element_tree, renderer, context)
     }
@@ -110,8 +110,9 @@ where
         state: &mut Self::State,
         bounds: Rectangle,
         renderer: &mut Renderer,
-        context: &mut MessageEmitter<Self::Message>,
+        context: &mut InboundEmitter<Self::Inbound>,
     ) -> Option<Primitive> {
         self.child.draw(children, state, bounds, renderer, context)
     }
 }
+

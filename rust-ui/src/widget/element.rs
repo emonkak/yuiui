@@ -53,8 +53,7 @@ impl<Renderer> Element<Renderer> {
     where
         Widget: self::Widget<Renderer> + Send + 'static,
         Widget::State: 'static,
-        Widget::Inbound: 'static,
-        Widget::Outbound: 'static,
+        Widget::Message: 'static,
     {
         Self {
             widget: Arc::new(widget),
@@ -151,8 +150,7 @@ impl<Renderer, Widget> From<Widget> for Child<Renderer>
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
-    Widget::Inbound: 'static,
-    Widget::Outbound: 'static,
+    Widget::Message: 'static,
 {
     fn from(widget: Widget) -> Self {
         Child::Single(Element {

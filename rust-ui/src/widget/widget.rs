@@ -6,25 +6,22 @@ use crate::geometrics::{Rectangle, Size};
 use crate::graphics::Primitive;
 use crate::paint::{BoxConstraints, LayoutRequest, Lifecycle};
 use crate::support::generator::Generator;
-use crate::event::{InboundEmitter, OutboundEmitter};
 
 use super::element::{Children, Element, ElementId, ElementTree, BuildElement, Key};
-use super::message::{AnyMessage, MessageSender};
+use super::message::{AnyMessage, MessageEmitter, MessageQueue, MessageSender};
 
 pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
     type State: Default;
 
-    type Inbound: Send + Sync;
-
-    type Outbound: Send + Sync;
+    type Message: Send + Sync;
 
     #[inline]
     fn update(
         &self,
         _children: &Children<Renderer>,
         _state: &mut Self::State,
-        _event: &Self::Inbound,
-        _context: &mut OutboundEmitter<Self::Outbound>,
+        _event: &Self::Message,
+        _messages: &mut MessageQueue,
     ) -> bool {
         true
     }
@@ -57,7 +54,7 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
         _state: &mut Self::State,
         _lifecycle: Lifecycle<&Self, &Children<Renderer>>,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>,
+        _context: &mut MessageEmitter<Self::Message>,
     ) {
     }
 
@@ -70,7 +67,7 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>,
+        _context: &mut MessageEmitter<Self::Message>,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = element_tree[element_id].first_child() {
@@ -89,7 +86,7 @@ pub trait Widget<Renderer>: Send + Sync + WidgetMeta {
         _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>,
+        _context: &mut MessageEmitter<Self::Message>,
     ) -> Option<Primitive> {
         None
     }
@@ -100,14 +97,12 @@ pub trait PolymophicWidget<Renderer>: Send + Sync + WidgetMeta {
 
     fn inbound_type(&self) -> TypeId;
 
-    fn outbound_type(&self) -> TypeId;
-
     fn update(
         &self,
         children: &Children<Renderer>,
         _state: &mut AnyState,
         _event: &AnyMessage,
-        message_sender: &MessageSender
+        _messages: &mut MessageQueue,
     ) -> bool;
 
     fn should_render(
@@ -196,8 +191,7 @@ impl<Widget, Renderer> PolymophicWidget<Renderer> for Widget
 where
     Widget: self::Widget<Renderer> + 'static,
     Widget::State: 'static,
-    Widget::Inbound: 'static,
-    Widget::Outbound: 'static,
+    Widget::Message: 'static,
 {
     #[inline]
     fn initial_state(&self) -> AnyState {
@@ -206,12 +200,7 @@ where
 
     #[inline]
     fn inbound_type(&self) -> TypeId {
-        TypeId::of::<Widget::Inbound>()
-    }
-
-    #[inline]
-    fn outbound_type(&self) -> TypeId {
-        TypeId::of::<Widget::Outbound>()
+        TypeId::of::<Widget::Message>()
     }
 
     #[inline]
@@ -219,14 +208,14 @@ where
         &self,
         children: &Children<Renderer>,
         state: &mut AnyState,
-        event: &AnyMessage,
-        message_sender: &MessageSender,
+        message: &AnyMessage,
+        messages: &mut MessageQueue,
     ) -> bool {
         self.update(
             children,
             state.downcast_mut::<Widget::State>().unwrap(),
-            event.downcast_ref::<Widget::Inbound>().unwrap(),
-            &mut OutboundEmitter::new(message_sender),
+            message.downcast_ref::<Widget::Message>().unwrap(),
+            messages,
         )
     }
 
@@ -275,7 +264,7 @@ where
             state.downcast_mut().unwrap(),
             lifecycle.map(|widget| widget.as_any().downcast_ref().unwrap()),
             renderer,
-            &mut InboundEmitter::new(element_id, message_sender),
+            &mut MessageEmitter::new(element_id, message_sender),
         );
     }
 
@@ -297,7 +286,7 @@ where
             element_id,
             element_tree,
             renderer,
-            &mut InboundEmitter::new(element_id, message_sender),
+            &mut MessageEmitter::new(element_id, message_sender),
         )
     }
 
@@ -316,7 +305,7 @@ where
             state.downcast_mut().unwrap(),
             bounds,
             renderer,
-            &mut InboundEmitter::new(element_id, message_sender),
+            &mut MessageEmitter::new(element_id, message_sender),
         )
     }
 }
@@ -325,8 +314,7 @@ impl<Widget, Renderer> BuildElement<Renderer> for Widget
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
-    Widget::Inbound: 'static,
-    Widget::Outbound: 'static,
+    Widget::Message: 'static,
 {
     #[inline]
     fn build_element(self, children: Children<Renderer>) -> Element<Renderer>
@@ -345,8 +333,7 @@ impl<Widget, Renderer> BuildElement<Renderer> for WithKey<Widget>
 where
     Widget: self::Widget<Renderer> + WidgetMeta + 'static,
     Widget::State: 'static,
-    Widget::Inbound: 'static,
-    Widget::Outbound: 'static,
+    Widget::Message: 'static,
 {
     #[inline]
     fn build_element(self, children: Children<Renderer>) -> Element<Renderer> {

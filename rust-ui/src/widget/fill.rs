@@ -1,10 +1,10 @@
 use rust_ui_derive::WidgetMeta;
 
-use crate::event::InboundEmitter;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Background, Color, Primitive};
 
 use super::element::Children;
+use super::message::MessageEmitter;
 use super::widget::{Widget, WidgetMeta};
 
 #[derive(PartialEq, WidgetMeta)]
@@ -20,8 +20,7 @@ impl Fill {
 
 impl<Renderer> Widget<Renderer> for Fill {
     type State = ();
-    type Inbound = ();
-    type Outbound = ();
+    type Message = ();
 
     fn should_render(
         &self,
@@ -39,7 +38,7 @@ impl<Renderer> Widget<Renderer> for Fill {
         _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>,
+        _context: &mut MessageEmitter<Self::Message>,
     ) -> Option<Primitive> {
         Primitive::Quad {
             bounds,

@@ -6,7 +6,6 @@ use crate::graphics::{Color, Renderer, Viewport};
 use crate::paint::PaintTree;
 use crate::render::RenderTree;
 use crate::widget::element::Element;
-use crate::widget::message::Message;
 
 use super::event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy};
 use super::window::Window;
@@ -42,22 +41,11 @@ pub fn run<Window, EventLoop, Renderer>(
             loop {
                 let mut patches = Vec::new();
                 let message = message_receiver.recv().unwrap();
-                match message {
-                    Message::Broadcast(event) => {
-                        render_tree.broadcast_event(&event, &mut patches);
-                        if !patches.is_empty() {
-                            // TODO: partial update
-                            update_senter.send((render_tree.root_id(), patches)).unwrap();
-                            proxy.request_redraw(window_id);
-                        }
-                    }
-                    Message::Send(element_id, event) => {
-                        render_tree.send_event(element_id, &event, &mut patches);
-                        if !patches.is_empty() {
-                            update_senter.send((element_id, patches)).unwrap();
-                            proxy.request_redraw(window_id);
-                        }
-                    }
+                render_tree.update(message, &mut patches);
+                if !patches.is_empty() {
+                    // TODO: partial update
+                    update_senter.send((render_tree.root_id(), patches)).unwrap();
+                    proxy.request_redraw(window_id);
                 }
             }
         });

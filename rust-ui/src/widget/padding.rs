@@ -1,11 +1,11 @@
 use rust_ui_derive::WidgetMeta;
 
-use crate::event::InboundEmitter;
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, ElementId, ElementTree};
+use super::message::MessageEmitter;
 use super::widget::{Widget, WidgetMeta};
 
 #[derive(WidgetMeta)]
@@ -29,8 +29,7 @@ impl Padding {
 
 impl<Renderer> Widget<Renderer> for Padding {
     type State = ();
-    type Inbound = ();
-    type Outbound = ();
+    type Message = ();
 
     fn layout<'a>(
         &'a self,
@@ -40,7 +39,7 @@ impl<Renderer> Widget<Renderer> for Padding {
         element_id: ElementId,
         element_tree: &'a ElementTree<Renderer>,
         _renderer: &mut Renderer,
-        _context: &mut InboundEmitter<Self::Inbound>,
+        _context: &mut MessageEmitter<Self::Message>,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let child_id = element_tree[element_id]
