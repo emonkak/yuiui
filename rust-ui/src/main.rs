@@ -20,7 +20,7 @@ use rust_ui::widget::flex::Flex;
 use rust_ui::widget::message::{MessageEmitter, MessageQueue};
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::text::Text;
-use rust_ui::widget::{AsAny, ShouldRender, Widget};
+use rust_ui::widget::{Widget, WidgetSeal};
 
 #[derive(Debug)]
 struct App {
@@ -133,16 +133,13 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     ) -> Option<Primitive> {
         None
     }
-}
 
-impl ShouldRender<Self> for App {
-}
-
-impl AsAny for App {
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
+
+impl WidgetSeal for App {}
 
 fn main() {
     env_logger::init();

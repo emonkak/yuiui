@@ -7,9 +7,10 @@ use crate::support::slot_vec::SlotVec;
 use crate::widget::element::{
     create_element_tree, Children, Element, ElementId, ElementTree, Key, Patch,
 };
-use crate::widget::message::{AnyMessage, Message, MessageQueue, MessageSender};
+use crate::widget::message::{Message, MessageQueue, MessageSender};
 use crate::widget::null::Null;
-use crate::widget::{AnyState, PolymophicWidget};
+use crate::widget::BoxedMessage;
+use crate::widget::BoxedState;
 
 use super::reconciler::{ReconcileResult, Reconciler};
 
@@ -25,7 +26,7 @@ pub struct RenderTree<Renderer> {
 #[derive(Debug)]
 struct RenderState<Renderer> {
     phase: RenderPhase<Renderer>,
-    state: AnyState,
+    state: BoxedState,
 }
 
 #[derive(Debug)]
@@ -114,14 +115,14 @@ impl<Renderer: 'static> RenderTree<Renderer> {
     fn send_event(
         &mut self,
         target_id: ElementId,
-        event: &AnyMessage,
+        event: &BoxedMessage,
         patches: &mut Vec<Patch<Renderer>>,
         message_queue: &mut MessageQueue,
     ) {
         let render_state = &mut self.render_states[target_id];
         let Element { widget, .. } = &*self.tree[target_id];
 
-        if widget.update(&mut render_state.state, &event, message_queue) {
+        if widget.update(&mut render_state.state, &*event, message_queue) {
             let mut current_id = target_id;
 
             while let Some(next_id) = self.render_step(current_id, target_id, patches) {
@@ -166,7 +167,7 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         let mut old_element_ids: Vec<Option<ElementId>> = Vec::new();
 
         for (index, (child_id, child)) in self.tree.children(target_id).enumerate() {
-            let key = TypedKey::new(&*child.widget, index, child.key);
+            let key = TypedKey::new(&**child, index);
             old_keys.push(key);
             old_element_ids.push(Some(child_id));
         }
@@ -175,7 +176,7 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         let mut new_elements: Vec<Option<Element<Renderer>>> = Vec::with_capacity(children.len());
 
         for (index, element) in children.iter().enumerate() {
-            let key = TypedKey::new(&*element.widget, index, element.key);
+            let key = TypedKey::new(&*element, index);
             new_keys.push(key);
             new_elements.push(Some(element.clone()));
         }
@@ -297,7 +298,7 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
 }
 
 impl<Renderer> RenderState<Renderer> {
-    fn new(state: AnyState) -> Self {
+    fn new(state: BoxedState) -> Self {
         Self {
             phase: RenderPhase::Fresh,
             state,
@@ -322,7 +323,7 @@ impl EventManager {
 
     fn add_subscriber<Renderer>(&mut self, element_id: ElementId, element: &Element<Renderer>) {
         self.event_subscribers
-            .entry(element.widget.inbound_type())
+            .entry(element.widget.message_type_id())
             .or_default()
             .push(element_id);
     }
@@ -330,7 +331,7 @@ impl EventManager {
     fn remove_subscriber<Renderer>(&mut self, element_id: ElementId, element: &Element<Renderer>) {
         let found_buckets = self
             .event_subscribers
-            .get_mut(&element.widget.inbound_type());
+            .get_mut(&element.widget.message_type_id());
         if let Some(buckets) = found_buckets {
             let found_index = buckets.iter().position(|id| *id == element_id);
             if let Some(index) = found_index {
@@ -341,14 +342,10 @@ impl EventManager {
 }
 
 impl TypedKey {
-    fn new<Renderer: 'static>(
-        widget: &(dyn PolymophicWidget<Renderer> + 'static),
-        index: usize,
-        key: Option<Key>,
-    ) -> Self {
-        match key {
-            Some(key) => Self::Keyed(widget.as_any().type_id(), key),
-            None => Self::Indexed(widget.as_any().type_id(), index),
+    fn new<Renderer>(element: &Element<Renderer>, index: usize) -> Self {
+        match element.key {
+            Some(key) => Self::Keyed(element.widget.as_any().type_id(), key),
+            None => Self::Indexed(element.widget.as_any().type_id(), index),
         }
     }
 }

@@ -6,7 +6,7 @@ use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, Element, ElementId, IntoElement};
 use super::message::MessageEmitter;
-use super::widget::{AsAny, ShouldRender, Widget};
+use super::widget::{Widget, WidgetSeal};
 
 pub struct Padding<Renderer> {
     left: f32,
@@ -78,12 +78,11 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
             }
         })
     }
-}
 
-impl<Renderer> ShouldRender<Self> for Padding<Renderer> {}
-
-impl<Renderer: 'static> AsAny for Padding<Renderer> {
+    #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
+
+impl<Renderer> WidgetSeal for Padding<Renderer> {}

@@ -10,4 +10,4 @@ pub mod text;
 
 mod widget;
 
-pub use widget::{AnyState, AsAny, PolymophicWidget, ShouldRender, Widget};
+pub use widget::{BoxedMessage, BoxedState, PolyWidget, Widget, WidgetSeal};

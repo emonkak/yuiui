@@ -1,13 +1,13 @@
 use std::any::Any;
 
 use super::element::{Children, Element, ElementId};
-use super::widget::{AsAny, ShouldRender, Widget};
+use super::widget::{Widget, WidgetSeal};
 
-pub struct Null<Children> {
-    pub children: Children,
+pub struct Null<Renderer> {
+    pub children: Vec<Element<Renderer>>,
 }
 
-impl<Renderer: 'static> Widget<Renderer> for Null<Vec<Element<Renderer>>> {
+impl<Renderer: 'static> Widget<Renderer> for Null<Renderer> {
     type State = ();
     type Message = ();
 
@@ -18,12 +18,11 @@ impl<Renderer: 'static> Widget<Renderer> for Null<Vec<Element<Renderer>>> {
     fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {
         self.children.clone()
     }
-}
 
-impl<Renderer> ShouldRender<Self> for Null<Renderer> {}
-
-impl<Renderer: 'static> AsAny for Null<Renderer> {
+    #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
+
+impl<Renderer> WidgetSeal for Null<Renderer> {}

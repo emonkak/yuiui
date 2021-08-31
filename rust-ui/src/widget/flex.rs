@@ -6,7 +6,7 @@ use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, Element, ElementId, IntoElement};
 use super::message::MessageEmitter;
-use super::widget::{AsAny, ShouldRender, Widget};
+use super::widget::{Widget, WidgetSeal};
 
 pub struct Flex<Renderer> {
     direction: Axis,
@@ -123,15 +123,14 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
             self.direction.pack_size(total_major, minor)
         })
     }
-}
 
-impl<Renderer> ShouldRender<Self> for Flex<Renderer> {}
-
-impl<Renderer: 'static> AsAny for Flex<Renderer> {
+    #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
+
+impl<Renderer> WidgetSeal for Flex<Renderer> {}
 
 impl Axis {
     fn major(&self, size: &Size) -> f32 {

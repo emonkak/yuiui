@@ -1,14 +1,14 @@
-use std::any::Any;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::sync::mpsc::Sender;
 
 use super::element::ElementId;
+use super::widget::BoxedMessage;
 
 pub enum Message {
-    Broadcast(AnyMessage),
-    Send(ElementId, AnyMessage),
+    Broadcast(BoxedMessage),
+    Send(ElementId, BoxedMessage),
 }
 
 pub struct MessageQueue {
@@ -77,8 +77,6 @@ pub struct MessageContext<Message> {
 }
 
 pub type MessageSender = Sender<Message>;
-
-pub type AnyMessage = Box<dyn Any + Send>;
 
 impl<Message, Sender> MessageSink<Message, Sender> {
     pub fn new(element_id: ElementId, message_sender: Sender) -> Self {

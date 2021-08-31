@@ -5,7 +5,7 @@ use crate::event::MouseDown;
 
 use super::element::ElementId;
 use super::message::{Message, MessageQueue};
-use super::widget::{AsAny, ShouldRender, Widget};
+use super::widget::{Widget, WidgetSeal};
 
 #[derive(Debug)]
 pub struct MouseDownBehavior<Child: 'static, SelectorFn: 'static, Outbound: 'static> {
@@ -52,15 +52,11 @@ where
         message_queue.enqueue(message);
         false
     }
-}
 
-impl<Child, SelectorFn, Outbound> ShouldRender<Self>
-    for MouseDownBehavior<Child, SelectorFn, Outbound>
-{
-}
-
-impl<Child, SelectorFn, Outbound> AsAny for MouseDownBehavior<Child, SelectorFn, Outbound> {
+    #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
+
+impl<Child, SelectorFn, Outbound> WidgetSeal for MouseDownBehavior<Child, SelectorFn, Outbound> {}

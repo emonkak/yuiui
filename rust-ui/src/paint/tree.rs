@@ -8,7 +8,8 @@ use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::WalkDirection;
 use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
-use crate::widget::message::{AnyMessage, Message, MessageSender};
+use crate::widget::message::{Message, MessageEmitter, MessageSender};
+use crate::widget::BoxedMessage;
 
 use super::layout::{BoxConstraints, LayoutRequest};
 use super::lifecycle::Lifecycle;
@@ -132,28 +133,27 @@ impl<Renderer: 'static> PaintTree<Renderer> {
 
     fn layout(
         &mut self,
-        initial_id: ElementId,
-        initial_box_constraints: BoxConstraints,
+        root_id: ElementId,
+        root_box_constraints: BoxConstraints,
         renderer: &mut Renderer,
     ) -> Option<ElementId> {
-        let initial_node = &self.tree[initial_id];
+        let initial_node = &self.tree[root_id];
 
-        let mut layout_context = (initial_id, initial_box_constraints, {
+        let mut layout_context = (root_id, root_box_constraints, {
             let Element { widget, .. } = &**initial_node;
 
             let child_ids = self
                 .tree
-                .children(initial_id)
+                .children(root_id)
                 .map(|(child_id, _)| child_id)
                 .collect();
 
             widget.layout(
                 &mut widget.initial_state(),
-                initial_box_constraints,
+                root_box_constraints,
                 child_ids,
                 renderer,
-                initial_id,
-                &self.message_sender,
+                &mut MessageEmitter::new(root_id, &self.message_sender),
             )
         });
         let mut layout_stack = Vec::new();
@@ -188,8 +188,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                                 child_box_constraints,
                                 child_ids,
                                 renderer,
-                                child_id,
-                                &self.message_sender,
+                                &mut MessageEmitter::new(child_id, &&self.message_sender),
                             ),
                         );
                     } else {
@@ -292,8 +291,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                     &mut widget.initial_state(),
                     absolute_bounds,
                     renderer,
-                    element_id,
-                    &self.message_sender,
+                    &mut MessageEmitter::new(element_id, &self.message_sender),
                 );
 
                 if let Some(primitive) = &draw_result {
@@ -312,18 +310,16 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                     if let Some(old_element) = paint_state.mounted_element.take() {
                         widget.lifecycle(
                             &mut widget.initial_state(),
-                            Lifecycle::DidUpdate(&*old_element.widget),
+                            Lifecycle::DidUpdate(old_element.widget.as_any()),
                             renderer,
-                            element_id,
-                            &self.message_sender,
+                            &mut MessageEmitter::new(element_id, &self.message_sender),
                         );
                     } else {
                         widget.lifecycle(
                             &mut widget.initial_state(),
                             Lifecycle::DidMount(),
                             renderer,
-                            element_id,
-                            &self.message_sender,
+                            &mut MessageEmitter::new(element_id, &&self.message_sender),
                         );
                     };
 
@@ -337,8 +333,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                         &mut widget.initial_state(),
                         Lifecycle::DidUnmount(),
                         renderer,
-                        element_id,
-                        &self.message_sender,
+                        &mut MessageEmitter::new(element_id, &self.message_sender),
                     );
                 }
 
@@ -349,11 +344,11 @@ impl<Renderer: 'static> PaintTree<Renderer> {
         renderer.finish_pipeline(pipeline);
     }
 
-    pub fn broadcast_event(&self, event: AnyMessage) {
+    pub fn broadcast_event(&self, event: BoxedMessage) {
         self.message_sender.send(Message::Broadcast(event)).unwrap();
     }
 
-    pub fn send_event(&self, element_id: ElementId, event: AnyMessage) {
+    pub fn send_event(&self, element_id: ElementId, event: BoxedMessage) {
         self.message_sender
             .send(Message::Send(element_id, event))
             .unwrap();
