@@ -1,14 +1,13 @@
-use rust_ui_derive::WidgetMeta;
+use std::any::Any;
 
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
-use super::element::Children;
 use super::message::MessageEmitter;
-use super::widget::{Widget, WidgetMeta};
+use super::widget::{AsAny, Widget};
 
-#[derive(PartialEq, WidgetMeta)]
+#[derive(PartialEq)]
 pub struct Text {
     pub content: String,
     pub color: Color,
@@ -24,17 +23,14 @@ impl<Renderer> Widget<Renderer> for Text {
 
     fn should_render(
         &self,
-        _children: &Children<Renderer>,
         _state: &Self::State,
         new_widget: &Self,
-        _new_children: &Children<Renderer>,
     ) -> bool {
         self != new_widget
     }
 
     fn draw(
         &self,
-        _children: &Children<Renderer>,
         _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
@@ -50,5 +46,11 @@ impl<Renderer> Widget<Renderer> for Text {
             vertical_align: self.vertical_align,
         }
         .into()
+    }
+}
+
+impl AsAny for Text {
+    fn as_any(&self) -> &dyn Any {
+       self
     }
 }

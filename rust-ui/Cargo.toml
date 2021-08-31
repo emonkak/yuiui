@@ -23,9 +23,6 @@ wgpu = "0.10"
 wgpu_glyph = "0.14"
 x11 = { version = "2.18", features = ["xft", "xinerama", "xlib"] }
 
-[dependencies.rust-ui-derive]
-path = "../rust-ui-derive"
-
 [[bin]]
 name = "main"
 path = "src/main.rs"

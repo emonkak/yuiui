@@ -1,21 +1,17 @@
-use rust_ui_derive::WidgetMeta;
+use std::any::Any;
 
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 
-use super::element::{Children, ElementId, ElementTree};
+use super::element::{Children, Element, ElementId, IntoElement};
 use super::message::MessageEmitter;
-use super::widget::{PolymophicWidget, Widget, WidgetMeta};
+use super::widget::{AsAny, Widget};
 
-#[derive(WidgetMeta)]
-pub struct Flex {
+pub struct Flex<Renderer> {
     direction: Axis,
-}
-
-#[derive(WidgetMeta)]
-pub struct FlexItem {
-    params: Params,
+    children: Vec<Element<Renderer>>,
+    flex_params: Vec<FlexParam>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -31,45 +27,47 @@ enum Phase {
 }
 
 #[derive(Clone, Copy, Default)]
-struct Params {
+struct FlexParam {
     flex: f32,
 }
 
-impl Params {
-    fn flex_phase(&self) -> Phase {
-        if self.flex == 0.0 {
-            Phase::NonFlex
-        } else {
-            Phase::Flex
-        }
-    }
-}
-
-impl Flex {
+impl<Renderer> Flex<Renderer> {
     pub fn row() -> Self {
         Self {
             direction: Axis::Horizontal,
+            flex_params: Vec::new(),
+            children: Vec::new(),
         }
     }
 
     pub fn column() -> Self {
         Self {
             direction: Axis::Vertical,
+            flex_params: Vec::new(),
+            children: Vec::new(),
         }
+    }
+
+    pub fn add(mut self, child: impl IntoElement<Renderer>, flex: f32) -> Self {
+        self.children.push(child.into_element());
+        self.flex_params.push(FlexParam { flex });
+        self
     }
 }
 
-impl<Renderer> Widget<Renderer> for Flex {
+impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
     type State = ();
     type Message = ();
 
+    fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {
+        self.children.clone()
+    }
+
     fn layout<'a>(
         &'a self,
-        _children: &Children<Renderer>,
         _state: &mut Self::State,
         box_constraints: BoxConstraints,
-        element_id: ElementId,
-        element_tree: &'a ElementTree<Renderer>,
+        child_ids: Vec<ElementId>,
         _renderer: &mut Renderer,
         _context: &mut MessageEmitter<Self::Message>,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
@@ -78,13 +76,8 @@ impl<Renderer> Widget<Renderer> for Flex {
             let mut total_non_flex = 0.0;
             let mut minor = self.direction.minor(&box_constraints.min);
 
-            let children = element_tree
-                .children(element_id)
-                .map(|(child_id, child)| (child_id, get_params(&*child.widget)))
-                .collect::<Vec<_>>();
-
-            for (child_id, params) in children.iter() {
-                if params.flex_phase() == Phase::NonFlex {
+            for (child_id, flex_param) in child_ids.iter().zip(&self.flex_params) {
+                if flex_param.flex_phase() == Phase::NonFlex {
                     let child_size = co
                         .suspend(LayoutRequest::LayoutChild(*child_id, box_constraints))
                         .await;
@@ -92,14 +85,14 @@ impl<Renderer> Widget<Renderer> for Flex {
                     minor = self.direction.minor(&child_size).max(minor);
                     total_non_flex += self.direction.major(&child_size);
                 }
-                flex_sum += params.flex;
+                flex_sum += flex_param.flex;
             }
 
-            for (child_id, params) in children.iter() {
-                if params.flex_phase() == Phase::Flex {
+            for (child_id, flex_param) in child_ids.iter().zip(&self.flex_params) {
+                if flex_param.flex_phase() == Phase::Flex {
                     let total_major = self.direction.major(&box_constraints.max);
                     let remaining = (total_major - total_non_flex).max(0.0);
-                    let major = remaining * params.flex / flex_sum;
+                    let major = remaining * flex_param.flex / flex_sum;
 
                     let child_box_constraints =
                         self.direction
@@ -115,7 +108,7 @@ impl<Renderer> Widget<Renderer> for Flex {
             let total_major = self.direction.major(&box_constraints.max);
             let mut major = 0.0;
 
-            for (child_id, _) in children.iter() {
+            for child_id in &child_ids {
                 let point = self.direction.pack_point(major, 0.0);
                 let child_size = co
                     .suspend(LayoutRequest::ArrangeChild(*child_id, point))
@@ -128,17 +121,10 @@ impl<Renderer> Widget<Renderer> for Flex {
     }
 }
 
-impl FlexItem {
-    pub fn new(flex: f32) -> FlexItem {
-        FlexItem {
-            params: Params { flex },
-        }
+impl<Renderer: 'static> AsAny for Flex<Renderer> {
+    fn as_any(&self) -> &dyn Any {
+       self
     }
-}
-
-impl<Renderer> Widget<Renderer> for FlexItem {
-    type State = ();
-    type Message = ();
 }
 
 impl Axis {
@@ -207,10 +193,12 @@ impl Axis {
     }
 }
 
-fn get_params<Renderer>(widget: &dyn PolymophicWidget<Renderer>) -> Params {
-    widget
-        .as_any()
-        .downcast_ref::<FlexItem>()
-        .map(|flex_item| flex_item.params)
-        .unwrap_or_default()
+impl FlexParam {
+    fn flex_phase(&self) -> Phase {
+        if self.flex == 0.0 {
+            Phase::NonFlex
+        } else {
+            Phase::Flex
+        }
+    }
 }

@@ -47,7 +47,7 @@ enum TypedKey {
     Indexed(TypeId, usize),
 }
 
-impl<Renderer> RenderTree<Renderer> {
+impl<Renderer: 'static> RenderTree<Renderer> {
     pub fn new(message_sender: MessageSender) -> Self {
         let (tree, root_id) = create_element_tree();
         let mut render_states = SlotVec::new();
@@ -69,7 +69,7 @@ impl<Renderer> RenderTree<Renderer> {
     }
 
     pub fn render(&mut self, element: Element<Renderer>) -> Vec<Patch<Renderer>> {
-        *self.tree[self.root_id] = Element::new(Null, vec![element], None);
+        *self.tree[self.root_id] = Element::new(Null { children: vec![element] }, None);
 
         let mut patches = Vec::new();
         let mut current_id = self.root_id;
@@ -114,9 +114,9 @@ impl<Renderer> RenderTree<Renderer> {
         message_queue: &mut MessageQueue,
     ) {
         let render_state = &mut self.render_states[target_id];
-        let Element { widget, children, .. } = &*self.tree[target_id];
+        let Element { widget, .. } = &*self.tree[target_id];
 
-        if widget.update(children, &mut render_state.state, &event, message_queue) {
+        if widget.update(&mut render_state.state, &event, message_queue) {
             let mut current_id = target_id;
 
             while let Some(next_id) = self.render_step(current_id, target_id, patches) {
@@ -132,7 +132,7 @@ impl<Renderer> RenderTree<Renderer> {
         patches: &mut Vec<Patch<Renderer>>,
     ) -> Option<ElementId> {
         let Element {
-            widget, children, ..
+            widget, ..
         } = &mut *self.tree[target_id];
         let render_state = &mut self.render_states[target_id];
 
@@ -140,14 +140,12 @@ impl<Renderer> RenderTree<Renderer> {
         match old_status {
             RenderPhase::Pending(element) => {
                 *widget = element.widget;
-                *children = element.children;
             }
             RenderPhase::Skipped => unreachable!("Skipped widget"),
             RenderPhase::Fresh | RenderPhase::Rendered => {}
         }
 
         let rendered_children = widget.render(
-            children,
             &render_state.state,
             target_id,
         );
@@ -212,10 +210,10 @@ impl<Renderer> RenderTree<Renderer> {
             }
             ReconcileResult::Update(target_id, new_element) => {
                 let Element {
-                    widget, children, ..
+                    widget, ..
                 } = &mut *self.tree[target_id];
                 let state = &self.render_states[target_id].state;
-                if widget.should_render(children, state, &*new_element.widget, &new_element.children)
+                if widget.should_render(state, &*new_element.widget)
                 {
                     self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
                     patches.push(Patch::Update(target_id, new_element));
@@ -225,10 +223,10 @@ impl<Renderer> RenderTree<Renderer> {
             }
             ReconcileResult::UpdateAndPlacement(target_id, ref_id, new_element) => {
                 let Element {
-                    widget, children, ..
+                    widget, ..
                 } = &mut *self.tree[target_id];
                 let state = &self.render_states[target_id].state;
-                if widget.should_render(children, state, &*new_element.widget, &new_element.children)
+                if widget.should_render(state, &*new_element.widget)
                 {
                     self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
                     patches.push(Patch::Update(target_id, new_element));
@@ -353,8 +351,8 @@ impl EventManager {
 }
 
 impl TypedKey {
-    fn new<Renderer>(
-        widget: &dyn PolymophicWidget<Renderer>,
+    fn new<Renderer: 'static>(
+        widget: &(dyn PolymophicWidget<Renderer> + 'static),
         index: usize,
         key: Option<Key>,
     ) -> Self {

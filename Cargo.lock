@@ -1011,19 +1011,10 @@ dependencies = [
  "log",
  "mio",
  "raw-window-handle",
- "rust-ui-derive",
  "servo-fontconfig",
  "wgpu",
  "wgpu_glyph",
  "x11",
-]
-
-[[package]]
-name = "rust-ui-derive"
-version = "0.0.0"
-dependencies = [
- "quote",
- "syn",
 ]
 
 [[package]]
