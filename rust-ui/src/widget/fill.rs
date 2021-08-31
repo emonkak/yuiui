@@ -4,7 +4,7 @@ use crate::geometrics::Rectangle;
 use crate::graphics::{Background, Color, Primitive};
 
 use super::message::MessageEmitter;
-use super::widget::{AsAny, Widget};
+use super::widget::{AsAny, ShouldRender, Widget};
 
 #[derive(PartialEq)]
 pub struct Fill {
@@ -21,12 +21,8 @@ impl<Renderer> Widget<Renderer> for Fill {
     type State = ();
     type Message = ();
 
-    fn should_render(
-        &self,
-        _state: &Self::State,
-        new_widget: &Self,
-    ) -> bool {
-        self != new_widget
+    fn initial_state(&self) -> Self::State {
+        Self::State::default()
     }
 
     fn draw(
@@ -34,7 +30,7 @@ impl<Renderer> Widget<Renderer> for Fill {
         _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter<Self::Message>,
+        _context: &mut MessageEmitter,
     ) -> Option<Primitive> {
         Primitive::Quad {
             bounds,
@@ -47,8 +43,14 @@ impl<Renderer> Widget<Renderer> for Fill {
     }
 }
 
+impl ShouldRender<Self> for Fill {
+    fn should_render(&self, other: &Self) -> bool {
+        self != other
+    }
+}
+
 impl AsAny for Fill {
     fn as_any(&self) -> &dyn Any {
-       self
+        self
     }
 }

@@ -44,7 +44,9 @@ pub fn run<Window, EventLoop, Renderer>(
                 render_tree.update(message, &mut patches);
                 if !patches.is_empty() {
                     // TODO: partial update
-                    update_senter.send((render_tree.root_id(), patches)).unwrap();
+                    update_senter
+                        .send((render_tree.root_id(), patches))
+                        .unwrap();
                     proxy.request_redraw(window_id);
                 }
             }

@@ -69,7 +69,12 @@ impl<Renderer: 'static> RenderTree<Renderer> {
     }
 
     pub fn render(&mut self, element: Element<Renderer>) -> Vec<Patch<Renderer>> {
-        *self.tree[self.root_id] = Element::new(Null { children: vec![element] }, None);
+        *self.tree[self.root_id] = Element::new(
+            Null {
+                children: vec![element],
+            },
+            None,
+        );
 
         let mut patches = Vec::new();
         let mut current_id = self.root_id;
@@ -92,10 +97,10 @@ impl<Renderer: 'static> RenderTree<Renderer> {
                     for subscriber_id in subscriber_ids.collect::<Vec<_>>() {
                         self.send_event(subscriber_id, &payload, patches, &mut message_queue);
                     }
-                },
+                }
                 Message::Send(target_id, payload) => {
                     self.send_event(target_id, &payload, patches, &mut message_queue);
-                },
+                }
             }
 
             if let Some(next_message) = message_queue.dequeue() {
@@ -131,9 +136,7 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         initial_id: ElementId,
         patches: &mut Vec<Patch<Renderer>>,
     ) -> Option<ElementId> {
-        let Element {
-            widget, ..
-        } = &mut *self.tree[target_id];
+        let Element { widget, .. } = &mut *self.tree[target_id];
         let render_state = &mut self.render_states[target_id];
 
         let old_status = mem::replace(&mut render_state.phase, RenderPhase::Rendered);
@@ -145,10 +148,7 @@ impl<Renderer: 'static> RenderTree<Renderer> {
             RenderPhase::Fresh | RenderPhase::Rendered => {}
         }
 
-        let rendered_children = widget.render(
-            &render_state.state,
-            target_id,
-        );
+        let rendered_children = widget.render(&render_state.state, target_id);
 
         for result in self.reconcile_children(target_id, rendered_children) {
             self.handle_reconcile_result(target_id, result, patches);
@@ -192,29 +192,21 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         match result {
             ReconcileResult::New(element) => {
                 let element_id = self.tree.append_child(target_id, element.clone());
-                self.render_states.insert_at(
-                    element_id,
-                    RenderState::new(element.widget.initial_state()),
-                );
+                self.render_states
+                    .insert_at(element_id, RenderState::new(element.widget.initial_state()));
                 self.event_manager.add_subscriber(element_id, &element);
                 patches.push(Patch::Append(target_id, element));
             }
             ReconcileResult::Insertion(ref_id, element) => {
                 let element_id = self.tree.insert_before(ref_id, element.clone());
-                self.render_states.insert_at(
-                    element_id,
-                    RenderState::new(element.widget.initial_state()),
-                );
+                self.render_states
+                    .insert_at(element_id, RenderState::new(element.widget.initial_state()));
                 self.event_manager.add_subscriber(element_id, &element);
                 patches.push(Patch::Insert(ref_id, element));
             }
             ReconcileResult::Update(target_id, new_element) => {
-                let Element {
-                    widget, ..
-                } = &mut *self.tree[target_id];
-                let state = &self.render_states[target_id].state;
-                if widget.should_render(state, &*new_element.widget)
-                {
+                let Element { widget, .. } = &mut *self.tree[target_id];
+                if widget.should_render(new_element.widget.as_any()) {
                     self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
                     patches.push(Patch::Update(target_id, new_element));
                 } else {
@@ -222,12 +214,8 @@ impl<Renderer: 'static> RenderTree<Renderer> {
                 }
             }
             ReconcileResult::UpdateAndPlacement(target_id, ref_id, new_element) => {
-                let Element {
-                    widget, ..
-                } = &mut *self.tree[target_id];
-                let state = &self.render_states[target_id].state;
-                if widget.should_render(state, &*new_element.widget)
-                {
+                let Element { widget, .. } = &mut *self.tree[target_id];
+                if widget.should_render(new_element.widget.as_any()) {
                     self.render_states[target_id].phase = RenderPhase::Pending(new_element.clone());
                     patches.push(Patch::Update(target_id, new_element));
                 } else {
@@ -340,7 +328,9 @@ impl EventManager {
     }
 
     fn remove_subscriber<Renderer>(&mut self, element_id: ElementId, element: &Element<Renderer>) {
-        let found_buckets = self.event_subscribers.get_mut(&element.widget.inbound_type());
+        let found_buckets = self
+            .event_subscribers
+            .get_mut(&element.widget.inbound_type());
         if let Some(buckets) = found_buckets {
             let found_index = buckets.iter().position(|id| *id == element_id);
             if let Some(index) = found_index {

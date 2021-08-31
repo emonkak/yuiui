@@ -5,7 +5,7 @@ use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
 use super::message::MessageEmitter;
-use super::widget::{AsAny, Widget};
+use super::widget::{AsAny, ShouldRender, Widget};
 
 #[derive(PartialEq)]
 pub struct Text {
@@ -21,12 +21,8 @@ impl<Renderer> Widget<Renderer> for Text {
     type State = ();
     type Message = ();
 
-    fn should_render(
-        &self,
-        _state: &Self::State,
-        new_widget: &Self,
-    ) -> bool {
-        self != new_widget
+    fn initial_state(&self) -> Self::State {
+        Self::State::default()
     }
 
     fn draw(
@@ -34,7 +30,7 @@ impl<Renderer> Widget<Renderer> for Text {
         _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter<Self::Message>,
+        _context: &mut MessageEmitter,
     ) -> Option<Primitive> {
         Primitive::Text {
             bounds,
@@ -49,8 +45,14 @@ impl<Renderer> Widget<Renderer> for Text {
     }
 }
 
+impl ShouldRender<Self> for Text {
+    fn should_render(&self, other: &Self) -> bool {
+        self != other
+    }
+}
+
 impl AsAny for Text {
     fn as_any(&self) -> &dyn Any {
-       self
+        self
     }
 }

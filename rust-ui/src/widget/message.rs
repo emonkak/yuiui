@@ -15,10 +15,9 @@ pub struct MessageQueue {
     queue: VecDeque<Message>,
 }
 
-pub struct MessageEmitter<'a, Message> {
+pub struct MessageEmitter<'a> {
     origin_id: ElementId,
     message_sender: &'a MessageSender,
-    inbound_type: PhantomData<Message>,
 }
 
 impl MessageQueue {
@@ -37,18 +36,17 @@ impl MessageQueue {
     }
 }
 
-impl<'a, Message> MessageEmitter<'a, Message> {
+impl<'a> MessageEmitter<'a> {
     pub fn new(origin_id: ElementId, message_sender: &'a MessageSender) -> Self {
         Self {
             origin_id,
             message_sender,
-            inbound_type: PhantomData,
         }
     }
 
     pub fn emit(&mut self, event: Message)
     where
-        Message: Send + 'static
+        Message: Send + 'static,
     {
         self.message_sender
             .send(self::Message::Send(self.origin_id, Box::new(event)))

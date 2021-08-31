@@ -1,5 +1,5 @@
-extern crate rust_ui;
 extern crate env_logger;
+extern crate rust_ui;
 extern crate x11;
 
 use std::any::Any;
@@ -11,16 +11,16 @@ use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
 use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Viewport};
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
-use rust_ui::ui::Window;
 use rust_ui::ui::application;
 use rust_ui::ui::x11 as x11_ui;
+use rust_ui::ui::Window;
 use rust_ui::widget::element::{Children, ElementId, IntoElement};
 use rust_ui::widget::fill::Fill;
-use rust_ui::widget::flex::{Flex};
+use rust_ui::widget::flex::Flex;
 use rust_ui::widget::message::{MessageEmitter, MessageQueue};
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::text::Text;
-use rust_ui::widget::{AsAny, Widget};
+use rust_ui::widget::{AsAny, ShouldRender, Widget};
 
 #[derive(Debug)]
 struct App {
@@ -30,6 +30,10 @@ struct App {
 impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
     type Message = ();
+
+    fn initial_state(&self) -> Self::State {
+        Self::State::default()
+    }
 
     fn update(
         &self,
@@ -41,11 +45,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
         true
     }
 
-    fn render(
-        &self,
-        _state: &Self::State,
-        _element_id: ElementId,
-    ) -> Children<Renderer> {
+    fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {
         // element!(
         //     Padding::uniform(32.0) => {
         //         Flex::column() => {
@@ -87,30 +87,39 @@ impl<Renderer: 'static> Widget<Renderer> for App {
         //     }
 
         let column = Flex::column()
-            .add(Fill::new(Color {
-                r: 1.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            }), 1.0)
-            .add(Fill::new(Color {
-                r: 0.0,
-                g: 1.0,
-                b: 0.0,
-                a: 1.0,
-            }), 1.0)
-            .add(Text {
-                content: self.message.clone(),
-                color: Color::BLACK,
-                font: FontDescriptor {
-                    family: FontFamily::SansSerif,
-                    weight: FontWeight::BOLD,
-                    ..FontDescriptor::default()
+            .add(
+                Fill::new(Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                }),
+                1.0,
+            )
+            .add(
+                Fill::new(Color {
+                    r: 0.0,
+                    g: 1.0,
+                    b: 0.0,
+                    a: 1.0,
+                }),
+                1.0,
+            )
+            .add(
+                Text {
+                    content: self.message.clone(),
+                    color: Color::BLACK,
+                    font: FontDescriptor {
+                        family: FontFamily::SansSerif,
+                        weight: FontWeight::BOLD,
+                        ..FontDescriptor::default()
+                    },
+                    font_size: 16.0,
+                    horizontal_align: HorizontalAlign::Center,
+                    vertical_align: VerticalAlign::Middle,
                 },
-                font_size: 16.0,
-                horizontal_align: HorizontalAlign::Center,
-                vertical_align: VerticalAlign::Middle,
-            }, 1.0);
+                1.0,
+            );
 
         vec![Padding::uniform(16.0, column).into_element()]
     }
@@ -120,10 +129,13 @@ impl<Renderer: 'static> Widget<Renderer> for App {
         _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter<Self::Message>
+        _context: &mut MessageEmitter,
     ) -> Option<Primitive> {
         None
     }
+}
+
+impl ShouldRender<Self> for App {
 }
 
 impl AsAny for App {

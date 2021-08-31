@@ -139,9 +139,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
         let initial_node = &self.tree[initial_id];
 
         let mut layout_context = (initial_id, initial_box_constraints, {
-            let Element {
-                widget, ..
-            } = &**initial_node;
+            let Element { widget, .. } = &**initial_node;
 
             let child_ids = self
                 .tree
@@ -173,9 +171,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                     if paint_state.flags.contains(PaintFlag::NeedsLayout)
                         || paint_state.box_constraints != child_box_constraints
                     {
-                        let Element {
-                            widget, ..
-                        } = &*self.tree[child_id];
+                        let Element { widget, .. } = &*self.tree[child_id];
 
                         let child_ids = self
                             .tree
@@ -289,9 +285,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
             }
 
             if draw_phase {
-                let Element {
-                    widget, ..
-                } = &**node;
+                let Element { widget, .. } = &**node;
                 let absolute_bounds = bounds.translate(absolute_translation);
 
                 let draw_result = widget.draw(
@@ -313,9 +307,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
             if lifecycle_phase {
                 if paint_state.flags.contains(PaintFlag::NeedsLifecycle) {
                     let element = &**node;
-                    let Element {
-                        widget, ..
-                    } = element;
+                    let Element { widget, .. } = element;
 
                     if let Some(old_element) = paint_state.mounted_element.take() {
                         widget.lifecycle(
@@ -338,13 +330,8 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                     paint_state.mounted_element = Some(element.clone());
                 }
 
-                for (
-                    element_id,
-                    Element {
-                        widget, ..
-                    },
-                    _paint_state,
-                ) in mem::take(&mut paint_state.deleted_nodes)
+                for (element_id, Element { widget, .. }, _paint_state) in
+                    mem::take(&mut paint_state.deleted_nodes)
                 {
                     widget.lifecycle(
                         &mut widget.initial_state(),
@@ -367,7 +354,9 @@ impl<Renderer: 'static> PaintTree<Renderer> {
     }
 
     pub fn send_event(&self, element_id: ElementId, event: AnyMessage) {
-        self.message_sender.send(Message::Send(element_id, event)).unwrap();
+        self.message_sender
+            .send(Message::Send(element_id, event))
+            .unwrap();
     }
 
     fn mark_parents_as_dirty(&mut self, target_id: ElementId) {

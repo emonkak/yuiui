@@ -1,5 +1,5 @@
-use std::time::Instant;
 use std::any::Any;
+use std::time::Instant;
 
 #[derive(Debug)]
 pub enum ControlFlow {

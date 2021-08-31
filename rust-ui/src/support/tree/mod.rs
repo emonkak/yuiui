@@ -186,7 +186,10 @@ impl<T> Tree<T> {
             arena.insert_at(child_id, current.clone());
         }
 
-        Self { arena, version: self.version }
+        Self {
+            arena,
+            version: self.version,
+        }
     }
 
     #[inline]

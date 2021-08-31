@@ -47,10 +47,7 @@ pub trait IntoElement<R> {
 }
 
 impl<R> Element<R> {
-    pub fn new<Widget>(
-        widget: Widget,
-        key: Option<Key>,
-    ) -> Self
+    pub fn new<Widget>(widget: Widget, key: Option<Key>) -> Self
     where
         Widget: self::Widget<R> + Send + 'static,
         Widget::State: 'static,
@@ -81,7 +78,7 @@ where
     fn into_element(self) -> Element<R> {
         Element {
             widget: Arc::new(self),
-            key: None
+            key: None,
         }
     }
 }
@@ -95,7 +92,7 @@ where
     fn into_element(self) -> Element<R> {
         Element {
             widget: Arc::new(self.inner),
-            key: Some(self.key)
+            key: Some(self.key),
         }
     }
 }
@@ -133,6 +130,11 @@ impl<R> From<Element<R>> for Children<R> {
 
 pub fn create_element_tree<R: 'static>() -> (ElementTree<R>, ElementId) {
     let mut tree = Tree::new();
-    let root_id = tree.attach(Element::new(Null { children: Vec::new() }, None));
+    let root_id = tree.attach(Element::new(
+        Null {
+            children: Vec::new(),
+        },
+        None,
+    ));
     (tree, root_id)
 }

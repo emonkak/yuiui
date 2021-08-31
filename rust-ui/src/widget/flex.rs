@@ -6,7 +6,7 @@ use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, Element, ElementId, IntoElement};
 use super::message::MessageEmitter;
-use super::widget::{AsAny, Widget};
+use super::widget::{AsAny, ShouldRender, Widget};
 
 pub struct Flex<Renderer> {
     direction: Axis,
@@ -59,6 +59,10 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
     type State = ();
     type Message = ();
 
+    fn initial_state(&self) -> Self::State {
+        Self::State::default()
+    }
+
     fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {
         self.children.clone()
     }
@@ -69,7 +73,7 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
         box_constraints: BoxConstraints,
         child_ids: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter<Self::Message>,
+        _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
@@ -121,9 +125,11 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
     }
 }
 
+impl<Renderer> ShouldRender<Self> for Flex<Renderer> {}
+
 impl<Renderer: 'static> AsAny for Flex<Renderer> {
     fn as_any(&self) -> &dyn Any {
-       self
+        self
     }
 }
 

@@ -6,7 +6,7 @@ use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, Element, ElementId, IntoElement};
 use super::message::MessageEmitter;
-use super::widget::{AsAny, Widget};
+use super::widget::{AsAny, ShouldRender, Widget};
 
 pub struct Padding<Renderer> {
     left: f32,
@@ -32,6 +32,10 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
     type State = ();
     type Message = ();
 
+    fn initial_state(&self) -> Self::State {
+        Self::State::default()
+    }
+
     fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {
         vec![self.child.clone()]
     }
@@ -42,7 +46,7 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
         box_constraints: BoxConstraints,
         child_ids: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter<Self::Message>,
+        _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         assert_eq!(child_ids.len(), 1);
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
@@ -76,8 +80,10 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
     }
 }
 
+impl<Renderer> ShouldRender<Self> for Padding<Renderer> {}
+
 impl<Renderer: 'static> AsAny for Padding<Renderer> {
     fn as_any(&self) -> &dyn Any {
-       self
+        self
     }
 }

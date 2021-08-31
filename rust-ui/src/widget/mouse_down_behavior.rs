@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 
 use crate::event::MouseDown;
 
-use super::element::{ElementId};
-use super::message::{MessageQueue, Message};
-use super::widget::{AsAny, Widget};
+use super::element::ElementId;
+use super::message::{Message, MessageQueue};
+use super::widget::{AsAny, ShouldRender, Widget};
 
 #[derive(Debug)]
 pub struct MouseDownBehavior<Child: 'static, SelectorFn: 'static, Outbound: 'static> {
@@ -26,7 +26,8 @@ impl<Child, SelectorFn, Outbound> MouseDownBehavior<Child, SelectorFn, Outbound>
     }
 }
 
-impl<Child, SelectorFn, Outbound, Renderer> Widget<Renderer> for MouseDownBehavior<Child, SelectorFn, Outbound>
+impl<Child, SelectorFn, Outbound, Renderer> Widget<Renderer>
+    for MouseDownBehavior<Child, SelectorFn, Outbound>
 where
     Child: Widget<Renderer>,
     SelectorFn: Fn(&MouseDown) -> Outbound + Send + Sync + 'static,
@@ -35,6 +36,10 @@ where
 {
     type State = ();
     type Message = MouseDown;
+
+    fn initial_state(&self) -> Self::State {
+        Self::State::default()
+    }
 
     fn update(
         &self,
@@ -49,8 +54,13 @@ where
     }
 }
 
+impl<Child, SelectorFn, Outbound> ShouldRender<Self>
+    for MouseDownBehavior<Child, SelectorFn, Outbound>
+{
+}
+
 impl<Child, SelectorFn, Outbound> AsAny for MouseDownBehavior<Child, SelectorFn, Outbound> {
     fn as_any(&self) -> &dyn Any {
-       self
+        self
     }
 }

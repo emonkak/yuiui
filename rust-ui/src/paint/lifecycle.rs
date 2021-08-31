@@ -12,9 +12,7 @@ impl<Widget> Lifecycle<Widget> {
     {
         match self {
             Lifecycle::DidMount() => Lifecycle::DidMount(),
-            Lifecycle::DidUpdate(new_widget) => {
-                Lifecycle::DidUpdate(f(new_widget))
-            }
+            Lifecycle::DidUpdate(new_widget) => Lifecycle::DidUpdate(f(new_widget)),
             Lifecycle::DidUnmount() => Lifecycle::DidUnmount(),
         }
     }

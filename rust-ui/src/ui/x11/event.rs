@@ -1,8 +1,8 @@
 use std::os::raw::*;
 use x11::xlib;
 
-use crate::event::{WindowResize, Modifier, MouseButton, MouseEvent};
-use crate::geometrics::{PhysicalSize, PhysicalPoint};
+use crate::event::{Modifier, MouseButton, MouseEvent, WindowResize};
+use crate::geometrics::{PhysicalPoint, PhysicalSize};
 use crate::support::bit_flags::BitFlags;
 
 impl From<&xlib::XButtonEvent> for MouseEvent {
