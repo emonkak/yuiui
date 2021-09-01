@@ -1,5 +1,6 @@
 use std::any::Any;
 
+use super::state::StateContainer;
 use crate::geometrics::{Point, Size};
 use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
@@ -32,8 +33,8 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
     type State = ();
     type Message = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> StateContainer<Renderer, Self, Self::State, Self::Message> {
+        StateContainer::from_pure_state(())
     }
 
     fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {

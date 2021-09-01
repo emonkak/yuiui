@@ -1,6 +1,7 @@
 use std::any::Any;
 
 use super::element::{Children, Element, ElementId};
+use super::state::StateContainer;
 use super::widget::{Widget, WidgetSeal};
 
 pub struct Null<Renderer> {
@@ -11,8 +12,8 @@ impl<Renderer: 'static> Widget<Renderer> for Null<Renderer> {
     type State = ();
     type Message = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> StateContainer<Renderer, Self, Self::State, Self::Message> {
+        StateContainer::from_pure_state(())
     }
 
     fn render(&self, _state: &Self::State, _element_id: ElementId) -> Children<Renderer> {

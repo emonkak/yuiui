@@ -5,6 +5,7 @@ use crate::event::MouseDown;
 
 use super::element::ElementId;
 use super::message::{Message, MessageQueue};
+use super::state::StateContainer;
 use super::widget::{Widget, WidgetSeal};
 
 #[derive(Debug)]
@@ -37,8 +38,8 @@ where
     type State = ();
     type Message = MouseDown;
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> StateContainer<Renderer, Self, Self::State, Self::Message> {
+        StateContainer::from_pure_state(())
     }
 
     fn update(

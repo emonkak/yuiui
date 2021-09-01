@@ -1,24 +1,37 @@
+use std::any::Any;
+
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::sync::mpsc::Sender;
 
 use super::element::ElementId;
-use super::widget::BoxedMessage;
 
+#[derive(Debug)]
 pub enum Message {
-    Broadcast(BoxedMessage),
-    Send(ElementId, BoxedMessage),
+    Broadcast(Box<dyn Any + Send>),
+    Send(ElementId, Box<dyn Any + Send>),
 }
 
+#[derive(Debug)]
+pub struct MessageSink<Message, Sender> {
+    element_id: ElementId,
+    message_sender: Sender,
+    message_type: PhantomData<Message>,
+}
+
+#[derive(Debug)]
 pub struct MessageQueue {
     queue: VecDeque<Message>,
 }
 
+#[derive(Debug)]
 pub struct MessageEmitter<'a> {
     origin_id: ElementId,
     message_sender: &'a MessageSender,
 }
+
+pub type MessageSender = Sender<Message>;
 
 impl MessageQueue {
     pub fn new() -> Self {
@@ -35,48 +48,6 @@ impl MessageQueue {
         self.queue.push_back(message)
     }
 }
-
-impl<'a> MessageEmitter<'a> {
-    pub fn new(origin_id: ElementId, message_sender: &'a MessageSender) -> Self {
-        Self {
-            origin_id,
-            message_sender,
-        }
-    }
-
-    pub fn emit(&mut self, event: Message)
-    where
-        Message: Send + 'static,
-    {
-        self.message_sender
-            .send(self::Message::Send(self.origin_id, Box::new(event)))
-            .unwrap();
-    }
-
-    pub fn broadcast(&mut self, event: Message)
-    where
-        Message: Send + 'static,
-    {
-        self.message_sender
-            .send(self::Message::Broadcast(Box::new(event)))
-            .unwrap();
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MessageSink<Message, Sender> {
-    element_id: ElementId,
-    message_sender: Sender,
-    message_type: PhantomData<Message>,
-}
-
-#[derive(Debug)]
-pub struct MessageContext<Message> {
-    pub element_id: ElementId,
-    message_type: PhantomData<Message>,
-}
-
-pub type MessageSender = Sender<Message>;
 
 impl<Message, Sender> MessageSink<Message, Sender> {
     pub fn new(element_id: ElementId, message_sender: Sender) -> Self {
@@ -111,22 +82,29 @@ impl<Message, Sender> MessageSink<Message, Sender> {
     }
 }
 
-impl<Message> MessageContext<Message> {
-    pub fn new(element_id: ElementId) -> Self {
+impl<'a> MessageEmitter<'a> {
+    pub fn new(origin_id: ElementId, message_sender: &'a MessageSender) -> Self {
         Self {
-            element_id,
-            message_type: PhantomData,
+            origin_id,
+            message_sender,
         }
     }
-}
 
-impl<Message> Clone for MessageContext<Message> {
-    fn clone(&self) -> Self {
-        Self {
-            element_id: self.element_id,
-            message_type: self.message_type,
-        }
+    pub fn emit(&mut self, event: Message)
+    where
+        Message: Send + 'static,
+    {
+        self.message_sender
+            .send(self::Message::Send(self.origin_id, Box::new(event)))
+            .unwrap();
+    }
+
+    pub fn broadcast(&mut self, event: Message)
+    where
+        Message: Send + 'static,
+    {
+        self.message_sender
+            .send(self::Message::Broadcast(Box::new(event)))
+            .unwrap();
     }
 }
-
-impl<Message> Copy for MessageContext<Message> {}

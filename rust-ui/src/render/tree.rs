@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt;
 use std::mem;
@@ -7,10 +7,8 @@ use crate::support::slot_vec::SlotVec;
 use crate::widget::element::{
     create_element_tree, Children, Element, ElementId, ElementTree, Key, Patch,
 };
-use crate::widget::message::{Message, MessageQueue, MessageSender};
 use crate::widget::null::Null;
-use crate::widget::BoxedMessage;
-use crate::widget::BoxedState;
+use crate::widget::{Message, MessageQueue, MessageSender, State};
 
 use super::reconciler::{ReconcileResult, Reconciler};
 
@@ -26,7 +24,7 @@ pub struct RenderTree<Renderer> {
 #[derive(Debug)]
 struct RenderState<Renderer> {
     phase: RenderPhase<Renderer>,
-    state: BoxedState,
+    state: State<Renderer>,
 }
 
 #[derive(Debug)]
@@ -50,10 +48,10 @@ enum TypedKey {
 
 impl<Renderer: 'static> RenderTree<Renderer> {
     pub fn new(message_sender: MessageSender) -> Self {
-        let (tree, root_id) = create_element_tree();
+        let (tree, root_id, initial_state) = create_element_tree();
         let mut render_states = SlotVec::new();
 
-        render_states.insert_at(root_id, RenderState::new(Box::new(())));
+        render_states.insert_at(root_id, RenderState::new(initial_state));
 
         Self {
             tree,
@@ -96,11 +94,11 @@ impl<Renderer: 'static> RenderTree<Renderer> {
                 Message::Broadcast(payload) => {
                     let subscriber_ids = self.event_manager.get_subscribers(payload.type_id());
                     for subscriber_id in subscriber_ids.collect::<Vec<_>>() {
-                        self.send_event(subscriber_id, &payload, patches, &mut message_queue);
+                        self.send_message(subscriber_id, &*payload, patches, &mut message_queue);
                     }
                 }
                 Message::Send(target_id, payload) => {
-                    self.send_event(target_id, &payload, patches, &mut message_queue);
+                    self.send_message(target_id, &*payload, patches, &mut message_queue);
                 }
             }
 
@@ -112,17 +110,17 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         }
     }
 
-    fn send_event(
+    fn send_message(
         &mut self,
         target_id: ElementId,
-        event: &BoxedMessage,
+        message: &(dyn Any + Send),
         patches: &mut Vec<Patch<Renderer>>,
         message_queue: &mut MessageQueue,
     ) {
         let render_state = &mut self.render_states[target_id];
         let Element { widget, .. } = &*self.tree[target_id];
 
-        if widget.update(&mut render_state.state, &*event, message_queue) {
+        if widget.update(render_state.state.as_any_mut(), message, message_queue) {
             let mut current_id = target_id;
 
             while let Some(next_id) = self.render_step(current_id, target_id, patches) {
@@ -149,7 +147,7 @@ impl<Renderer: 'static> RenderTree<Renderer> {
             RenderPhase::Fresh | RenderPhase::Rendered => {}
         }
 
-        let rendered_children = widget.render(&render_state.state, target_id);
+        let rendered_children = widget.render(render_state.state.as_any(), target_id);
 
         for result in self.reconcile_children(target_id, rendered_children) {
             self.handle_reconcile_result(target_id, result, patches);
@@ -193,15 +191,19 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         match result {
             ReconcileResult::New(element) => {
                 let element_id = self.tree.append_child(target_id, element.clone());
-                self.render_states
-                    .insert_at(element_id, RenderState::new(element.widget.initial_state()));
+                self.render_states.insert_at(
+                    element_id,
+                    RenderState::new(element.widget.initial_state().into()),
+                );
                 self.event_manager.add_subscriber(element_id, &element);
                 patches.push(Patch::Append(target_id, element));
             }
             ReconcileResult::Insertion(ref_id, element) => {
                 let element_id = self.tree.insert_before(ref_id, element.clone());
-                self.render_states
-                    .insert_at(element_id, RenderState::new(element.widget.initial_state()));
+                self.render_states.insert_at(
+                    element_id,
+                    RenderState::new(element.widget.initial_state().into()),
+                );
                 self.event_manager.add_subscriber(element_id, &element);
                 patches.push(Patch::Insert(ref_id, element));
             }
@@ -298,7 +300,7 @@ impl<Renderer> fmt::Display for RenderTree<Renderer> {
 }
 
 impl<Renderer> RenderState<Renderer> {
-    fn new(state: BoxedState) -> Self {
+    fn new(state: State<Renderer>) -> Self {
         Self {
             phase: RenderPhase::Fresh,
             state,

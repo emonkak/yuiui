@@ -17,10 +17,9 @@ use rust_ui::ui::Window;
 use rust_ui::widget::element::{Children, ElementId, IntoElement};
 use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::Flex;
-use rust_ui::widget::message::{MessageEmitter, MessageQueue};
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::text::Text;
-use rust_ui::widget::{Widget, WidgetSeal};
+use rust_ui::widget::{MessageEmitter, MessageQueue, StateContainer, Widget, WidgetSeal};
 
 #[derive(Debug)]
 struct App {
@@ -31,8 +30,8 @@ impl<Renderer: 'static> Widget<Renderer> for App {
     type State = usize;
     type Message = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> StateContainer<Renderer, Self, Self::State, Self::Message> {
+        StateContainer::from_pure_state(0)
     }
 
     fn update(
@@ -121,7 +120,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
                 1.0,
             );
 
-        vec![Padding::uniform(16.0, column).into_element()]
+        Padding::uniform(16.0, column).into_element().into()
     }
 
     fn draw(

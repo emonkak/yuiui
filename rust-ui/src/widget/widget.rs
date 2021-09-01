@@ -7,22 +7,19 @@ use crate::graphics::Primitive;
 use crate::paint::{BoxConstraints, LayoutRequest, Lifecycle};
 use crate::support::generator::Generator;
 
-use super::element::{Children, ElementId, Key, WithKey};
+use super::element::{Children, ElementId};
 use super::message::{MessageEmitter, MessageQueue};
+use super::state::StateContainer;
 
 pub type PolyWidget<Renderer> =
-    dyn Widget<Renderer, dyn Any, State = BoxedState, Message = BoxedMessage>;
-
-pub type BoxedState = Box<dyn Any>;
-
-pub type BoxedMessage = Box<dyn Any + Send>;
+    dyn Widget<Renderer, dyn Any, State = dyn Any, Message = dyn Any + Send>;
 
 pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
-    type State;
+    type State: ?Sized;
 
-    type Message: Send;
+    type Message: ?Sized + Send;
 
-    fn initial_state(&self) -> Self::State;
+    fn initial_state(&self) -> StateContainer<Renderer, Own, Self::State, Self::Message>;
 
     #[inline]
     fn should_render(&self, _other: &Own) -> bool {
@@ -111,39 +108,41 @@ pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 }
 
-pub trait WidgetExt<Renderer>: Widget<Renderer> {
-    #[inline]
-    fn with_key(self, key: Key) -> WithKey<Self>
-    where
-        Self: Sized,
-    {
-        WithKey { widget: self, key }
-    }
-}
-
-pub trait WidgetSeal {}
-
 impl<R> fmt::Debug for PolyWidget<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {{ .. }}", self.short_type_name())
     }
 }
 
-pub struct Proxy<W, R, S, M> {
+pub trait WidgetSeal {}
+
+pub struct WidgetProxy<W, R, S, M> {
     pub widget: W,
     pub state_type: PhantomData<S>,
     pub message_type: PhantomData<M>,
     pub renderer_type: PhantomData<R>,
 }
 
-impl<W, R, S, M> Widget<R, dyn Any> for Proxy<W, R, S, M>
+impl<W, R, S, M> WidgetProxy<W, R, S, M> {
+    pub fn new(widget: W) -> Self {
+        Self {
+            widget,
+            renderer_type: PhantomData,
+            state_type: PhantomData,
+            message_type: PhantomData,
+        }
+    }
+}
+
+impl<W, R, S, M> Widget<R, dyn Any> for WidgetProxy<W, R, S, M>
 where
     W: Widget<R, State = S, Message = M> + 'static,
+    R: 'static,
     S: 'static,
     M: 'static,
 {
-    type State = BoxedState;
-    type Message = BoxedMessage;
+    type State = dyn Any;
+    type Message = dyn Any + Send;
 
     #[inline]
     fn should_render(&self, other: &dyn Any) -> bool {
@@ -151,8 +150,8 @@ where
     }
 
     #[inline]
-    fn initial_state(&self) -> Self::State {
-        Box::new(self.widget.initial_state())
+    fn initial_state(&self) -> StateContainer<R, dyn Any, Self::State, Self::Message> {
+        self.widget.initial_state().polymorphize()
     }
 
     #[inline]
@@ -171,6 +170,9 @@ where
 
     #[inline]
     fn render(&self, state: &Self::State, element_id: ElementId) -> Children<R> {
+        println!("{:?}", any::type_name::<Self>());
+        println!("{:?}", any::type_name::<Self::State>());
+        println!("{:?}", any::type_name::<S>());
         self.widget
             .render(state.downcast_ref().unwrap(), element_id)
     }
@@ -227,8 +229,8 @@ where
     }
 }
 
-impl<W, R, S, M> WidgetSeal for Proxy<W, R, S, M> {}
+impl<W, R, S, M> WidgetSeal for WidgetProxy<W, R, S, M> {}
 
-unsafe impl<W: Send, R, S, M> Send for Proxy<W, R, S, M> {}
+unsafe impl<W: Send, R, S, M> Send for WidgetProxy<W, R, S, M> {}
 
-unsafe impl<W: Sync, R, S, M> Sync for Proxy<W, R, S, M> {}
+unsafe impl<W: Sync, R, S, M> Sync for WidgetProxy<W, R, S, M> {}

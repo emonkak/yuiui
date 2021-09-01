@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::support::tree::{Link, NodeId, Tree};
 
 use super::null::Null;
-use super::widget::{PolyWidget, Proxy, Widget, WidgetSeal};
+use super::state::State;
+use super::widget::{PolyWidget, Widget, WidgetProxy, WidgetSeal};
 
 pub type ElementTree<Renderer> = Tree<Element<Renderer>>;
 
@@ -41,16 +41,12 @@ impl<R> Element<R> {
     pub fn new<W>(widget: W, key: Option<Key>) -> Self
     where
         W: Widget<R> + 'static,
+        W::State: Sized,
+        W::Message: Sized,
         R: 'static,
     {
-        let proxy = Proxy {
-            widget,
-            renderer_type: PhantomData,
-            state_type: PhantomData,
-            message_type: PhantomData,
-        };
         Self {
-            widget: Arc::new(proxy),
+            widget: Arc::new(WidgetProxy::new(widget)),
             key,
         }
     }
@@ -65,6 +61,12 @@ impl<R> Clone for Element<R> {
     }
 }
 
+impl<R> From<Element<R>> for Children<R> {
+    fn from(element: Element<R>) -> Self {
+        vec![element]
+    }
+}
+
 pub trait IntoElement<Renderer> {
     fn into_element(self) -> Element<Renderer>;
 }
@@ -72,6 +74,8 @@ pub trait IntoElement<Renderer> {
 impl<W, R> IntoElement<R> for W
 where
     W: Widget<R> + WidgetSeal + 'static,
+    W::State: Sized,
+    W::Message: Sized,
     R: 'static,
 {
     fn into_element(self) -> Element<R> {
@@ -82,6 +86,8 @@ where
 impl<W, R> IntoElement<R> for WithKey<W>
 where
     W: Widget<R> + 'static,
+    W::State: Sized,
+    W::Message: Sized,
     R: 'static,
 {
     fn into_element(self) -> Element<R> {
@@ -89,19 +95,12 @@ where
     }
 }
 
-impl<R> From<Element<R>> for Children<R> {
-    fn from(element: Element<R>) -> Self {
-        vec![element]
-    }
-}
-
-pub fn create_element_tree<R: 'static>() -> (ElementTree<R>, ElementId) {
+pub fn create_element_tree<R: 'static>() -> (ElementTree<R>, ElementId, State<R>) {
     let mut tree = Tree::new();
-    let root_id = tree.attach(Element::new(
-        Null {
-            children: Vec::new(),
-        },
-        None,
-    ));
-    (tree, root_id)
+    let root = Null {
+        children: Vec::new(),
+    };
+    let initial_state = root.initial_state().into();
+    let root_id = tree.attach(root.into_element());
+    (tree, root_id, initial_state)
 }

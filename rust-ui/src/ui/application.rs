@@ -6,6 +6,7 @@ use crate::graphics::{Color, Renderer, Viewport};
 use crate::paint::PaintTree;
 use crate::render::RenderTree;
 use crate::widget::element::Element;
+use crate::widget::Message;
 
 use super::event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy};
 use super::window::Window;
@@ -86,7 +87,7 @@ pub fn run<Window, EventLoop, Renderer>(
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
-                paint_tree.broadcast_event(window_event);
+                paint_tree.send_message(Message::Broadcast(window_event));
             }
             _ => {}
         }
