@@ -48,7 +48,7 @@ where
     #[inline]
     pub fn from_pure_state(state: S) -> Self
     where
-        S: Sized + 'static,
+        S: 'static + Sized,
     {
         Self {
             state: State::PureState(Box::new(state)),
@@ -62,9 +62,9 @@ where
     pub fn from_paint_object(paint_object: S) -> Self
     where
         R: 'static,
-        W: Sized + 'static,
-        S: PaintObject<R, Widget = W, Message = M> + Sized + 'static,
-        M: Sized + 'static,
+        W: 'static + Sized,
+        S: 'static + PaintObject<R, Widget = W, Message = M> + Sized,
+        M: 'static + Sized,
     {
         Self {
             state: State::PaintObject(Box::new(PaintObjectProxy::new(paint_object))),

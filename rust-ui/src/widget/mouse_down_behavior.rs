@@ -31,8 +31,8 @@ impl<Child, SelectorFn, Outbound, Renderer> Widget<Renderer>
     for MouseDownBehavior<Child, SelectorFn, Outbound>
 where
     Child: Widget<Renderer>,
-    SelectorFn: Fn(&MouseDown) -> Outbound + Send + Sync + 'static,
-    Outbound: Send + Sync + 'static,
+    SelectorFn: 'static + Fn(&MouseDown) -> Outbound + Send + Sync,
+    Outbound: 'static + Send + Sync,
     Renderer: 'static,
 {
     type State = ();

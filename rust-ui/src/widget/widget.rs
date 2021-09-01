@@ -136,7 +136,7 @@ impl<W, R, S, M> WidgetProxy<W, R, S, M> {
 
 impl<W, R, S, M> Widget<R, dyn Any> for WidgetProxy<W, R, S, M>
 where
-    W: Widget<R, State = S, Message = M> + 'static,
+    W: 'static + Widget<R, State = S, Message = M>,
     R: 'static,
     S: 'static,
     M: 'static,

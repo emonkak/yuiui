@@ -40,7 +40,7 @@ pub enum Patch<R> {
 impl<R> Element<R> {
     pub fn new<W>(widget: W, key: Option<Key>) -> Self
     where
-        W: Widget<R> + 'static,
+        W: 'static + Widget<R>,
         W::State: Sized,
         W::Message: Sized,
         R: 'static,
@@ -73,7 +73,7 @@ pub trait IntoElement<Renderer> {
 
 impl<W, R> IntoElement<R> for W
 where
-    W: Widget<R> + WidgetSeal + 'static,
+    W: 'static + Widget<R> + WidgetSeal,
     W::State: Sized,
     W::Message: Sized,
     R: 'static,
@@ -85,7 +85,7 @@ where
 
 impl<W, R> IntoElement<R> for WithKey<W>
 where
-    W: Widget<R> + 'static,
+    W: 'static + Widget<R>,
     W::State: Sized,
     W::Message: Sized,
     R: 'static,

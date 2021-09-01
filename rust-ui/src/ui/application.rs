@@ -17,9 +17,9 @@ pub fn run<Window, EventLoop, Renderer>(
     window: Window,
     element: Element<Renderer>,
 ) where
-    Window: self::Window + 'static,
-    EventLoop: self::EventLoop<WindowId = Window::WindowId> + 'static,
-    Renderer: self::Renderer + 'static,
+    Window: 'static + self::Window,
+    EventLoop: 'static + self::EventLoop<WindowId = Window::WindowId>,
+    Renderer: 'static + self::Renderer,
 {
     let (update_senter, update_receiver) = sync_channel(1);
     let (message_sender, message_receiver) = channel();

@@ -61,7 +61,7 @@ impl<Message, Sender> MessageSink<Message, Sender> {
     pub fn send(&self, message: Message)
     where
         Sender: Borrow<MessageSender>,
-        Message: Send + 'static,
+        Message: 'static + Send,
     {
         self.message_sender
             .borrow()
@@ -72,7 +72,7 @@ impl<Message, Sender> MessageSink<Message, Sender> {
     pub fn share(&self) -> MessageSink<Message, MessageSender>
     where
         Sender: Borrow<MessageSender>,
-        Message: Send + 'static,
+        Message: 'static + Send,
     {
         MessageSink {
             element_id: self.element_id,
@@ -92,7 +92,7 @@ impl<'a> MessageEmitter<'a> {
 
     pub fn emit(&mut self, event: Message)
     where
-        Message: Send + 'static,
+        Message: 'static + Send,
     {
         self.message_sender
             .send(self::Message::Send(self.origin_id, Box::new(event)))
@@ -101,7 +101,7 @@ impl<'a> MessageEmitter<'a> {
 
     pub fn broadcast(&mut self, event: Message)
     where
-        Message: Send + 'static,
+        Message: 'static + Send,
     {
         self.message_sender
             .send(self::Message::Broadcast(Box::new(event)))

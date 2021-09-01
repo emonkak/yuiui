@@ -96,7 +96,7 @@ impl<P, R, W, M> PaintObjectProxy<P, R, W, M> {
 
 impl<P, R, W, M> PaintObject<R> for PaintObjectProxy<P, R, W, M>
 where
-    P: PaintObject<R, Widget = W, Message = M> + 'static,
+    P: 'static + PaintObject<R, Widget = W, Message = M>,
     R: 'static,
     W: 'static,
     M: 'static,
