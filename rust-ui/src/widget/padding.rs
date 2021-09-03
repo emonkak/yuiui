@@ -45,13 +45,13 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
         &'a self,
         _state: &mut Self::State,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         _renderer: &mut Renderer,
         _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
-        assert_eq!(child_ids.len(), 1);
+        assert_eq!(children.len(), 1);
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
-            let child_id = child_ids[0];
+            let child_id = children[0];
             let child_box_constraints = BoxConstraints {
                 min: Size {
                     width: box_constraints.min.width - (self.left + self.right),

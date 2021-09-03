@@ -16,6 +16,9 @@ fn test_resume() {
     let z = gen.resume(y.len()).yielded().unwrap();
     let result = gen.resume(z.len()).complete().unwrap();
 
+    assert_eq!(x, "foo");
+    assert_eq!(y, "foobar");
+    assert_eq!(z, "foobarbaz");
     assert_eq!(result, [3, 6, 9]);
     assert_eq!(gen.is_complete(), true);
 }

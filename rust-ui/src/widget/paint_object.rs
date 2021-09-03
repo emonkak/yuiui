@@ -24,12 +24,12 @@ pub trait PaintObject<Renderer> {
         &'a mut self,
         _widget: &'a Self::Widget,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         _renderer: &mut Renderer,
         _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
-            if let Some(child_id) = child_ids.first() {
+            if let Some(child_id) = children.first() {
                 co.suspend(LayoutRequest::LayoutChild(*child_id, box_constraints))
                     .await
             } else {
@@ -109,14 +109,14 @@ where
         &'a mut self,
         widget: &'a Self::Widget,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         renderer: &mut R,
         context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         self.paint_object.layout(
             widget.as_any().downcast_ref().unwrap(),
             box_constraints,
-            child_ids,
+            children,
             renderer,
             context,
         )

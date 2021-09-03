@@ -56,12 +56,12 @@ pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
         &'a self,
         _state: &mut Self::State,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         _renderer: &mut Renderer,
         _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
-            if let Some(child_id) = child_ids.first() {
+            if let Some(child_id) = children.first() {
                 co.suspend(LayoutRequest::LayoutChild(*child_id, box_constraints))
                     .await
             } else {
@@ -170,9 +170,6 @@ where
 
     #[inline]
     fn render(&self, state: &Self::State, element_id: ElementId) -> Children<R> {
-        println!("{:?}", any::type_name::<Self>());
-        println!("{:?}", any::type_name::<Self::State>());
-        println!("{:?}", any::type_name::<S>());
         self.widget
             .render(state.downcast_ref().unwrap(), element_id)
     }
@@ -198,14 +195,14 @@ where
         &'a self,
         state: &mut Self::State,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         renderer: &mut R,
         context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         self.widget.layout(
             state.downcast_mut().unwrap(),
             box_constraints,
-            child_ids,
+            children,
             renderer,
             context,
         )

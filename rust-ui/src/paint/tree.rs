@@ -141,7 +141,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
         let mut layout_context = (root_id, root_box_constraints, {
             let Element { widget, .. } = &**initial_node;
 
-            let child_ids = self
+            let children = self
                 .tree
                 .children(root_id)
                 .map(|(child_id, _)| child_id)
@@ -150,7 +150,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
             widget.layout(
                 State::from(widget.initial_state()).as_any_mut(),
                 root_box_constraints,
-                child_ids,
+                children,
                 renderer,
                 &mut MessageEmitter::new(root_id, &self.message_sender),
             )
@@ -172,7 +172,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                     {
                         let Element { widget, .. } = &*self.tree[child_id];
 
-                        let child_ids = self
+                        let children = self
                             .tree
                             .children(child_id)
                             .map(|(child_id, _)| child_id)
@@ -185,7 +185,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                             widget.layout(
                                 State::from(widget.initial_state()).as_any_mut(),
                                 child_box_constraints,
-                                child_ids,
+                                children,
                                 renderer,
                                 &mut MessageEmitter::new(child_id, &&self.message_sender),
                             ),

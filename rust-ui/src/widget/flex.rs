@@ -75,7 +75,7 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
         &'a self,
         _state: &mut Self::State,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         _renderer: &mut Renderer,
         _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
@@ -84,7 +84,7 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
             let mut total_non_flex = 0.0;
             let mut minor = self.direction.minor(&box_constraints.min);
 
-            for (child_id, flex_param) in child_ids.iter().zip(&self.flex_params) {
+            for (child_id, flex_param) in children.iter().zip(&self.flex_params) {
                 if flex_param.flex_phase() == Phase::NonFlex {
                     let child_size = co
                         .suspend(LayoutRequest::LayoutChild(*child_id, box_constraints))
@@ -96,7 +96,7 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
                 flex_sum += flex_param.flex;
             }
 
-            for (child_id, flex_param) in child_ids.iter().zip(&self.flex_params) {
+            for (child_id, flex_param) in children.iter().zip(&self.flex_params) {
                 if flex_param.flex_phase() == Phase::Flex {
                     let total_major = self.direction.major(&box_constraints.max);
                     let remaining = (total_major - total_non_flex).max(0.0);
@@ -116,7 +116,7 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
             let total_major = self.direction.major(&box_constraints.max);
             let mut major = 0.0;
 
-            for child_id in &child_ids {
+            for child_id in &children {
                 let point = self.direction.pack_point(major, 0.0);
                 let child_size = co
                     .suspend(LayoutRequest::ArrangeChild(*child_id, point))
@@ -145,7 +145,7 @@ impl<Renderer> PaintObject<Renderer> for FlexPaint {
         &'a mut self,
         widget: &'a Self::Widget,
         box_constraints: BoxConstraints,
-        child_ids: Vec<ElementId>,
+        children: Vec<ElementId>,
         _renderer: &mut Renderer,
         _context: &mut MessageEmitter,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
@@ -154,7 +154,7 @@ impl<Renderer> PaintObject<Renderer> for FlexPaint {
             let mut total_non_flex = 0.0;
             let mut minor = widget.direction.minor(&box_constraints.min);
 
-            for (child_id, flex_param) in child_ids.iter().zip(&widget.flex_params) {
+            for (child_id, flex_param) in children.iter().zip(&widget.flex_params) {
                 if flex_param.flex_phase() == Phase::NonFlex {
                     let child_size = co
                         .suspend(LayoutRequest::LayoutChild(*child_id, box_constraints))
@@ -166,7 +166,7 @@ impl<Renderer> PaintObject<Renderer> for FlexPaint {
                 flex_sum += flex_param.flex;
             }
 
-            for (child_id, flex_param) in child_ids.iter().zip(&widget.flex_params) {
+            for (child_id, flex_param) in children.iter().zip(&widget.flex_params) {
                 if flex_param.flex_phase() == Phase::Flex {
                     let total_major = widget.direction.major(&box_constraints.max);
                     let remaining = (total_major - total_non_flex).max(0.0);
@@ -187,7 +187,7 @@ impl<Renderer> PaintObject<Renderer> for FlexPaint {
             let total_major = widget.direction.major(&box_constraints.max);
             let mut major = 0.0;
 
-            for child_id in &child_ids {
+            for child_id in &children {
                 let point = widget.direction.pack_point(major, 0.0);
                 let child_size = co
                     .suspend(LayoutRequest::ArrangeChild(*child_id, point))
