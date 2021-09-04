@@ -1,8 +1,10 @@
+pub mod application;
+pub mod xcb;
+
+mod event;
 mod event_loop;
 mod window;
 
-pub mod application;
-pub mod x11;
-
-pub use event_loop::{ControlFlow, Event, EventLoop, EventLoopProxy, StartCause};
-pub use window::Window;
+pub use event::{Event, WindowEvent};
+pub use event_loop::{ControlFlow, EventLoop, EventLoopContext};
+pub use window::{Window, WindowContainer};

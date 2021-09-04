@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::mem;
 
@@ -343,8 +344,10 @@ impl<Renderer: 'static> PaintTree<Renderer> {
         renderer.finish_pipeline(pipeline);
     }
 
-    pub fn send_message(&self, message: Message) {
-        self.message_sender.send(message).unwrap();
+    pub fn broadcast<T: Any + Send>(&self, message: T) {
+        self.message_sender
+            .send(Message::Broadcast(Box::new(message)))
+            .unwrap();
     }
 
     fn mark_parents_as_dirty(&mut self, target_id: ElementId) {

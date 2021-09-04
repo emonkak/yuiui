@@ -6,7 +6,7 @@ mod transform;
 mod viewport;
 
 pub mod wgpu;
-pub mod x11;
+pub mod xcb;
 
 pub use background::Background;
 pub use color::Color;

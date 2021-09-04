@@ -1,69 +1,34 @@
-use std::any::Any;
+use std::error::Error;
+use std::future::Future;
 use std::time::Instant;
+use tokio::task::JoinHandle;
 
-#[derive(Debug)]
+use super::event::Event;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ControlFlow {
+    Continue,
     Exit,
-    Poll,
-    Wait,
-    WaitUntil(Instant),
 }
 
-#[derive(Debug)]
-pub enum StartCause {
-    Init,
-    Poll,
-    WaitCancelled {
-        start: Instant,
-        requested_resume: Option<Instant>,
-    },
-    ResumeTimeReached {
-        start: Instant,
-        requested_resume: Instant,
-    },
-}
-
-#[derive(Debug)]
-pub enum Event<WindowId> {
-    Tick(StartCause),
-    WindowEvent(WindowId, Box<dyn Any + Send>),
-    RedrawRequested(WindowId),
-    EventsConsumed,
-    LoopExited,
-}
-
-pub trait EventLoop {
+pub trait EventLoop<Message> {
     type WindowId;
-    type Proxy: EventLoopProxy<WindowId = Self::WindowId>;
 
-    fn create_proxy(&self) -> Self::Proxy;
+    type Context: EventLoopContext<Message>;
 
-    fn run<F>(&mut self, callback: F)
+    fn run<F>(&mut self, callback: F) -> Result<(), Box<dyn Error>>
     where
-        F: FnMut(Event<Self::WindowId>) -> ControlFlow;
+        F: FnMut(Event<Message, Self::WindowId>, &Self::Context) -> ControlFlow;
 }
 
-pub trait EventLoopProxy: Send {
-    type WindowId;
+pub trait EventLoopContext<Message> {
+    fn send(&self, message: Message);
 
-    fn request_redraw(&self, window: Self::WindowId);
-}
+    fn perform<F>(&self, future: F) -> JoinHandle<()>
+    where
+        F: 'static + Future<Output = Message>;
 
-impl ControlFlow {
-    #[inline]
-    pub fn trans(&mut self, next: Self) {
-        match self {
-            Self::Exit => {}
-            _ => {
-                *self = next;
-            }
-        }
-    }
-}
-
-impl Default for ControlFlow {
-    #[inline]
-    fn default() -> ControlFlow {
-        ControlFlow::Poll
-    }
+    fn request_idle<F>(&self, callback: F) -> JoinHandle<()>
+    where
+        F: 'static + FnOnce(Instant) -> Message;
 }

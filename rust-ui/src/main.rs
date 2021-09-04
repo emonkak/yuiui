@@ -2,17 +2,12 @@ extern crate env_logger;
 extern crate rust_ui;
 extern crate x11;
 
-use std::any::Any;
-use std::env;
-use std::ptr;
-use x11::xlib;
-
-use rust_ui::geometrics::{PhysicalPoint, Rectangle, Size};
-use rust_ui::graphics::{wgpu, x11 as x11_graphics, Color, Primitive, Viewport};
+use rust_ui::geometrics::{PhysicalRectangle, Rectangle};
+use rust_ui::graphics::{wgpu, xcb as xcb_graphics, Color, Primitive};
 use rust_ui::text::fontconfig::FontLoader;
 use rust_ui::text::{FontDescriptor, FontFamily, FontWeight, HorizontalAlign, VerticalAlign};
 use rust_ui::ui::application;
-use rust_ui::ui::x11 as x11_ui;
+use rust_ui::ui::xcb;
 use rust_ui::ui::Window;
 use rust_ui::widget::element::{Children, ElementId, IntoElement};
 use rust_ui::widget::fill::Fill;
@@ -20,6 +15,10 @@ use rust_ui::widget::flex::Flex;
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::text::Text;
 use rust_ui::widget::{MessageEmitter, MessageQueue, StateContainer, Widget, WidgetSeal};
+use std::any::Any;
+use std::env;
+use std::rc::Rc;
+use x11rb::xcb_ffi::XCBConnection;
 
 #[derive(Debug)]
 struct App {
@@ -143,29 +142,24 @@ impl WidgetSeal for App {}
 fn main() {
     env_logger::init();
 
-    unsafe {
-        x11_ui::install_error_handler();
-    };
+    let (connection, screen_num) = XCBConnection::connect(None).unwrap();
+    let connection = Rc::new(connection);
 
-    let display = unsafe { xlib::XOpenDisplay(ptr::null()) };
-    if display.is_null() {
-        panic!(
-            "No display found at {}",
-            env::var("DISPLAY").unwrap_or_default()
-        );
-    }
-
-    let viewport = Viewport::from_logical(
-        Size {
-            width: 640.0,
-            height: 480.0,
+    let event_loop = xcb::EventLoop::new(connection.clone());
+    let window_container = xcb::Window::create(
+        connection.clone(),
+        screen_num,
+        PhysicalRectangle {
+            x: 0,
+            y: 0,
+            width: 640,
+            height: 480,
         },
         1.0,
-    );
-    let event_loop = x11_ui::EventLoop::create(display).unwrap();
-    let window = x11_ui::Window::create(display, viewport, PhysicalPoint { x: 0, y: 0 });
+    )
+    .unwrap();
 
-    window.show();
+    window_container.window().show();
 
     let app = App {
         message:
@@ -175,15 +169,19 @@ fn main() {
 
     match env::var("RENDERER") {
         Ok(renderer_var) if renderer_var == "x11" => {
-            let renderer = x11_graphics::Renderer::new(display, window.window_id());
-            application::run(event_loop, renderer, window, app.into_element());
+            let renderer =
+                xcb_graphics::Renderer::new(connection, screen_num, window_container.window().id());
+            application::run(event_loop, renderer, window_container, app.into_element()).unwrap();
         }
         _ => {
             let font_loader = FontLoader;
-            let renderer =
-                wgpu::Renderer::new(window.clone(), font_loader, wgpu::Settings::default())
-                    .unwrap();
-            application::run(event_loop, renderer, window, app.into_element());
+            let renderer = wgpu::Renderer::new(
+                window_container.window().clone(),
+                font_loader,
+                wgpu::Settings::default(),
+            )
+            .unwrap();
+            application::run(event_loop, renderer, window_container, app.into_element()).unwrap();
         }
     };
 }

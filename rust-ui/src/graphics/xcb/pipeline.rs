@@ -1,51 +1,56 @@
-use x11::xlib;
+use std::rc::Rc;
+use x11rb::connection::Connection;
+use x11rb::errors::ReplyOrIdError;
+use x11rb::protocol::xproto;
+use x11rb::protocol::xproto::ConnectionExt;
 
 use crate::geometrics::PhysicalRectangle;
 use crate::graphics::{Background, Color, Primitive};
 
 #[derive(Debug)]
-pub struct Pipeline {
-    display: *mut xlib::Display,
+pub struct Pipeline<Connection> {
+    connection: Rc<Connection>,
+    colormap: xproto::Colormap,
     draw_ops: Vec<DrawOp>,
 }
 
 #[derive(Debug)]
 pub enum DrawOp {
-    FillRectangle(xlib::XColor, PhysicalRectangle),
+    FillRectangle(xproto::AllocColorReply, PhysicalRectangle),
 }
 
-impl Pipeline {
-    pub fn new(display: *mut xlib::Display) -> Self {
-        Self {
-            display,
+impl<Connection: self::Connection> Pipeline<Connection> {
+    pub fn create(connection: Rc<Connection>, screen_num: usize) -> Result<Self, ReplyOrIdError> {
+        let colormap = connection.generate_id()?;
+        let screen = &connection.setup().roots[screen_num];
+
+        connection.create_colormap(
+            xproto::ColormapAlloc::NONE,
+            colormap,
+            screen.root,
+            screen.root_visual,
+        )?;
+
+        Ok(Self {
+            connection,
+            colormap,
             draw_ops: Vec::new(),
-        }
+        })
     }
 
     pub fn draw_ops(&self) -> &[DrawOp] {
         &self.draw_ops
     }
 
-    pub fn alloc_color(&self, color: &Color) -> xlib::XColor {
+    pub fn alloc_color(&self, color: &Color) -> Result<xproto::AllocColorReply, ReplyOrIdError> {
         let [red, green, blue, _] = color.into_u16_components();
 
-        let mut color = xlib::XColor {
-            pixel: 0,
-            red,
-            green,
-            blue,
-            flags: 0,
-            pad: 0,
-        };
+        let color = self
+            .connection
+            .alloc_color(self.colormap, red, green, blue)?
+            .reply()?;
 
-        unsafe {
-            let screen = xlib::XDefaultScreenOfDisplay(self.display);
-            let screen_number = xlib::XScreenNumberOfScreen(screen);
-            let colormap = xlib::XDefaultColormap(self.display, screen_number);
-            xlib::XAllocColor(self.display, colormap, &mut color);
-        };
-
-        color
+        Ok(color)
     }
 
     pub fn push(&mut self, primitive: &Primitive, depth: usize) {
@@ -65,7 +70,7 @@ impl Pipeline {
                 bounds, background, ..
             } => {
                 let background_color = match background {
-                    Background::Color(color) => self.alloc_color(color),
+                    Background::Color(color) => self.alloc_color(color).unwrap(),
                 };
                 self.draw_ops
                     .push(DrawOp::FillRectangle(background_color, bounds.snap()));

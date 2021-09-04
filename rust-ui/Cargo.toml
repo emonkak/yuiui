@@ -19,9 +19,11 @@ log = "0.4"
 mio = { version = "0.7", features = ["os-ext"] }
 raw-window-handle = "0.3"
 servo-fontconfig = "0.5"
+tokio = { version = "1.11.0", features = ["macros", "net", "rt", "sync", "time"] }
 wgpu = "0.10"
 wgpu_glyph = "0.14"
 x11 = { version = "2.18", features = ["xft", "xinerama", "xlib"] }
+x11rb = { version = "0.9", features = ["allow-unsafe-code"] }
 
 [[bin]]
 name = "main"
