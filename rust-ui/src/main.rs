@@ -14,7 +14,7 @@ use rust_ui::widget::fill::Fill;
 use rust_ui::widget::flex::Flex;
 use rust_ui::widget::padding::Padding;
 use rust_ui::widget::text::Text;
-use rust_ui::widget::{MessageEmitter, MessageQueue, StateContainer, Widget, WidgetSeal};
+use rust_ui::widget::{MessageSink, StateContainer, Widget, WidgetSeal};
 use std::any::Any;
 use std::env;
 use std::rc::Rc;
@@ -37,7 +37,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
         &self,
         state: &mut Self::State,
         _event: &Self::Message,
-        _message_queue: &mut MessageQueue,
+        _messages: &mut MessageSink,
     ) -> bool {
         *state += 1;
         true
@@ -127,7 +127,7 @@ impl<Renderer: 'static> Widget<Renderer> for App {
         _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         None
     }

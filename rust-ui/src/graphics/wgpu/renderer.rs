@@ -92,6 +92,7 @@ where
 
         let staging_belt = wgpu::util::StagingBelt::new(Self::CHUNK_SIZE);
         let local_pool = futures::executor::LocalPool::new();
+        let mut font_bundle_map = HashMap::new();
 
         let default_font = {
             let default_bundle = font_loader
@@ -101,6 +102,7 @@ where
             let font_bytes = font_loader
                 .load_font(primary_font)
                 .map_err(RequstError::FontLoadingFailed)?;
+            font_bundle_map.insert(settings.default_font.clone(), Some(default_bundle));
             ab_glyph::FontArc::try_from_vec(font_bytes).map_err(RequstError::InvalidFont)?
         };
 
@@ -118,7 +120,7 @@ where
             local_pool,
             window,
             font_loader,
-            font_bundle_map: HashMap::new(),
+            font_bundle_map,
             draw_font_map: HashMap::new(),
             quad_pipeline,
             text_pipeline,

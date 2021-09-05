@@ -5,7 +5,7 @@ use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, Element, ElementId, IntoElement};
-use super::message::MessageEmitter;
+use super::message::MessageSink;
 use super::paint_object::PaintObject;
 use super::state::StateContainer;
 use super::widget::{Widget, WidgetSeal};
@@ -77,7 +77,7 @@ impl<Renderer: 'static> Widget<Renderer> for Flex<Renderer> {
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;
@@ -147,7 +147,7 @@ impl<Renderer> PaintObject<Renderer> for FlexPaint {
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {
             let mut flex_sum = 0.0;

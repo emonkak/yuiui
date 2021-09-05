@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::error;
-use std::sync::mpsc::{channel, sync_channel};
-use std::thread;
+use std::collections::VecDeque;
 
 use crate::graphics::{Color, Renderer};
 use crate::paint::PaintTree;
@@ -15,7 +14,7 @@ use super::window::{Window, WindowContainer};
 pub fn run<Window, EventLoop, Renderer>(
     mut event_loop: EventLoop,
     mut renderer: Renderer,
-    mut window: WindowContainer<Window>,
+    mut window_container: WindowContainer<Window>,
     element: Element<Renderer>,
 ) -> Result<(), Box<dyn error::Error>>
 where
@@ -23,78 +22,56 @@ where
     EventLoop: 'static + self::EventLoop<Box<dyn Any + Send>, WindowId = Window::Id>,
     Renderer: 'static + self::Renderer,
 {
-    let (update_senter, update_receiver) = sync_channel(1);
-    let (message_sender, message_receiver) = channel();
+    let viewport = window_container.viewport();
 
-    {
-        let message_sender = message_sender.clone();
+    let mut update_queue = VecDeque::new();
 
-        thread::spawn(move || {
-            let mut render_tree = RenderTree::new(message_sender);
-
-            let patches = render_tree.render(element);
-            update_senter
-                .send((render_tree.root_id(), patches))
-                .unwrap();
-            // proxy.request_redraw(window_id);
-
-            loop {
-                let mut patches = Vec::new();
-                let message = message_receiver.recv().unwrap();
-                render_tree.update(message, &mut patches);
-                if !patches.is_empty() {
-                    // TODO: partial update
-                    update_senter
-                        .send((render_tree.root_id(), patches))
-                        .unwrap();
-                    // proxy.request_redraw(window_id);
-                }
-            }
-        });
-    }
-
-    let viewport = window.viewport();
-    let mut paint_tree = PaintTree::new(viewport.logical_size(), message_sender);
+    let mut paint_tree = PaintTree::new(viewport.logical_size());
+    let mut render_tree = RenderTree::new();
     let mut surface = renderer.create_surface(viewport);
     let mut pipeline = renderer.create_pipeline(viewport);
+
+    {
+        let patches = render_tree.render(element);
+        update_queue.push_back((render_tree.root_id(), patches));
+    }
 
     event_loop.run(|event, _context| {
         match &event {
             Event::WindowEvent(_, WindowEvent::RedrawRequested(_)) => {
-                let viewport = window.viewport();
+                let viewport = window_container.viewport();
 
-                if let Some((element_id, patches)) = update_receiver.try_recv().ok() {
+                if let Some((element_id, patches)) = update_queue.pop_front() {
                     paint_tree.mark_update_root(element_id);
 
                     for patch in patches {
                         paint_tree.apply_patch(patch);
                     }
 
-                    paint_tree.layout_subtree(element_id, &mut renderer);
-
                     pipeline = renderer.create_pipeline(&viewport);
+
+                    paint_tree.layout_subtree(element_id, &mut renderer);
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
 
                 renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
             }
-            Event::WindowEvent(_, WindowEvent::Closed) => {
-                return ControlFlow::Exit;
-            }
             Event::WindowEvent(_, WindowEvent::SizeChanged(size)) => {
-                if window.resize(*size) {
-                    let viewport = window.viewport();
+                if window_container.resize(*size) {
+                    let viewport = window_container.viewport();
+
+                    pipeline = renderer.create_pipeline(&viewport);
+                    renderer.configure_surface(&mut surface, &viewport);
 
                     paint_tree.layout_root(viewport.logical_size(), &mut renderer);
-                    renderer.configure_surface(&mut surface, &viewport);
-                    pipeline = renderer.create_pipeline(&viewport);
                     paint_tree.paint(&mut pipeline, &mut renderer);
                 }
             }
+            Event::WindowEvent(_, WindowEvent::Closed) => {
+                return ControlFlow::Exit;
+            }
             _ => {}
         }
-
-        paint_tree.broadcast(event);
 
         ControlFlow::Continue
     })?;

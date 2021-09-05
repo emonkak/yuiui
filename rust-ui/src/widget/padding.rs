@@ -6,7 +6,7 @@ use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::{Coroutine, Generator};
 
 use super::element::{Children, Element, ElementId, IntoElement};
-use super::message::MessageEmitter;
+use super::message::MessageSink;
 use super::widget::{Widget, WidgetSeal};
 
 pub struct Padding<Renderer> {
@@ -47,7 +47,7 @@ impl<Renderer: 'static> Widget<Renderer> for Padding<Renderer> {
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         assert_eq!(children.len(), 1);
         Generator::new(move |co: Coroutine<LayoutRequest, Size>| async move {

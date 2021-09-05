@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use crate::event::MouseDown;
 
 use super::element::ElementId;
-use super::message::{Message, MessageQueue};
+use super::message::{Message, MessageSink};
 use super::state::StateContainer;
 use super::widget::{Widget, WidgetSeal};
 
@@ -46,11 +46,11 @@ where
         &self,
         _state: &mut Self::State,
         message: &Self::Message,
-        message_queue: &mut MessageQueue,
+        messages: &mut MessageSink,
     ) -> bool {
         let outbound_message = (self.selector_fn)(message);
         let message = self::Message::Send(self.listener_id, Box::new(outbound_message));
-        message_queue.enqueue(message);
+        messages.enqueue(message);
         false
     }
 

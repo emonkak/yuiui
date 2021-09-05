@@ -8,7 +8,7 @@ use crate::paint::{BoxConstraints, LayoutRequest, Lifecycle};
 use crate::support::generator::Generator;
 
 use super::element::{Children, ElementId};
-use super::message::{MessageEmitter, MessageQueue};
+use super::message::MessageSink;
 use super::state::StateContainer;
 
 pub type PolyWidget<Renderer> =
@@ -31,7 +31,7 @@ pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
         &self,
         _state: &mut Self::State,
         _event: &Self::Message,
-        _messages: &mut MessageQueue,
+        _messages: &mut MessageSink,
     ) -> bool {
         true
     }
@@ -47,7 +47,7 @@ pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
         _state: &mut Self::State,
         _lifecycle: Lifecycle<&Own>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) {
     }
 
@@ -58,7 +58,7 @@ pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = children.first() {
@@ -76,7 +76,7 @@ pub trait Widget<Renderer, Own: ?Sized = Self>: WidgetSeal + Send + Sync {
         _state: &mut Self::State,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         None
     }
@@ -158,12 +158,12 @@ where
     fn update(
         &self,
         state: &mut Self::State,
-        event: &Self::Message,
-        messages: &mut MessageQueue,
+        message: &Self::Message,
+        messages: &mut MessageSink,
     ) -> bool {
         self.widget.update(
             state.downcast_mut().unwrap(),
-            event.downcast_ref().unwrap(),
+            message.downcast_ref().unwrap(),
             messages,
         )
     }
@@ -180,13 +180,13 @@ where
         state: &mut Self::State,
         lifecycle: Lifecycle<&dyn Any>,
         renderer: &mut R,
-        context: &mut MessageEmitter,
+        messages: &mut MessageSink,
     ) {
         self.widget.lifecycle(
             state.downcast_mut().unwrap(),
             lifecycle.map(|widget| widget.downcast_ref().unwrap()),
             renderer,
-            context,
+            messages,
         )
     }
 
@@ -197,14 +197,14 @@ where
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         renderer: &mut R,
-        context: &mut MessageEmitter,
+        messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         self.widget.layout(
             state.downcast_mut().unwrap(),
             box_constraints,
             children,
             renderer,
-            context,
+            messages,
         )
     }
 
@@ -214,10 +214,20 @@ where
         state: &mut Self::State,
         bounds: Rectangle,
         renderer: &mut R,
-        context: &mut MessageEmitter,
+        messages: &mut MessageSink,
     ) -> Option<Primitive> {
         self.widget
-            .draw(state.downcast_mut().unwrap(), bounds, renderer, context)
+            .draw(state.downcast_mut().unwrap(), bounds, renderer, messages)
+    }
+
+    #[inline]
+    fn type_name(&self) -> &'static str {
+        self.widget.type_name()
+    }
+
+    #[inline]
+    fn short_type_name(&self) -> &'static str {
+        self.widget.short_type_name()
     }
 
     #[inline]

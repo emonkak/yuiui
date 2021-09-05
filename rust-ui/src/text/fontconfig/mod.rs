@@ -142,9 +142,6 @@ impl crate::text::FontLoader for FontLoader {
 impl Drop for FontBundle {
     fn drop(&mut self) {
         unsafe {
-            for charset in self.charsets.iter() {
-                ffi::FcCharSetDestroy(*charset);
-            }
             ffi::FcCharSetDestroy(self.coverage);
             ffi::FcFontSetDestroy(self.fontset);
             ffi::FcPatternDestroy(self.pattern);

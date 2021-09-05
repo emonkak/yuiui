@@ -4,7 +4,7 @@ use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
-use super::message::MessageEmitter;
+use super::message::MessageSink;
 use super::paint_object::PaintObject;
 use super::state::StateContainer;
 use super::widget::{Widget, WidgetSeal};
@@ -38,7 +38,7 @@ impl<Renderer: 'static> Widget<Renderer> for Text {
         _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         Primitive::Text {
             bounds,
@@ -70,7 +70,7 @@ impl<Renderer> PaintObject<Renderer> for TextPaint {
         widget: &Self::Widget,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         Primitive::Text {
             bounds,

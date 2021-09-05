@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt;
 use std::mem;
 
@@ -9,7 +8,7 @@ use crate::support::generator::GeneratorState;
 use crate::support::slot_vec::SlotVec;
 use crate::support::tree::WalkDirection;
 use crate::widget::element::{create_element_tree, Element, ElementId, ElementTree, Patch};
-use crate::widget::{Message, MessageEmitter, MessageSender, State};
+use crate::widget::{MessageSink, State};
 
 use super::layout::{BoxConstraints, LayoutRequest};
 use super::lifecycle::Lifecycle;
@@ -18,7 +17,6 @@ pub struct PaintTree<Renderer> {
     tree: ElementTree<Renderer>,
     root_id: ElementId,
     paint_states: SlotVec<PaintState<Renderer>>,
-    message_sender: MessageSender,
 }
 
 struct PaintState<Renderer> {
@@ -40,7 +38,7 @@ enum PaintFlag {
 }
 
 impl<Renderer: 'static> PaintTree<Renderer> {
-    pub fn new(viewport_size: Size, message_sender: MessageSender) -> Self {
+    pub fn new(viewport_size: Size) -> Self {
         let (tree, root_id, _) = create_element_tree();
         let mut paint_states = SlotVec::new();
 
@@ -56,7 +54,6 @@ impl<Renderer: 'static> PaintTree<Renderer> {
             tree,
             root_id,
             paint_states,
-            message_sender,
         }
     }
 
@@ -153,7 +150,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                 root_box_constraints,
                 children,
                 renderer,
-                &mut MessageEmitter::new(root_id, &self.message_sender),
+                &mut MessageSink::new(root_id),
             )
         });
         let mut layout_stack = Vec::new();
@@ -188,7 +185,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                                 child_box_constraints,
                                 children,
                                 renderer,
-                                &mut MessageEmitter::new(child_id, &&self.message_sender),
+                                &mut MessageSink::new(child_id),
                             ),
                         );
                     } else {
@@ -291,7 +288,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                     State::from(widget.initial_state()).as_any_mut(),
                     absolute_bounds,
                     renderer,
-                    &mut MessageEmitter::new(element_id, &self.message_sender),
+                    &mut MessageSink::new(element_id),
                 );
 
                 if let Some(primitive) = &draw_result {
@@ -312,14 +309,14 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                             State::from(widget.initial_state()).as_any_mut(),
                             Lifecycle::DidUpdate(old_element.widget.as_any()),
                             renderer,
-                            &mut MessageEmitter::new(element_id, &self.message_sender),
+                            &mut MessageSink::new(element_id),
                         );
                     } else {
                         widget.lifecycle(
                             State::from(widget.initial_state()).as_any_mut(),
                             Lifecycle::DidMount(),
                             renderer,
-                            &mut MessageEmitter::new(element_id, &&self.message_sender),
+                            &mut MessageSink::new(element_id),
                         );
                     };
 
@@ -333,7 +330,7 @@ impl<Renderer: 'static> PaintTree<Renderer> {
                         State::from(widget.initial_state()).as_any_mut(),
                         Lifecycle::DidUnmount(),
                         renderer,
-                        &mut MessageEmitter::new(element_id, &self.message_sender),
+                        &mut MessageSink::new(element_id),
                     );
                 }
 
@@ -342,12 +339,6 @@ impl<Renderer: 'static> PaintTree<Renderer> {
         }
 
         renderer.finish_pipeline(pipeline);
-    }
-
-    pub fn broadcast<T: Any + Send>(&self, message: T) {
-        self.message_sender
-            .send(Message::Broadcast(Box::new(message)))
-            .unwrap();
     }
 
     fn mark_parents_as_dirty(&mut self, target_id: ElementId) {

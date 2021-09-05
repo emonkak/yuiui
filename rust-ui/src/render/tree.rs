@@ -8,7 +8,7 @@ use crate::widget::element::{
     create_element_tree, Children, Element, ElementId, ElementTree, Key, Patch,
 };
 use crate::widget::null::Null;
-use crate::widget::{Message, MessageQueue, MessageSender, State};
+use crate::widget::{Message, MessageSink, State};
 
 use super::reconciler::{ReconcileResult, Reconciler};
 
@@ -17,7 +17,6 @@ pub struct RenderTree<Renderer> {
     tree: ElementTree<Renderer>,
     root_id: ElementId,
     render_states: SlotVec<RenderState<Renderer>>,
-    message_sender: MessageSender,
     event_manager: EventManager,
 }
 
@@ -47,7 +46,7 @@ enum TypedKey {
 }
 
 impl<Renderer: 'static> RenderTree<Renderer> {
-    pub fn new(message_sender: MessageSender) -> Self {
+    pub fn new() -> Self {
         let (tree, root_id, initial_state) = create_element_tree();
         let mut render_states = SlotVec::new();
 
@@ -57,7 +56,6 @@ impl<Renderer: 'static> RenderTree<Renderer> {
             tree,
             root_id,
             render_states,
-            message_sender,
             event_manager: EventManager::new(),
         }
     }
@@ -86,7 +84,7 @@ impl<Renderer: 'static> RenderTree<Renderer> {
     }
 
     pub fn update(&mut self, message: Message, patches: &mut Vec<Patch<Renderer>>) {
-        let mut message_queue = MessageQueue::new();
+        let mut message_sink = MessageSink::new(0);  // FIXME: dummy
         let mut message = message;
 
         loop {
@@ -94,15 +92,15 @@ impl<Renderer: 'static> RenderTree<Renderer> {
                 Message::Broadcast(payload) => {
                     let subscriber_ids = self.event_manager.get_subscribers(payload.type_id());
                     for subscriber_id in subscriber_ids.collect::<Vec<_>>() {
-                        self.send_message(subscriber_id, &*payload, patches, &mut message_queue);
+                        self.send_message(subscriber_id, &*payload, patches, &mut message_sink);
                     }
                 }
                 Message::Send(target_id, payload) => {
-                    self.send_message(target_id, &*payload, patches, &mut message_queue);
+                    self.send_message(target_id, &*payload, patches, &mut message_sink);
                 }
             }
 
-            if let Some(next_message) = message_queue.dequeue() {
+            if let Some(next_message) = message_sink.dequeue() {
                 message = next_message;
             } else {
                 break;
@@ -115,12 +113,12 @@ impl<Renderer: 'static> RenderTree<Renderer> {
         target_id: ElementId,
         message: &(dyn Any + Send),
         patches: &mut Vec<Patch<Renderer>>,
-        message_queue: &mut MessageQueue,
+        message_sink: &mut MessageSink,
     ) {
         let render_state = &mut self.render_states[target_id];
         let Element { widget, .. } = &*self.tree[target_id];
 
-        if widget.update(render_state.state.as_any_mut(), message, message_queue) {
+        if widget.update(render_state.state.as_any_mut(), message, message_sink) {
             let mut current_id = target_id;
 
             while let Some(next_id) = self.render_step(current_id, target_id, patches) {

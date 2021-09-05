@@ -3,7 +3,7 @@ use std::any::Any;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Background, Color, Primitive};
 
-use super::message::MessageEmitter;
+use super::message::MessageSink;
 use super::paint_object::PaintObject;
 use super::state::StateContainer;
 use super::widget::{Widget, WidgetSeal};
@@ -38,7 +38,7 @@ impl<Renderer: 'static> Widget<Renderer> for Fill {
         _state: &mut Self::State,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         Primitive::Quad {
             bounds,
@@ -66,7 +66,7 @@ impl<Renderer> PaintObject<Renderer> for FillPaint {
         widget: &Self::Widget,
         bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         Primitive::Quad {
             bounds,

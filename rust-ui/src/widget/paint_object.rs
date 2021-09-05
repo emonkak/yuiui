@@ -8,7 +8,7 @@ use crate::paint::{BoxConstraints, LayoutRequest};
 use crate::support::generator::Generator;
 
 use super::element::ElementId;
-use super::message::MessageEmitter;
+use super::message::MessageSink;
 use super::widget::PolyWidget;
 
 pub type PolyPaintObject<Renderer> =
@@ -26,7 +26,7 @@ pub trait PaintObject<Renderer> {
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         Generator::new(move |co| async move {
             if let Some(child_id) = children.first() {
@@ -44,7 +44,7 @@ pub trait PaintObject<Renderer> {
         _widget: &Self::Widget,
         _bounds: Rectangle,
         _renderer: &mut Renderer,
-        _context: &mut MessageEmitter,
+        _messages: &mut MessageSink,
     ) -> Option<Primitive> {
         None
     }
@@ -111,14 +111,14 @@ where
         box_constraints: BoxConstraints,
         children: Vec<ElementId>,
         renderer: &mut R,
-        context: &mut MessageEmitter,
+        messages: &mut MessageSink,
     ) -> Generator<'a, LayoutRequest, Size, Size> {
         self.paint_object.layout(
             widget.as_any().downcast_ref().unwrap(),
             box_constraints,
             children,
             renderer,
-            context,
+            messages,
         )
     }
 
@@ -128,13 +128,13 @@ where
         widget: &Self::Widget,
         bounds: Rectangle,
         renderer: &mut R,
-        context: &mut MessageEmitter,
+        messages: &mut MessageSink,
     ) -> Option<Primitive> {
         self.paint_object.draw(
             widget.as_any().downcast_ref().unwrap(),
             bounds,
             renderer,
-            context,
+            messages,
         )
     }
 
