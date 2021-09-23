@@ -1,5 +1,6 @@
 [workspace]
 members = [
-    "rust-ui",
+    "yuiui",
+    "yuiui-support",
 ]
 resolver = "2"

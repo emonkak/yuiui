@@ -1,0 +1,27 @@
+[package]
+name = "yuiui"
+version = "0.0.0"
+edition = "2018"
+resolver = "2"
+
+[dependencies]
+bytemuck = { version = "1.7", features = ["derive"] }
+env_logger = "0.9"
+futures = "0.3"
+glam = "0.17"
+glyph_brush = "0.7"
+log = "0.4"
+mio = { version = "0.7", features = ["os-ext"] }
+raw-window-handle = "0.3"
+servo-fontconfig = "0.5"
+tokio = { version = "1.11.0", features = ["macros", "net", "rt", "sync", "time"] }
+wgpu = "0.10"
+wgpu_glyph = "0.14"
+x11rb = { version = "0.9", features = ["allow-unsafe-code"] }
+
+[dependencies.yuiui-support]
+path = "../yuiui-support"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
