@@ -133,11 +133,11 @@ impl WidgetStorage {
         }
     }
 
-    pub fn layout(&mut self, id: NodeId) {
-        let mut current_id = id;
+    pub fn layout(&mut self, id: NodeId) -> NodeId {
+        let mut root_id = id;
 
         loop {
-            let mut cursor = self.widget_tree.cursor_mut(current_id);
+            let mut cursor = self.widget_tree.cursor_mut(root_id);
             let mut instance = cursor
                 .data()
                 .instance
@@ -157,23 +157,37 @@ impl WidgetStorage {
             self.widget_tree[id].data_mut().instance = Some(instance);
 
             match parent {
-                Some(parent) if is_changed => current_id = parent,
+                Some(parent) if is_changed => root_id = parent,
                 _ => break,
             }
         }
-    }
 
-    pub fn layout_root(&mut self, viewport_size: Size) {
-        let box_constraints = BoxConstraints::tight(viewport_size);
-        self.layout_child(self.widget_tree.root_id(), box_constraints);
+        root_id
     }
 
     pub fn draw(&mut self, id: NodeId) -> Primitive {
-        let origin = self.widget_tree
-            .cursor(id)
+        let mut cursor = self.widget_tree.cursor_mut(id);
+        let mut widget = cursor
+            .data()
+            .instance
+            .take()
+            .expect("widget is currently in use elsewhere");
+
+        let origin = cursor
             .ancestors()
             .fold(Point::ZERO, |origin, (_, node)| origin + node.data().borrow().position);
-        self.draw_child(id, origin)
+        let bounds = Rectangle::new(origin + widget.position, widget.size);
+        let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
+
+        let mut context = DrawContext {
+            storage: self,
+            origin: widget.position,
+        };
+        let primitive = widget.draw(bounds, &children, &mut context);
+
+        self.widget_tree[id].data_mut().instance = Some(widget);
+
+        primitive
     }
 
     fn update_child(
@@ -197,7 +211,6 @@ impl WidgetStorage {
                                 component_stack: Vec::new(),
                             });
                         }
-                        mark_as_dirty(&mut cursor);
                     }
                     Element::ComponentElement(element) => {
                         let instance = ComponentPod::new(element, self.version);
@@ -221,7 +234,6 @@ impl WidgetStorage {
                             instance: Some(instance),
                             component_stack: Vec::new(),
                         });
-                        mark_as_dirty(&mut cursor);
                     }
                     Element::ComponentElement(element) => {
                         let instance = ComponentPod::new(element, self.version);
@@ -234,13 +246,10 @@ impl WidgetStorage {
             }
             ReconcileResult::Update(ReconcilementId::Widget(id), element) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
-                let is_updated = match element {
+                match element {
                     Element::WidgetElement(element) => cursor.data().borrow_mut().update(element),
                     _ => unreachable!("element type mismatch"),
                 };
-                if is_updated {
-                    mark_as_dirty(&mut cursor);
-                }
             }
             ReconcileResult::Update(ReconcilementId::Component(id, component_index), element) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
@@ -305,6 +314,7 @@ impl WidgetStorage {
         };
 
         instance.layout(box_constraints, &children, &mut context);
+        instance.box_constraints = box_constraints;
         let size = instance.size;
 
         self.widget_tree[id].data_mut().instance = Some(instance);
@@ -367,7 +377,6 @@ pub struct WidgetPod {
     position: Point,
     size: Size,
     draw_cache: Option<Primitive>,
-    dirty: bool,
     needs_layout: bool,
     needs_draw: bool,
     version: usize,
@@ -389,7 +398,6 @@ impl WidgetPod {
             position: Point::ZERO,
             size: Size::ZERO,
             draw_cache: None,
-            dirty: true,
             needs_layout: true,
             needs_draw: true,
             version,
@@ -397,17 +405,26 @@ impl WidgetPod {
     }
 
     fn update(&mut self, element: WidgetElement) -> bool {
-        let should_update = &*self.attributes != &*element.attributes
-            || self.widget.should_update(element.widget.as_any(), &self.state);
+        let should_update = self.should_update(&element);
 
         self.widget = element.widget;
         self.attributes = element.attributes;
         self.pending_children = element.children;
-        self.dirty = should_update;
         self.needs_layout = should_update;
         self.needs_draw = should_update;
 
         should_update
+    }
+
+    fn should_update(&self, element: &WidgetElement) -> bool {
+        if &*self.attributes != &*element.attributes {
+            return true;
+        }
+
+        self.widget.should_update(
+            element.widget.as_any(),
+            &self.state,
+        )
     }
 
     fn layout(
@@ -443,7 +460,6 @@ impl WidgetPod {
                 return primitive.clone()
             }
         }
-
         let primitive = self.widget.draw(bounds, children, context, &mut self.state);
         self.draw_cache = Some(primitive.clone());
         self.needs_draw = false;
@@ -481,11 +497,12 @@ impl ComponentPod {
     }
 
     fn update(&mut self, element: ComponentElement) -> bool {
-        let should_update =
-            self.should_update(&element.component, &*element.attributes, &element.children);
+        let should_update = self.should_update(&element);
+
         self.component = element.component;
         self.attributes = element.attributes;
         self.children = element.children;
+
         should_update
     }
 
@@ -493,20 +510,15 @@ impl ComponentPod {
         self.component.render(&self.children, &self.state)
     }
 
-    fn should_update(
-        &self,
-        new_component: &BoxedComponent,
-        attributes: &Attributes,
-        children: &Vec<Element>,
-    ) -> bool {
-        if &*self.attributes != attributes {
+    fn should_update(&self, element: &ComponentElement) -> bool {
+        if &*self.attributes != &*element.attributes {
             return true;
         }
 
         self.component.should_update(
-            new_component.as_any(),
+            element.component.as_any(),
             &self.children,
-            children,
+            &element.children,
             &self.state,
         )
     }
@@ -624,7 +636,7 @@ fn create_reconciler(
     let mut new_keys: Vec<ReconcilementKey> = Vec::with_capacity(children.len());
     let mut new_elements: Vec<Option<Element>> = Vec::with_capacity(children.len());
 
-    for (index, element) in children.iter().enumerate() {
+    for (index, element) in children.into_iter().enumerate() {
         let key = match &element {
             Element::WidgetElement(element) => {
                 ReconcilementKey::new(element.widget.as_any().type_id(), element.key, index)
@@ -634,18 +646,8 @@ fn create_reconciler(
             }
         };
         new_keys.push(key);
-        new_elements.push(Some(element.clone()));
+        new_elements.push(Some(element));
     }
 
     Reconciler::new(old_keys, old_ids, new_keys, new_elements)
-}
-
-fn mark_as_dirty(cursor: &mut CursorMut<WidgetNode>) {
-    for (_, widget_node) in cursor.ancestors() {
-        let widget = widget_node.data_mut().borrow_mut();
-        if widget.dirty {
-            break;
-        }
-        widget.dirty = true;
-    }
 }

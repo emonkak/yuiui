@@ -7,7 +7,7 @@ use crate::widget::WidgetStorage;
 #[derive(Debug)]
 pub struct RenderLoop {
     storage: WidgetStorage,
-    current_origin: Option<NodeId>,
+    current_root: Option<NodeId>,
     work_in_progress: Option<Work>,
     pending_works: VecDeque<Work>,
 }
@@ -21,7 +21,7 @@ impl RenderLoop {
             origin: root_id,
         };
         Self {
-            current_origin: Some(root_id),
+            current_root: Some(root_id),
             work_in_progress: Some(initial_work),
             pending_works: VecDeque::new(),
             storage,
@@ -35,7 +35,7 @@ impl RenderLoop {
                 component_index,
                 origin: id,
             };
-            self.current_origin = Some(work.origin);
+            self.current_root = Some(work.origin);
             self.work_in_progress = Some(work);
         } else {
             if self.pending_works.iter().position(|work| work.origin == id).is_none() {
@@ -57,9 +57,9 @@ impl RenderLoop {
         if let Some(work) = self.work_in_progress.take() {
             self.process_work(work);
             RenderResult::Continue
-        } else if let Some(origin) = self.current_origin.take() {
-            self.storage.layout(origin);
-            let primitive = self.storage.draw(origin);
+        } else if let Some(render_root) = self.current_root.take() {
+            let layout_root = self.storage.layout(render_root);
+            let primitive = self.storage.draw(layout_root);
             RenderResult::Commit(primitive)
         } else if let Some(work) = self.pending_works.pop_front() {
             self.process_work(work);
