@@ -1,7 +1,9 @@
+use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{ElementNode, LayoutContext, Widget, WidgetExt};
-use crate::geometrics::{BoxConstraints, Size, Viewport};
+use super::{DrawContext, ElementNode, LayoutContext, Widget, WidgetExt};
+use crate::geometrics::{BoxConstraints, Rectangle, Size, Viewport};
+use crate::graphics::Primitive;
 
 #[derive(Debug)]
 pub struct Root {
@@ -41,6 +43,19 @@ impl Widget for Root {
             context.layout_child(*child, box_constraints);
         }
         state.viewport.logical_size()
+    }
+
+    fn draw(
+        &self,
+        _bounds: Rectangle,
+        children: &[NodeId],
+        context: &mut DrawContext,
+        _state: &mut Self::State,
+    ) -> Primitive {
+        let primitive = children.iter().fold(Primitive::None, |primitive, child| {
+            primitive + context.draw_child(*child)
+        });
+        Primitive::Cache(Rc::new(primitive))
     }
 }
 

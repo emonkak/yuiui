@@ -1,3 +1,4 @@
+mod layer;
 mod pipeline;
 mod quad;
 mod renderer;

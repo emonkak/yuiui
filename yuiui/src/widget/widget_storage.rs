@@ -181,7 +181,7 @@ impl WidgetStorage {
         root_id
     }
 
-    pub fn draw(&mut self, id: NodeId) -> Primitive {
+    pub fn draw(&mut self, id: NodeId) -> (Primitive, Rectangle) {
         let mut cursor = self.widget_tree.cursor_mut(id);
         let mut widget = cursor
             .current()
@@ -191,7 +191,9 @@ impl WidgetStorage {
             .expect("widget is currently in use elsewhere");
 
         let origin = cursor.ancestors().fold(Point::ZERO, |origin, (_, node)| {
-            origin + node.data().borrow().position
+            let instance = node.data_mut().borrow_mut();
+            instance.needs_draw = true;
+            origin + instance.position
         });
         let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
@@ -205,7 +207,7 @@ impl WidgetStorage {
         let mut cursor = self.widget_tree.cursor_mut(id);
         cursor.current().data_mut().instance = Some(widget);
 
-        primitive
+        (primitive, bounds)
     }
 
     fn update_child(

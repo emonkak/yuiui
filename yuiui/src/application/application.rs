@@ -3,7 +3,7 @@ use std::error;
 use std::time::{Duration, Instant};
 
 use super::render_loop::{RenderLoop, RenderResult};
-use crate::graphics::{Color, Renderer};
+use crate::graphics::{Color, Primitive, Renderer};
 use crate::ui::event::{Event, WindowEvent};
 use crate::ui::{ControlFlow, EventLoop, EventLoopContext, Window, WindowContainer};
 use crate::widget::{Element, WidgetStorage};
@@ -30,7 +30,7 @@ where
 
     let mut render_loop = RenderLoop::new(storage);
     let mut surface = renderer.create_surface(viewport);
-    let mut pipeline = renderer.create_pipeline(viewport);
+    let mut pipeline = renderer.create_pipeline(Primitive::None);
 
     event_loop.run(|event, context| {
         match event {
@@ -42,12 +42,12 @@ where
                     RenderResult::Continue => {
                         context.request_idle(|deadline| Message::Render(deadline));
                     }
-                    RenderResult::Commit(primitive) => {
+                    RenderResult::Commit(primitive, _bounds) => {
                         let viewport = window_container.viewport();
-                        renderer.update_pipeline(&mut pipeline, primitive, 0);
+                        let mut pipeline = renderer.create_pipeline(primitive);
                         renderer.perform_pipeline(
-                            &mut surface,
                             &mut pipeline,
+                            &mut surface,
                             &viewport,
                             Color::WHITE,
                         );
@@ -61,16 +61,16 @@ where
             },
             Event::WindowEvent(_, WindowEvent::RedrawRequested(_)) => {
                 let viewport = window_container.viewport();
-                renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
+                renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, Color::WHITE);
             }
             Event::WindowEvent(_, WindowEvent::SizeChanged(size)) => {
                 if window_container.resize(size) {
                     let viewport = window_container.viewport();
 
-                    pipeline = renderer.create_pipeline(&viewport);
                     renderer.configure_surface(&mut surface, &viewport);
 
-                    render_loop.schedule_root();
+                    render_loop.schedule_update_root();
+
                     context.request_idle(|deadline| Message::Render(deadline));
                 }
             }

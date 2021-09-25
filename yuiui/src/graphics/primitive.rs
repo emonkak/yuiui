@@ -1,15 +1,16 @@
 use std::ops::Add;
+use std::rc::Rc;
 
 use crate::geometrics::{Rectangle, Transform};
 use crate::graphics::{Background, Color};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Primitive {
     None,
     Batch(Vec<Primitive>),
-    Transform(Transform),
-    Clip(Rectangle),
+    Transform(Transform, Box<Primitive>),
+    Clip(Rectangle, Box<Primitive>),
     Quad {
         bounds: Rectangle,
         background: Background,
@@ -26,6 +27,16 @@ pub enum Primitive {
         horizontal_align: HorizontalAlign,
         vertical_align: VerticalAlign,
     },
+    Cache(Rc<Primitive>),
+}
+
+impl Primitive {
+    pub fn same(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Cache(x), Self::Cache(y)) => Rc::ptr_eq(x, y),
+            _ => false,
+        }
+    }
 }
 
 impl Add for Primitive {

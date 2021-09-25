@@ -10,22 +10,13 @@ pub trait Renderer {
 
     fn configure_surface(&mut self, surface: &mut Self::Surface, viewport: &Viewport);
 
-    fn create_pipeline(&mut self, viewport: &Viewport) -> Self::Pipeline;
+    fn create_pipeline(&mut self, primitive: Primitive) -> Self::Pipeline;
 
     fn perform_pipeline(
         &mut self,
-        surface: &mut Self::Surface,
         pipeline: &mut Self::Pipeline,
+        surface: &mut Self::Surface,
         viewport: &Viewport,
         background_color: Color,
     );
-
-    fn update_pipeline(
-        &mut self,
-        pipeline: &mut Self::Pipeline,
-        primitive: Primitive,
-        depth: usize,
-    );
-
-    fn finish_pipeline(&mut self, _pipeline: &mut Self::Pipeline) {}
 }

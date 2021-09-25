@@ -4,13 +4,11 @@ use std::collections::HashMap;
 use std::io;
 use wgpu_glyph::ab_glyph;
 
-use super::pipeline::{Layer, Pipeline};
-use super::quad;
-use super::settings::Settings;
-use super::text;
 use crate::geometrics::{Size, Transform, Viewport};
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, FontLoader};
+use super::layer::Layer;
+use super::{quad, text, Pipeline, Settings};
 
 pub struct Renderer<Window, FontLoader, FontBundle, FontId> {
     settings: Settings,
@@ -202,8 +200,8 @@ where
             scale_factor,
         );
 
-        for layer in pipeline.prepared_layers() {
-            self.flush_layer(encoder, &target, &layer, projection, scale_factor);
+        for child_layer in pipeline.child_layers() {
+            self.flush_layer(encoder, &target, &child_layer, projection, scale_factor);
         }
     }
 
@@ -276,14 +274,18 @@ where
         )
     }
 
-    fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
-        Pipeline::new()
+    fn create_pipeline(&mut self, primitive: Primitive) -> Self::Pipeline {
+        let mut pipeline = Pipeline::new();
+        pipeline.push(primitive, self);
+        // FIXME: Is this really necessary?
+        self.text_pipeline.trim_measurement_cache();
+        pipeline
     }
 
     fn perform_pipeline(
         &mut self,
-        surface: &mut Self::Surface,
         pipeline: &mut Self::Pipeline,
+        surface: &mut Self::Surface,
         viewport: &Viewport,
         background_color: Color,
     ) {
@@ -332,19 +334,5 @@ where
             .expect("Recall staging belt");
 
         self.local_pool.run_until_stalled();
-    }
-
-    fn update_pipeline(
-        &mut self,
-        pipeline: &mut Self::Pipeline,
-        primitive: Primitive,
-        depth: usize,
-    ) {
-        pipeline.push(primitive, depth, self)
-    }
-
-    fn finish_pipeline(&mut self, pipeline: &mut Self::Pipeline) {
-        pipeline.finish();
-        self.text_pipeline.trim_measurement_cache();
     }
 }

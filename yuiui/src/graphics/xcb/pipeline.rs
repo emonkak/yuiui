@@ -61,10 +61,10 @@ impl<Connection: self::Connection> Pipeline<Connection> {
                     self.push(primitive, depth)
                 }
             }
-            Primitive::Transform(_) => {
+            Primitive::Transform(_transform, _primitive) => {
                 // TODO:
             }
-            Primitive::Clip(_bounds) => {
+            Primitive::Clip(_bounds, _primitive) => {
                 // TODO:
             }
             Primitive::Quad {
@@ -78,6 +78,9 @@ impl<Connection: self::Connection> Pipeline<Connection> {
             }
             Primitive::Text { .. } => {
                 // TODO:
+            }
+            Primitive::Cache(primitive) => {
+                self.push((&*primitive).clone(), depth);
             }
         }
     }

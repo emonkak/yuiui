@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use yuiui_support::slot_tree::NodeId;
 
+use crate::geometrics::Rectangle;
 use crate::graphics::Primitive;
 use crate::widget::WidgetStorage;
 
@@ -54,7 +55,7 @@ impl RenderLoop {
         }
     }
 
-    pub fn schedule_root(&mut self) {
+    pub fn schedule_update_root(&mut self) {
         self.schedule_update(self.storage.root_id(), 0)
     }
 
@@ -64,8 +65,8 @@ impl RenderLoop {
             RenderResult::Continue
         } else if let Some(render_root) = self.current_root.take() {
             let layout_root = self.storage.layout(render_root);
-            let primitive = self.storage.draw(layout_root);
-            RenderResult::Commit(primitive)
+            let (primitive, bounds) = self.storage.draw(layout_root);
+            RenderResult::Commit(primitive, bounds)
         } else if let Some(work) = self.pending_works.pop_front() {
             self.process_work(work);
             RenderResult::Continue
@@ -92,7 +93,7 @@ impl RenderLoop {
 #[derive(Debug)]
 pub enum RenderResult {
     Continue,
-    Commit(Primitive),
+    Commit(Primitive, Rectangle),
     Idle,
 }
 

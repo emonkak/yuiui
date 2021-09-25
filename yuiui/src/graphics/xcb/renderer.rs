@@ -110,14 +110,16 @@ impl<Connection: self::Connection> crate::graphics::Renderer for Renderer<Connec
         .unwrap()
     }
 
-    fn create_pipeline(&mut self, _viewport: &Viewport) -> Self::Pipeline {
-        Pipeline::create(self.connection.clone(), self.screen_num).unwrap()
+    fn create_pipeline(&mut self, primitive: Primitive) -> Self::Pipeline {
+        let mut pipeline = Pipeline::create(self.connection.clone(), self.screen_num).unwrap();
+        pipeline.push(primitive, 0);
+        pipeline
     }
 
     fn perform_pipeline(
         &mut self,
-        surface: &mut Self::Surface,
         pipeline: &mut Self::Pipeline,
+        surface: &mut Self::Surface,
         viewport: &Viewport,
         background_color: Color,
     ) {
@@ -135,15 +137,6 @@ impl<Connection: self::Connection> crate::graphics::Renderer for Renderer<Connec
         }
 
         self.commit(surface, viewport.physical_size()).unwrap();
-    }
-
-    fn update_pipeline(
-        &mut self,
-        pipeline: &mut Self::Pipeline,
-        primitive: Primitive,
-        depth: usize,
-    ) {
-        pipeline.push(primitive, depth);
     }
 }
 
