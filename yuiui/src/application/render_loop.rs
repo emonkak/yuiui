@@ -38,7 +38,12 @@ impl RenderLoop {
             self.current_root = Some(work.origin);
             self.work_in_progress = Some(work);
         } else {
-            if self.pending_works.iter().position(|work| work.origin == id).is_none() {
+            if self
+                .pending_works
+                .iter()
+                .position(|work| work.origin == id)
+                .is_none()
+            {
                 let work = Work {
                     id,
                     component_index,
@@ -70,7 +75,9 @@ impl RenderLoop {
     }
 
     fn process_work(&mut self, work: Work) {
-        let next = self.storage.render(work.id, work.component_index, work.origin);
+        let next = self
+            .storage
+            .render(work.id, work.component_index, work.origin);
         if let Some((id, component_index)) = next {
             let work = Work {
                 id,

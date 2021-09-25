@@ -1,6 +1,5 @@
 use std::fmt;
 use std::num::NonZeroUsize;
-use std::ops::{Index, IndexMut};
 use std::ptr::NonNull;
 
 use crate::slot_vec::SlotVec;
@@ -50,16 +49,6 @@ impl<T> SlotTree<T> {
     }
 
     #[inline]
-    pub fn get(&self, id: NodeId) -> Option<&Node<T>> {
-        self.arena.get(id.get())
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, id: NodeId) -> Option<&mut Node<T>> {
-        self.arena.get_mut(id.get())
-    }
-
-    #[inline]
     pub fn cursor(&self, id: NodeId) -> Cursor<T> {
         Cursor::new(id, self)
     }
@@ -70,8 +59,13 @@ impl<T> SlotTree<T> {
     }
 
     #[inline]
-    pub fn next_node_id(&self) -> NodeId {
-        NodeId::new(self.arena.next_slot_index())
+    pub fn try_cursor(&self, id: NodeId) -> Option<Cursor<T>> {
+        Cursor::try_new(id, self)
+    }
+
+    #[inline]
+    pub fn try_cursor_mut(&mut self, id: NodeId) -> Option<CursorMut<T>> {
+        CursorMut::try_new(id, self)
     }
 
     #[inline]
@@ -84,6 +78,31 @@ impl<T> SlotTree<T> {
         self.arena.len()
     }
 
+    #[inline]
+    pub fn next_node_id(&self) -> NodeId {
+        NodeId::new(self.arena.next_slot_index())
+    }
+
+    #[inline]
+    fn get(&self, id: NodeId) -> &Node<T> {
+        &self.arena[id.get()]
+    }
+
+    #[inline]
+    fn get_mut(&mut self, id: NodeId) -> &mut Node<T> {
+        &mut self.arena[id.get()]
+    }
+
+    #[inline]
+    fn try_get(&self, id: NodeId) -> Option<&Node<T>> {
+        self.arena.get(id.get())
+    }
+
+    #[inline]
+    fn try_get_mut(&mut self, id: NodeId) -> Option<&mut Node<T>> {
+        self.arena.get_mut(id.get())
+    }
+
     fn attach_node(&mut self, node: Node<T>) -> NodeId {
         NodeId::new(self.arena.insert(node))
     }
@@ -91,51 +110,35 @@ impl<T> SlotTree<T> {
     fn detach_node(&mut self, node: &Node<T>, detach_from: NodeId) {
         match (node.prev_sibling, node.next_sibling) {
             (Some(prev_sibling_id), Some(next_sibling_id)) => {
-                self[next_sibling_id].prev_sibling = Some(prev_sibling_id);
-                self[prev_sibling_id].next_sibling = Some(next_sibling_id);
+                self.get_mut(next_sibling_id).prev_sibling = Some(prev_sibling_id);
+                self.get_mut(prev_sibling_id).next_sibling = Some(next_sibling_id);
             }
             (Some(prev_sibling_id), None) => {
                 if let Some(parent_id) = node.parent {
                     if parent_id == detach_from {
-                        self[parent_id].last_child = Some(prev_sibling_id);
+                        self.get_mut(parent_id).last_child = Some(prev_sibling_id);
                     }
                 }
-                self[prev_sibling_id].next_sibling = None;
+                self.get_mut(prev_sibling_id).next_sibling = None;
             }
             (None, Some(next_sibling_id)) => {
                 if let Some(parent_id) = node.parent {
                     if parent_id == detach_from {
-                        self[parent_id].first_child = Some(next_sibling_id);
+                        self.get_mut(parent_id).first_child = Some(next_sibling_id);
                     }
                 }
-                self[next_sibling_id].prev_sibling = None;
+                self.get_mut(next_sibling_id).prev_sibling = None;
             }
             (None, None) => {
                 if let Some(parent_id) = node.parent {
                     if parent_id == detach_from {
-                        let parent = &mut self[parent_id];
+                        let parent = self.get_mut(parent_id);
                         parent.first_child = None;
                         parent.last_child = None;
                     }
                 }
             }
         }
-    }
-}
-
-impl<T> Index<NodeId> for SlotTree<T> {
-    type Output = Node<T>;
-
-    #[inline]
-    fn index(&self, id: NodeId) -> &Node<T> {
-        &self.arena[id.get()]
-    }
-}
-
-impl<T> IndexMut<NodeId> for SlotTree<T> {
-    #[inline]
-    fn index_mut(&mut self, id: NodeId) -> &mut Node<T> {
-        &mut self.arena[id.get()]
     }
 }
 
@@ -148,7 +151,7 @@ impl<T: fmt::Debug> fmt::Display for SlotTree<T> {
             level: usize,
         ) -> fmt::Result {
             let indent = unsafe { String::from_utf8_unchecked(vec![b' '; level * 4]) };
-            let node = &tree[id];
+            let node = tree.get(id);
 
             write!(f, "{}{} => {:?}", indent, id.get(), node.data)?;
 
@@ -259,9 +262,13 @@ impl<'a, T> Cursor<'a, T> {
     fn new(id: NodeId, tree: &'a SlotTree<T>) -> Self {
         Self {
             id,
-            current: &tree[id],
+            current: tree.get(id),
             tree,
         }
+    }
+
+    fn try_new(id: NodeId, tree: &'a SlotTree<T>) -> Option<Self> {
+        tree.try_get(id).map(|current| Self { id, current, tree })
     }
 
     #[inline]
@@ -270,13 +277,8 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn current(&self) -> &Node<T> {
-        &self.current
-    }
-
-    #[inline]
-    pub fn data(&self) -> &T {
-        &self.current.data
+    pub fn current(&self) -> &'a Node<T> {
+        self.current
     }
 
     #[inline]
@@ -368,9 +370,15 @@ impl<'a, T> CursorMut<'a, T> {
     fn new(id: NodeId, tree: &'a mut SlotTree<T>) -> Self {
         Self {
             id,
-            current: unsafe { NonNull::new_unchecked(&mut tree[id] as *mut _) },
+            current: unsafe { NonNull::new_unchecked(tree.get_mut(id) as *mut _) },
             tree,
         }
+    }
+
+    fn try_new(id: NodeId, tree: &'a mut SlotTree<T>) -> Option<Self> {
+        tree.try_get_mut(id)
+            .map(|current| unsafe { NonNull::new_unchecked(current as *mut _) })
+            .map(move |current| Self { id, current, tree })
     }
 
     #[inline]
@@ -379,13 +387,8 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn current(&mut self) -> &mut Node<T> {
+    pub fn current(&mut self) -> &'a mut Node<T> {
         unsafe { self.current.as_mut() }
-    }
-
-    #[inline]
-    pub fn data(&mut self) -> &mut T {
-        &mut self.current().data
     }
 
     #[inline]
@@ -437,7 +440,7 @@ impl<'a, T> CursorMut<'a, T> {
         };
 
         if let Some(old_id) = current.last_child.replace(new_id) {
-            self.tree[old_id].next_sibling = Some(new_id);
+            self.tree.get_mut(old_id).next_sibling = Some(new_id);
         } else {
             current.first_child = Some(new_id);
         }
@@ -463,9 +466,9 @@ impl<'a, T> CursorMut<'a, T> {
         };
 
         if let Some(old_id) = current.prev_sibling.replace(new_id) {
-            self.tree[old_id].next_sibling = Some(new_id);
+            self.tree.get_mut(old_id).next_sibling = Some(new_id);
         } else if let Some(parent_id) = new_sibling.parent {
-            self.tree[parent_id].first_child = Some(new_id);
+            self.tree.get_mut(parent_id).first_child = Some(new_id);
         }
 
         self.tree.attach_node(new_sibling)
@@ -477,18 +480,18 @@ impl<'a, T> CursorMut<'a, T> {
 
         self.tree.detach_node(current, parent_id);
 
-        let destination = &mut self.tree[destination_id];
+        let destination = self.tree.get_mut(destination_id);
 
         current.next_sibling = Some(destination_id);
         current.parent = destination.parent;
 
         if let Some(prev_sibling_id) = destination.prev_sibling.replace(self.id) {
             current.prev_sibling = Some(prev_sibling_id);
-            self.tree[prev_sibling_id].next_sibling = Some(self.id);
+            self.tree.get_mut(prev_sibling_id).next_sibling = Some(self.id);
         } else {
             current.prev_sibling = None;
             if let Some(parent_id) = destination.parent {
-                self.tree[parent_id].first_child = Some(self.id);
+                self.tree.get_mut(parent_id).first_child = Some(self.id);
             }
         }
     }
@@ -499,18 +502,18 @@ impl<'a, T> CursorMut<'a, T> {
 
         self.tree.detach_node(current, parent_id);
 
-        let destination = &mut self.tree[destination_id];
+        let destination = self.tree.get_mut(destination_id);
 
         current.prev_sibling = Some(destination_id);
         current.parent = destination.parent;
 
         if let Some(next_sibling_id) = destination.next_sibling.replace(self.id) {
             current.next_sibling = Some(next_sibling_id);
-            self.tree[next_sibling_id].prev_sibling = Some(self.id);
+            self.tree.get_mut(next_sibling_id).prev_sibling = Some(self.id);
         } else {
             current.next_sibling = None;
             if let Some(parent_id) = destination.parent {
-                self.tree[parent_id].last_child = Some(self.id);
+                self.tree.get_mut(parent_id).last_child = Some(self.id);
             }
         }
     }
@@ -600,7 +603,7 @@ impl<'a, T> Iterator for Ancestors<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
-            let node = &self.tree[id];
+            let node = self.tree.get(id);
             self.next = node.next_sibling;
             (id, node)
         })
@@ -612,7 +615,7 @@ impl<'a, T> Iterator for AncestorsMut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
-            let node = unsafe { (&mut self.tree[id] as *mut Node<T>).as_mut().unwrap() };
+            let node = unsafe { (self.tree.get_mut(id) as *mut Node<T>).as_mut().unwrap() };
             self.next = node.parent;
             (id, node)
         })
@@ -634,7 +637,7 @@ impl<'a, T> Iterator for Siblings<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
-            let node = &self.tree[id];
+            let node = self.tree.get(id);
             self.next = node.next_sibling;
             (id, node)
         })
@@ -646,7 +649,7 @@ impl<'a, T> Iterator for SiblingsMut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
-            let node = unsafe { (&mut self.tree[id] as *mut Node<T>).as_mut().unwrap() };
+            let node = unsafe { (self.tree.get_mut(id) as *mut Node<T>).as_mut().unwrap() };
             self.next = node.next_sibling;
             (id, node)
         })
@@ -670,7 +673,7 @@ impl<'a, T> Iterator for Descendants<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
-            let node = &self.tree[id];
+            let node = self.tree.get(id);
             self.next = next_descendant(self.tree, self.origin, node);
             (id, node)
         })
@@ -682,7 +685,7 @@ impl<'a, T> Iterator for DescendantsMut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
-            let node = unsafe { (&mut self.tree[id] as *mut Node<T>).as_mut().unwrap() };
+            let node = unsafe { (self.tree.get_mut(id) as *mut Node<T>).as_mut().unwrap() };
             self.next = next_descendant(self.tree, self.origin, node);
             (id, node)
         })
@@ -701,7 +704,7 @@ fn next_descendant<T>(tree: &SlotTree<T>, origin: NodeId, node: &Node<T>) -> Opt
                 break Some(sibling_id);
             }
             match current.parent() {
-                Some(parent_id) if parent_id != origin => current = &tree[parent_id],
+                Some(parent_id) if parent_id != origin => current = tree.get(parent_id),
                 _ => break None,
             }
         }

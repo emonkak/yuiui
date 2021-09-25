@@ -4,8 +4,8 @@ use std::mem;
 use std::rc::Rc;
 use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 
-use super::root::Root;
 use super::reconciler::{ReconcileResult, Reconciler};
+use super::root::Root;
 use super::{
     Attributes, BoxedComponent, BoxedWidget, ComponentElement, Element, Key, WidgetElement,
     WidgetExt,
@@ -27,7 +27,7 @@ impl WidgetStorage {
                 widget: widget.into_boxed(),
                 attributes: Rc::new(Attributes::new()),
                 children: vec![element],
-                key: None
+                key: None,
             };
             let instance = WidgetPod::new(element, 0);
             WidgetNode {
@@ -42,7 +42,9 @@ impl WidgetStorage {
     }
 
     pub fn get_widget(&self, id: NodeId) -> &WidgetPod {
-        self.widget_tree[id]
+        self.widget_tree
+            .cursor(id)
+            .current()
             .data()
             .instance
             .as_ref()
@@ -50,7 +52,9 @@ impl WidgetStorage {
     }
 
     pub fn get_widget_mut(&mut self, id: NodeId) -> &mut WidgetPod {
-        self.widget_tree[id]
+        self.widget_tree
+            .cursor_mut(id)
+            .current()
             .data_mut()
             .instance
             .as_mut()
@@ -59,30 +63,42 @@ impl WidgetStorage {
 
     pub fn try_get_widget(&self, tag: WidgetTag) -> Option<&WidgetPod> {
         self.widget_tree
-            .get(tag.node_id)
-            .map(|node| node.data().borrow())
+            .try_cursor(tag.node_id)
+            .map(|cursor| cursor.current().data().borrow())
             .filter(|instance| instance.version == tag.version)
     }
 
     pub fn try_get_widget_mut(&mut self, tag: WidgetTag) -> Option<&mut WidgetPod> {
         self.widget_tree
-            .get_mut(tag.node_id)
-            .map(|node| node.data_mut().borrow_mut())
+            .try_cursor_mut(tag.node_id)
+            .map(|mut cursor| cursor.current().data_mut().borrow_mut())
             .filter(|instance| instance.version == tag.version)
     }
 
     pub fn try_get_component(&self, tag: ComponentTag) -> Option<&ComponentPod> {
         self.widget_tree
-            .get(tag.node_id)
-            .and_then(|node| node.data().component_stack.get(tag.component_index))
-            .filter(|node| node.version == tag.component_version)
+            .try_cursor(tag.node_id)
+            .and_then(|cursor| {
+                cursor
+                    .current()
+                    .data()
+                    .component_stack
+                    .get(tag.component_index)
+            })
+            .filter(|instance| instance.version == tag.component_version)
     }
 
     pub fn try_get_component_mut(&mut self, tag: ComponentTag) -> Option<&mut ComponentPod> {
         self.widget_tree
-            .get_mut(tag.node_id)
-            .and_then(|node| node.data_mut().component_stack.get_mut(tag.component_index))
-            .filter(|node| node.version == tag.component_version)
+            .try_cursor_mut(tag.node_id)
+            .and_then(|mut cursor| {
+                cursor
+                    .current()
+                    .data_mut()
+                    .component_stack
+                    .get_mut(tag.component_index)
+            })
+            .filter(|instance| instance.version == tag.component_version)
     }
 
     pub fn root_id(&self) -> NodeId {
@@ -96,7 +112,7 @@ impl WidgetStorage {
         origin: NodeId,
     ) -> Option<(NodeId, usize)> {
         let mut cursor = self.widget_tree.cursor_mut(id);
-        let component_stack = &mut cursor.data().component_stack;
+        let component_stack = &mut cursor.current().data_mut().component_stack;
 
         if component_index < component_stack.len() {
             let instance = &mut component_stack[component_index];
@@ -117,7 +133,7 @@ impl WidgetStorage {
             Some((id, component_index + 1))
         } else {
             let children =
-                mem::take(&mut cursor.data().borrow_mut().pending_children);
+                mem::take(&mut cursor.current().data_mut().borrow_mut().pending_children);
             if !children.is_empty() {
                 let reconciler = create_reconciler(&mut cursor, children, component_index);
                 for result in reconciler {
@@ -139,7 +155,8 @@ impl WidgetStorage {
         loop {
             let mut cursor = self.widget_tree.cursor_mut(root_id);
             let mut instance = cursor
-                .data()
+                .current()
+                .data_mut()
                 .instance
                 .take()
                 .expect("widget is currently in use elsewhere");
@@ -147,14 +164,13 @@ impl WidgetStorage {
             let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
             let parent = cursor.current().parent();
 
-            let mut context = LayoutContext {
-                storage: self
-            };
+            let mut context = LayoutContext { storage: self };
 
             let box_constraints = instance.box_constraints;
             let is_changed = instance.layout(box_constraints, &children, &mut context);
 
-            self.widget_tree[id].data_mut().instance = Some(instance);
+            let mut cursor = self.widget_tree.cursor_mut(id);
+            cursor.current().data_mut().instance = Some(instance);
 
             match parent {
                 Some(parent) if is_changed => root_id = parent,
@@ -168,14 +184,15 @@ impl WidgetStorage {
     pub fn draw(&mut self, id: NodeId) -> Primitive {
         let mut cursor = self.widget_tree.cursor_mut(id);
         let mut widget = cursor
-            .data()
+            .current()
+            .data_mut()
             .instance
             .take()
             .expect("widget is currently in use elsewhere");
 
-        let origin = cursor
-            .ancestors()
-            .fold(Point::ZERO, |origin, (_, node)| origin + node.data().borrow().position);
+        let origin = cursor.ancestors().fold(Point::ZERO, |origin, (_, node)| {
+            origin + node.data().borrow().position
+        });
         let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
 
@@ -185,7 +202,8 @@ impl WidgetStorage {
         };
         let primitive = widget.draw(bounds, &children, &mut context);
 
-        self.widget_tree[id].data_mut().instance = Some(widget);
+        let mut cursor = self.widget_tree.cursor_mut(id);
+        cursor.current().data_mut().instance = Some(widget);
 
         primitive
     }
@@ -203,7 +221,7 @@ impl WidgetStorage {
                     Element::WidgetElement(element) => {
                         let instance = WidgetPod::new(element, self.version);
                         if in_component_rendering {
-                            let widget_node = cursor.data();
+                            let widget_node = cursor.current().data_mut();
                             widget_node.instance = Some(instance);
                         } else {
                             cursor.append_child(WidgetNode {
@@ -215,7 +233,7 @@ impl WidgetStorage {
                     Element::ComponentElement(element) => {
                         let instance = ComponentPod::new(element, self.version);
                         if in_component_rendering {
-                            cursor.data().component_stack.push(instance);
+                            cursor.current().data_mut().component_stack.push(instance);
                         } else {
                             cursor.append_child(WidgetNode {
                                 instance: None,
@@ -247,13 +265,15 @@ impl WidgetStorage {
             ReconcileResult::Update(ReconcilementId::Widget(id), element) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
                 match element {
-                    Element::WidgetElement(element) => cursor.data().borrow_mut().update(element),
+                    Element::WidgetElement(element) => {
+                        cursor.current().data_mut().borrow_mut().update(element)
+                    }
                     _ => unreachable!("element type mismatch"),
                 };
             }
             ReconcileResult::Update(ReconcilementId::Component(id, component_index), element) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = &mut cursor.data().component_stack[component_index];
+                let instance = &mut cursor.current().data_mut().component_stack[component_index];
                 match element {
                     Element::ComponentElement(element) => instance.pending_element = Some(element),
                     _ => unreachable!("element type mismatch"),
@@ -266,7 +286,9 @@ impl WidgetStorage {
             ) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
                 let _ = match element {
-                    Element::WidgetElement(element) => cursor.data().borrow_mut().update(element),
+                    Element::WidgetElement(element) => {
+                        cursor.current().data_mut().borrow_mut().update(element)
+                    }
                     _ => unreachable!("element type mismatch"),
                 };
                 cursor.move_before(reference_id);
@@ -277,7 +299,7 @@ impl WidgetStorage {
                 element,
             ) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = &mut cursor.data().component_stack[component_index];
+                let instance = &mut cursor.current().data_mut().component_stack[component_index];
                 match element {
                     Element::ComponentElement(element) => instance.pending_element = Some(element),
                     _ => unreachable!("element type mismatch"),
@@ -290,7 +312,7 @@ impl WidgetStorage {
             }
             ReconcileResult::Remove(ReconcilementId::Component(id, component_index)) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
-                let mut widget_node = cursor.data();
+                let mut widget_node = cursor.current().data_mut();
                 let _ = widget_node.component_stack.drain(component_index..);
                 widget_node.instance = None;
                 let _ = self.widget_tree.cursor_mut(id).drain_descendants();
@@ -303,21 +325,21 @@ impl WidgetStorage {
     fn layout_child(&mut self, id: NodeId, box_constraints: BoxConstraints) -> Size {
         let mut cursor = self.widget_tree.cursor_mut(id);
         let mut instance = cursor
-            .data()
+            .current()
+            .data_mut()
             .instance
             .take()
             .expect("widget is currently in use elsewhere");
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
-        let mut context = LayoutContext {
-            storage: self
-        };
+        let mut context = LayoutContext { storage: self };
 
         instance.layout(box_constraints, &children, &mut context);
         instance.box_constraints = box_constraints;
         let size = instance.size;
 
-        self.widget_tree[id].data_mut().instance = Some(instance);
+        let mut cursor = self.widget_tree.cursor_mut(id);
+        cursor.current().data_mut().instance = Some(instance);
 
         size
     }
@@ -325,7 +347,8 @@ impl WidgetStorage {
     fn draw_child(&mut self, id: NodeId, origin: Point) -> Primitive {
         let mut cursor = self.widget_tree.cursor_mut(id);
         let mut widget = cursor
-            .data()
+            .current()
+            .data_mut()
             .instance
             .take()
             .expect("widget is currently in use elsewhere");
@@ -338,7 +361,8 @@ impl WidgetStorage {
         };
         let primitive = widget.draw(bounds, &children, &mut context);
 
-        self.widget_tree[id].data_mut().instance = Some(widget);
+        let mut cursor = self.widget_tree.cursor_mut(id);
+        cursor.current().data_mut().instance = Some(widget);
 
         primitive
     }
@@ -358,11 +382,15 @@ struct WidgetNode {
 
 impl WidgetNode {
     fn borrow(&self) -> &WidgetPod {
-        self.instance.as_ref().expect("widget is currently in use elsewhere")
+        self.instance
+            .as_ref()
+            .expect("widget is currently in use elsewhere")
     }
 
     fn borrow_mut(&mut self) -> &mut WidgetPod {
-        self.instance.as_mut().expect("widget is currently in use elsewhere")
+        self.instance
+            .as_mut()
+            .expect("widget is currently in use elsewhere")
     }
 }
 
@@ -383,10 +411,7 @@ pub struct WidgetPod {
 }
 
 impl WidgetPod {
-    fn new(
-        element: WidgetElement,
-        version: usize,
-    ) -> Self {
+    fn new(element: WidgetElement, version: usize) -> Self {
         let state = element.widget.initial_state();
         Self {
             widget: element.widget,
@@ -421,10 +446,8 @@ impl WidgetPod {
             return true;
         }
 
-        self.widget.should_update(
-            element.widget.as_any(),
-            &self.state,
-        )
+        self.widget
+            .should_update(element.widget.as_any(), &self.state)
     }
 
     fn layout(
@@ -457,7 +480,7 @@ impl WidgetPod {
     ) -> Primitive {
         if !self.needs_draw {
             if let Some(primitive) = &self.draw_cache {
-                return primitive.clone()
+                return primitive.clone();
             }
         }
         let primitive = self.widget.draw(bounds, children, context, &mut self.state);

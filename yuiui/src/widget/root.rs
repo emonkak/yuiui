@@ -5,7 +5,7 @@ use crate::geometrics::{BoxConstraints, Size, Viewport};
 
 #[derive(Debug)]
 pub struct Root {
-    pub initial_viewport: Viewport
+    pub initial_viewport: Viewport,
 }
 
 pub struct State {
@@ -25,7 +25,7 @@ impl Widget for Root {
 
     fn initial_state(&self) -> Self::State {
         State {
-            viewport: self.initial_viewport.clone()
+            viewport: self.initial_viewport.clone(),
         }
     }
 

@@ -3,7 +3,7 @@ use std::fmt;
 use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{AsAny, DrawContext, LayoutContext, short_type_name_of};
+use super::{short_type_name_of, AsAny, DrawContext, LayoutContext};
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
@@ -39,8 +39,9 @@ pub trait Widget<Own: ?Sized = Self>: AsAny {
         context: &mut DrawContext,
         _state: &mut Self::State,
     ) -> Primitive {
-        children.iter()
-            .fold(Primitive::None, |primitive, child| primitive + context.draw_child(*child))
+        children.iter().fold(Primitive::None, |primitive, child| {
+            primitive + context.draw_child(*child)
+        })
     }
 
     fn type_name(&self) -> &'static str {

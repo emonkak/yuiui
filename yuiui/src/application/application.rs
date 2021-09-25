@@ -2,11 +2,11 @@ use std::any::Any;
 use std::error;
 use std::time::{Duration, Instant};
 
+use super::render_loop::{RenderLoop, RenderResult};
 use crate::graphics::{Color, Renderer};
 use crate::ui::event::{Event, WindowEvent};
-use crate::ui::{Window, WindowContainer, ControlFlow, EventLoop, EventLoopContext};
-use crate::widget::{WidgetStorage, Element};
-use super::render_loop::{RenderLoop, RenderResult};
+use crate::ui::{ControlFlow, EventLoop, EventLoopContext, Window, WindowContainer};
+use crate::widget::{Element, WidgetStorage};
 
 #[derive(Debug)]
 pub enum Message {
@@ -37,25 +37,28 @@ where
             Event::LoopInitialized => {
                 context.request_idle(|deadline| Message::Render(deadline));
             }
-            Event::Message(Message::Render(deadline)) => {
-                loop {
-                    match render_loop.render() {
-                        RenderResult::Continue => {
-                            context.request_idle(|deadline| Message::Render(deadline));
-                        }
-                        RenderResult::Commit(primitive) => {
-                            let viewport = window_container.viewport();
-                            renderer.update_pipeline(&mut pipeline, primitive, 0);
-                            renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
-                            break;
-                        }
-                        RenderResult::Idle => break,
+            Event::Message(Message::Render(deadline)) => loop {
+                match render_loop.render() {
+                    RenderResult::Continue => {
+                        context.request_idle(|deadline| Message::Render(deadline));
                     }
-                    if deadline - Instant::now() < Duration::from_secs(1) {
+                    RenderResult::Commit(primitive) => {
+                        let viewport = window_container.viewport();
+                        renderer.update_pipeline(&mut pipeline, primitive, 0);
+                        renderer.perform_pipeline(
+                            &mut surface,
+                            &mut pipeline,
+                            &viewport,
+                            Color::WHITE,
+                        );
                         break;
                     }
+                    RenderResult::Idle => break,
                 }
-            }
+                if deadline - Instant::now() < Duration::from_secs(1) {
+                    break;
+                }
+            },
             Event::WindowEvent(_, WindowEvent::RedrawRequested(_)) => {
                 let viewport = window_container.viewport();
                 renderer.perform_pipeline(&mut surface, &mut pipeline, &viewport, Color::WHITE);
@@ -82,4 +85,3 @@ where
 
     Ok(())
 }
-
