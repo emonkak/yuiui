@@ -324,7 +324,6 @@ where
         });
 
         self.flush_pipeline(&mut encoder, &view, pipeline, viewport);
-
         self.staging_belt.finish();
         self.queue.submit(Some(encoder.finish()));
 

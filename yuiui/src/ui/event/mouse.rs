@@ -19,12 +19,12 @@ pub struct MouseDown(pub MouseEvent);
 #[repr(u8)]
 #[rustfmt::skip]
 pub enum MouseButton {
-    None    = 0b00000,
-    Left    = 0b00001,
-    Right   = 0b00010,
-    Middle  = 0b00100,
-    X1      = 0b01000,
-    X2      = 0b10000,
+    None   = 0,
+    Left   = 1 << 1,
+    Right  = 1 << 2,
+    Middle = 1 << 3,
+    X1     = 1 << 4,
+    X2     = 1 << 5,
 }
 
 impl Into<usize> for MouseButton {

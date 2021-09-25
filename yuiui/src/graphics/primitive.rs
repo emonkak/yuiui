@@ -1,5 +1,4 @@
 use std::ops::Add;
-use std::rc::Rc;
 
 use crate::geometrics::{Rectangle, Transform};
 use crate::graphics::{Background, Color};
@@ -27,16 +26,6 @@ pub enum Primitive {
         horizontal_align: HorizontalAlign,
         vertical_align: VerticalAlign,
     },
-    Cache(Rc<Primitive>),
-}
-
-impl Primitive {
-    pub fn same(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Cache(x), Self::Cache(y)) => Rc::ptr_eq(x, y),
-            _ => false,
-        }
-    }
 }
 
 impl Add for Primitive {

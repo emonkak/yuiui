@@ -102,9 +102,6 @@ impl Pipeline {
                     vertical_align,
                 })
             }
-            Primitive::Cache(primitive) => {
-                self.push((&*primitive).clone(), renderer);
-            }
         }
     }
 

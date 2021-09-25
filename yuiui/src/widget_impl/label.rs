@@ -3,9 +3,9 @@ use yuiui_support::slot_tree::NodeId;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
-use crate::widget::{DrawContext, ElementNode, Widget};
+use crate::widget::{Attributes, DrawContext, ElementNode, Widget};
 
-#[derive(Debug, Default)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Label {
     pub content: String,
     pub color: Color,
@@ -20,6 +20,16 @@ impl Widget for Label {
 
     fn initial_state(&self) -> Self::State {
         Self::State::default()
+    }
+
+    fn should_update(
+        &self,
+        new_widget: &Self,
+        old_attributes: &Attributes,
+        new_attributes: &Attributes,
+        _state: &Self::State,
+    ) -> bool {
+        self != new_widget || old_attributes != new_attributes
     }
 
     fn draw(

@@ -1,9 +1,9 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, Size};
-use crate::widget::{ElementNode, LayoutContext, Widget};
+use crate::widget::{Attributes, ElementNode, LayoutContext, Widget};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Flex {
     direction: Axis,
 }
@@ -27,6 +27,16 @@ impl Widget for Flex {
 
     fn initial_state(&self) -> Self::State {
         Self::State::default()
+    }
+
+    fn should_update(
+        &self,
+        new_widget: &Self,
+        old_attributes: &Attributes,
+        new_attributes: &Attributes,
+        _state: &Self::State,
+    ) -> bool {
+        self != new_widget || old_attributes != new_attributes
     }
 
     fn layout(
@@ -100,7 +110,7 @@ impl From<Flex> for ElementNode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FlexParam(pub f32);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Axis {
     Horizontal,
     Vertical,

@@ -7,7 +7,6 @@ use crate::slot_vec::SlotVec;
 #[derive(Clone, Debug)]
 pub struct SlotTree<T> {
     arena: SlotVec<Node<T>>,
-    root: NodeId,
 }
 
 impl<T> SlotTree<T> {
@@ -16,7 +15,7 @@ impl<T> SlotTree<T> {
         let mut arena = SlotVec::new();
 
         let null = arena.insert_null();
-        debug_assert!(null == 0);
+        debug_assert_eq!(null, 0);
 
         let root = arena.insert(Node {
             first_child: None,
@@ -26,26 +25,19 @@ impl<T> SlotTree<T> {
             parent: None,
             data,
         });
+        debug_assert_eq!(root, 1);
 
-        Self {
-            arena,
-            root: NodeId::new(root),
-        }
+        Self { arena }
     }
 
     #[inline]
     pub fn root(&self) -> Cursor<T> {
-        self.cursor(self.root)
+        self.cursor(NodeId::ROOT)
     }
 
     #[inline]
     pub fn root_mut(&mut self) -> CursorMut<T> {
-        self.cursor_mut(self.root)
-    }
-
-    #[inline]
-    pub fn root_id(&self) -> NodeId {
-        self.root
+        self.cursor_mut(NodeId::ROOT)
     }
 
     #[inline]
@@ -169,7 +161,7 @@ impl<T: fmt::Debug> fmt::Display for SlotTree<T> {
             Ok(())
         }
 
-        fmt_rec(self, f, self.root, 0)
+        fmt_rec(self, f, NodeId::ROOT, 0)
     }
 }
 
@@ -241,13 +233,19 @@ impl<T> Node<T> {
 pub struct NodeId(NonZeroUsize);
 
 impl NodeId {
+    pub const ROOT: Self = Self(unsafe { NonZeroUsize::new_unchecked(1) });
+
     fn new(id: usize) -> Self {
         debug_assert!(id > 0);
         unsafe { Self(NonZeroUsize::new_unchecked(id)) }
     }
 
-    fn get(&self) -> usize {
+    pub fn get(&self) -> usize {
         self.0.get()
+    }
+
+    pub fn is_root(&self) -> bool {
+        usize::from(self.0) == 1
     }
 }
 
@@ -344,16 +342,16 @@ impl<'a, T> Cursor<'a, T> {
     pub fn descendants(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Descendants {
             next: self.current.first_child,
-            origin: self.id,
+            root: self.id,
             tree: self.tree,
         }
     }
 
     #[inline]
-    pub fn descendants_from(&self, origin: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn descendants_from(&self, root: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Descendants {
-            next: self.current.first_child,
-            origin,
+            next: next_descendant(&self.tree, &self.current, root),
+            root,
             tree: self.tree,
         }
     }
@@ -546,7 +544,7 @@ impl<'a, T> CursorMut<'a, T> {
     pub fn descendants(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         DescendantsMut {
             next: self.current().first_child,
-            origin: self.id,
+            root: self.id,
             tree: self.tree,
         }
     }
@@ -554,11 +552,11 @@ impl<'a, T> CursorMut<'a, T> {
     #[inline]
     pub fn descendants_from(
         &mut self,
-        origin: NodeId,
+        root: NodeId,
     ) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         DescendantsMut {
-            next: self.current().first_child,
-            origin,
+            next: next_descendant(&self.tree, unsafe { self.current.as_ref() }, root),
+            root,
             tree: self.tree,
         }
     }
@@ -572,17 +570,17 @@ impl<'a, T> CursorMut<'a, T> {
             .unwrap_or_default();
         DrainDescendants {
             next_stack,
-            origin: self.id,
+            root: self.id,
             tree: self.tree,
         }
     }
 
     #[inline]
     pub fn drain_subtree(mut self) -> impl Iterator<Item = (NodeId, Node<T>)> + 'a {
-        let origin = self.current().parent.expect("Cannot detach the root.");
+        let root = self.current().parent.expect("Cannot detach the root.");
         DrainSubtree {
             next_stack: vec![self.id],
-            origin,
+            root,
             tree: self.tree,
         }
     }
@@ -658,13 +656,13 @@ impl<'a, T> Iterator for SiblingsMut<'a, T> {
 
 pub struct Descendants<'a, T> {
     next: Option<NodeId>,
-    origin: NodeId,
+    root: NodeId,
     tree: &'a SlotTree<T>,
 }
 
 pub struct DescendantsMut<'a, T> {
     next: Option<NodeId>,
-    origin: NodeId,
+    root: NodeId,
     tree: &'a mut SlotTree<T>,
 }
 
@@ -674,7 +672,7 @@ impl<'a, T> Iterator for Descendants<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
             let node = self.tree.get(id);
-            self.next = next_descendant(self.tree, self.origin, node);
+            self.next = next_descendant(self.tree, node, self.root);
             (id, node)
         })
     }
@@ -686,13 +684,13 @@ impl<'a, T> Iterator for DescendantsMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|id| {
             let node = unsafe { (self.tree.get_mut(id) as *mut Node<T>).as_mut().unwrap() };
-            self.next = next_descendant(self.tree, self.origin, node);
+            self.next = next_descendant(self.tree, node, self.root);
             (id, node)
         })
     }
 }
 
-fn next_descendant<T>(tree: &SlotTree<T>, origin: NodeId, node: &Node<T>) -> Option<NodeId> {
+fn next_descendant<T>(tree: &SlotTree<T>, node: &Node<T>, root: NodeId) -> Option<NodeId> {
     if let Some(next_id) = node.first_child {
         Some(next_id)
     } else if let Some(next_id) = node.next_sibling {
@@ -704,7 +702,7 @@ fn next_descendant<T>(tree: &SlotTree<T>, origin: NodeId, node: &Node<T>) -> Opt
                 break Some(sibling_id);
             }
             match current.parent() {
-                Some(parent_id) if parent_id != origin => current = tree.get(parent_id),
+                Some(parent_id) if parent_id != root => current = tree.get(parent_id),
                 _ => break None,
             }
         }
@@ -713,7 +711,7 @@ fn next_descendant<T>(tree: &SlotTree<T>, origin: NodeId, node: &Node<T>) -> Opt
 
 pub struct DrainDescendants<'a, T> {
     next_stack: Vec<NodeId>,
-    origin: NodeId,
+    root: NodeId,
     tree: &'a mut SlotTree<T>,
 }
 
@@ -723,7 +721,7 @@ impl<'a, T> Iterator for DrainDescendants<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next_stack.pop().map(|id| {
             let node = self.tree.arena.remove(id.get());
-            self.tree.detach_node(&node, self.origin);
+            self.tree.detach_node(&node, self.root);
             if let Some(next_id) = node.next_sibling {
                 self.next_stack.push(next_id)
             }
@@ -743,7 +741,7 @@ impl<'a, T> Drop for DrainDescendants<'a, T> {
 
 pub struct DrainSubtree<'a, T> {
     next_stack: Vec<NodeId>,
-    origin: NodeId,
+    root: NodeId,
     tree: &'a mut SlotTree<T>,
 }
 
@@ -753,8 +751,8 @@ impl<'a, T> Iterator for DrainSubtree<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.next_stack.pop().map(|id| {
             let node = self.tree.arena.remove(id.get());
-            self.tree.detach_node(&node, self.origin);
-            if node.parent != Some(self.origin) {
+            self.tree.detach_node(&node, self.root);
+            if node.parent != Some(self.root) {
                 if let Some(next_id) = node.next_sibling {
                     self.next_stack.push(next_id)
                 }

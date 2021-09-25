@@ -100,15 +100,11 @@ impl WidgetStorage {
             .filter(|instance| instance.version == tag.component_version)
     }
 
-    pub fn root_id(&self) -> NodeId {
-        self.widget_tree.root_id()
-    }
-
     pub fn render(
         &mut self,
         id: NodeId,
         component_index: usize,
-        origin: NodeId,
+        root: NodeId,
     ) -> Option<(NodeId, usize)> {
         let mut cursor = self.widget_tree.cursor_mut(id);
         let component_stack = &mut cursor.current().data_mut().component_stack;
@@ -142,7 +138,7 @@ impl WidgetStorage {
 
             self.widget_tree
                 .cursor(id)
-                .descendants_from(origin)
+                .descendants_from(root)
                 .next()
                 .map(|(next_id, _)| (next_id, 0))
         }
@@ -431,12 +427,13 @@ impl WidgetPod {
     }
 
     fn update(&mut self, element: WidgetElement) -> bool {
-        let should_update = self.widget.should_update(
-            element.widget.as_any(),
-            &*self.attributes,
-            &*element.attributes,
-            &self.state,
-        );
+        let should_update = !element.children.is_empty()
+            || self.widget.should_update(
+                element.widget.as_any(),
+                &*self.attributes,
+                &*element.attributes,
+                &self.state,
+            );
 
         self.widget = element.widget;
         self.attributes = element.attributes;

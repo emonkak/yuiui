@@ -79,9 +79,6 @@ impl<Connection: self::Connection> Pipeline<Connection> {
             Primitive::Text { .. } => {
                 // TODO:
             }
-            Primitive::Cache(primitive) => {
-                self.push((&*primitive).clone(), depth);
-            }
         }
     }
 }

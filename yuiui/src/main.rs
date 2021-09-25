@@ -7,13 +7,14 @@ use std::env;
 use std::rc::Rc;
 use x11rb::xcb_ffi::XCBConnection;
 use yuiui::application;
-use yuiui::geometrics::PhysicalRectangle;
+use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
 use yuiui::ui::{xcb, Window};
 use yuiui::widget::{attribute, Component, Element, ElementNode};
 use yuiui::widget_impl::button::Button;
 use yuiui::widget_impl::flex::{Flex, FlexParam};
+use yuiui::widget_impl::padding::Padding;
 
 struct App;
 
@@ -26,10 +27,19 @@ impl Component for App {
 
     fn render(&self, _children: &Vec<Element>, _state: &Self::State) -> Element {
         element!(
-            Flex::row() => [
-                Button { background: Color::RED.into() } => attribute(FlexParam(1.0)),
-                Button { background: Color::GREEN.into() } => attribute(FlexParam(1.0)),
-                Button { background: Color::BLUE.into() } => attribute(FlexParam(1.0)),
+            Flex::column() => [
+                Padding { thickness: Thickness::uniform(8.0) } => [
+                    Button { background: Color::RED.into() },
+                    attribute(FlexParam(1.0)),
+                ]
+                Padding { thickness: Thickness::uniform(8.0) } => [
+                    Button { background: Color::GREEN.into() },
+                    attribute(FlexParam(1.0)),
+                ]
+                Padding { thickness: Thickness::uniform(8.0) } => [
+                    Button { background: Color::BLUE.into() },
+                    attribute(FlexParam(1.0)),
+                ]
             ]
         )
     }

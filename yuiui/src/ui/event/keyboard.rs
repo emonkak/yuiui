@@ -2,11 +2,11 @@
 #[rustfmt::skip]
 #[repr(u8)]
 pub enum Modifier {
-    None    = 0b0000,
-    Control = 0b0001,
-    Shift   = 0b0010,
-    Alt     = 0b0100,
-    Super   = 0b1000,
+    None    = 0,
+    Control = 1 << 0,
+    Shift   = 1 << 1,
+    Alt     = 1 << 2,
+    Super   = 1 << 3,
 }
 
 impl Into<usize> for Modifier {
