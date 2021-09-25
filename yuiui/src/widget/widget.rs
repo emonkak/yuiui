@@ -3,7 +3,7 @@ use std::fmt;
 use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{AsAny, Attributes, DrawContext, LayoutContext, short_type_name_of};
+use super::{short_type_name_of, AsAny, Attributes, DrawContext, LayoutContext, WidgetProxy};
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
@@ -52,6 +52,13 @@ pub trait Widget<Own: ?Sized = Self>: AsAny {
 
     fn type_name(&self) -> &'static str {
         any::type_name::<Self>()
+    }
+
+    fn into_boxed(self) -> BoxedWidget
+    where
+        Self: 'static + Sized + Widget<Self>,
+    {
+        Rc::new(WidgetProxy::new(self))
     }
 }
 

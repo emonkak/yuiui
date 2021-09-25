@@ -1,13 +1,13 @@
 use raw_window_handle::HasRawWindowHandle;
 use std::mem;
 
-use crate::geometrics::{Rectangle, Transform};
-use crate::graphics::{Background, Primitive};
-use crate::text::FontLoader;
 use super::layer::Layer;
 use super::quad::Quad;
 use super::renderer::Renderer;
 use super::text::Text;
+use crate::geometrics::{Rectangle, Transform};
+use crate::graphics::{Background, Primitive};
+use crate::text::FontLoader;
 
 #[derive(Debug)]
 pub struct Pipeline {

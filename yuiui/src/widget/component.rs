@@ -2,7 +2,7 @@ use std::any::{self, Any};
 use std::fmt;
 use std::rc::Rc;
 
-use super::{short_type_name_of, AsAny, Attributes, Element};
+use super::{short_type_name_of, AsAny, Attributes, ComponentProxy, Element};
 
 pub type BoxedComponent = Rc<dyn Component<dyn Any, State = Box<dyn Any>>>;
 
@@ -27,6 +27,13 @@ pub trait Component<Own: ?Sized = Self>: AsAny {
 
     fn type_name(&self) -> &'static str {
         any::type_name::<Self>()
+    }
+
+    fn into_boxed(self) -> BoxedComponent
+    where
+        Self: 'static + Sized + Component<Self>,
+    {
+        Rc::new(ComponentProxy::new(self))
     }
 }
 

@@ -7,8 +7,7 @@ use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 use super::reconciler::{ReconcileResult, Reconciler};
 use super::root::Root;
 use super::{
-    Attributes, BoxedComponent, BoxedWidget, ComponentElement, Element, Key, WidgetElement,
-    WidgetExt,
+    Attributes, BoxedComponent, BoxedWidget, ComponentElement, Element, Key, Widget, WidgetElement,
 };
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;

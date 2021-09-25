@@ -2,7 +2,7 @@ use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::Rectangle;
 use crate::graphics::{Background, Color, Primitive};
-use crate::widget::{DrawContext, ElementNode, Widget, WidgetExt};
+use crate::widget::{DrawContext, ElementNode, Widget};
 
 #[derive(Debug)]
 pub struct Button {

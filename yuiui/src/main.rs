@@ -11,7 +11,7 @@ use yuiui::geometrics::PhysicalRectangle;
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
 use yuiui::ui::{xcb, Window};
-use yuiui::widget::{attribute, Component, ComponentExt, Element, ElementNode};
+use yuiui::widget::{attribute, Component, Element, ElementNode};
 use yuiui::widget_impl::button::Button;
 use yuiui::widget_impl::flex::{Flex, FlexParam};
 

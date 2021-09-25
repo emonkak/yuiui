@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::io;
 use wgpu_glyph::ab_glyph;
 
+use super::layer::Layer;
+use super::{quad, text, Pipeline, Settings};
 use crate::geometrics::{Size, Transform, Viewport};
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, FontLoader};
-use super::layer::Layer;
-use super::{quad, text, Pipeline, Settings};
 
 pub struct Renderer<Window, FontLoader, FontBundle, FontId> {
     settings: Settings,

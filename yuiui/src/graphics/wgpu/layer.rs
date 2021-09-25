@@ -1,6 +1,6 @@
-use crate::geometrics::{Rectangle, Transform};
 use super::quad::Quad;
 use super::text::Text;
+use crate::geometrics::{Rectangle, Transform};
 
 #[derive(Debug)]
 pub struct Layer {

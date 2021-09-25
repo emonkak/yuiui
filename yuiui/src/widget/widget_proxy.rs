@@ -2,7 +2,7 @@ use std::any::Any;
 use std::marker::PhantomData;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{Attributes, DrawContext, LayoutContext, Widget};
+use super::{Attributes, BoxedWidget, DrawContext, LayoutContext, Widget};
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
@@ -74,5 +74,12 @@ where
 
     fn type_name(&self) -> &'static str {
         self.widget.type_name()
+    }
+
+    fn into_boxed(self) -> BoxedWidget
+    where
+        Self: 'static + Sized + Widget<Self>,
+    {
+        self.widget.into_boxed()
     }
 }

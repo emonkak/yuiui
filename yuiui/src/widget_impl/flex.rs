@@ -1,7 +1,7 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, Size};
-use crate::widget::{ElementNode, LayoutContext, Widget, WidgetExt};
+use crate::widget::{ElementNode, LayoutContext, Widget};
 
 #[derive(Debug)]
 pub struct Flex {
