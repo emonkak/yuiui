@@ -16,7 +16,7 @@ pub struct MouseUp(pub MouseEvent);
 pub struct MouseDown(pub MouseEvent);
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-#[repr(u8)]
+#[repr(usize)]
 #[rustfmt::skip]
 pub enum MouseButton {
     None   = 0,

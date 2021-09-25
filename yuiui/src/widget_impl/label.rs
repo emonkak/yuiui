@@ -3,7 +3,7 @@ use yuiui_support::slot_tree::NodeId;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
-use crate::widget::{Attributes, DrawContext, ElementNode, Widget};
+use crate::widget::{DrawContext, ElementNode, Widget};
 
 #[derive(Debug, PartialEq, Default)]
 pub struct Label {
@@ -15,7 +15,7 @@ pub struct Label {
     pub vertical_align: VerticalAlign,
 }
 
-impl Widget for Label {
+impl<Message> Widget<Message> for Label {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
@@ -25,18 +25,16 @@ impl Widget for Label {
     fn should_update(
         &self,
         new_widget: &Self,
-        old_attributes: &Attributes,
-        new_attributes: &Attributes,
         _state: &Self::State,
     ) -> bool {
-        self != new_widget || old_attributes != new_attributes
+        self != new_widget
     }
 
     fn draw(
         &self,
         bounds: Rectangle,
         _children: &[NodeId],
-        _context: &mut DrawContext,
+        _context: &mut DrawContext<Message>,
         _state: &mut Self::State,
     ) -> Primitive {
         Primitive::Text {
@@ -51,7 +49,7 @@ impl Widget for Label {
     }
 }
 
-impl From<Label> for ElementNode {
+impl<Message: 'static> From<Label> for ElementNode<Message> {
     fn from(widget: Label) -> Self {
         widget.into_boxed().into()
     }

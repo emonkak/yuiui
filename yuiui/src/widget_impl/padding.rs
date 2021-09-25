@@ -1,14 +1,14 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, Size, Thickness};
-use crate::widget::{Attributes, ElementNode, LayoutContext, Widget};
+use crate::widget::{ElementNode, LayoutContext, Widget};
 
 #[derive(Debug, PartialEq)]
 pub struct Padding {
     pub thickness: Thickness,
 }
 
-impl Widget for Padding {
+impl<Message> Widget<Message> for Padding {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
@@ -18,18 +18,16 @@ impl Widget for Padding {
     fn should_update(
         &self,
         new_widget: &Self,
-        old_attributes: &Attributes,
-        new_attributes: &Attributes,
         _state: &Self::State,
     ) -> bool {
-        self != new_widget || old_attributes != new_attributes
+        self != new_widget
     }
 
     fn layout(
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext,
+        context: &mut LayoutContext<Message>,
         _state: &mut Self::State,
     ) -> Size {
         assert_eq!(children.len(), 1, "Must to receive a single element child.");
@@ -59,7 +57,7 @@ impl Widget for Padding {
     }
 }
 
-impl From<Padding> for ElementNode {
+impl<Message: 'static> From<Padding> for ElementNode<Message> {
     fn from(widget: Padding) -> Self {
         widget.into_boxed().into()
     }

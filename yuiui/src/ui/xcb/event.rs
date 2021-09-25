@@ -1,8 +1,8 @@
 use x11rb::protocol::xproto;
 use yuiui_support::bit_flags::BitFlags;
 
-use crate::geometrics::{PhysicalPoint, PhysicalSize};
-use crate::ui::event::{Modifier, MouseButton, MouseEvent, WindowResize};
+use crate::geometrics::PhysicalPoint;
+use crate::event::{Modifier, MouseButton, MouseEvent};
 
 impl From<xproto::ButtonPressEvent> for MouseEvent {
     fn from(event: xproto::ButtonPressEvent) -> Self {
@@ -15,15 +15,6 @@ impl From<xproto::ButtonPressEvent> for MouseEvent {
             buttons: to_mouse_buttons(event.state),
             modifiers: to_modifiers(event.state),
         }
-    }
-}
-
-impl From<xproto::ConfigureNotifyEvent> for WindowResize {
-    fn from(event: xproto::ConfigureNotifyEvent) -> Self {
-        Self(PhysicalSize {
-            width: event.width as _,
-            height: event.height as _,
-        })
     }
 }
 

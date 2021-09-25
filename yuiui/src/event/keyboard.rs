@@ -1,6 +1,6 @@
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[rustfmt::skip]
-#[repr(u8)]
+#[repr(usize)]
 pub enum Modifier {
     None    = 0,
     Control = 1 << 0,

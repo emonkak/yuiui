@@ -20,7 +20,7 @@ impl Root {
     }
 }
 
-impl Widget for Root {
+impl<Message> Widget<Message> for Root {
     type State = State;
 
     fn initial_state(&self) -> Self::State {
@@ -33,7 +33,7 @@ impl Widget for Root {
         &self,
         _box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext,
+        context: &mut LayoutContext<Message>,
         state: &mut Self::State,
     ) -> Size {
         let box_constraints = BoxConstraints::tight(state.viewport.logical_size());
@@ -44,7 +44,7 @@ impl Widget for Root {
     }
 }
 
-impl From<Root> for ElementNode {
+impl<Message: 'static> From<Root> for ElementNode<Message> {
     fn from(widget: Root) -> Self {
         widget.into_boxed().into()
     }

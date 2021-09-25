@@ -1,4 +1,3 @@
-pub mod event;
 pub mod xcb;
 
 mod event_loop;

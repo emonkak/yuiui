@@ -3,7 +3,7 @@ use std::future::Future;
 use std::time::Instant;
 use tokio::task::JoinHandle;
 
-use super::event::Event;
+use crate::event::Event;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ControlFlow {

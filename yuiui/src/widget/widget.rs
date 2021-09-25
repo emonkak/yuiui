@@ -3,13 +3,16 @@ use std::fmt;
 use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{short_type_name_of, AsAny, Attributes, DrawContext, LayoutContext, WidgetProxy};
+use super::{
+    AsAny, Command, DrawContext, LayoutContext, Lifecycle, WidgetProxy, short_type_name_of,
+};
+use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
-pub type BoxedWidget = Rc<dyn Widget<dyn Any, State = Box<dyn Any>>>;
+pub type BoxedWidget<Message> = Rc<dyn Widget<Message, dyn Any, State = Box<dyn Any>>>;
 
-pub trait Widget<Own: ?Sized = Self>: AsAny {
+pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
     type State;
 
     fn initial_state(&self) -> Self::State;
@@ -17,18 +20,24 @@ pub trait Widget<Own: ?Sized = Self>: AsAny {
     fn should_update(
         &self,
         _new_widget: &Own,
-        _old_attributes: &Attributes,
-        _new_attributes: &Attributes,
         _state: &Self::State,
     ) -> bool {
         true
+    }
+
+    fn on_event(&self, _event: WindowEvent, _state: &mut Self::State) -> Option<Command<Message>> {
+        None
+    }
+
+    fn on_lifecycle(&self, _lifecycle: Lifecycle<&Own>, _state: &mut Self::State) -> Option<Command<Message>> {
+        None
     }
 
     fn layout(
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext,
+        context: &mut LayoutContext<Message>,
         _state: &mut Self::State,
     ) -> Size {
         if let Some(child) = children.first() {
@@ -42,7 +51,7 @@ pub trait Widget<Own: ?Sized = Self>: AsAny {
         &self,
         _bounds: Rectangle,
         children: &[NodeId],
-        context: &mut DrawContext,
+        context: &mut DrawContext<Message>,
         _state: &mut Self::State,
     ) -> Primitive {
         children.iter().fold(Primitive::None, |primitive, child| {
@@ -54,15 +63,17 @@ pub trait Widget<Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
-    fn into_boxed(self) -> BoxedWidget
+    fn into_boxed(self) -> BoxedWidget<Message>
     where
-        Self: 'static + Sized + Widget<Self>,
+        Self: 'static + Sized + Widget<Message>,
+        <Self as Widget<Message>>::State: 'static,
+        Message: 'static,
     {
         Rc::new(WidgetProxy::new(self))
     }
 }
 
-impl<O: ?Sized, S> fmt::Debug for dyn Widget<O, State = S> {
+impl<M, O: ?Sized, S> fmt::Debug for dyn Widget<M, O, State = S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = short_type_name_of(self.type_name());
         f.debug_struct(name).finish_non_exhaustive()

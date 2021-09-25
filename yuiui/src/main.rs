@@ -18,14 +18,14 @@ use yuiui::widget_impl::padding::Padding;
 
 struct App;
 
-impl Component for App {
+impl<Message: 'static> Component<Message> for App {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
         Self::State::default()
     }
 
-    fn render(&self, _children: &Vec<Element>, _state: &Self::State) -> Element {
+    fn render(&self, _children: &Vec<Element<Message>>, _state: &Self::State) -> Element<Message> {
         element!(
             Flex::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [
@@ -45,8 +45,8 @@ impl Component for App {
     }
 }
 
-impl From<App> for ElementNode {
-    fn from(component: App) -> ElementNode {
+impl<Message: 'static> From<App> for ElementNode<Message> {
+    fn from(component: App) -> ElementNode<Message> {
         component.into_boxed().into()
     }
 }

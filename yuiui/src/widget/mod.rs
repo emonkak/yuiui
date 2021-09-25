@@ -1,7 +1,9 @@
 mod attributes;
+mod command;
 mod component;
 mod component_proxy;
 mod element;
+mod lifecycle;
 mod reconciler;
 mod root;
 mod widget;
@@ -9,14 +11,16 @@ mod widget_proxy;
 mod widget_storage;
 
 pub use attributes::{AnyValue, Attributes};
+pub use command::Command;
 pub use component::{BoxedComponent, Component};
 pub use component_proxy::ComponentProxy;
+pub use lifecycle::Lifecycle;
 pub use element::{
     attribute, key, Child, ComponentElement, Element, ElementNode, Key, WidgetElement,
 };
 pub use widget::{BoxedWidget, Widget};
 pub use widget_proxy::WidgetProxy;
-pub use widget_storage::{ComponentTag, DrawContext, LayoutContext, WidgetStorage, WidgetTag};
+pub use widget_storage::{DrawContext, LayoutContext, WidgetStorage};
 
 use std::any::Any;
 

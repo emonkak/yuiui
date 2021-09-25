@@ -9,7 +9,7 @@ pub struct Button {
     pub background: Background,
 }
 
-impl Widget for Button {
+impl<Message> Widget<Message> for Button {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
@@ -20,7 +20,7 @@ impl Widget for Button {
         &self,
         bounds: Rectangle,
         _children: &[NodeId],
-        _context: &mut DrawContext,
+        _context: &mut DrawContext<Message>,
         _state: &mut Self::State,
     ) -> Primitive {
         Primitive::Quad {
@@ -33,7 +33,7 @@ impl Widget for Button {
     }
 }
 
-impl From<Button> for ElementNode {
+impl<Message: 'static> From<Button> for ElementNode<Message> {
     fn from(widget: Button) -> Self {
         widget.into_boxed().into()
     }

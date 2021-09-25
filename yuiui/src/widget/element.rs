@@ -5,15 +5,15 @@ use std::rc::Rc;
 pub type Key = usize;
 
 #[derive(Clone, Debug)]
-pub enum Element {
-    WidgetElement(WidgetElement),
-    ComponentElement(ComponentElement),
+pub enum Element<Message> {
+    WidgetElement(WidgetElement<Message>),
+    ComponentElement(ComponentElement<Message>),
 }
 
-impl Element {
+impl<Message> Element<Message> {
     pub fn new(
-        node: ElementNode,
-        children: Vec<Element>,
+        node: ElementNode<Message>,
+        children: Vec<Element<Message>>,
         attributes: Rc<Attributes>,
         key: Option<Key>,
     ) -> Self {
@@ -33,7 +33,10 @@ impl Element {
         }
     }
 
-    pub fn create<const N: usize>(node: impl Into<ElementNode>, child_nodes: [Child; N]) -> Self {
+    pub fn create<const N: usize>(
+        node: impl Into<ElementNode<Message>>,
+        child_nodes: [Child<Message>; N],
+    ) -> Self {
         let mut attributes = Attributes::new();
         let mut children = Vec::new();
         let mut key = None;
@@ -53,65 +56,56 @@ impl Element {
 }
 
 #[derive(Clone, Debug)]
-pub struct WidgetElement {
-    pub widget: BoxedWidget,
-    pub children: Vec<Element>,
+pub struct WidgetElement<Message> {
+    pub widget: BoxedWidget<Message>,
+    pub children: Vec<Element<Message>>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
 #[derive(Clone, Debug)]
-pub struct ComponentElement {
-    pub component: BoxedComponent,
-    pub children: Vec<Element>,
+pub struct ComponentElement<Message> {
+    pub component: BoxedComponent<Message>,
+    pub children: Vec<Element<Message>>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
 #[derive(Clone, Debug)]
-pub enum ElementNode {
-    Widget(BoxedWidget),
-    Component(BoxedComponent),
+pub enum ElementNode<Message> {
+    Widget(BoxedWidget<Message>),
+    Component(BoxedComponent<Message>),
 }
 
-impl ElementNode {
-    pub fn as_any(&self) -> &dyn Any {
-        match self {
-            Self::Widget(widget) => widget.as_any(),
-            Self::Component(component) => component.as_any(),
-        }
-    }
-}
-
-impl From<BoxedWidget> for ElementNode {
-    fn from(widget: BoxedWidget) -> Self {
+impl<Message> From<BoxedWidget<Message>> for ElementNode<Message> {
+    fn from(widget: BoxedWidget<Message>) -> Self {
         Self::Widget(widget)
     }
 }
 
-impl From<BoxedComponent> for ElementNode {
-    fn from(component: BoxedComponent) -> Self {
+impl<Message> From<BoxedComponent<Message>> for ElementNode<Message> {
+    fn from(component: BoxedComponent<Message>) -> Self {
         Self::Component(component)
     }
 }
 
 #[derive(Debug)]
-pub enum Child {
-    Multiple(Vec<Element>),
-    Single(Element),
+pub enum Child<Message> {
+    Multiple(Vec<Element<Message>>),
+    Single(Element<Message>),
     Attribute(Box<dyn AnyValue>),
     Key(usize),
     None,
 }
 
-impl From<Vec<Element>> for Child {
-    fn from(elements: Vec<Element>) -> Self {
+impl<Message> From<Vec<Element<Message>>> for Child<Message> {
+    fn from(elements: Vec<Element<Message>>) -> Self {
         Child::Multiple(elements)
     }
 }
 
-impl From<Option<Element>> for Child {
-    fn from(element: Option<Element>) -> Self {
+impl<Message> From<Option<Element<Message>>> for Child<Message> {
+    fn from(element: Option<Element<Message>>) -> Self {
         match element {
             Some(element) => Child::Single(element),
             None => Child::None,
@@ -119,24 +113,24 @@ impl From<Option<Element>> for Child {
     }
 }
 
-impl From<Element> for Child {
-    fn from(element: Element) -> Self {
+impl<Message> From<Element<Message>> for Child<Message> {
+    fn from(element: Element<Message>) -> Self {
         Child::Single(element)
     }
 }
 
-impl<T: 'static + Into<ElementNode>> From<T> for Child {
+impl<T: 'static + Into<ElementNode<Message>>, Message> From<T> for Child<Message> {
     fn from(node: T) -> Self {
         let element = Element::new(node.into(), vec![], Rc::new(Attributes::new()), None);
         Child::Single(element)
     }
 }
 
-pub fn attribute<T: 'static + AnyValue>(value: T) -> Child {
+pub fn attribute<T: 'static + AnyValue, Message>(value: T) -> Child<Message> {
     Child::Attribute(Box::new(value))
 }
 
-pub fn key(key: Key) -> Child {
+pub fn key<Message>(key: Key) -> Child<Message> {
     Child::Key(key)
 }
 

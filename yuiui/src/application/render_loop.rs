@@ -6,15 +6,15 @@ use crate::graphics::Primitive;
 use crate::widget::WidgetStorage;
 
 #[derive(Debug)]
-pub struct RenderLoop {
-    storage: WidgetStorage,
+pub struct RenderLoop<Message> {
+    storage: WidgetStorage<Message>,
     current_root: Option<NodeId>,
     work_in_progress: Option<Work>,
     pending_works: VecDeque<Work>,
 }
 
-impl RenderLoop {
-    pub fn new(storage: WidgetStorage) -> Self {
+impl<Message> RenderLoop<Message> {
+    pub fn new(storage: WidgetStorage<Message>) -> Self {
         let root_id = NodeId::ROOT;
         let initial_work = Work {
             id: root_id,
@@ -55,32 +55,32 @@ impl RenderLoop {
         }
     }
 
-    pub fn render(&mut self) -> RenderResult {
+    pub fn render(&mut self) -> RenderFlow {
         if let Some(work) = self.work_in_progress.take() {
             self.process_work(work);
-            RenderResult::Continue
+            RenderFlow::Continue
         } else if let Some(render_root) = self.current_root.take() {
             let layout_root = self.storage.layout(render_root);
             let (primitive, bounds) = self.storage.draw(layout_root);
             if layout_root.is_root() {
-                RenderResult::Commit(primitive, None)
+                RenderFlow::Commit(primitive, None)
             } else {
                 let (primitive, _) = self.storage.draw(NodeId::ROOT);
-                RenderResult::Commit(primitive, Some(bounds))
+                RenderFlow::Commit(primitive, Some(bounds))
             }
         } else if let Some(work) = self.pending_works.pop_front() {
             self.process_work(work);
-            RenderResult::Continue
+            RenderFlow::Continue
         } else {
-            RenderResult::Idle
+            RenderFlow::Idle
         }
     }
 
     fn process_work(&mut self, work: Work) {
-        let next = self
+        let result = self
             .storage
             .render(work.id, work.component_index, work.origin);
-        if let Some((id, component_index)) = next {
+        if let Some((id, component_index)) = result.next {
             let work = Work {
                 id,
                 component_index,
@@ -92,7 +92,7 @@ impl RenderLoop {
 }
 
 #[derive(Debug)]
-pub enum RenderResult {
+pub enum RenderFlow {
     Continue,
     Commit(Primitive, Option<Rectangle>),
     Idle,

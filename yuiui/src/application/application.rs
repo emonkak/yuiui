@@ -3,11 +3,11 @@ use std::error;
 use std::time::{Duration, Instant};
 use yuiui_support::slot_tree::NodeId;
 
-use super::render_loop::{RenderLoop, RenderResult};
+use crate::event::{Event, WindowEvent};
 use crate::graphics::{Color, Primitive, Renderer};
-use crate::ui::event::{Event, WindowEvent};
 use crate::ui::{ControlFlow, EventLoop, EventLoopContext, Window, WindowContainer};
 use crate::widget::{Element, WidgetStorage};
+use super::render_loop::{RenderLoop, RenderFlow};
 
 #[derive(Debug)]
 pub enum Message {
@@ -19,7 +19,7 @@ pub fn run<Window, EventLoop, Renderer>(
     mut window_container: WindowContainer<Window>,
     mut event_loop: EventLoop,
     mut renderer: Renderer,
-    element: Element,
+    element: Element<Message>,
 ) -> Result<(), Box<dyn error::Error>>
 where
     Window: 'static + self::Window,
@@ -40,10 +40,10 @@ where
             }
             Event::Message(Message::Render(deadline)) => loop {
                 match render_loop.render() {
-                    RenderResult::Continue => {
+                    RenderFlow::Continue => {
                         context.request_idle(|deadline| Message::Render(deadline));
                     }
-                    RenderResult::Commit(primitive, _bounds) => {
+                    RenderFlow::Commit(primitive, _bounds) => {
                         let viewport = window_container.viewport();
                         pipeline = renderer.create_pipeline(primitive);
                         renderer.perform_pipeline(
@@ -54,7 +54,7 @@ where
                         );
                         break;
                     }
-                    RenderResult::Idle => break,
+                    RenderFlow::Idle => break,
                 }
                 if deadline - Instant::now() < Duration::from_secs(1) {
                     break;

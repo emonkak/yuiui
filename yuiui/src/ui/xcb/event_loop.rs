@@ -14,8 +14,8 @@ use x11rb::errors::ConnectionError;
 use x11rb::protocol;
 use x11rb::protocol::xproto;
 
+use crate::event::{Event, MouseEvent, WindowEvent};
 use crate::geometrics::{PhysicalRectangle, PhysicalSize};
-use crate::ui::event::{Event, MouseEvent, WindowEvent};
 use crate::ui::ControlFlow;
 
 pub struct EventLoop<Connection> {

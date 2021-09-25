@@ -17,14 +17,16 @@ pub enum WindowEvent {
     RedrawRequested(PhysicalRectangle),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[repr(usize)]
 #[rustfmt::skip]
 pub enum WindowEventMask {
-    PointerPressed  = 1 << 2,
-    PointerReleased = 1 << 3,
-    SizeChanged     = 1 << 4,
-    Closed          = 1 << 5,
-    RedrawRequested = 1 << 6,
+    None            = 0,
+    PointerPressed  = 1 << 0,
+    PointerReleased = 1 << 1,
+    SizeChanged     = 1 << 2,
+    Closed          = 1 << 3,
+    RedrawRequested = 1 << 4,
 }
 
 impl WindowEvent {

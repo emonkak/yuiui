@@ -1,12 +1,15 @@
 use std::array;
+use std::mem;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
+use super::bit_iter::BitIter;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BitFlags<T> {
     flags: usize,
-    _type: PhantomData<T>,
+    value_type: PhantomData<T>,
 }
 
 impl<T> BitFlags<T> {
@@ -14,13 +17,18 @@ impl<T> BitFlags<T> {
     pub fn empty() -> Self {
         Self {
             flags: 0,
-            _type: PhantomData,
+            value_type: PhantomData,
         }
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.flags == 0
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.flags.count_ones() as usize
     }
 
     #[inline]
@@ -34,6 +42,16 @@ impl<T> BitFlags<T> {
         let flags = other.into().flags;
         (self.flags & flags) == flags
     }
+
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = T> {
+        assert_eq!(mem::size_of::<usize>(), mem::size_of::<T>());
+        assert_eq!(mem::align_of::<usize>(), mem::align_of::<T>());
+        BitIter::from(self.flags).map(|n| {
+            let flag = (1 << n) as usize;
+            unsafe { mem::transmute_copy(&flag) }
+        })
+    }
 }
 
 impl<T: Into<usize>> From<T> for BitFlags<T> {
@@ -41,7 +59,7 @@ impl<T: Into<usize>> From<T> for BitFlags<T> {
     fn from(value: T) -> Self {
         Self {
             flags: value.into(),
-            _type: PhantomData,
+            value_type: PhantomData,
         }
     }
 }
@@ -52,7 +70,7 @@ impl<T: Into<usize>, const N: usize> From<[T; N]> for BitFlags<T> {
         Self {
             flags: array::IntoIter::new(values)
                 .fold(0 as usize, |flags, value| flags | value.into()),
-            _type: PhantomData,
+            value_type: PhantomData,
         }
     }
 }
@@ -64,7 +82,7 @@ impl<T: Into<usize>> FromIterator<T> for BitFlags<T> {
             flags: values
                 .into_iter()
                 .fold(0 as usize, |flags, value| flags | value.into()),
-            _type: PhantomData,
+            value_type: PhantomData,
         }
     }
 }
@@ -76,7 +94,7 @@ impl<T: Into<BitFlags<U>>, U> BitAnd<T> for BitFlags<U> {
     fn bitand(self, rhs: T) -> Self::Output {
         Self {
             flags: self.flags & rhs.into().flags,
-            _type: self._type,
+            value_type: self.value_type,
         }
     }
 }
@@ -95,7 +113,7 @@ impl<T: Into<BitFlags<U>>, U> BitOr<T> for BitFlags<U> {
     fn bitor(self, rhs: T) -> Self::Output {
         Self {
             flags: self.flags | rhs.into().flags,
-            _type: self._type,
+            value_type: self.value_type,
         }
     }
 }
@@ -114,7 +132,7 @@ impl<T: Into<BitFlags<U>>, U> BitXor<T> for BitFlags<U> {
     fn bitxor(self, rhs: T) -> Self::Output {
         Self {
             flags: self.flags ^ rhs.into().flags,
-            _type: self._type,
+            value_type: self.value_type,
         }
     }
 }
@@ -133,7 +151,7 @@ impl<T: Into<BitFlags<U>>, U> Sub<T> for BitFlags<U> {
     fn sub(self, rhs: T) -> Self::Output {
         Self {
             flags: self.flags & !rhs.into().flags,
-            _type: self._type,
+            value_type: self.value_type,
         }
     }
 }
@@ -150,6 +168,7 @@ mod tests {
     use super::*;
 
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    #[repr(usize)]
     enum Button {
         None = 0b000,
         Left = 0b001,
@@ -169,8 +188,18 @@ mod tests {
         assert_eq!((BitFlags::from([]) as BitFlags<Button>).is_empty(), true);
         assert_eq!((BitFlags::from(Button::None)).is_empty(), true);
         assert_eq!((BitFlags::from(Button::Left)).is_empty(), false);
-        assert_eq!((BitFlags::from(Button::Right)).is_empty(), false);
-        assert_eq!((BitFlags::from(Button::Middle)).is_empty(), false);
+        assert_eq!((BitFlags::from([Button::Left, Button::Right])).is_empty(), false);
+        assert_eq!((BitFlags::from([Button::Left, Button::Right, Button::Middle])).is_empty(), false);
+    }
+
+    #[test]
+    fn test_len() {
+        assert_eq!((BitFlags::empty() as BitFlags<Button>).len(), 0);
+        assert_eq!((BitFlags::from([]) as BitFlags<Button>).len(), 0);
+        assert_eq!((BitFlags::from([Button::None])).len(), 0);
+        assert_eq!((BitFlags::from([Button::Left])).len(), 1);
+        assert_eq!((BitFlags::from([Button::Left, Button::Right])).len(), 2);
+        assert_eq!((BitFlags::from([Button::Left, Button::Right, Button::Middle])).len(), 3);
     }
 
     #[test]
@@ -267,6 +296,45 @@ mod tests {
                 Button::Middle
             ]),
             false
+        );
+    }
+
+    #[test]
+    fn test_iter() {
+        assert_eq!(
+            BitFlags::from([] as [Button; 0]).iter().collect::<Vec<_>>(),
+            vec![]
+        );
+
+        assert_eq!(
+            BitFlags::from([Button::Left]).iter().collect::<Vec<_>>(),
+            vec![Button::Left]
+        );
+        assert_eq!(
+            BitFlags::from([Button::Right]).iter().collect::<Vec<_>>(),
+            vec![Button::Right]
+        );
+        assert_eq!(
+            BitFlags::from([Button::Middle]).iter().collect::<Vec<_>>(),
+            vec![Button::Middle]
+        );
+
+        assert_eq!(
+            BitFlags::from([Button::Left, Button::Right]).iter().collect::<Vec<_>>(),
+            vec![Button::Left, Button::Right]
+        );
+        assert_eq!(
+            BitFlags::from([Button::Left, Button::Middle]).iter().collect::<Vec<_>>(),
+            vec![Button::Left, Button::Middle]
+        );
+        assert_eq!(
+            BitFlags::from([Button::Right, Button::Middle]).iter().collect::<Vec<_>>(),
+            vec![Button::Right, Button::Middle]
+        );
+
+        assert_eq!(
+            BitFlags::from([Button::Left, Button::Right, Button::Middle]).iter().collect::<Vec<_>>(),
+            vec![Button::Left, Button::Right, Button::Middle]
         );
     }
 

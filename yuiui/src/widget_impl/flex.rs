@@ -1,7 +1,7 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, Size};
-use crate::widget::{Attributes, ElementNode, LayoutContext, Widget};
+use crate::widget::{ElementNode, LayoutContext, Widget};
 
 #[derive(Debug, PartialEq)]
 pub struct Flex {
@@ -22,7 +22,7 @@ impl Flex {
     }
 }
 
-impl Widget for Flex {
+impl<Message> Widget<Message> for Flex {
     type State = ();
 
     fn initial_state(&self) -> Self::State {
@@ -32,18 +32,16 @@ impl Widget for Flex {
     fn should_update(
         &self,
         new_widget: &Self,
-        old_attributes: &Attributes,
-        new_attributes: &Attributes,
         _state: &Self::State,
     ) -> bool {
-        self != new_widget || old_attributes != new_attributes
+        self != new_widget
     }
 
     fn layout(
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext,
+        context: &mut LayoutContext<Message>,
         _state: &mut Self::State,
     ) -> Size {
         let mut flex_sum = 0.0;
@@ -101,7 +99,7 @@ impl Widget for Flex {
     }
 }
 
-impl From<Flex> for ElementNode {
+impl<Message: 'static> From<Flex> for ElementNode<Message> {
     fn from(widget: Flex) -> Self {
         widget.into_boxed().into()
     }
