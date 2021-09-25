@@ -3,7 +3,7 @@ use std::fmt;
 use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{short_type_name_of, AsAny, DrawContext, LayoutContext};
+use super::{AsAny, Attributes, DrawContext, LayoutContext, short_type_name_of};
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
@@ -14,7 +14,13 @@ pub trait Widget<Own: ?Sized = Self>: AsAny {
 
     fn initial_state(&self) -> Self::State;
 
-    fn should_update(&self, _new_widget: &Own, _state: &Self::State) -> bool {
+    fn should_update(
+        &self,
+        _new_widget: &Own,
+        _old_attributes: &Attributes,
+        _new_attributes: &Attributes,
+        _state: &Self::State,
+    ) -> bool {
         true
     }
 

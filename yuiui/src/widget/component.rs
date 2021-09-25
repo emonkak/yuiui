@@ -2,7 +2,7 @@ use std::any::{self, Any};
 use std::fmt;
 use std::rc::Rc;
 
-use super::{short_type_name_of, AsAny, Element};
+use super::{short_type_name_of, AsAny, Attributes, Element};
 
 pub type BoxedComponent = Rc<dyn Component<dyn Any, State = Box<dyn Any>>>;
 
@@ -14,6 +14,8 @@ pub trait Component<Own: ?Sized = Self>: AsAny {
     fn should_update(
         &self,
         _new_component: &Own,
+        _old_attributes: &Attributes,
+        _new_attributes: &Attributes,
         _old_children: &Vec<Element>,
         _new_children: &Vec<Element>,
         _state: &Self::State,

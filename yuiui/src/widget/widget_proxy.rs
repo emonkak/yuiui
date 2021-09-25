@@ -2,7 +2,7 @@ use std::any::Any;
 use std::marker::PhantomData;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{DrawContext, LayoutContext, Widget};
+use super::{Attributes, DrawContext, LayoutContext, Widget};
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
@@ -31,9 +31,17 @@ where
         Box::new(self.widget.initial_state())
     }
 
-    fn should_update(&self, new_widget: &dyn Any, state: &Self::State) -> bool {
+    fn should_update(
+        &self,
+        new_widget: &dyn Any,
+        old_attributes: &Attributes,
+        new_attributes: &Attributes,
+        state: &Self::State,
+    ) -> bool {
         self.widget.should_update(
             new_widget.downcast_ref().unwrap(),
+            old_attributes,
+            new_attributes,
             state.downcast_ref().unwrap(),
         )
     }

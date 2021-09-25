@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::marker::PhantomData;
 
-use super::{Component, Element};
+use super::{Attributes, Component, Element};
 
 pub struct ComponentProxy<C, S> {
     component: C,
@@ -31,12 +31,16 @@ where
     fn should_update(
         &self,
         new_component: &dyn Any,
+        old_attributes: &Attributes,
+        new_attributes: &Attributes,
         old_children: &Vec<Element>,
         new_children: &Vec<Element>,
         state: &Self::State,
     ) -> bool {
         self.component.should_update(
             new_component.downcast_ref().unwrap(),
+            old_attributes,
+            new_attributes,
             old_children,
             new_children,
             state.downcast_ref().unwrap(),

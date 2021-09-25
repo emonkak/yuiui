@@ -430,7 +430,12 @@ impl WidgetPod {
     }
 
     fn update(&mut self, element: WidgetElement) -> bool {
-        let should_update = self.should_update(&element);
+        let should_update = self.widget.should_update(
+            element.widget.as_any(),
+            &*self.attributes,
+            &*element.attributes,
+            &self.state,
+        );
 
         self.widget = element.widget;
         self.attributes = element.attributes;
@@ -439,15 +444,6 @@ impl WidgetPod {
         self.needs_draw = should_update;
 
         should_update
-    }
-
-    fn should_update(&self, element: &WidgetElement) -> bool {
-        if &*self.attributes != &*element.attributes {
-            return true;
-        }
-
-        self.widget
-            .should_update(element.widget.as_any(), &self.state)
     }
 
     fn layout(
@@ -520,7 +516,14 @@ impl ComponentPod {
     }
 
     fn update(&mut self, element: ComponentElement) -> bool {
-        let should_update = self.should_update(&element);
+        let should_update = self.component.should_update(
+            element.component.as_any(),
+            &*self.attributes,
+            &*element.attributes,
+            &self.children,
+            &element.children,
+            &self.state,
+        );
 
         self.component = element.component;
         self.attributes = element.attributes;
@@ -533,24 +536,12 @@ impl ComponentPod {
         self.component.render(&self.children, &self.state)
     }
 
-    fn should_update(&self, element: &ComponentElement) -> bool {
-        if &*self.attributes != &*element.attributes {
-            return true;
-        }
-
-        self.component.should_update(
-            element.component.as_any(),
-            &self.children,
-            &element.children,
-            &self.state,
-        )
-    }
-
     fn as_any(&self) -> &dyn Any {
         self.component.as_any()
     }
 }
 
+#[derive(Debug)]
 pub struct LayoutContext<'a> {
     storage: &'a mut WidgetStorage,
 }
@@ -575,6 +566,7 @@ impl<'a> LayoutContext<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct DrawContext<'a> {
     storage: &'a mut WidgetStorage,
     origin: Point,
