@@ -2,15 +2,17 @@ use std::any::{Any, TypeId};
 use std::fmt;
 use std::mem;
 use std::rc::Rc;
+use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 
+use super::event_manager::EventManager;
 use super::reconciler::{Patch, Reconciler};
 use super::root::Root;
 use super::{
-    Attributes, BoxedComponent, Children, Command, ComponentElement, Element, Key, Lifecycle,
+    Attributes, BoxedComponent, Children, Command, ComponentElement, Effect, Element, Key, Lifecycle,
     RcWidget, Widget, WidgetElement,
 };
-use crate::event::WindowEvent;
+use crate::event::{WindowEvent, WindowEventMask};
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
 
@@ -20,6 +22,7 @@ type ComponentIndex = usize;
 pub struct WidgetStorage<Message> {
     virtual_tree: SlotTree<VirtualNode<Message>>,
     real_tree: SlotTree<Option<WidgetPod<Message>>>,
+    event_manager: EventManager,
     uncommited_changes: Vec<RealTreePatch<Message>>,
 }
 
@@ -49,6 +52,7 @@ impl<Message> WidgetStorage<Message> {
         Self {
             virtual_tree,
             real_tree,
+            event_manager: EventManager::new(),
             uncommited_changes: Vec::new(),
         }
     }
@@ -101,35 +105,34 @@ impl<Message> WidgetStorage<Message> {
             .flat_map(move |patch| self.commit_real_tree(patch))
     }
 
+    pub fn has_uncommited_changes(&self) -> bool {
+        !self.uncommited_changes.is_empty()
+    }
+
     pub fn layout(&mut self, id: NodeId) -> NodeId {
-        let mut root_id = id;
+        let mut current = id;
 
         loop {
-            let mut cursor = self.real_tree.cursor_mut(root_id);
+            let mut cursor = self.real_tree.cursor_mut(current);
             let mut widget = cursor
                 .current()
                 .data_mut()
                 .take()
                 .expect("widget is currently in use elsewhere");
 
-            let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
-            let parent = cursor.current().parent();
-
-            let mut context = LayoutContext { storage: self };
-
             let box_constraints = widget.box_constraints;
-            let is_changed = widget.layout(box_constraints, &children, &mut context);
+            let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
+            let mut context = LayoutContext { storage: self };
+            let has_changed = widget.layout(box_constraints, &children, &mut context);
 
-            let mut cursor = self.real_tree.cursor_mut(id);
+            let mut cursor = self.real_tree.cursor_mut(current);
             *cursor.current().data_mut() = Some(widget);
 
-            match parent {
-                Some(parent) if is_changed => root_id = parent,
-                _ => break,
+            match (has_changed, cursor.current().parent()) {
+                (true, Some(parent)) => current = parent,
+                _ => break current
             }
         }
-
-        root_id
     }
 
     pub fn draw(&mut self, id: NodeId) -> (Primitive, Rectangle) {
@@ -158,6 +161,22 @@ impl<Message> WidgetStorage<Message> {
         *cursor.current().data_mut() = Some(widget);
 
         (primitive, bounds)
+    }
+
+    pub fn dispatch(&mut self, event: WindowEvent) {
+        let event_mask = event.event_mask();
+
+        if let Some(listeners) = self.event_manager.get_listerners(event_mask) {
+            for id in listeners {
+                let widget = self.real_tree
+                    .cursor_mut(id)
+                    .current()
+                    .data_mut()
+                    .as_mut()
+                    .expect("widget is currently in use elsewhere");
+                widget.on_event(&event);
+            }
+        }
     }
 
     fn commit_virtual_tree(
@@ -278,20 +297,26 @@ impl<Message> WidgetStorage<Message> {
     fn commit_real_tree(&mut self, patch: RealTreePatch<Message>) -> Vec<Command<Message>> {
         match patch {
             RealTreePatch::Append(parent, element) => {
+                let id = self.real_tree.next_node_id();
                 let mut cursor = self.real_tree.cursor_mut(parent);
                 let mut widget = WidgetPod::from_element(element);
+                let event_manager = &mut self.event_manager;
                 let commands = widget
                     .on_lifecycle(Lifecycle::OnMount)
+                    .and_then(|effect| process_effect(&mut widget, id, effect, event_manager))
                     .into_iter()
                     .collect();
                 cursor.append_child(Some(widget));
                 commands
             }
             RealTreePatch::Insert(reference, element) => {
+                let id = self.real_tree.next_node_id();
                 let mut cursor = self.real_tree.cursor_mut(reference);
                 let mut widget = WidgetPod::from_element(element);
+                let event_manager = &mut self.event_manager;
                 let commands = widget
                     .on_lifecycle(Lifecycle::OnMount)
+                    .and_then(|effect| process_effect(&mut widget, id, effect, event_manager))
                     .into_iter()
                     .collect();
                 cursor.insert_before(Some(widget));
@@ -300,34 +325,52 @@ impl<Message> WidgetStorage<Message> {
             RealTreePatch::Update(id, element) => {
                 let mut cursor = self.real_tree.cursor_mut(id);
                 let widget = cursor.current().data_mut().as_mut().unwrap();
-                let commands = widget.update(element).into_iter().collect();
+                let event_manager = &mut self.event_manager;
+                let commands = widget
+                    .update(element)
+                    .and_then(|effect| process_effect(widget, id, effect, event_manager))
+                    .into_iter()
+                    .collect();
                 commands
             }
             RealTreePatch::UpdateAndMove(id, reference, element) => {
                 let mut cursor = self.real_tree.cursor_mut(id);
                 let widget = cursor.current().data_mut().as_mut().unwrap();
-                let commands = widget.update(element).into_iter().collect();
+                let event_manager = &mut self.event_manager;
+                let commands = widget
+                    .update(element)
+                    .and_then(|effect| process_effect(widget, id, effect, event_manager))
+                    .into_iter()
+                    .collect();
                 cursor.move_before(reference);
                 commands
             }
             RealTreePatch::Remove(id) => {
                 let cursor = self.real_tree.cursor_mut(id);
+                let event_manager = &mut self.event_manager;
                 let commands = cursor
                     .drain_subtree()
-                    .flat_map(|(_, node)| {
+                    .flat_map(|(id, node)| {
                         let mut widget = node.into_data().unwrap();
-                        widget.on_lifecycle(Lifecycle::OnUnmount)
+                        event_manager.remove_listener(id, widget.event_mask);
+                        widget
+                            .on_lifecycle(Lifecycle::OnUnmount)
+                            .and_then(|effect| process_effect(&mut widget, id, effect, event_manager))
                     })
                     .collect();
                 commands
             }
             RealTreePatch::RemoveChildren(id) => {
                 let mut cursor = self.real_tree.cursor_mut(id);
+                let event_manager = &mut self.event_manager;
                 let commands = cursor
                     .drain_descendants()
-                    .flat_map(|(_, node)| {
+                    .flat_map(|(id, node)| {
                         let mut widget = node.into_data().unwrap();
-                        widget.on_lifecycle(Lifecycle::OnUnmount)
+                        event_manager.remove_listener(id, widget.event_mask);
+                        widget
+                            .on_lifecycle(Lifecycle::OnUnmount)
+                            .and_then(|effect| process_effect(&mut widget, id, effect, event_manager))
                     })
                     .collect();
                 commands
@@ -424,6 +467,7 @@ struct WidgetPod<Message> {
     widget: RcWidget<Message>,
     attributes: Rc<Attributes>,
     state: Box<dyn Any>,
+    event_mask: BitFlags<WindowEventMask>,
     box_constraints: BoxConstraints,
     position: Point,
     size: Size,
@@ -439,6 +483,7 @@ impl<Message> WidgetPod<Message> {
             widget,
             attributes: Default::default(),
             state,
+            event_mask: BitFlags::empty(),
             box_constraints: BoxConstraints::LOOSE,
             position: Point::ZERO,
             size: Size::ZERO,
@@ -454,6 +499,7 @@ impl<Message> WidgetPod<Message> {
             widget: element.widget,
             attributes: element.attributes,
             state,
+            event_mask: BitFlags::empty(),
             box_constraints: BoxConstraints::LOOSE,
             position: Point::ZERO,
             size: Size::ZERO,
@@ -463,7 +509,7 @@ impl<Message> WidgetPod<Message> {
         }
     }
 
-    fn update(&mut self, element: WidgetElement<Message>) -> Option<Command<Message>> {
+    fn update(&mut self, element: WidgetElement<Message>) -> Option<Effect<Message>> {
         let should_update = !element.children.is_empty()
             || &*self.attributes != &*element.attributes
             || self
@@ -482,11 +528,11 @@ impl<Message> WidgetPod<Message> {
         }
     }
 
-    fn on_event(&mut self, event: WindowEvent) -> Option<Command<Message>> {
+    fn on_event(&mut self, event: &WindowEvent) -> Option<Effect<Message>> {
         self.widget.on_event(event, &mut self.state)
     }
 
-    fn on_lifecycle(&mut self, lifecycle: Lifecycle<&dyn Any>) -> Option<Command<Message>> {
+    fn on_lifecycle(&mut self, lifecycle: Lifecycle<&dyn Any>) -> Option<Effect<Message>> {
         self.widget.on_lifecycle(lifecycle, &mut self.state)
     }
 
@@ -689,4 +735,27 @@ fn create_reconciler<Message>(
     }
 
     Reconciler::new(old_keys, old_ids, new_keys, new_elements)
+}
+
+fn process_effect<Message>(
+    widget: &mut WidgetPod<Message>,
+    id: NodeId,
+    effect: Effect<Message>,
+    event_manager: &mut EventManager,
+) -> Option<Command<Message>> {
+    match effect {
+        Effect::AddListener(event_mask) => {
+            let new_events = event_mask & (event_mask ^ widget.event_mask);
+            event_manager.add_listener(id, new_events);
+            widget.event_mask |= event_mask;
+            None
+        }
+        Effect::RemoveListener(event_mask) => {
+            let removed_events = event_mask & widget.event_mask;
+            event_manager.remove_listener(id, removed_events);
+            widget.event_mask ^= event_mask;
+            None
+        }
+        Effect::Command(command) => Some(command)
+    }
 }

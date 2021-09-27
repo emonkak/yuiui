@@ -51,6 +51,20 @@ impl Rectangle {
             None
         }
     }
+
+    #[inline]
+    pub fn union(&self, other: Self) -> Self {
+        let left = self.x.min(other.x);
+        let right = (self.x + self.width).max(other.x + other.width);
+        let top = self.y.min(other.y);
+        let bottom = (self.y + self.height).max(other.y + other.height);
+        Self {
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top,
+        }
+    }
 }
 
 impl<T> Rectangle<T> {
@@ -113,19 +127,6 @@ impl<T> Rectangle<T> {
     }
 
     #[inline]
-    pub fn scale(&self, scale: T) -> Self
-    where
-        T: Copy + Mul<Output = T>,
-    {
-        Self {
-            x: self.x * scale,
-            y: self.y * scale,
-            width: self.width * scale,
-            height: self.height * scale,
-        }
-    }
-
-    #[inline]
     pub fn translate(&self, vector: Vector<T>) -> Self
     where
         T: Copy + Add<Output = T>,
@@ -135,6 +136,19 @@ impl<T> Rectangle<T> {
             y: self.y + vector.dy,
             width: self.width,
             height: self.height,
+        }
+    }
+
+    #[inline]
+    pub fn scale(&self, scale: T) -> Self
+    where
+        T: Copy + Mul<Output = T>,
+    {
+        Self {
+            x: self.x * scale,
+            y: self.y * scale,
+            width: self.width * scale,
+            height: self.height * scale,
         }
     }
 }

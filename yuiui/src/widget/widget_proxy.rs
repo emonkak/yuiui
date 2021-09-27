@@ -2,7 +2,7 @@ use std::any::Any;
 use std::marker::PhantomData;
 use yuiui_support::slot_tree::NodeId;
 
-use super::{Command, DrawContext, LayoutContext, Lifecycle, Widget};
+use super::{DrawContext, Effect, LayoutContext, Lifecycle, Widget};
 use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
@@ -42,7 +42,7 @@ where
         )
     }
 
-    fn on_event(&self, event: WindowEvent, state: &mut Self::State) -> Option<Command<M>> {
+    fn on_event(&self, event: &WindowEvent, state: &mut Self::State) -> Option<Effect<M>> {
         self.widget.on_event(event, state.downcast_mut().unwrap())
     }
 
@@ -50,7 +50,7 @@ where
         &self,
         lifecycle: Lifecycle<&dyn Any>,
         state: &mut Self::State,
-    ) -> Option<Command<M>> {
+    ) -> Option<Effect<M>> {
         self.widget.on_lifecycle(
             lifecycle.map(|widget| widget.downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),

@@ -2,7 +2,9 @@ mod attributes;
 mod command;
 mod component;
 mod component_proxy;
+mod effect;
 mod element;
+mod event_manager;
 mod lifecycle;
 mod reconciler;
 mod root;
@@ -12,6 +14,7 @@ mod widget_storage;
 
 pub use attributes::{AnyValue, Attributes};
 pub use command::Command;
+pub use effect::Effect;
 pub use component::{BoxedComponent, Component};
 pub use component_proxy::ComponentProxy;
 pub use element::{

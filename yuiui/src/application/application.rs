@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::collections::VecDeque;
 use std::error;
 use std::time::{Duration, Instant};
 use yuiui_support::slot_tree::NodeId;
@@ -7,7 +8,7 @@ use super::render_loop::{RenderFlow, RenderLoop};
 use crate::event::{Event, WindowEvent};
 use crate::graphics::{Color, Primitive, Renderer};
 use crate::ui::{ControlFlow, EventLoop, EventLoopContext, Window, WindowContainer};
-use crate::widget::{Element, WidgetStorage};
+use crate::widget::{Command, Element, WidgetStorage};
 
 #[derive(Debug)]
 pub enum Message {
@@ -39,9 +40,19 @@ where
                 context.request_idle(|deadline| Message::Render(deadline));
             }
             Event::Message(Message::Render(deadline)) => loop {
-                match render_loop.render(context) {
-                    RenderFlow::Continue => {}
-                    RenderFlow::Commit(primitive, _bounds) => {
+                match render_loop.render() {
+                    RenderFlow::Continue => {
+                        if deadline - Instant::now() < Duration::from_secs(1) {
+                            context.request_idle(|deadline| Message::Render(deadline));
+                            break;
+                        }
+                    }
+                    RenderFlow::Commit(commands) => {
+                        for command in commands {
+                            dispatch_command(command, context)
+                        }
+                    }
+                    RenderFlow::Paint(primitive, _scissor_bounds) => {
                         let viewport = window_container.viewport();
                         pipeline = renderer.create_pipeline(primitive);
                         renderer.perform_pipeline(
@@ -53,10 +64,6 @@ where
                         break;
                     }
                     RenderFlow::Idle => break,
-                }
-                if deadline - Instant::now() < Duration::from_secs(1) {
-                    context.request_idle(|deadline| Message::Render(deadline));
-                    break;
                 }
             },
             Event::WindowEvent(_, WindowEvent::RedrawRequested(_bounds)) => {
@@ -81,4 +88,36 @@ where
     })?;
 
     Ok(())
+}
+
+fn dispatch_command<Context: EventLoopContext<Message>, Message: 'static>(
+    command: Command<Message>,
+    context: &Context,
+) {
+    let mut current = command;
+    let mut queue = VecDeque::new();
+
+    loop {
+        match current {
+            Command::Exit => {}
+            Command::Send(message) => {
+                context.send(message);
+            }
+            Command::Perform(future) => {
+                context.perform(future);
+            }
+            Command::RequestIdle(callback) => {
+                context.request_idle(callback);
+            }
+            Command::Batch(commands) => {
+                queue.extend(commands);
+            }
+        }
+
+        if let Some(next) = queue.pop_front() {
+            current = next;
+        } else {
+            break;
+        }
+    }
 }

@@ -2,15 +2,10 @@ use std::future::Future;
 use std::ops::Add;
 use std::pin::Pin;
 use std::time::Instant;
-use yuiui_support::bit_flags::BitFlags;
-
-use crate::event::WindowEventMask;
 
 pub enum Command<Message> {
     Exit,
-    AddListener(BitFlags<WindowEventMask>),
-    RemoveListener(BitFlags<WindowEventMask>),
-    Identity(Message),
+    Send(Message),
     Perform(Pin<Box<dyn Future<Output = Message>>>),
     RequestIdle(Box<dyn FnOnce(Instant) -> Message>),
     Batch(Vec<Command<Message>>),
