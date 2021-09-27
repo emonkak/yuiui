@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::marker::PhantomData;
 
-use super::{Component, Element};
+use super::{Children, Component, Element};
 
 pub struct ComponentProxy<C, M, S> {
     component: C,
@@ -44,7 +44,7 @@ where
         )
     }
 
-    fn render(&self, children: &Vec<Element<M>>, state: &Self::State) -> Element<M> {
+    fn render(&self, children: &Children<M>, state: &Self::State) -> Element<M> {
         self.component
             .render(children, state.downcast_ref().unwrap())
     }

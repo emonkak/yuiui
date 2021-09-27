@@ -11,7 +11,7 @@ use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
 use yuiui::ui::{xcb, Window};
-use yuiui::widget::{attribute, Component, Element, ElementNode};
+use yuiui::widget::{attribute, Children, Component, Element, ElementNode};
 use yuiui::widget_impl::button::Button;
 use yuiui::widget_impl::flex::{Flex, FlexParam};
 use yuiui::widget_impl::padding::Padding;
@@ -25,7 +25,7 @@ impl<Message: 'static> Component<Message> for App {
         Self::State::default()
     }
 
-    fn render(&self, _children: &Vec<Element<Message>>, _state: &Self::State) -> Element<Message> {
+    fn render(&self, _children: &Children<Message>, _state: &Self::State) -> Element<Message> {
         element!(
             Flex::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [

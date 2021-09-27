@@ -2,7 +2,7 @@ use std::any::{self, Any};
 use std::fmt;
 use std::rc::Rc;
 
-use super::{short_type_name_of, AsAny, ComponentProxy, Element};
+use super::{short_type_name_of, AsAny, Children, ComponentProxy, Element};
 
 pub type BoxedComponent<Message> = Rc<dyn Component<Message, dyn Any, State = Box<dyn Any>>>;
 
@@ -20,7 +20,7 @@ pub trait Component<Message, Own: ?Sized = Self>: AsAny {
         true
     }
 
-    fn render(&self, children: &Vec<Element<Message>>, state: &Self::State) -> Element<Message>;
+    fn render(&self, children: &Children<Message>, state: &Self::State) -> Element<Message>;
 
     fn type_name(&self) -> &'static str {
         any::type_name::<Self>()

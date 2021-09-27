@@ -7,8 +7,8 @@ use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 use super::reconciler::{Patch, Reconciler};
 use super::root::Root;
 use super::{
-    Attributes, BoxedComponent, Command, ComponentElement, Element, Key, Lifecycle, RcWidget,
-    Widget, WidgetElement,
+    Attributes, BoxedComponent, Children, Command, ComponentElement, Element, Key, Lifecycle,
+    RcWidget, Widget, WidgetElement,
 };
 use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
@@ -28,7 +28,7 @@ impl<Message> WidgetStorage<Message> {
     {
         let root = {
             let widget = Root::new(viewport).into_boxed();
-            let instance = WidgetPod::new(widget, vec![element]);
+            let instance = WidgetPod::new(widget, Rc::new(vec![element]));
             WidgetNode {
                 instance: Some(instance),
                 component_stack: Vec::new(),
@@ -83,11 +83,10 @@ impl<Message> WidgetStorage<Message> {
             }
 
             if is_updated {
-                if let Some(children) = instance.pending_children.take() {
-                    let reconciler = create_reconciler(&mut cursor, children, component_index);
-                    for result in reconciler {
-                        self.update_child(id, result, false, &mut commands, &mut removed_ids)
-                    }
+                let reconciler =
+                    create_reconciler(&mut cursor, (*instance.children).clone(), component_index);
+                for result in reconciler {
+                    self.update_child(id, result, false, &mut commands, &mut removed_ids)
                 }
             }
 
@@ -391,8 +390,8 @@ impl<Message> WidgetNode<Message> {
 struct WidgetPod<Message> {
     widget: RcWidget<Message>,
     attributes: Rc<Attributes>,
-    pending_children: Option<Vec<Element<Message>>>,
     key: Option<Key>,
+    children: Children<Message>,
     state: Box<dyn Any>,
     pending_element: Option<WidgetElement<Message>>,
     box_constraints: BoxConstraints,
@@ -404,13 +403,13 @@ struct WidgetPod<Message> {
 }
 
 impl<Message> WidgetPod<Message> {
-    fn new(widget: RcWidget<Message>, children: Vec<Element<Message>>) -> Self {
+    fn new(widget: RcWidget<Message>, children: Children<Message>) -> Self {
         let state = widget.initial_state();
         Self {
             widget,
             attributes: Rc::new(Attributes::new()),
-            pending_children: Some(children),
             key: None,
+            children,
             state,
             pending_element: None,
             box_constraints: BoxConstraints::LOOSE,
@@ -427,8 +426,8 @@ impl<Message> WidgetPod<Message> {
         Self {
             widget: element.widget,
             attributes: element.attributes,
-            pending_children: Some(element.children),
             key: element.key,
+            children: element.children,
             state,
             pending_element: None,
             box_constraints: BoxConstraints::LOOSE,
@@ -447,7 +446,7 @@ impl<Message> WidgetPod<Message> {
         let old_widget = mem::replace(&mut self.widget, element.widget);
 
         self.attributes = element.attributes;
-        self.pending_children = Some(element.children);
+        self.children = element.children;
         self.needs_layout = should_update;
         self.needs_draw = should_update;
 
@@ -515,7 +514,7 @@ impl<Message> WidgetPod<Message> {
 struct ComponentPod<Message> {
     component: BoxedComponent<Message>,
     attributes: Rc<Attributes>,
-    children: Vec<Element<Message>>,
+    children: Children<Message>,
     state: Box<dyn Any>,
     key: Option<Key>,
     pending_element: Option<ComponentElement<Message>>,

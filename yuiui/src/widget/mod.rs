@@ -15,7 +15,7 @@ pub use command::Command;
 pub use component::{BoxedComponent, Component};
 pub use component_proxy::ComponentProxy;
 pub use element::{
-    attribute, key, Child, ComponentElement, Element, ElementNode, Key, WidgetElement,
+    attribute, key, Child, Children, ComponentElement, Element, ElementNode, Key, WidgetElement,
 };
 pub use lifecycle::Lifecycle;
 pub use widget::{RcWidget, Widget};

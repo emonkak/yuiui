@@ -2,33 +2,44 @@ use super::*;
 use std::array;
 use std::rc::Rc;
 
+pub type Children<Message> = Rc<Vec<Element<Message>>>;
+
 pub type Key = usize;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Element<Message> {
     WidgetElement(WidgetElement<Message>),
     ComponentElement(ComponentElement<Message>),
 }
 
+impl<Message> Clone for Element<Message> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::WidgetElement(element) => Self::WidgetElement(element.clone()),
+            Self::ComponentElement(element) => Self::ComponentElement(element.clone()),
+        }
+    }
+}
+
 impl<Message> Element<Message> {
     pub fn new(
         node: ElementNode<Message>,
-        children: Vec<Element<Message>>,
         attributes: Rc<Attributes>,
         key: Option<Key>,
+        children: Children<Message>,
     ) -> Self {
         match node {
             ElementNode::Widget(widget) => Self::WidgetElement(WidgetElement {
                 widget,
                 attributes,
-                children,
                 key,
+                children,
             }),
             ElementNode::Component(component) => Self::ComponentElement(ComponentElement {
                 component,
                 attributes,
-                children,
                 key,
+                children,
             }),
         }
     }
@@ -51,24 +62,46 @@ impl<Message> Element<Message> {
             }
         }
 
-        Self::new(node.into(), children, Rc::new(attributes), key)
+        Self::new(node.into(), Rc::new(attributes), key, Rc::new(children))
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct WidgetElement<Message> {
     pub widget: RcWidget<Message>,
-    pub children: Vec<Element<Message>>,
+    pub children: Children<Message>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
-#[derive(Clone, Debug)]
+impl<Message> Clone for WidgetElement<Message> {
+    fn clone(&self) -> Self {
+        Self {
+            widget: self.widget.clone(),
+            attributes: self.attributes.clone(),
+            key: self.key.clone(),
+            children: self.children.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ComponentElement<Message> {
     pub component: BoxedComponent<Message>,
-    pub children: Vec<Element<Message>>,
+    pub children: Children<Message>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
+}
+
+impl<Message> Clone for ComponentElement<Message> {
+    fn clone(&self) -> Self {
+        Self {
+            component: self.component.clone(),
+            children: self.children.clone(),
+            attributes: self.attributes.clone(),
+            key: self.key.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -121,7 +154,12 @@ impl<Message> From<Element<Message>> for Child<Message> {
 
 impl<T: 'static + Into<ElementNode<Message>>, Message> From<T> for Child<Message> {
     fn from(node: T) -> Self {
-        let element = Element::new(node.into(), vec![], Rc::new(Attributes::new()), None);
+        let element = Element::new(
+            node.into(),
+            Rc::new(Attributes::new()),
+            None,
+            Rc::new(Vec::new()),
+        );
         Child::Single(element)
     }
 }
