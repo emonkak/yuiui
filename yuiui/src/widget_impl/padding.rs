@@ -15,7 +15,7 @@ impl<Message> Widget<Message> for Padding {
         Self::State::default()
     }
 
-    fn should_update(&self, new_widget: &Self) -> bool {
+    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
         self != new_widget
     }
 
@@ -55,6 +55,6 @@ impl<Message> Widget<Message> for Padding {
 
 impl<Message: 'static> From<Padding> for ElementNode<Message> {
     fn from(widget: Padding) -> Self {
-        widget.into_boxed().into()
+        widget.into_rc().into()
     }
 }

@@ -18,7 +18,9 @@ type ComponentIndex = usize;
 
 #[derive(Debug)]
 pub struct WidgetStorage<Message> {
-    widget_tree: SlotTree<WidgetNode<Message>>,
+    virtual_tree: SlotTree<VirtualNode<Message>>,
+    real_tree: SlotTree<Option<WidgetPod<Message>>>,
+    uncommited_changes: Vec<RealTreePatch<Message>>,
 }
 
 impl<Message> WidgetStorage<Message> {
@@ -26,16 +28,28 @@ impl<Message> WidgetStorage<Message> {
     where
         Message: 'static,
     {
-        let root = {
-            let widget = Root::new(viewport).into_boxed();
-            let instance = WidgetPod::new(widget, Rc::new(vec![element]));
-            WidgetNode {
-                instance: Some(instance),
+        let widget = Root::new(viewport).into_rc();
+        let virtual_tree = {
+            let element = WidgetElement {
+                widget: widget.clone(),
+                attributes: Default::default(),
+                key: None,
+                children: Rc::new(vec![element]),
+            };
+            let virtual_node = VirtualNode {
+                element: Some(element),
                 component_stack: Vec::new(),
-            }
+            };
+            SlotTree::new(virtual_node)
+        };
+        let real_tree = {
+            let widget = WidgetPod::new(widget);
+            SlotTree::new(Some(widget))
         };
         Self {
-            widget_tree: SlotTree::new(root),
+            virtual_tree,
+            real_tree,
+            uncommited_changes: Vec::new(),
         }
     }
 
@@ -44,75 +58,57 @@ impl<Message> WidgetStorage<Message> {
         id: NodeId,
         component_index: ComponentIndex,
         root: NodeId,
-    ) -> RenderResult<Message> {
-        let mut cursor = self.widget_tree.cursor_mut(id);
+    ) -> Option<(NodeId, ComponentIndex)> {
+        let mut cursor = self.virtual_tree.cursor_mut(id);
         let component_stack = &mut cursor.current().data_mut().component_stack;
 
-        let mut commands = Vec::new();
-        let mut removed_ids = Vec::new();
-
-        let next = if component_index < component_stack.len() {
-            let instance = &mut component_stack[component_index];
-            let is_updated = if let Some(pending_element) = instance.pending_element.take() {
-                instance.update(pending_element)
+        if component_index < component_stack.len() {
+            let component = &mut component_stack[component_index];
+            let is_updated = if let Some(pending_element) = component.pending_element.take() {
+                component.update(pending_element)
             } else {
                 true
             };
 
             if is_updated {
-                let children = vec![instance.render()];
+                let children = vec![component.render()];
                 let reconciler = create_reconciler(&mut cursor, children, component_index);
-                for result in reconciler {
-                    self.update_child(id, result, true, &mut commands, &mut removed_ids)
+                for patch in reconciler {
+                    self.commit_virtual_tree(id, patch, true)
                 }
             }
 
             Some((id, component_index + 1))
         } else {
-            let instance = cursor.current().data_mut().borrow_mut();
-            let (is_updated, response) =
-                if let Some(pending_element) = instance.pending_element.take() {
-                    instance.update(pending_element)
-                } else {
-                    let response = instance.on_lifecycle(Lifecycle::OnMount);
-                    (true, response)
-                };
-
-            if let Some(command) = response {
-                commands.push((id, command));
+            let element = cursor.current().data_mut().element.as_ref().unwrap();
+            let reconciler =
+                create_reconciler(&mut cursor, (*element.children).clone(), component_index);
+            for patch in reconciler {
+                self.commit_virtual_tree(id, patch, false)
             }
 
-            if is_updated {
-                let reconciler =
-                    create_reconciler(&mut cursor, (*instance.children).clone(), component_index);
-                for result in reconciler {
-                    self.update_child(id, result, false, &mut commands, &mut removed_ids)
-                }
-            }
-
-            self.widget_tree
+            self.virtual_tree
                 .cursor(id)
                 .descendants_from(root)
                 .next()
                 .map(|(next_id, _)| (next_id, 0))
-        };
-
-        RenderResult {
-            next,
-            commands,
-            removed_ids,
         }
+    }
+
+    pub fn commit(&mut self) -> impl Iterator<Item = Command<Message>> + '_ {
+        mem::take(&mut self.uncommited_changes)
+            .into_iter()
+            .flat_map(move |patch| self.commit_real_tree(patch))
     }
 
     pub fn layout(&mut self, id: NodeId) -> NodeId {
         let mut root_id = id;
 
         loop {
-            let mut cursor = self.widget_tree.cursor_mut(root_id);
-            let mut instance = cursor
+            let mut cursor = self.real_tree.cursor_mut(root_id);
+            let mut widget = cursor
                 .current()
                 .data_mut()
-                .instance
                 .take()
                 .expect("widget is currently in use elsewhere");
 
@@ -121,11 +117,11 @@ impl<Message> WidgetStorage<Message> {
 
             let mut context = LayoutContext { storage: self };
 
-            let box_constraints = instance.box_constraints;
-            let is_changed = instance.layout(box_constraints, &children, &mut context);
+            let box_constraints = widget.box_constraints;
+            let is_changed = widget.layout(box_constraints, &children, &mut context);
 
-            let mut cursor = self.widget_tree.cursor_mut(id);
-            cursor.current().data_mut().instance = Some(instance);
+            let mut cursor = self.real_tree.cursor_mut(id);
+            *cursor.current().data_mut() = Some(widget);
 
             match parent {
                 Some(parent) if is_changed => root_id = parent,
@@ -137,18 +133,17 @@ impl<Message> WidgetStorage<Message> {
     }
 
     pub fn draw(&mut self, id: NodeId) -> (Primitive, Rectangle) {
-        let mut cursor = self.widget_tree.cursor_mut(id);
+        let mut cursor = self.real_tree.cursor_mut(id);
         let mut widget = cursor
             .current()
             .data_mut()
-            .instance
             .take()
             .expect("widget is currently in use elsewhere");
 
         let origin = cursor.ancestors().fold(Point::ZERO, |origin, (_, node)| {
-            let instance = node.data_mut().borrow_mut();
-            instance.needs_draw = true;
-            origin + instance.position
+            let mut parent = node.data_mut().as_mut().unwrap();
+            parent.needs_draw = true;
+            origin + parent.position
         });
         let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
@@ -159,163 +154,213 @@ impl<Message> WidgetStorage<Message> {
         };
         let primitive = widget.draw(bounds, &children, &mut context);
 
-        let mut cursor = self.widget_tree.cursor_mut(id);
-        cursor.current().data_mut().instance = Some(widget);
+        let mut cursor = self.real_tree.cursor_mut(id);
+        *cursor.current().data_mut() = Some(widget);
 
         (primitive, bounds)
     }
 
-    fn update_child(
+    fn commit_virtual_tree(
         &mut self,
         parent: NodeId,
-        result: Patch<ReconcilementId, Element<Message>>,
+        patch: Patch<VirtualId, Element<Message>>,
         in_component_rendering: bool,
-        commands: &mut Vec<(NodeId, Command<Message>)>,
-        removed_ids: &mut Vec<NodeId>,
     ) {
-        match result {
+        match patch {
             Patch::Append(Element::WidgetElement(element)) => {
-                let mut cursor = self.widget_tree.cursor_mut(parent);
-                let instance = WidgetPod::from_element(element);
+                let mut cursor = self.virtual_tree.cursor_mut(parent);
                 if in_component_rendering {
                     let widget_node = cursor.current().data_mut();
-                    widget_node.instance = Some(instance);
+                    widget_node.element = Some(element.clone());
+                    self.uncommited_changes.push(RealTreePatch::Append(
+                        cursor.current().parent().unwrap(),
+                        element,
+                    ))
                 } else {
-                    cursor.append_child(WidgetNode {
-                        instance: Some(instance),
+                    cursor.append_child(VirtualNode {
+                        element: Some(element.clone()),
                         component_stack: Vec::new(),
                     });
+                    self.uncommited_changes
+                        .push(RealTreePatch::Append(parent, element))
                 }
             }
             Patch::Append(Element::ComponentElement(element)) => {
-                let mut cursor = self.widget_tree.cursor_mut(parent);
-                let instance = ComponentPod::from_element(element);
+                let mut cursor = self.virtual_tree.cursor_mut(parent);
+                let component = ComponentPod::from_element(element);
                 if in_component_rendering {
-                    cursor.current().data_mut().component_stack.push(instance);
+                    cursor.current().data_mut().component_stack.push(component);
                 } else {
-                    cursor.append_child(WidgetNode {
-                        instance: None,
-                        component_stack: vec![instance],
+                    cursor.append_child(VirtualNode {
+                        element: None,
+                        component_stack: vec![component],
                     });
                 }
             }
             Patch::Insert(reference, Element::WidgetElement(element)) => {
-                let mut cursor = self.widget_tree.cursor_mut(reference.id());
-                let instance = WidgetPod::from_element(element);
-                cursor.insert_before(WidgetNode {
-                    instance: Some(instance),
+                let mut cursor = self.virtual_tree.cursor_mut(reference.id());
+                cursor.insert_before(VirtualNode {
+                    element: Some(element.clone()),
                     component_stack: Vec::new(),
                 });
+                self.uncommited_changes
+                    .push(RealTreePatch::Insert(reference.id(), element))
             }
             Patch::Insert(reference, Element::ComponentElement(element)) => {
-                let mut cursor = self.widget_tree.cursor_mut(reference.id());
-                let instance = ComponentPod::from_element(element);
-                cursor.insert_before(WidgetNode {
-                    instance: None,
-                    component_stack: vec![instance],
+                let mut cursor = self.virtual_tree.cursor_mut(reference.id());
+                let component = ComponentPod::from_element(element);
+                cursor.insert_before(VirtualNode {
+                    element: None,
+                    component_stack: vec![component],
                 });
             }
-            Patch::Update(ReconcilementId::Widget(id), Element::WidgetElement(element)) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = cursor.current().data_mut().borrow_mut();
-                instance.pending_element = Some(element)
+            Patch::Update(VirtualId::Widget(id), Element::WidgetElement(element)) => {
+                let mut cursor = self.virtual_tree.cursor_mut(id);
+                cursor.current().data_mut().element = Some(element.clone());
+                self.uncommited_changes
+                    .push(RealTreePatch::Update(id, element))
             }
             Patch::Update(
-                ReconcilementId::Component(id, component_index),
+                VirtualId::Component(id, component_index),
                 Element::ComponentElement(element),
             ) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = &mut cursor.current().data_mut().component_stack[component_index];
-                instance.pending_element = Some(element);
+                let mut cursor = self.virtual_tree.cursor_mut(id);
+                let component = &mut cursor.current().data_mut().component_stack[component_index];
+                component.pending_element = Some(element);
             }
             Patch::UpdateAndMove(
-                ReconcilementId::Widget(id),
+                VirtualId::Widget(id),
                 reference,
                 Element::WidgetElement(element),
             ) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = cursor.current().data_mut().borrow_mut();
-                instance.pending_element = Some(element);
+                let mut cursor = self.virtual_tree.cursor_mut(id);
+                cursor.current().data_mut().element = Some(element.clone());
                 cursor.move_before(reference.id());
+                self.uncommited_changes.push(RealTreePatch::UpdateAndMove(
+                    id,
+                    reference.id(),
+                    element,
+                ))
             }
             Patch::UpdateAndMove(
-                ReconcilementId::Component(id, component_index),
+                VirtualId::Component(id, component_index),
                 reference,
                 Element::ComponentElement(element),
             ) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = &mut cursor.current().data_mut().component_stack[component_index];
-                instance.pending_element = Some(element);
+                let mut cursor = self.virtual_tree.cursor_mut(id);
+                let component = &mut cursor.current().data_mut().component_stack[component_index];
+                component.pending_element = Some(element);
                 cursor.move_before(reference.id());
             }
-            Patch::Remove(ReconcilementId::Widget(id)) => {
-                let cursor = self.widget_tree.cursor_mut(id);
-                for (id, node) in cursor.drain_subtree() {
-                    let mut widget_node = node.into_data();
-                    let response = widget_node.borrow_mut().on_lifecycle(Lifecycle::OnUnmount);
-                    if let Some(command) = response {
-                        commands.push((id, command));
-                    }
-                    removed_ids.push(id);
-                }
+            Patch::Remove(VirtualId::Widget(id)) => {
+                let cursor = self.virtual_tree.cursor_mut(id);
+                let _ = cursor.drain_subtree();
+                self.uncommited_changes.push(RealTreePatch::Remove(id));
             }
-            Patch::Remove(ReconcilementId::Component(id, component_index)) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
+            Patch::Remove(VirtualId::Component(id, component_index)) => {
+                let mut cursor = self.virtual_tree.cursor_mut(id);
                 let mut widget_node = cursor.current().data_mut();
                 let _ = widget_node.component_stack.drain(component_index..);
                 if component_index > 0 {
-                    widget_node.instance = None;
-                    for (id, node) in cursor.drain_descendants() {
-                        let mut widget_node = node.into_data();
-                        let response = widget_node.borrow_mut().on_lifecycle(Lifecycle::OnUnmount);
-                        if let Some(command) = response {
-                            commands.push((id, command));
-                        }
-                        removed_ids.push(id);
-                    }
+                    widget_node.element = None;
+                    let _ = cursor.drain_descendants();
+                    self.uncommited_changes
+                        .push(RealTreePatch::RemoveChildren(id));
                 } else {
-                    for (id, node) in cursor.drain_subtree() {
-                        let mut widget_node = node.into_data();
-                        let response = widget_node.borrow_mut().on_lifecycle(Lifecycle::OnUnmount);
-                        if let Some(command) = response {
-                            commands.push((id, command));
-                        }
-                        removed_ids.push(id);
-                    }
+                    let _ = cursor.drain_subtree();
+                    self.uncommited_changes.push(RealTreePatch::Remove(id));
                 }
             }
             _ => unreachable!("element kind mismatch"),
         }
     }
 
+    fn commit_real_tree(&mut self, patch: RealTreePatch<Message>) -> Vec<Command<Message>> {
+        match patch {
+            RealTreePatch::Append(parent, element) => {
+                let mut cursor = self.real_tree.cursor_mut(parent);
+                let mut widget = WidgetPod::from_element(element);
+                let commands = widget
+                    .on_lifecycle(Lifecycle::OnMount)
+                    .into_iter()
+                    .collect();
+                cursor.append_child(Some(widget));
+                commands
+            }
+            RealTreePatch::Insert(reference, element) => {
+                let mut cursor = self.real_tree.cursor_mut(reference);
+                let mut widget = WidgetPod::from_element(element);
+                let commands = widget
+                    .on_lifecycle(Lifecycle::OnMount)
+                    .into_iter()
+                    .collect();
+                cursor.insert_before(Some(widget));
+                commands
+            }
+            RealTreePatch::Update(id, element) => {
+                let mut cursor = self.real_tree.cursor_mut(id);
+                let widget = cursor.current().data_mut().as_mut().unwrap();
+                let commands = widget.update(element).into_iter().collect();
+                commands
+            }
+            RealTreePatch::UpdateAndMove(id, reference, element) => {
+                let mut cursor = self.real_tree.cursor_mut(id);
+                let widget = cursor.current().data_mut().as_mut().unwrap();
+                let commands = widget.update(element).into_iter().collect();
+                cursor.move_before(reference);
+                commands
+            }
+            RealTreePatch::Remove(id) => {
+                let cursor = self.real_tree.cursor_mut(id);
+                let commands = cursor
+                    .drain_subtree()
+                    .flat_map(|(_, node)| {
+                        let mut widget = node.into_data().unwrap();
+                        widget.on_lifecycle(Lifecycle::OnUnmount)
+                    })
+                    .collect();
+                commands
+            }
+            RealTreePatch::RemoveChildren(id) => {
+                let mut cursor = self.real_tree.cursor_mut(id);
+                let commands = cursor
+                    .drain_descendants()
+                    .flat_map(|(_, node)| {
+                        let mut widget = node.into_data().unwrap();
+                        widget.on_lifecycle(Lifecycle::OnUnmount)
+                    })
+                    .collect();
+                commands
+            }
+        }
+    }
+
     fn layout_child(&mut self, id: NodeId, box_constraints: BoxConstraints) -> Size {
-        let mut cursor = self.widget_tree.cursor_mut(id);
-        let mut instance = cursor
+        let mut cursor = self.real_tree.cursor_mut(id);
+        let mut widget = cursor
             .current()
             .data_mut()
-            .instance
             .take()
             .expect("widget is currently in use elsewhere");
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = LayoutContext { storage: self };
 
-        instance.layout(box_constraints, &children, &mut context);
-        instance.box_constraints = box_constraints;
-        let size = instance.size;
+        widget.layout(box_constraints, &children, &mut context);
+        widget.box_constraints = box_constraints;
+        let size = widget.size;
 
-        let mut cursor = self.widget_tree.cursor_mut(id);
-        cursor.current().data_mut().instance = Some(instance);
+        let mut cursor = self.real_tree.cursor_mut(id);
+        *cursor.current().data_mut() = Some(widget);
 
         size
     }
 
     fn draw_child(&mut self, id: NodeId, origin: Point) -> Primitive {
-        let mut cursor = self.widget_tree.cursor_mut(id);
+        let mut cursor = self.real_tree.cursor_mut(id);
         let mut widget = cursor
             .current()
             .data_mut()
-            .instance
             .take()
             .expect("widget is currently in use elsewhere");
 
@@ -327,28 +372,26 @@ impl<Message> WidgetStorage<Message> {
         };
         let primitive = widget.draw(bounds, &children, &mut context);
 
-        let mut cursor = self.widget_tree.cursor_mut(id);
-        cursor.current().data_mut().instance = Some(widget);
+        let mut cursor = self.real_tree.cursor_mut(id);
+        *cursor.current().data_mut() = Some(widget);
 
         primitive
     }
 
     fn get_widget(&self, id: NodeId) -> &WidgetPod<Message> {
-        self.widget_tree
+        self.real_tree
             .cursor(id)
             .current()
             .data()
-            .instance
             .as_ref()
             .expect("widget is currently in use elsewhere")
     }
 
     fn get_widget_mut(&mut self, id: NodeId) -> &mut WidgetPod<Message> {
-        self.widget_tree
+        self.real_tree
             .cursor_mut(id)
             .current()
             .data_mut()
-            .instance
             .as_mut()
             .expect("widget is currently in use elsewhere")
     }
@@ -356,44 +399,31 @@ impl<Message> WidgetStorage<Message> {
 
 impl<Message: fmt::Debug> fmt::Display for WidgetStorage<Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.widget_tree.fmt(f)
+        self.virtual_tree.fmt(f)
     }
-}
-
-pub struct RenderResult<Message> {
-    pub next: Option<(NodeId, ComponentIndex)>,
-    pub commands: Vec<(NodeId, Command<Message>)>,
-    pub removed_ids: Vec<NodeId>,
 }
 
 #[derive(Debug)]
-struct WidgetNode<Message> {
-    instance: Option<WidgetPod<Message>>,
-    component_stack: Vec<ComponentPod<Message>>,
+enum RealTreePatch<Message> {
+    Append(NodeId, WidgetElement<Message>),
+    Insert(NodeId, WidgetElement<Message>),
+    Update(NodeId, WidgetElement<Message>),
+    UpdateAndMove(NodeId, NodeId, WidgetElement<Message>),
+    Remove(NodeId),
+    RemoveChildren(NodeId),
 }
 
-impl<Message> WidgetNode<Message> {
-    fn borrow(&self) -> &WidgetPod<Message> {
-        self.instance
-            .as_ref()
-            .expect("widget is currently in use elsewhere")
-    }
-
-    fn borrow_mut(&mut self) -> &mut WidgetPod<Message> {
-        self.instance
-            .as_mut()
-            .expect("widget is currently in use elsewhere")
-    }
+#[derive(Debug)]
+struct VirtualNode<Message> {
+    element: Option<WidgetElement<Message>>,
+    component_stack: Vec<ComponentPod<Message>>,
 }
 
 #[derive(Debug)]
 struct WidgetPod<Message> {
     widget: RcWidget<Message>,
     attributes: Rc<Attributes>,
-    key: Option<Key>,
-    children: Children<Message>,
     state: Box<dyn Any>,
-    pending_element: Option<WidgetElement<Message>>,
     box_constraints: BoxConstraints,
     position: Point,
     size: Size,
@@ -403,15 +433,12 @@ struct WidgetPod<Message> {
 }
 
 impl<Message> WidgetPod<Message> {
-    fn new(widget: RcWidget<Message>, children: Children<Message>) -> Self {
+    fn new(widget: RcWidget<Message>) -> Self {
         let state = widget.initial_state();
         Self {
             widget,
-            attributes: Rc::new(Attributes::new()),
-            key: None,
-            children,
+            attributes: Default::default(),
             state,
-            pending_element: None,
             box_constraints: BoxConstraints::LOOSE,
             position: Point::ZERO,
             size: Size::ZERO,
@@ -426,10 +453,7 @@ impl<Message> WidgetPod<Message> {
         Self {
             widget: element.widget,
             attributes: element.attributes,
-            key: element.key,
-            children: element.children,
             state,
-            pending_element: None,
             box_constraints: BoxConstraints::LOOSE,
             position: Point::ZERO,
             size: Size::ZERO,
@@ -439,22 +463,22 @@ impl<Message> WidgetPod<Message> {
         }
     }
 
-    fn update(&mut self, element: WidgetElement<Message>) -> (bool, Option<Command<Message>>) {
+    fn update(&mut self, element: WidgetElement<Message>) -> Option<Command<Message>> {
         let should_update = !element.children.is_empty()
             || &*self.attributes != &*element.attributes
-            || self.widget.should_update(element.widget.as_any());
+            || self
+                .widget
+                .should_update(element.widget.as_any(), &self.state);
         let old_widget = mem::replace(&mut self.widget, element.widget);
 
         self.attributes = element.attributes;
-        self.children = element.children;
         self.needs_layout = should_update;
         self.needs_draw = should_update;
 
         if should_update {
-            let response = self.on_lifecycle(Lifecycle::OnUpdate(old_widget.as_any()));
-            (true, response)
+            self.on_lifecycle(Lifecycle::OnUpdate(old_widget.as_any()))
         } else {
-            (false, None)
+            None
         }
     }
 
@@ -504,10 +528,6 @@ impl<Message> WidgetPod<Message> {
         self.needs_draw = false;
         primitive
     }
-
-    fn as_any(&self) -> &dyn Any {
-        self.widget.as_any()
-    }
 }
 
 #[derive(Debug)]
@@ -539,6 +559,7 @@ impl<Message> ComponentPod<Message> {
                 element.component.as_any(),
                 &self.children,
                 &element.children,
+                &self.state,
             );
 
         self.component = element.component;
@@ -595,12 +616,12 @@ impl<'a, Message> DrawContext<'a, Message> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum ReconcilementKey {
+enum TypedKey {
     Keyed(TypeId, Key),
     Indexed(TypeId, usize),
 }
 
-impl ReconcilementKey {
+impl TypedKey {
     fn new(type_id: TypeId, key: Option<Key>, index: usize) -> Self {
         match key {
             Some(key) => Self::Keyed(type_id, key),
@@ -610,12 +631,12 @@ impl ReconcilementKey {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ReconcilementId {
+enum VirtualId {
     Widget(NodeId),
     Component(NodeId, usize),
 }
 
-impl ReconcilementId {
+impl VirtualId {
     fn id(&self) -> NodeId {
         match self {
             Self::Widget(id) => *id,
@@ -625,42 +646,42 @@ impl ReconcilementId {
 }
 
 fn create_reconciler<Message>(
-    cursor: &mut CursorMut<WidgetNode<Message>>,
+    cursor: &mut CursorMut<VirtualNode<Message>>,
     children: Vec<Element<Message>>,
     component_index: ComponentIndex,
-) -> Reconciler<ReconcilementKey, ReconcilementId, Element<Message>> {
-    let mut old_keys: Vec<ReconcilementKey> = Vec::new();
-    let mut old_ids: Vec<Option<ReconcilementId>> = Vec::new();
+) -> Reconciler<TypedKey, VirtualId, Element<Message>> {
+    let mut old_keys: Vec<TypedKey> = Vec::new();
+    let mut old_ids: Vec<Option<VirtualId>> = Vec::new();
 
     for (index, (child_id, child)) in cursor.children().enumerate() {
         let child_node = child.data();
         let (key, id) = if component_index < child_node.component_stack.len() {
-            let instance = &child_node.component_stack[component_index];
-            let type_id = instance.as_any().type_id();
-            let key = ReconcilementKey::new(type_id, instance.key, index);
-            let id = ReconcilementId::Component(child_id, component_index);
+            let component = &child_node.component_stack[component_index];
+            let type_id = component.as_any().type_id();
+            let key = TypedKey::new(type_id, component.key, index);
+            let id = VirtualId::Component(child_id, component_index);
             (key, id)
         } else {
-            let instance = child_node.borrow();
-            let type_id = instance.as_any().type_id();
-            let key = ReconcilementKey::new(type_id, instance.key, index);
-            let id = ReconcilementId::Widget(child_id);
+            let element = child_node.element.as_ref().unwrap();
+            let type_id = element.widget.as_any().type_id();
+            let key = TypedKey::new(type_id, element.key, index);
+            let id = VirtualId::Widget(child_id);
             (key, id)
         };
         old_keys.push(key);
         old_ids.push(Some(id));
     }
 
-    let mut new_keys: Vec<ReconcilementKey> = Vec::with_capacity(children.len());
+    let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
     let mut new_elements: Vec<Option<Element<Message>>> = Vec::with_capacity(children.len());
 
     for (index, element) in children.into_iter().enumerate() {
         let key = match &element {
             Element::WidgetElement(element) => {
-                ReconcilementKey::new(element.widget.as_any().type_id(), element.key, index)
+                TypedKey::new(element.widget.as_any().type_id(), element.key, index)
             }
             Element::ComponentElement(element) => {
-                ReconcilementKey::new(element.component.as_any().type_id(), element.key, index)
+                TypedKey::new(element.component.as_any().type_id(), element.key, index)
             }
         };
         new_keys.push(key);

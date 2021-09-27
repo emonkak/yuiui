@@ -35,9 +35,11 @@ where
         Box::new(self.widget.initial_state())
     }
 
-    fn should_update(&self, new_widget: &dyn Any) -> bool {
-        self.widget
-            .should_update(new_widget.downcast_ref().unwrap())
+    fn should_update(&self, new_widget: &dyn Any, state: &Self::State) -> bool {
+        self.widget.should_update(
+            new_widget.downcast_ref().unwrap(),
+            state.downcast_ref().unwrap(),
+        )
     }
 
     fn on_event(&self, event: WindowEvent, state: &mut Self::State) -> Option<Command<M>> {

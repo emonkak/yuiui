@@ -11,7 +11,7 @@ pub enum Command<Message> {
     AddListener(BitFlags<WindowEventMask>),
     RemoveListener(BitFlags<WindowEventMask>),
     Identity(Message),
-    Perform(Pin<Box<dyn Future<Output = Message> + 'static>>),
+    Perform(Pin<Box<dyn Future<Output = Message>>>),
     RequestIdle(Box<dyn FnOnce(Instant) -> Message>),
     Batch(Vec<Command<Message>>),
 }

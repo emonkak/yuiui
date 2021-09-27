@@ -39,10 +39,8 @@ where
                 context.request_idle(|deadline| Message::Render(deadline));
             }
             Event::Message(Message::Render(deadline)) => loop {
-                match render_loop.render() {
-                    RenderFlow::Continue => {
-                        context.request_idle(|deadline| Message::Render(deadline));
-                    }
+                match render_loop.render(context) {
+                    RenderFlow::Continue => {}
                     RenderFlow::Commit(primitive, _bounds) => {
                         let viewport = window_container.viewport();
                         pipeline = renderer.create_pipeline(primitive);
@@ -57,6 +55,7 @@ where
                     RenderFlow::Idle => break,
                 }
                 if deadline - Instant::now() < Duration::from_secs(1) {
+                    context.request_idle(|deadline| Message::Render(deadline));
                     break;
                 }
             },

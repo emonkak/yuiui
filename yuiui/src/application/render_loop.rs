@@ -3,7 +3,8 @@ use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::Rectangle;
 use crate::graphics::Primitive;
-use crate::widget::WidgetStorage;
+use crate::ui::EventLoopContext;
+use crate::widget::{Command, WidgetStorage};
 
 #[derive(Debug)]
 pub struct RenderLoop<Message> {
@@ -13,7 +14,7 @@ pub struct RenderLoop<Message> {
     pending_works: VecDeque<Work>,
 }
 
-impl<Message> RenderLoop<Message> {
+impl<Message: 'static> RenderLoop<Message> {
     pub fn new(storage: WidgetStorage<Message>) -> Self {
         let root_id = NodeId::ROOT;
         let initial_work = Work {
@@ -55,11 +56,15 @@ impl<Message> RenderLoop<Message> {
         }
     }
 
-    pub fn render(&mut self) -> RenderFlow {
+    pub fn render<Context: EventLoopContext<Message>>(&mut self, context: &Context) -> RenderFlow {
         if let Some(work) = self.work_in_progress.take() {
             self.process_work(work);
             RenderFlow::Continue
         } else if let Some(render_root) = self.current_root.take() {
+            let commands = self.storage.commit();
+            for command in commands {
+                dispatch_command(context, command)
+            }
             let layout_root = self.storage.layout(render_root);
             let (primitive, bounds) = self.storage.draw(layout_root);
             if layout_root.is_root() {
@@ -77,10 +82,10 @@ impl<Message> RenderLoop<Message> {
     }
 
     fn process_work(&mut self, work: Work) {
-        let result = self
+        let next = self
             .storage
             .render(work.id, work.component_index, work.origin);
-        if let Some((id, component_index)) = result.next {
+        if let Some((id, component_index)) = next {
             let work = Work {
                 id,
                 component_index,
@@ -103,4 +108,38 @@ struct Work {
     id: NodeId,
     component_index: usize,
     origin: NodeId,
+}
+
+fn dispatch_command<Context: EventLoopContext<Message>, Message: 'static>(
+    context: &Context,
+    command: Command<Message>,
+) {
+    let mut current = command;
+    let mut queue = VecDeque::new();
+
+    loop {
+        match current {
+            Command::Exit => {}
+            Command::AddListener(_) => {}
+            Command::RemoveListener(_) => {}
+            Command::Identity(message) => {
+                context.send(message);
+            }
+            Command::Perform(future) => {
+                context.perform(future);
+            }
+            Command::RequestIdle(callback) => {
+                context.request_idle(callback);
+            }
+            Command::Batch(commands) => {
+                queue.extend(commands);
+            }
+        }
+
+        if let Some(next) = queue.pop_front() {
+            current = next;
+        } else {
+            break;
+        }
+    }
 }

@@ -16,6 +16,7 @@ pub trait Component<Message, Own: ?Sized = Self>: AsAny {
         _new_component: &Own,
         _old_children: &Vec<Element<Message>>,
         _new_children: &Vec<Element<Message>>,
+        _state: &Self::State,
     ) -> bool {
         true
     }
@@ -26,7 +27,7 @@ pub trait Component<Message, Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
-    fn into_boxed(self) -> BoxedComponent<Message>
+    fn into_rc(self) -> BoxedComponent<Message>
     where
         Self: 'static + Sized + Component<Message>,
         <Self as Component<Message>>::State: 'static,

@@ -29,7 +29,7 @@ impl<Message> Widget<Message> for Flex {
         Self::State::default()
     }
 
-    fn should_update(&self, new_widget: &Self) -> bool {
+    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
         self != new_widget
     }
 
@@ -97,7 +97,7 @@ impl<Message> Widget<Message> for Flex {
 
 impl<Message: 'static> From<Flex> for ElementNode<Message> {
     fn from(widget: Flex) -> Self {
-        widget.into_boxed().into()
+        widget.into_rc().into()
     }
 }
 

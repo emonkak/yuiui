@@ -22,7 +22,7 @@ impl<Message> Widget<Message> for Label {
         Self::State::default()
     }
 
-    fn should_update(&self, new_widget: &Self) -> bool {
+    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
         self != new_widget
     }
 
@@ -47,6 +47,6 @@ impl<Message> Widget<Message> for Label {
 
 impl<Message: 'static> From<Label> for ElementNode<Message> {
     fn from(widget: Label) -> Self {
-        widget.into_boxed().into()
+        widget.into_rc().into()
     }
 }

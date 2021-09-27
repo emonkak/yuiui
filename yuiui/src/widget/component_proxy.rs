@@ -36,11 +36,13 @@ where
         new_component: &dyn Any,
         old_children: &Vec<Element<M>>,
         new_children: &Vec<Element<M>>,
+        state: &Self::State,
     ) -> bool {
         self.component.should_update(
-            new_component.downcast_ref().unwrap(),
+            &new_component.downcast_ref::<Self>().unwrap().component,
             old_children,
             new_children,
+            state.downcast_ref().unwrap(),
         )
     }
 

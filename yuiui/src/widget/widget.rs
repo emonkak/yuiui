@@ -17,7 +17,7 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
 
     fn initial_state(&self) -> Self::State;
 
-    fn should_update(&self, _new_widget: &Own) -> bool {
+    fn should_update(&self, _new_widget: &Own, _state: &Self::State) -> bool {
         true
     }
 
@@ -63,7 +63,7 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
-    fn into_boxed(self) -> RcWidget<Message>
+    fn into_rc(self) -> RcWidget<Message>
     where
         Self: 'static + Sized + Widget<Message>,
         <Self as Widget<Message>>::State: 'static,

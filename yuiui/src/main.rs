@@ -47,7 +47,7 @@ impl<Message: 'static> Component<Message> for App {
 
 impl<Message: 'static> From<App> for ElementNode<Message> {
     fn from(component: App) -> ElementNode<Message> {
-        component.into_boxed().into()
+        component.into_rc().into()
     }
 }
 

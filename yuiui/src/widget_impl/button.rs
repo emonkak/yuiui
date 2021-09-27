@@ -35,6 +35,6 @@ impl<Message> Widget<Message> for Button {
 
 impl<Message: 'static> From<Button> for ElementNode<Message> {
     fn from(widget: Button) -> Self {
-        widget.into_boxed().into()
+        widget.into_rc().into()
     }
 }
