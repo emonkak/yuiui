@@ -18,7 +18,7 @@ pub use lifecycle::Lifecycle;
 pub use element::{
     attribute, key, Child, ComponentElement, Element, ElementNode, Key, WidgetElement,
 };
-pub use widget::{BoxedWidget, Widget};
+pub use widget::{RcWidget, Widget};
 pub use widget_proxy::WidgetProxy;
 pub use widget_storage::{DrawContext, LayoutContext, WidgetStorage};
 

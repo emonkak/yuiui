@@ -57,7 +57,7 @@ impl<Message> Element<Message> {
 
 #[derive(Clone, Debug)]
 pub struct WidgetElement<Message> {
-    pub widget: BoxedWidget<Message>,
+    pub widget: RcWidget<Message>,
     pub children: Vec<Element<Message>>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
@@ -73,12 +73,12 @@ pub struct ComponentElement<Message> {
 
 #[derive(Clone, Debug)]
 pub enum ElementNode<Message> {
-    Widget(BoxedWidget<Message>),
+    Widget(RcWidget<Message>),
     Component(BoxedComponent<Message>),
 }
 
-impl<Message> From<BoxedWidget<Message>> for ElementNode<Message> {
-    fn from(widget: BoxedWidget<Message>) -> Self {
+impl<Message> From<RcWidget<Message>> for ElementNode<Message> {
+    fn from(widget: RcWidget<Message>) -> Self {
         Self::Widget(widget)
     }
 }

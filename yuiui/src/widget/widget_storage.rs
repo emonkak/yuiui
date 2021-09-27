@@ -7,7 +7,7 @@ use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 use super::reconciler::{ReconcileResult, Reconciler};
 use super::root::Root;
 use super::{
-    Attributes, BoxedComponent, BoxedWidget, Command, ComponentElement, Element, Key, Lifecycle, Widget, WidgetElement,
+    Attributes, BoxedComponent, RcWidget, Command, ComponentElement, Element, Key, Lifecycle, Widget, WidgetElement,
 };
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
@@ -406,7 +406,7 @@ impl<Message> WidgetNode<Message> {
 
 #[derive(Debug)]
 struct WidgetPod<Message> {
-    widget: BoxedWidget<Message>,
+    widget: RcWidget<Message>,
     attributes: Rc<Attributes>,
     pending_children: Option<Vec<Element<Message>>>,
     key: Option<Key>,
@@ -421,7 +421,7 @@ struct WidgetPod<Message> {
 }
 
 impl<Message> WidgetPod<Message> {
-    fn new(widget: BoxedWidget<Message>, children: Vec<Element<Message>>) -> Self {
+    fn new(widget: RcWidget<Message>, children: Vec<Element<Message>>) -> Self {
         let state = widget.initial_state();
         Self {
             widget,

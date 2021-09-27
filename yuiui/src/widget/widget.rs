@@ -10,7 +10,7 @@ use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
-pub type BoxedWidget<Message> = Rc<dyn Widget<Message, dyn Any, State = Box<dyn Any>>>;
+pub type RcWidget<Message> = Rc<dyn Widget<Message, dyn Any, State = Box<dyn Any>>>;
 
 pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
     type State;
@@ -63,7 +63,7 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
-    fn into_boxed(self) -> BoxedWidget<Message>
+    fn into_boxed(self) -> RcWidget<Message>
     where
         Self: 'static + Sized + Widget<Message>,
         <Self as Widget<Message>>::State: 'static,
