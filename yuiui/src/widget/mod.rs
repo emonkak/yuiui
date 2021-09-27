@@ -14,10 +14,10 @@ pub use attributes::{AnyValue, Attributes};
 pub use command::Command;
 pub use component::{BoxedComponent, Component};
 pub use component_proxy::ComponentProxy;
-pub use lifecycle::Lifecycle;
 pub use element::{
     attribute, key, Child, ComponentElement, Element, ElementNode, Key, WidgetElement,
 };
+pub use lifecycle::Lifecycle;
 pub use widget::{RcWidget, Widget};
 pub use widget_proxy::WidgetProxy;
 pub use widget_storage::{DrawContext, LayoutContext, WidgetStorage};

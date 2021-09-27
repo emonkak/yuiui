@@ -2,10 +2,10 @@ use std::any::Any;
 use std::marker::PhantomData;
 use yuiui_support::slot_tree::NodeId;
 
+use super::{Command, DrawContext, LayoutContext, Lifecycle, Widget};
 use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
-use super::{Command, DrawContext, LayoutContext, Lifecycle, Widget};
 
 pub struct WidgetProxy<W, M, S> {
     widget: W,
@@ -35,25 +35,23 @@ where
         Box::new(self.widget.initial_state())
     }
 
-    fn should_update(
-        &self,
-        new_widget: &dyn Any,
-        state: &Self::State,
-    ) -> bool {
-        self.widget.should_update(
-            new_widget.downcast_ref().unwrap(),
-            state.downcast_ref().unwrap(),
-        )
+    fn should_update(&self, new_widget: &dyn Any) -> bool {
+        self.widget
+            .should_update(new_widget.downcast_ref().unwrap())
     }
 
     fn on_event(&self, event: WindowEvent, state: &mut Self::State) -> Option<Command<M>> {
         self.widget.on_event(event, state.downcast_mut().unwrap())
     }
 
-    fn on_lifecycle(&self, lifecycle: Lifecycle<&dyn Any>, state: &mut Self::State) -> Option<Command<M>> {
+    fn on_lifecycle(
+        &self,
+        lifecycle: Lifecycle<&dyn Any>,
+        state: &mut Self::State,
+    ) -> Option<Command<M>> {
         self.widget.on_lifecycle(
             lifecycle.map(|widget| widget.downcast_ref().unwrap()),
-            state.downcast_mut().unwrap()
+            state.downcast_mut().unwrap(),
         )
     }
 

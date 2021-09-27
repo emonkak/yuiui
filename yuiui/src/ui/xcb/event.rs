@@ -1,8 +1,8 @@
 use x11rb::protocol::xproto;
 use yuiui_support::bit_flags::BitFlags;
 
-use crate::geometrics::PhysicalPoint;
 use crate::event::{Modifier, MouseButton, MouseEvent};
+use crate::geometrics::PhysicalPoint;
 
 impl From<xproto::ButtonPressEvent> for MouseEvent {
     fn from(event: xproto::ButtonPressEvent) -> Self {

@@ -1,7 +1,7 @@
 use std::array;
-use std::mem;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
+use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
 use super::bit_iter::BitIter;
@@ -188,8 +188,14 @@ mod tests {
         assert_eq!((BitFlags::from([]) as BitFlags<Button>).is_empty(), true);
         assert_eq!((BitFlags::from(Button::None)).is_empty(), true);
         assert_eq!((BitFlags::from(Button::Left)).is_empty(), false);
-        assert_eq!((BitFlags::from([Button::Left, Button::Right])).is_empty(), false);
-        assert_eq!((BitFlags::from([Button::Left, Button::Right, Button::Middle])).is_empty(), false);
+        assert_eq!(
+            (BitFlags::from([Button::Left, Button::Right])).is_empty(),
+            false
+        );
+        assert_eq!(
+            (BitFlags::from([Button::Left, Button::Right, Button::Middle])).is_empty(),
+            false
+        );
     }
 
     #[test]
@@ -199,7 +205,10 @@ mod tests {
         assert_eq!((BitFlags::from([Button::None])).len(), 0);
         assert_eq!((BitFlags::from([Button::Left])).len(), 1);
         assert_eq!((BitFlags::from([Button::Left, Button::Right])).len(), 2);
-        assert_eq!((BitFlags::from([Button::Left, Button::Right, Button::Middle])).len(), 3);
+        assert_eq!(
+            (BitFlags::from([Button::Left, Button::Right, Button::Middle])).len(),
+            3
+        );
     }
 
     #[test]
@@ -320,20 +329,28 @@ mod tests {
         );
 
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right]).iter().collect::<Vec<_>>(),
+            BitFlags::from([Button::Left, Button::Right])
+                .iter()
+                .collect::<Vec<_>>(),
             vec![Button::Left, Button::Right]
         );
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Middle]).iter().collect::<Vec<_>>(),
+            BitFlags::from([Button::Left, Button::Middle])
+                .iter()
+                .collect::<Vec<_>>(),
             vec![Button::Left, Button::Middle]
         );
         assert_eq!(
-            BitFlags::from([Button::Right, Button::Middle]).iter().collect::<Vec<_>>(),
+            BitFlags::from([Button::Right, Button::Middle])
+                .iter()
+                .collect::<Vec<_>>(),
             vec![Button::Right, Button::Middle]
         );
 
         assert_eq!(
-            BitFlags::from([Button::Left, Button::Right, Button::Middle]).iter().collect::<Vec<_>>(),
+            BitFlags::from([Button::Left, Button::Right, Button::Middle])
+                .iter()
+                .collect::<Vec<_>>(),
             vec![Button::Left, Button::Right, Button::Middle]
         );
     }

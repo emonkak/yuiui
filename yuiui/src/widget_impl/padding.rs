@@ -15,11 +15,7 @@ impl<Message> Widget<Message> for Padding {
         Self::State::default()
     }
 
-    fn should_update(
-        &self,
-        new_widget: &Self,
-        _state: &Self::State,
-    ) -> bool {
+    fn should_update(&self, new_widget: &Self) -> bool {
         self != new_widget
     }
 

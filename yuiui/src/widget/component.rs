@@ -16,7 +16,6 @@ pub trait Component<Message, Own: ?Sized = Self>: AsAny {
         _new_component: &Own,
         _old_children: &Vec<Element<Message>>,
         _new_children: &Vec<Element<Message>>,
-        _state: &Self::State,
     ) -> bool {
         true
     }

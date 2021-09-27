@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use yuiui_support::slot_tree::NodeId;
 use yuiui_support::bit_flags::BitFlags;
+use yuiui_support::slot_tree::NodeId;
 
 use crate::event::WindowEventMask;
 
@@ -12,7 +12,9 @@ pub struct EventManager {
 
 impl EventManager {
     pub fn get_listerners(&self, mask: WindowEventMask) -> &[NodeId] {
-        self.listener_map.get(&mask).map_or(&[], |listeners| listeners.as_slice())
+        self.listener_map
+            .get(&mask)
+            .map_or(&[], |listeners| listeners.as_slice())
     }
 
     pub fn add_listener(&mut self, id: NodeId, masks: BitFlags<WindowEventMask>) {
@@ -20,17 +22,13 @@ impl EventManager {
             Some(current_masks) => {
                 let new_masks = *current_masks & (*current_masks ^ masks);
                 for mask in new_masks.iter() {
-                    self.listener_map.entry(mask)
-                        .or_default()
-                        .push(id);
+                    self.listener_map.entry(mask).or_default().push(id);
                 }
                 *current_masks = *current_masks | masks;
             }
             None => {
                 for mask in masks.iter() {
-                    self.listener_map.entry(mask)
-                        .or_default()
-                        .push(id);
+                    self.listener_map.entry(mask).or_default().push(id);
                 }
                 self.event_mask_map.insert(id, masks);
             }

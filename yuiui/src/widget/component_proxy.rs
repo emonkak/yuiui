@@ -9,8 +9,7 @@ pub struct ComponentProxy<C, M, S> {
     state_type: PhantomData<S>,
 }
 
-impl<C, M, S> ComponentProxy<C, M, S>
-{
+impl<C, M, S> ComponentProxy<C, M, S> {
     pub fn new(component: C) -> Self {
         Self {
             component,
@@ -37,13 +36,11 @@ where
         new_component: &dyn Any,
         old_children: &Vec<Element<M>>,
         new_children: &Vec<Element<M>>,
-        state: &Self::State,
     ) -> bool {
         self.component.should_update(
             new_component.downcast_ref().unwrap(),
             old_children,
             new_children,
-            state.downcast_ref().unwrap(),
         )
     }
 

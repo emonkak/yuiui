@@ -4,7 +4,7 @@ use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
 use super::{
-    AsAny, Command, DrawContext, LayoutContext, Lifecycle, WidgetProxy, short_type_name_of,
+    short_type_name_of, AsAny, Command, DrawContext, LayoutContext, Lifecycle, WidgetProxy,
 };
 use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
@@ -17,11 +17,7 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
 
     fn initial_state(&self) -> Self::State;
 
-    fn should_update(
-        &self,
-        _new_widget: &Own,
-        _state: &Self::State,
-    ) -> bool {
+    fn should_update(&self, _new_widget: &Own) -> bool {
         true
     }
 
@@ -29,7 +25,11 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         None
     }
 
-    fn on_lifecycle(&self, _lifecycle: Lifecycle<&Own>, _state: &mut Self::State) -> Option<Command<Message>> {
+    fn on_lifecycle(
+        &self,
+        _lifecycle: Lifecycle<&Own>,
+        _state: &mut Self::State,
+    ) -> Option<Command<Message>> {
         None
     }
 

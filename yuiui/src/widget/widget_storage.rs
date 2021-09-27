@@ -4,14 +4,15 @@ use std::mem;
 use std::rc::Rc;
 use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 
-use super::reconciler::{ReconcileResult, Reconciler};
+use super::reconciler::{Patch, Reconciler};
 use super::root::Root;
 use super::{
-    Attributes, BoxedComponent, RcWidget, Command, ComponentElement, Element, Key, Lifecycle, Widget, WidgetElement,
+    Attributes, BoxedComponent, Command, ComponentElement, Element, Key, Lifecycle, RcWidget,
+    Widget, WidgetElement,
 };
+use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
-use crate::event::WindowEvent;
 
 type ComponentIndex = usize;
 
@@ -69,12 +70,13 @@ impl<Message> WidgetStorage<Message> {
             Some((id, component_index + 1))
         } else {
             let instance = cursor.current().data_mut().borrow_mut();
-            let (is_updated, response) = if let Some(pending_element) = instance.pending_element.take() {
-                instance.update(pending_element)
-            } else {
-                let response = instance.on_lifecycle(Lifecycle::OnMount);
-                (true, response)
-            };
+            let (is_updated, response) =
+                if let Some(pending_element) = instance.pending_element.take() {
+                    instance.update(pending_element)
+                } else {
+                    let response = instance.on_lifecycle(Lifecycle::OnMount);
+                    (true, response)
+                };
 
             if let Some(command) = response {
                 commands.push((id, command));
@@ -167,106 +169,87 @@ impl<Message> WidgetStorage<Message> {
     fn update_child(
         &mut self,
         parent: NodeId,
-        result: ReconcileResult<ReconcilementId, Element<Message>>,
+        result: Patch<ReconcilementId, Element<Message>>,
         in_component_rendering: bool,
         commands: &mut Vec<(NodeId, Command<Message>)>,
         removed_ids: &mut Vec<NodeId>,
     ) {
         match result {
-            ReconcileResult::Append(element) => {
+            Patch::Append(Element::WidgetElement(element)) => {
                 let mut cursor = self.widget_tree.cursor_mut(parent);
-                match element {
-                    Element::WidgetElement(element) => {
-                        let instance = WidgetPod::from_element(element);
-                        if in_component_rendering {
-                            let widget_node = cursor.current().data_mut();
-                            widget_node.instance = Some(instance);
-                        } else {
-                            cursor.append_child(WidgetNode {
-                                instance: Some(instance),
-                                component_stack: Vec::new(),
-                            });
-                        }
-                    }
-                    Element::ComponentElement(element) => {
-                        let instance = ComponentPod::from_element(element);
-                        if in_component_rendering {
-                            cursor.current().data_mut().component_stack.push(instance);
-                        } else {
-                            cursor.append_child(WidgetNode {
-                                instance: None,
-                                component_stack: vec![instance],
-                            });
-                        }
-                    }
+                let instance = WidgetPod::from_element(element);
+                if in_component_rendering {
+                    let widget_node = cursor.current().data_mut();
+                    widget_node.instance = Some(instance);
+                } else {
+                    cursor.append_child(WidgetNode {
+                        instance: Some(instance),
+                        component_stack: Vec::new(),
+                    });
                 }
             }
-            ReconcileResult::Insert(reference, element) => {
-                let mut cursor = self.widget_tree.cursor_mut(reference.node_id());
-                match element {
-                    Element::WidgetElement(element) => {
-                        let instance = WidgetPod::from_element(element);
-                        cursor.insert_before(WidgetNode {
-                            instance: Some(instance),
-                            component_stack: Vec::new(),
-                        });
-                    }
-                    Element::ComponentElement(element) => {
-                        let instance = ComponentPod::from_element(element);
-                        cursor.insert_before(WidgetNode {
-                            instance: None,
-                            component_stack: vec![instance],
-                        });
-                    }
+            Patch::Append(Element::ComponentElement(element)) => {
+                let mut cursor = self.widget_tree.cursor_mut(parent);
+                let instance = ComponentPod::from_element(element);
+                if in_component_rendering {
+                    cursor.current().data_mut().component_stack.push(instance);
+                } else {
+                    cursor.append_child(WidgetNode {
+                        instance: None,
+                        component_stack: vec![instance],
+                    });
                 }
             }
-            ReconcileResult::Update(ReconcilementId::Widget(id), element) => {
+            Patch::Insert(reference, Element::WidgetElement(element)) => {
+                let mut cursor = self.widget_tree.cursor_mut(reference.id());
+                let instance = WidgetPod::from_element(element);
+                cursor.insert_before(WidgetNode {
+                    instance: Some(instance),
+                    component_stack: Vec::new(),
+                });
+            }
+            Patch::Insert(reference, Element::ComponentElement(element)) => {
+                let mut cursor = self.widget_tree.cursor_mut(reference.id());
+                let instance = ComponentPod::from_element(element);
+                cursor.insert_before(WidgetNode {
+                    instance: None,
+                    component_stack: vec![instance],
+                });
+            }
+            Patch::Update(ReconcilementId::Widget(id), Element::WidgetElement(element)) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
                 let instance = cursor.current().data_mut().borrow_mut();
-                match element {
-                    Element::WidgetElement(element) => {
-                        instance.pending_element = Some(element)
-                    }
-                    _ => unreachable!("element kind mismatch"),
-                };
+                instance.pending_element = Some(element)
             }
-            ReconcileResult::Update(ReconcilementId::Component(id, component_index), element) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = &mut cursor.current().data_mut().component_stack[component_index];
-                match element {
-                    Element::ComponentElement(element) => instance.pending_element = Some(element),
-                    _ => unreachable!("element kind mismatch"),
-                }
-            }
-            ReconcileResult::UpdateAndMove(
-                ReconcilementId::Widget(id),
-                ReconcilementId::Widget(reference_id),
-                element,
-            ) => {
-                let mut cursor = self.widget_tree.cursor_mut(id);
-                let instance = cursor.current().data_mut().borrow_mut();
-                let _ = match element {
-                    Element::WidgetElement(element) => {
-                        instance.pending_element = Some(element)
-                    }
-                    _ => unreachable!("element kind mismatch"),
-                };
-                cursor.move_before(reference_id);
-            }
-            ReconcileResult::UpdateAndMove(
+            Patch::Update(
                 ReconcilementId::Component(id, component_index),
-                ReconcilementId::Component(reference_id, _),
-                element,
+                Element::ComponentElement(element),
             ) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
                 let instance = &mut cursor.current().data_mut().component_stack[component_index];
-                match element {
-                    Element::ComponentElement(element) => instance.pending_element = Some(element),
-                    _ => unreachable!("element kind mismatch"),
-                }
-                cursor.move_before(reference_id);
+                instance.pending_element = Some(element);
             }
-            ReconcileResult::Remove(ReconcilementId::Widget(id)) => {
+            Patch::UpdateAndMove(
+                ReconcilementId::Widget(id),
+                reference,
+                Element::WidgetElement(element),
+            ) => {
+                let mut cursor = self.widget_tree.cursor_mut(id);
+                let instance = cursor.current().data_mut().borrow_mut();
+                instance.pending_element = Some(element);
+                cursor.move_before(reference.id());
+            }
+            Patch::UpdateAndMove(
+                ReconcilementId::Component(id, component_index),
+                reference,
+                Element::ComponentElement(element),
+            ) => {
+                let mut cursor = self.widget_tree.cursor_mut(id);
+                let instance = &mut cursor.current().data_mut().component_stack[component_index];
+                instance.pending_element = Some(element);
+                cursor.move_before(reference.id());
+            }
+            Patch::Remove(ReconcilementId::Widget(id)) => {
                 let cursor = self.widget_tree.cursor_mut(id);
                 for (id, node) in cursor.drain_subtree() {
                     let mut widget_node = node.into_data();
@@ -277,7 +260,7 @@ impl<Message> WidgetStorage<Message> {
                     removed_ids.push(id);
                 }
             }
-            ReconcileResult::Remove(ReconcilementId::Component(id, component_index)) => {
+            Patch::Remove(ReconcilementId::Component(id, component_index)) => {
                 let mut cursor = self.widget_tree.cursor_mut(id);
                 let mut widget_node = cursor.current().data_mut();
                 let _ = widget_node.component_stack.drain(component_index..);
@@ -460,10 +443,7 @@ impl<Message> WidgetPod<Message> {
     fn update(&mut self, element: WidgetElement<Message>) -> (bool, Option<Command<Message>>) {
         let should_update = !element.children.is_empty()
             || &*self.attributes != &*element.attributes
-            || self.widget.should_update(
-                element.widget.as_any(),
-                &self.state,
-            );
+            || self.widget.should_update(element.widget.as_any());
         let old_widget = mem::replace(&mut self.widget, element.widget);
 
         self.attributes = element.attributes;
@@ -560,7 +540,6 @@ impl<Message> ComponentPod<Message> {
                 element.component.as_any(),
                 &self.children,
                 &element.children,
-                &self.state,
             );
 
         self.component = element.component;
@@ -638,7 +617,7 @@ enum ReconcilementId {
 }
 
 impl ReconcilementId {
-    fn node_id(&self) -> NodeId {
+    fn id(&self) -> NodeId {
         match self {
             Self::Widget(id) => *id,
             Self::Component(id, _) => *id,
