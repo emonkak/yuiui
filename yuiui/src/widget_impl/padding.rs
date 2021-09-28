@@ -1,7 +1,7 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, Size, Thickness};
-use crate::widget::{ElementNode, LayoutContext, Widget};
+use crate::widget::{ElementInstance, LayoutContext, Widget};
 
 #[derive(Debug, PartialEq)]
 pub struct Padding {
@@ -53,7 +53,7 @@ impl<Message> Widget<Message> for Padding {
     }
 }
 
-impl<Message: 'static> From<Padding> for ElementNode<Message> {
+impl<Message: 'static> From<Padding> for ElementInstance<Message> {
     fn from(widget: Padding) -> Self {
         widget.into_rc().into()
     }

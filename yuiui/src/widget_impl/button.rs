@@ -2,7 +2,7 @@ use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::Rectangle;
 use crate::graphics::{Background, Color, Primitive};
-use crate::widget::{DrawContext, ElementNode, Widget};
+use crate::widget::{DrawContext, ElementInstance, Widget};
 
 #[derive(Debug)]
 pub struct Button {
@@ -33,7 +33,7 @@ impl<Message> Widget<Message> for Button {
     }
 }
 
-impl<Message: 'static> From<Button> for ElementNode<Message> {
+impl<Message: 'static> From<Button> for ElementInstance<Message> {
     fn from(widget: Button) -> Self {
         widget.into_rc().into()
     }

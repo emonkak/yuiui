@@ -11,7 +11,7 @@ use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
 use yuiui::ui::{xcb, Window};
-use yuiui::widget::{attribute, Children, Component, Element, ElementNode};
+use yuiui::widget::{attribute, Children, Component, Element, ElementInstance};
 use yuiui::widget_impl::button::Button;
 use yuiui::widget_impl::flex::{Flex, FlexParam};
 use yuiui::widget_impl::padding::Padding;
@@ -45,8 +45,8 @@ impl<Message: 'static> Component<Message> for App {
     }
 }
 
-impl<Message: 'static> From<App> for ElementNode<Message> {
-    fn from(component: App) -> ElementNode<Message> {
+impl<Message: 'static> From<App> for ElementInstance<Message> {
+    fn from(component: App) -> ElementInstance<Message> {
         component.into_rc().into()
     }
 }

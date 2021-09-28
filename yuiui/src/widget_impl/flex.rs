@@ -1,7 +1,7 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, Size};
-use crate::widget::{ElementNode, LayoutContext, Widget};
+use crate::widget::{ElementInstance, LayoutContext, Widget};
 
 #[derive(Debug, PartialEq)]
 pub struct Flex {
@@ -95,7 +95,7 @@ impl<Message> Widget<Message> for Flex {
     }
 }
 
-impl<Message: 'static> From<Flex> for ElementNode<Message> {
+impl<Message: 'static> From<Flex> for ElementInstance<Message> {
     fn from(widget: Flex) -> Self {
         widget.into_rc().into()
     }

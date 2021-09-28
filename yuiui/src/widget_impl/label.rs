@@ -3,7 +3,7 @@ use yuiui_support::slot_tree::NodeId;
 use crate::geometrics::Rectangle;
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
-use crate::widget::{DrawContext, ElementNode, Widget};
+use crate::widget::{DrawContext, ElementInstance, Widget};
 
 #[derive(Debug, PartialEq, Default)]
 pub struct Label {
@@ -45,7 +45,7 @@ impl<Message> Widget<Message> for Label {
     }
 }
 
-impl<Message: 'static> From<Label> for ElementNode<Message> {
+impl<Message: 'static> From<Label> for ElementInstance<Message> {
     fn from(widget: Label) -> Self {
         widget.into_rc().into()
     }

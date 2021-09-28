@@ -1,6 +1,6 @@
 use yuiui_support::slot_tree::NodeId;
 
-use super::{ElementNode, LayoutContext, Widget};
+use super::{ElementInstance, LayoutContext, Widget};
 use crate::geometrics::{BoxConstraints, Size, Viewport};
 
 #[derive(Debug)]
@@ -44,7 +44,7 @@ impl<Message> Widget<Message> for Root {
     }
 }
 
-impl<Message: 'static> From<Root> for ElementNode<Message> {
+impl<Message: 'static> From<Root> for ElementInstance<Message> {
     fn from(widget: Root) -> Self {
         widget.into_rc().into()
     }

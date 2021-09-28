@@ -18,7 +18,7 @@ pub use effect::Effect;
 pub use component::{BoxedComponent, Component};
 pub use component_proxy::ComponentProxy;
 pub use element::{
-    attribute, key, Child, Children, ComponentElement, Element, ElementNode, Key, WidgetElement,
+    attribute, key, Child, Children, ComponentElement, Element, ElementInstance, Key, WidgetElement,
 };
 pub use lifecycle::Lifecycle;
 pub use widget::{RcWidget, Widget};

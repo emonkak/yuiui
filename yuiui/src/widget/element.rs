@@ -23,19 +23,19 @@ impl<Message> Clone for Element<Message> {
 
 impl<Message> Element<Message> {
     pub fn new(
-        node: ElementNode<Message>,
+        node: ElementInstance<Message>,
         attributes: Rc<Attributes>,
         key: Option<Key>,
         children: Children<Message>,
     ) -> Self {
         match node {
-            ElementNode::Widget(widget) => Self::WidgetElement(WidgetElement {
+            ElementInstance::Widget(widget) => Self::WidgetElement(WidgetElement {
                 widget,
                 attributes,
                 key,
                 children,
             }),
-            ElementNode::Component(component) => Self::ComponentElement(ComponentElement {
+            ElementInstance::Component(component) => Self::ComponentElement(ComponentElement {
                 component,
                 attributes,
                 key,
@@ -45,7 +45,7 @@ impl<Message> Element<Message> {
     }
 
     pub fn create<const N: usize>(
-        node: impl Into<ElementNode<Message>>,
+        node: impl Into<ElementInstance<Message>>,
         child_nodes: [Child<Message>; N],
     ) -> Self {
         let mut attributes = Attributes::new();
@@ -105,18 +105,18 @@ impl<Message> Clone for ComponentElement<Message> {
 }
 
 #[derive(Clone, Debug)]
-pub enum ElementNode<Message> {
+pub enum ElementInstance<Message> {
     Widget(RcWidget<Message>),
     Component(BoxedComponent<Message>),
 }
 
-impl<Message> From<RcWidget<Message>> for ElementNode<Message> {
+impl<Message> From<RcWidget<Message>> for ElementInstance<Message> {
     fn from(widget: RcWidget<Message>) -> Self {
         Self::Widget(widget)
     }
 }
 
-impl<Message> From<BoxedComponent<Message>> for ElementNode<Message> {
+impl<Message> From<BoxedComponent<Message>> for ElementInstance<Message> {
     fn from(component: BoxedComponent<Message>) -> Self {
         Self::Component(component)
     }
@@ -152,7 +152,7 @@ impl<Message> From<Element<Message>> for Child<Message> {
     }
 }
 
-impl<T: 'static + Into<ElementNode<Message>>, Message> From<T> for Child<Message> {
+impl<T: 'static + Into<ElementInstance<Message>>, Message> From<T> for Child<Message> {
     fn from(node: T) -> Self {
         let element = Element::new(
             node.into(),
