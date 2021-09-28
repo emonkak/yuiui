@@ -31,7 +31,7 @@ impl<Window: self::Window> WindowContainer<Window> {
         &self.viewport
     }
 
-    pub fn resize(&mut self, size: PhysicalSize) -> bool {
+    pub fn resize_viewport(&mut self, size: PhysicalSize) -> bool {
         if self.viewport.physical_size() != size {
             self.viewport = Viewport::from_physical(size, self.viewport.scale_factor());
             true

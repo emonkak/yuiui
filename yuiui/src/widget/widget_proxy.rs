@@ -42,15 +42,11 @@ where
         )
     }
 
-    fn on_event(&self, event: &WindowEvent, state: &mut Self::State) -> Option<Effect<M>> {
+    fn on_event(&self, event: &WindowEvent, state: &mut Self::State) -> Effect<M> {
         self.widget.on_event(event, state.downcast_mut().unwrap())
     }
 
-    fn on_lifecycle(
-        &self,
-        lifecycle: Lifecycle<&dyn Any>,
-        state: &mut Self::State,
-    ) -> Option<Effect<M>> {
+    fn on_lifecycle(&self, lifecycle: Lifecycle<&dyn Any>, state: &mut Self::State) -> Effect<M> {
         self.widget.on_lifecycle(
             lifecycle.map(|widget| widget.downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),

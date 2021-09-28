@@ -87,7 +87,7 @@ impl<Message> Clone for WidgetElement<Message> {
 
 #[derive(Debug)]
 pub struct ComponentElement<Message> {
-    pub component: BoxedComponent<Message>,
+    pub component: RcComponent<Message>,
     pub children: Children<Message>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
@@ -107,7 +107,7 @@ impl<Message> Clone for ComponentElement<Message> {
 #[derive(Clone, Debug)]
 pub enum ElementInstance<Message> {
     Widget(RcWidget<Message>),
-    Component(BoxedComponent<Message>),
+    Component(RcComponent<Message>),
 }
 
 impl<Message> From<RcWidget<Message>> for ElementInstance<Message> {
@@ -116,8 +116,8 @@ impl<Message> From<RcWidget<Message>> for ElementInstance<Message> {
     }
 }
 
-impl<Message> From<BoxedComponent<Message>> for ElementInstance<Message> {
-    fn from(component: BoxedComponent<Message>) -> Self {
+impl<Message> From<RcComponent<Message>> for ElementInstance<Message> {
+    fn from(component: RcComponent<Message>) -> Self {
         Self::Component(component)
     }
 }

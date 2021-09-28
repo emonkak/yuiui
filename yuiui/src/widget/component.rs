@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::{short_type_name_of, AsAny, Children, ComponentProxy, Element};
 
-pub type BoxedComponent<Message> = Rc<dyn Component<Message, dyn Any, State = Box<dyn Any>>>;
+pub type RcComponent<Message> = Rc<dyn Component<Message, dyn Any, State = Box<dyn Any>>>;
 
 pub trait Component<Message, Own: ?Sized = Self>: AsAny {
     type State;
@@ -27,7 +27,7 @@ pub trait Component<Message, Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
-    fn into_rc(self) -> BoxedComponent<Message>
+    fn into_rc(self) -> RcComponent<Message>
     where
         Self: 'static + Sized + Component<Message>,
         <Self as Component<Message>>::State: 'static,

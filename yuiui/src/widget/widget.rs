@@ -4,7 +4,7 @@ use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
 use super::{
-    short_type_name_of, AsAny, Effect, DrawContext, LayoutContext, Lifecycle, WidgetProxy,
+    short_type_name_of, AsAny, DrawContext, Effect, LayoutContext, Lifecycle, WidgetProxy,
 };
 use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
@@ -21,16 +21,16 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         true
     }
 
-    fn on_event(&self, _event: &WindowEvent, _state: &mut Self::State) -> Option<Effect<Message>> {
-        None
+    fn on_event(&self, _event: &WindowEvent, _state: &mut Self::State) -> Effect<Message> {
+        Effect::None
     }
 
     fn on_lifecycle(
         &self,
         _lifecycle: Lifecycle<&Own>,
         _state: &mut Self::State,
-    ) -> Option<Effect<Message>> {
-        None
+    ) -> Effect<Message> {
+        Effect::None
     }
 
     fn layout(

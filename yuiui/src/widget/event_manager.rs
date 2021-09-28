@@ -16,10 +16,10 @@ impl EventManager {
         }
     }
 
-    pub fn get_listerners(&self, event_mask: WindowEventMask) -> Option<impl Iterator<Item = NodeId> + '_> {
+    pub fn get_listerners(&self, event_mask: WindowEventMask) -> Vec<NodeId> {
         self.listener_map
             .get(&event_mask)
-            .map(|listeners| listeners.iter().copied())
+            .map_or(Vec::new(), |listeners| listeners.iter().copied().collect())
     }
 
     pub fn add_listener(&mut self, id: NodeId, event_masks: BitFlags<WindowEventMask>) {

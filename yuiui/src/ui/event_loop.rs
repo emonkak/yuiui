@@ -3,7 +3,14 @@ use std::future::Future;
 use std::time::Instant;
 use tokio::task::JoinHandle;
 
-use crate::event::Event;
+use crate::event::WindowEvent;
+
+#[derive(Debug)]
+pub enum Event<Message, WindowId> {
+    LoopInitialized,
+    Message(Message),
+    WindowEvent(WindowId, WindowEvent),
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ControlFlow {

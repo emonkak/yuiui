@@ -20,7 +20,7 @@ pub struct Reconciler<Key, Id, Element> {
 }
 
 #[derive(Debug)]
-pub enum Patch<Id, Element> {
+pub enum ReconcileResult<Id, Element> {
     Append(Element),
     Insert(Id, Element),
     Update(Id, Element),
@@ -60,7 +60,7 @@ where
     Id: Copy,
     Key: Eq + Hash + Copy,
 {
-    type Item = Patch<Id, Element>;
+    type Item = ReconcileResult<Id, Element>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.old_head < self.old_edge && self.new_head < self.new_edge {
@@ -78,7 +78,7 @@ where
                 }
                 (true, _) if self.old_keys[self.old_head] == self.new_keys[self.new_head] => {
                     let old_head_id = self.old_ids[self.old_head].take().unwrap();
-                    let result = Patch::Update(
+                    let result = ReconcileResult::Update(
                         old_head_id,
                         self.new_elements[self.new_head].take().unwrap(),
                     );
@@ -91,7 +91,7 @@ where
                     if self.old_keys[self.old_edge - 1] == self.new_keys[self.new_edge - 1] =>
                 {
                     let old_tail_id = self.old_ids[self.old_edge - 1].take().unwrap();
-                    let result = Patch::Update(
+                    let result = ReconcileResult::Update(
                         old_tail_id,
                         self.new_elements[self.new_edge - 1].take().unwrap(),
                     );
@@ -105,7 +105,7 @@ where
                 {
                     let old_head_id = self.old_ids[self.old_head].take().unwrap();
                     let old_tail_id = self.old_ids[self.old_edge - 1].take().unwrap();
-                    let result = Patch::UpdateAndMove(
+                    let result = ReconcileResult::UpdateAndMove(
                         old_head_id,
                         old_tail_id,
                         self.new_elements[self.new_edge - 1].take().unwrap(),
@@ -120,7 +120,7 @@ where
                 {
                     let old_head_id = self.old_ids[self.old_head].take().unwrap();
                     let old_tail_id = self.old_ids[self.old_edge - 1].take().unwrap();
-                    let result = Patch::UpdateAndMove(
+                    let result = ReconcileResult::UpdateAndMove(
                         old_tail_id,
                         old_head_id,
                         self.new_elements[self.new_head].take().unwrap(),
@@ -143,12 +143,12 @@ where
 
                     if !new_keys_set.contains(&self.old_keys[self.old_head]) {
                         let old_head_id = self.old_ids[self.old_head].take().unwrap();
-                        let result = Patch::Remove(old_head_id);
+                        let result = ReconcileResult::Remove(old_head_id);
                         self.old_head += 1;
                         result
                     } else if !new_keys_set.contains(&self.old_keys[self.old_edge - 1]) {
                         let old_tail_id = self.old_ids[self.old_edge - 1].take().unwrap();
-                        let result = Patch::Remove(old_tail_id);
+                        let result = ReconcileResult::Remove(old_tail_id);
                         self.old_edge -= 1;
                         result
                     } else {
@@ -171,13 +171,13 @@ where
                             .and_then(|old_index| self.old_ids[old_index].take())
                         {
                             self.new_ids[self.new_edge - 1] = Some(old_id);
-                            Patch::UpdateAndMove(
+                            ReconcileResult::UpdateAndMove(
                                 old_id,
                                 old_head_id,
                                 self.new_elements[self.new_head].take().unwrap(),
                             )
                         } else {
-                            Patch::Insert(
+                            ReconcileResult::Insert(
                                 old_head_id,
                                 self.new_elements[self.new_head].take().unwrap(),
                             )
@@ -195,9 +195,9 @@ where
         while self.new_head < self.new_edge {
             let result = if self.new_edge < self.new_elements.len() {
                 let old_id = self.new_ids[self.new_edge].unwrap();
-                Patch::Insert(old_id, self.new_elements[self.new_head].take().unwrap())
+                ReconcileResult::Insert(old_id, self.new_elements[self.new_head].take().unwrap())
             } else {
-                Patch::Append(self.new_elements[self.new_head].take().unwrap())
+                ReconcileResult::Append(self.new_elements[self.new_head].take().unwrap())
             };
             self.new_head += 1;
             return Some(result);
@@ -206,7 +206,7 @@ where
         while self.old_head < self.old_edge {
             if let Some(old_head_id) = self.old_ids[self.old_head].take() {
                 self.old_head += 1;
-                return Some(Patch::Remove(old_head_id));
+                return Some(ReconcileResult::Remove(old_head_id));
             } else {
                 self.old_head += 1;
             }

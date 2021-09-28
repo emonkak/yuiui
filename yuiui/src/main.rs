@@ -73,13 +73,13 @@ fn main() {
 
     window_container.window().show();
 
-    let el = element!(App);
+    let element: Element<()> = element!(App);
 
     match env::var("RENDERER") {
         Ok(renderer_var) if renderer_var == "x11" => {
             let renderer =
                 xcb_graphics::Renderer::new(connection, screen_num, window_container.window().id());
-            application::run(window_container, event_loop, renderer, el).unwrap();
+            application::run(window_container, event_loop, renderer, element).unwrap();
         }
         _ => {
             let font_loader = FontLoader;
@@ -89,7 +89,7 @@ fn main() {
                 wgpu::Settings::default(),
             )
             .unwrap();
-            application::run(window_container, event_loop, renderer, el).unwrap();
+            application::run(window_container, event_loop, renderer, element).unwrap();
         }
     };
 }

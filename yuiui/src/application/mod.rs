@@ -1,4 +1,5 @@
-mod application;
+mod message;
 mod render_loop;
+mod runner;
 
-pub use application::{run, Message};
+pub use runner::run;

@@ -1,11 +1,38 @@
+use std::ops::Add;
 use yuiui_support::bit_flags::BitFlags;
 
+use super::Command;
 use crate::event::WindowEventMask;
-use super::command::Command;
 
 pub enum Effect<Message> {
+    None,
     AddListener(BitFlags<WindowEventMask>),
     RemoveListener(BitFlags<WindowEventMask>),
     Command(Command<Message>),
+    Batch(Vec<Effect<Message>>),
 }
 
+impl<Message> Add for Effect<Message> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (Self::None, y) => y,
+            (x, Self::None) => x,
+            (Self::Batch(mut xs), Self::Batch(ys)) => {
+                xs.extend(ys);
+                Self::Batch(xs)
+            }
+            (Self::Batch(mut xs), y) => {
+                xs.push(y);
+                Self::Batch(xs)
+            }
+            (x, Self::Batch(ys)) => {
+                let mut xs = vec![x];
+                xs.extend(ys);
+                Self::Batch(xs)
+            }
+            (x, y) => Self::Batch(vec![x, y]),
+        }
+    }
+}
