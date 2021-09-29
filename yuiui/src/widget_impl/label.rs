@@ -16,13 +16,13 @@ pub struct Label {
 }
 
 impl<Message> Widget<Message> for Label {
-    type State = ();
+    type LocalState = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> Self::LocalState {
+        ()
     }
 
-    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
+    fn should_update(&self, new_widget: &Self, _state: &Self::LocalState) -> bool {
         self != new_widget
     }
 
@@ -31,7 +31,7 @@ impl<Message> Widget<Message> for Label {
         bounds: Rectangle,
         _children: &[NodeId],
         _context: &mut DrawContext<Message>,
-        _state: &mut Self::State,
+        _state: &mut Self::LocalState,
     ) -> Primitive {
         Primitive::Text {
             bounds,

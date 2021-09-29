@@ -4,9 +4,9 @@ use crate::widget::{ElementInstance, Widget};
 pub struct Root;
 
 impl<Message> Widget<Message> for Root {
-    type State = ();
+    type LocalState = ();
 
-    fn initial_state(&self) -> Self::State {
+    fn initial_state(&self) -> Self::LocalState {
         ()
     }
 }

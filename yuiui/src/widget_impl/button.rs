@@ -10,10 +10,10 @@ pub struct Button {
 }
 
 impl<Message> Widget<Message> for Button {
-    type State = ();
+    type LocalState = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> Self::LocalState {
+        ()
     }
 
     fn draw(
@@ -21,7 +21,7 @@ impl<Message> Widget<Message> for Button {
         bounds: Rectangle,
         _children: &[NodeId],
         _context: &mut DrawContext<Message>,
-        _state: &mut Self::State,
+        _state: &mut Self::LocalState,
     ) -> Primitive {
         Primitive::Quad {
             bounds,

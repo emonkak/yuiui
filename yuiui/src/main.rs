@@ -19,13 +19,13 @@ use yuiui::widget_impl::padding::Padding;
 struct App;
 
 impl<Message: 'static> Component<Message> for App {
-    type State = ();
+    type LocalState = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> Self::LocalState {
+        ()
     }
 
-    fn render(&self, _children: &Children<Message>, _state: &Self::State) -> Element<Message> {
+    fn render(&self, _children: &Children<Message>, _state: &Self::LocalState) -> Element<Message> {
         element!(
             Flex::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [

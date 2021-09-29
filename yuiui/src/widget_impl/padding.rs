@@ -9,13 +9,13 @@ pub struct Padding {
 }
 
 impl<Message> Widget<Message> for Padding {
-    type State = ();
+    type LocalState = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> Self::LocalState {
+        ()
     }
 
-    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
+    fn should_update(&self, new_widget: &Self, _state: &Self::LocalState) -> bool {
         self != new_widget
     }
 
@@ -24,7 +24,7 @@ impl<Message> Widget<Message> for Padding {
         box_constraints: BoxConstraints,
         children: &[NodeId],
         context: &mut LayoutContext<Message>,
-        _state: &mut Self::State,
+        _state: &mut Self::LocalState,
     ) -> Size {
         assert_eq!(children.len(), 1, "Must to receive a single element child.");
         let child = children[0];

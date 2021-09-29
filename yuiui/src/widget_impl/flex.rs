@@ -23,13 +23,13 @@ impl Flex {
 }
 
 impl<Message> Widget<Message> for Flex {
-    type State = ();
+    type LocalState = ();
 
-    fn initial_state(&self) -> Self::State {
-        Self::State::default()
+    fn initial_state(&self) -> Self::LocalState {
+        ()
     }
 
-    fn should_update(&self, new_widget: &Self, _state: &Self::State) -> bool {
+    fn should_update(&self, new_widget: &Self, _state: &Self::LocalState) -> bool {
         self != new_widget
     }
 
@@ -38,7 +38,7 @@ impl<Message> Widget<Message> for Flex {
         box_constraints: BoxConstraints,
         children: &[NodeId],
         context: &mut LayoutContext<Message>,
-        _state: &mut Self::State,
+        _state: &mut Self::LocalState,
     ) -> Size {
         let mut flex_sum = 0.0;
         let mut total_non_flex = 0.0;
