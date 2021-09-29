@@ -7,7 +7,9 @@ use super::message::ApplicationMessage;
 use crate::geometrics::{Rectangle, Viewport};
 use crate::graphics::Primitive;
 use crate::ui::EventLoopContext;
-use crate::widget::{Command, Element, ElementTree, Event, UnitOfWork, Widget, WidgetTree};
+use crate::widget::{
+    Command, ComponentIndex, Element, ElementTree, Event, UnitOfWork, Widget, WidgetTree,
+};
 use crate::widget_impl::null::Null;
 
 #[derive(Debug)]
@@ -44,13 +46,12 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
 
     pub fn schedule_update(&mut self, id: NodeId, component_index: usize) {
         if self.work_in_progress.is_none() {
-            let node = RenderNode {
+            self.progress_roots.push(id);
+            self.work_in_progress = Some(RenderNode {
                 id,
                 component_index,
                 root: id,
-            };
-            self.progress_roots.push(node.root);
-            self.work_in_progress = Some(node);
+            });
         } else {
             if self
                 .pending_nodes
@@ -58,12 +59,11 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
                 .position(|node| node.root == id)
                 .is_none()
             {
-                let node = RenderNode {
+                self.pending_nodes.push_back(RenderNode {
                     id,
                     component_index,
                     root: id,
-                };
-                self.pending_nodes.push_back(node);
+                });
             }
         }
     }
@@ -82,8 +82,9 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         } else if !self.progress_roots.is_empty() {
             if !self.pending_works.is_empty() {
                 for unit_of_work in mem::take(&mut self.pending_works) {
-                    self.widget_tree
-                        .commit(unit_of_work, &|command| run_command(context, command));
+                    self.widget_tree.commit(unit_of_work, &|command, id| {
+                        run_command(context, command, id, ComponentIndex::MAX)
+                    });
                 }
             }
 
@@ -111,8 +112,9 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
     where
         Context: EventLoopContext<ApplicationMessage<Message>>,
     {
-        self.widget_tree
-            .dispatch(event, |command| run_command(context, command))
+        self.widget_tree.dispatch(event, |command, id| {
+            run_command(context, command, id, ComponentIndex::MAX)
+        })
     }
 
     fn process_node<Context>(&mut self, node: RenderNode, context: &Context)
@@ -123,16 +125,15 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
             node.id,
             node.component_index,
             node.root,
-            &|command| run_command(context, command),
+            &|command, id, component_index| run_command(context, command, id, component_index),
             &mut self.pending_works,
         );
         if let Some((id, component_index)) = next {
-            let node = RenderNode {
+            self.work_in_progress = Some(RenderNode {
                 id,
                 component_index,
                 root: node.root,
-            };
-            self.work_in_progress = Some(node);
+            });
         }
     }
 }
@@ -151,19 +152,26 @@ struct RenderNode {
     root: NodeId,
 }
 
-fn run_command<Message, Context>(context: &Context, command: Command<Message>)
-where
+fn run_command<Message, Context>(
+    context: &Context,
+    command: Command<Message>,
+    id: NodeId,
+    component_index: ComponentIndex,
+) where
     Message: 'static,
     Context: EventLoopContext<ApplicationMessage<Message>>,
 {
     match command {
+        Command::QuitApplication => context.send(ApplicationMessage::Quit),
+        Command::RequestUpdate => {
+            context.send(ApplicationMessage::RequestUpdate(id, component_index))
+        }
+        Command::Send(message) => context.send(ApplicationMessage::Broadcast(message)),
         Command::Perform(future) => {
             context.perform(future.map(ApplicationMessage::Broadcast));
         }
         Command::RequestIdle(callback) => {
             context.request_idle(|deadline| ApplicationMessage::Broadcast(callback(deadline)));
         }
-        Command::Send(message) => context.send(ApplicationMessage::Broadcast(message)),
-        Command::Quit => context.send(ApplicationMessage::Quit),
     }
 }

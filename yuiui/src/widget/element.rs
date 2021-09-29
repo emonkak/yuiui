@@ -169,7 +169,7 @@ where
 
 pub fn attribute<State, Message, Value>(value: Value) -> Child<State, Message>
 where
-    Value: 'static + AnyValue
+    Value: 'static + AnyValue,
 {
     Child::Attribute(Box::new(value))
 }

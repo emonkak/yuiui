@@ -8,11 +8,11 @@ use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 use super::event_manager::EventManager;
 use super::reconciler::{ReconcileResult, Reconciler};
 use super::{
-    Attributes, Lifecycle, Command, EventMask, Effect, Children, ComponentElement, Element, Key, RcComponent, RcWidget, UnitOfWork,
-    WidgetElement,
+    Attributes, Children, Command, ComponentElement, Effect, Element, EventMask, Key, Lifecycle,
+    RcComponent, RcWidget, UnitOfWork, WidgetElement,
 };
 
-type ComponentIndex = usize;
+pub type ComponentIndex = usize;
 
 #[derive(Debug)]
 pub struct ElementTree<State, Message> {
@@ -32,10 +32,7 @@ impl<State, Message> ElementTree<State, Message> {
             key: None,
             children: Rc::new(vec![element]),
         };
-        let element_node = ElementNode {
-            element: Some(element),
-            component_stack: Vec::new(),
-        };
+        let element_node = ElementNode::new(Some(element), Vec::new());
         Self {
             tree: SlotTree::new(element_node),
             event_manager: EventManager::new(),
@@ -51,19 +48,20 @@ impl<State, Message> ElementTree<State, Message> {
         pending_works: &mut Vec<UnitOfWork<State, Message>>,
     ) -> Option<(NodeId, ComponentIndex)>
     where
-        Handler: Fn(Command<Message>),
+        Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
         let mut cursor = self.tree.cursor_mut(id);
         let component_stack = &mut cursor.current().data_mut().component_stack;
 
         if component_index < component_stack.len() {
             let component = &mut component_stack[component_index];
-            let (is_updated, effect) = if let Some(pending_element) = component.pending_element.take() {
-                component.update(pending_element)
-            } else {
-                let effect = component.on_lifecycle(Lifecycle::Mounted);
-                (true, effect)
-            };
+            let (is_updated, effect) =
+                if let Some(pending_element) = component.pending_element.take() {
+                    component.update(pending_element)
+                } else {
+                    let effect = component.on_lifecycle(Lifecycle::Mounted);
+                    (true, effect)
+                };
 
             process_effect(
                 effect,
@@ -71,7 +69,7 @@ impl<State, Message> ElementTree<State, Message> {
                 component_index,
                 component,
                 command_handler,
-                &mut self.event_manager
+                &mut self.event_manager,
             );
 
             if is_updated {
@@ -85,12 +83,17 @@ impl<State, Message> ElementTree<State, Message> {
 
             Some((id, component_index + 1))
         } else {
-            let element = cursor.current().data_mut().element.as_ref().unwrap();
-            let children = (*element.children).clone();
-            let reconciler = create_reconciler(&mut cursor, children, component_index);
+            let element_node = cursor.current().data_mut();
+            if element_node.dirty {
+                element_node.dirty = false;
 
-            for result in reconciler {
-                self.commit(result, id, false, command_handler, pending_works)
+                let element = element_node.element.as_ref().expect("element not found");
+                let children = (*element.children).clone();
+                let reconciler = create_reconciler(&mut cursor, children, component_index);
+
+                for result in reconciler {
+                    self.commit(result, id, false, command_handler, pending_works)
+                }
             }
 
             self.tree
@@ -108,25 +111,21 @@ impl<State, Message> ElementTree<State, Message> {
         in_component_rendering: bool,
         command_handler: &Handler,
         pending_works: &mut Vec<UnitOfWork<State, Message>>,
-    )
-    where
-        Handler: Fn(Command<Message>),
+    ) where
+        Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
         match result {
             ReconcileResult::Append(Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(parent);
                 if in_component_rendering {
-                    let widget_node = cursor.current().data_mut();
-                    widget_node.element = Some(element.clone());
+                    let element_node = cursor.current().data_mut();
+                    element_node.element = Some(element.clone());
                     pending_works.push(UnitOfWork::Append(
-                        cursor.current().parent().unwrap(),
+                        cursor.current().parent().expect("parent node not found"),
                         element,
                     ))
                 } else {
-                    cursor.append_child(ElementNode {
-                        element: Some(element.clone()),
-                        component_stack: Vec::new(),
-                    });
+                    cursor.append_child(ElementNode::new(Some(element.clone()), Vec::new()));
                     pending_works.push(UnitOfWork::Append(parent, element))
                 }
             }
@@ -136,31 +135,22 @@ impl<State, Message> ElementTree<State, Message> {
                 if in_component_rendering {
                     cursor.current().data_mut().component_stack.push(component);
                 } else {
-                    cursor.append_child(ElementNode {
-                        element: None,
-                        component_stack: vec![component],
-                    });
+                    cursor.append_child(ElementNode::new(None, vec![component]));
                 }
             }
             ReconcileResult::Insert(reference, Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(reference.id());
-                cursor.insert_before(ElementNode {
-                    element: Some(element.clone()),
-                    component_stack: Vec::new(),
-                });
+                cursor.insert_before(ElementNode::new(Some(element.clone()), Vec::new()));
                 pending_works.push(UnitOfWork::Insert(reference.id(), element))
             }
             ReconcileResult::Insert(reference, Element::ComponentElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(reference.id());
                 let component = ComponentPod::from_element(element);
-                cursor.insert_before(ElementNode {
-                    element: None,
-                    component_stack: vec![component],
-                });
+                cursor.insert_before(ElementNode::new(None, vec![component]));
             }
             ReconcileResult::Update(ElementId::Widget(id), Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                cursor.current().data_mut().element = Some(element.clone());
+                cursor.current().data_mut().update(element.clone());
                 pending_works.push(UnitOfWork::Update(id, element))
             }
             ReconcileResult::Update(
@@ -177,7 +167,7 @@ impl<State, Message> ElementTree<State, Message> {
                 Element::WidgetElement(element),
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                cursor.current().data_mut().element = Some(element.clone());
+                cursor.current().data_mut().update(element.clone());
                 cursor.move_before(reference.id());
                 pending_works.push(UnitOfWork::UpdateAndMove(id, reference.id(), element))
             }
@@ -198,8 +188,12 @@ impl<State, Message> ElementTree<State, Message> {
             }
             ReconcileResult::Remove(ElementId::Component(id, component_index)) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let mut widget_node = cursor.current().data_mut();
-                for (component_index, mut component) in widget_node.component_stack.drain(component_index..).enumerate() {
+                let mut element_node = cursor.current().data_mut();
+                for (component_index, mut component) in element_node
+                    .component_stack
+                    .drain(component_index..)
+                    .enumerate()
+                {
                     let effect = component.on_lifecycle(Lifecycle::Unmounted);
                     process_effect(
                         effect,
@@ -207,11 +201,11 @@ impl<State, Message> ElementTree<State, Message> {
                         component_index,
                         &mut component,
                         command_handler,
-                        &mut self.event_manager
+                        &mut self.event_manager,
                     );
                 }
                 if component_index > 0 {
-                    widget_node.element = None;
+                    element_node.element = None;
                     let _ = cursor.drain_descendants();
                     pending_works.push(UnitOfWork::RemoveChildren(id))
                 } else {
@@ -234,6 +228,25 @@ impl<State: fmt::Debug, Message: fmt::Debug> fmt::Display for ElementTree<State,
 struct ElementNode<State, Message> {
     element: Option<WidgetElement<State, Message>>,
     component_stack: Vec<ComponentPod<State, Message>>,
+    dirty: bool,
+}
+
+impl<State, Message> ElementNode<State, Message> {
+    fn new(
+        element: Option<WidgetElement<State, Message>>,
+        component_stack: Vec<ComponentPod<State, Message>>,
+    ) -> Self {
+        Self {
+            element,
+            component_stack,
+            dirty: true,
+        }
+    }
+
+    fn update(&mut self, element: WidgetElement<State, Message>) {
+        self.element = Some(element);
+        self.dirty = true;
+    }
 }
 
 #[derive(Debug)]
@@ -271,9 +284,7 @@ impl<State, Message> ComponentPod<State, Message> {
             );
 
         let effect = if should_update {
-            self.on_lifecycle(
-                Lifecycle::Updated(element.component.as_any()),
-            )
+            self.on_lifecycle(Lifecycle::Updated(element.component.as_any()))
         } else {
             Effect::None
         };
@@ -286,10 +297,7 @@ impl<State, Message> ComponentPod<State, Message> {
     }
 
     fn on_lifecycle(&mut self, lifecycle: Lifecycle<&dyn Any>) -> Effect<Message> {
-        self.component.on_lifecycle(
-            lifecycle,
-            &mut self.state,
-        )
+        self.component.on_lifecycle(lifecycle, &mut self.state)
     }
 
     fn render(&self) -> Element<State, Message> {
@@ -348,7 +356,7 @@ fn create_reconciler<State, Message>(
             let id = ElementId::Component(child_id, component_index);
             (key, id)
         } else {
-            let element = child_node.element.as_ref().unwrap();
+            let element = child_node.element.as_ref().expect("element not found");
             let type_id = element.widget.as_any().type_id();
             let key = TypedKey::new(type_id, element.key, index);
             let id = ElementId::Widget(child_id);
@@ -385,7 +393,7 @@ fn process_effect<State, Message, Handler>(
     command_handler: &Handler,
     event_manager: &mut EventManager<(NodeId, ComponentIndex)>,
 ) where
-    Handler: Fn(Command<Message>),
+    Handler: Fn(Command<Message>, NodeId, ComponentIndex),
 {
     let mut queue = VecDeque::new();
     let mut current = effect;
@@ -403,7 +411,7 @@ fn process_effect<State, Message, Handler>(
                 event_manager.remove_listener((id, component_index), removed_events);
                 component.event_mask ^= event_mask;
             }
-            Effect::Command(command) => command_handler(command),
+            Effect::Command(command) => command_handler(command, id, component_index),
             Effect::Batch(effects) => queue.extend(effects),
         }
 

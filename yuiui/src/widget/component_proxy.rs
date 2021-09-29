@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::marker::PhantomData;
 
-use super::{Children, Component, Event, Element, Effect, Lifecycle};
+use super::{Children, Component, Effect, Element, Event, Lifecycle};
 
 pub struct ComponentProxy<C, S, M, LS> {
     component: C,

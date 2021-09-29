@@ -25,7 +25,11 @@ impl<State: 'static, Message: 'static> Component<State, Message> for App {
         ()
     }
 
-    fn render(&self, _children: &Children<State, Message>, _state: &Self::LocalState) -> Element<State, Message> {
+    fn render(
+        &self,
+        _children: &Children<State, Message>,
+        _state: &Self::LocalState,
+    ) -> Element<State, Message> {
         element!(
             Flex::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [

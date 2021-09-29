@@ -18,7 +18,7 @@ impl<Listener> EventManager<Listener> {
 
     pub fn get_listerners(&self, event_mask: EventMask) -> Vec<Listener>
     where
-        Listener: Copy
+        Listener: Copy,
     {
         self.listener_map
             .get(&event_mask)
@@ -27,16 +27,19 @@ impl<Listener> EventManager<Listener> {
 
     pub fn add_listener(&mut self, listener: Listener, event_masks: BitFlags<EventMask>)
     where
-        Listener: Copy + Eq + Hash
+        Listener: Copy + Eq + Hash,
     {
         for event_mask in event_masks.iter() {
-            self.listener_map.entry(event_mask).or_default().insert(listener);
+            self.listener_map
+                .entry(event_mask)
+                .or_default()
+                .insert(listener);
         }
     }
 
     pub fn remove_listener(&mut self, listener: Listener, event_masks: BitFlags<EventMask>)
     where
-        Listener: Eq + Hash
+        Listener: Eq + Hash,
     {
         for event_mask in event_masks.iter() {
             if let Some(listeners) = self.listener_map.get_mut(&event_mask) {

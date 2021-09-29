@@ -44,7 +44,11 @@ where
         )
     }
 
-    fn on_lifecycle(&self, lifecycle: Lifecycle<&dyn Any>, state: &mut Self::LocalState) -> Effect<M> {
+    fn on_lifecycle(
+        &self,
+        lifecycle: Lifecycle<&dyn Any>,
+        state: &mut Self::LocalState,
+    ) -> Effect<M> {
         self.widget.on_lifecycle(
             lifecycle.map(|widget| widget.downcast_ref().unwrap()),
             state.downcast_mut().unwrap(),

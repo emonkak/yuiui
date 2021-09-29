@@ -17,13 +17,13 @@ mod widget_tree;
 pub use attributes::{AnyValue, Attributes};
 pub use command::Command;
 pub use component::{Component, RcComponent};
-pub use event::{Event, EventMask};
 pub use component_proxy::ComponentProxy;
 pub use effect::Effect;
 pub use element::{
     attribute, key, Child, Children, ComponentElement, Element, ElementInstance, Key, WidgetElement,
 };
-pub use element_tree::ElementTree;
+pub use element_tree::{ComponentIndex, ElementTree};
+pub use event::{Event, EventMask};
 pub use lifecycle::Lifecycle;
 pub use unit_of_work::UnitOfWork;
 pub use widget::{RcWidget, Widget};

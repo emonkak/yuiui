@@ -4,12 +4,13 @@ use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
 
 use super::{
-    short_type_name_of, Event, AsAny, DrawContext, Effect, LayoutContext, Lifecycle, WidgetProxy,
+    short_type_name_of, AsAny, DrawContext, Effect, Event, LayoutContext, Lifecycle, WidgetProxy,
 };
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
-pub type RcWidget<State, Message> = Rc<dyn Widget<State, Message, dyn Any, LocalState = Box<dyn Any>>>;
+pub type RcWidget<State, Message> =
+    Rc<dyn Widget<State, Message, dyn Any, LocalState = Box<dyn Any>>>;
 
 pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
     type LocalState;
@@ -73,7 +74,9 @@ pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
     }
 }
 
-impl<State, Message, Own: ?Sized, LocalState> fmt::Debug for dyn Widget<State, Message, Own, LocalState = LocalState> {
+impl<State, Message, Own: ?Sized, LocalState> fmt::Debug
+    for dyn Widget<State, Message, Own, LocalState = LocalState>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = short_type_name_of(self.type_name());
         f.debug_struct(name).finish_non_exhaustive()

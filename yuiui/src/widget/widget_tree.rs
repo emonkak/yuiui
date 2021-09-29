@@ -7,7 +7,9 @@ use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{NodeId, SlotTree};
 
 use super::event_manager::EventManager;
-use super::{Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork, WidgetElement};
+use super::{
+    Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork, WidgetElement,
+};
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
 
@@ -25,9 +27,12 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn commit<Handler>(&mut self, unit_of_work: UnitOfWork<State, Message>, command_handler: &Handler)
-    where
-        Handler: Fn(Command<Message>),
+    pub fn commit<Handler>(
+        &mut self,
+        unit_of_work: UnitOfWork<State, Message>,
+        command_handler: &Handler,
+    ) where
+        Handler: Fn(Command<Message>, NodeId),
     {
         match unit_of_work {
             UnitOfWork::Append(parent, element) => {
@@ -118,7 +123,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
     pub fn dispatch<Handler>(&mut self, event: &Event<State>, command_handler: Handler)
     where
-        Handler: Fn(Command<Message>),
+        Handler: Fn(Command<Message>, NodeId),
     {
         let event_mask = event.event_mask();
 
@@ -425,7 +430,7 @@ fn process_effect<State, Message, Handler>(
     command_handler: &Handler,
     event_manager: &mut EventManager<NodeId>,
 ) where
-    Handler: Fn(Command<Message>),
+    Handler: Fn(Command<Message>, NodeId),
 {
     let mut queue = VecDeque::new();
     let mut current = effect;
@@ -443,7 +448,7 @@ fn process_effect<State, Message, Handler>(
                 event_manager.remove_listener(id, removed_events);
                 widget.event_mask ^= event_mask;
             }
-            Effect::Command(command) => command_handler(command),
+            Effect::Command(command) => command_handler(command, id),
             Effect::Batch(effects) => queue.extend(effects),
         }
 
