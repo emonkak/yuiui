@@ -177,7 +177,7 @@ impl<State, Message> fmt::Display for WidgetTree<State, Message> {
 }
 
 #[derive(Debug)]
-pub struct WidgetNode<State, Message> {
+struct WidgetNode<State, Message> {
     widget: RefCell<WidgetPod<State, Message>>,
 }
 
@@ -210,7 +210,7 @@ impl<State, Message> fmt::Display for WidgetNode<State, Message> {
 }
 
 #[derive(Debug)]
-pub struct WidgetPod<State, Message> {
+struct WidgetPod<State, Message> {
     widget: RcWidget<State, Message>,
     attributes: Rc<Attributes>,
     state: Box<dyn Any>,
