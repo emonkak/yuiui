@@ -44,7 +44,7 @@ impl<State, Message> ElementTree<State, Message> {
         id: NodeId,
         component_index: ComponentIndex,
         root: NodeId,
-        command_handler: &Handler,
+        handler: &Handler,
         pending_works: &mut Vec<UnitOfWork<State, Message>>,
     ) -> Option<(NodeId, ComponentIndex)>
     where
@@ -68,7 +68,7 @@ impl<State, Message> ElementTree<State, Message> {
                 id,
                 component_index,
                 component,
-                command_handler,
+                handler,
                 &mut self.event_manager,
             );
 
@@ -81,7 +81,7 @@ impl<State, Message> ElementTree<State, Message> {
                 );
 
                 for result in reconciler {
-                    self.commit(result, id, true, command_handler, pending_works)
+                    self.commit(result, id, true, handler, pending_works)
                 }
             }
 
@@ -96,7 +96,7 @@ impl<State, Message> ElementTree<State, Message> {
                 let reconciler = create_reconciler(cursor.children(), children, component_index);
 
                 for result in reconciler {
-                    self.commit(result, id, false, command_handler, pending_works)
+                    self.commit(result, id, false, handler, pending_works)
                 }
             }
 
@@ -108,7 +108,7 @@ impl<State, Message> ElementTree<State, Message> {
         }
     }
 
-    pub fn dispatch<Handler>(&mut self, event: &Event<State>, command_handler: Handler)
+    pub fn dispatch<Handler>(&mut self, event: &Event<State>, handler: Handler)
     where
         Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
@@ -133,7 +133,7 @@ impl<State, Message> ElementTree<State, Message> {
                 id,
                 component_index,
                 component,
-                &command_handler,
+                &handler,
                 &mut self.event_manager,
             );
         }
@@ -144,7 +144,7 @@ impl<State, Message> ElementTree<State, Message> {
         reconcile_result: ReconcileResult<ElementId, Element<State, Message>>,
         parent: NodeId,
         in_component_rendering: bool,
-        command_handler: &Handler,
+        handler: &Handler,
         pending_works: &mut Vec<UnitOfWork<State, Message>>,
     ) where
         Handler: Fn(Command<Message>, NodeId, ComponentIndex),
@@ -235,7 +235,7 @@ impl<State, Message> ElementTree<State, Message> {
                         id,
                         component_index,
                         &mut component,
-                        command_handler,
+                        handler,
                         &mut self.event_manager,
                     );
                 }
@@ -451,7 +451,7 @@ fn process_effect<State, Message, Handler>(
     id: NodeId,
     component_index: ComponentIndex,
     component: &mut ComponentPod<State, Message>,
-    command_handler: &Handler,
+    handler: &Handler,
     event_manager: &mut EventManager<(NodeId, ComponentIndex)>,
 ) where
     Handler: Fn(Command<Message>, NodeId, ComponentIndex),
@@ -472,7 +472,7 @@ fn process_effect<State, Message, Handler>(
                 event_manager.remove_listener((id, component_index), removed_events);
                 component.event_mask ^= event_mask;
             }
-            Effect::Command(command) => command_handler(command, id, component_index),
+            Effect::Command(command) => handler(command, id, component_index),
             Effect::Batch(effects) => queue.extend(effects),
         }
 

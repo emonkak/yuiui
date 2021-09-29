@@ -30,7 +30,7 @@ impl<State, Message> WidgetTree<State, Message> {
     pub fn commit<Handler>(
         &mut self,
         unit_of_work: UnitOfWork<State, Message>,
-        command_handler: &Handler,
+        handler: &Handler,
     ) where
         Handler: Fn(Command<Message>, NodeId),
     {
@@ -44,7 +44,7 @@ impl<State, Message> WidgetTree<State, Message> {
                     effect,
                     id,
                     &mut widget,
-                    &command_handler,
+                    &handler,
                     &mut self.event_manager,
                 );
                 cursor.append_child(WidgetNode::from(widget));
@@ -58,7 +58,7 @@ impl<State, Message> WidgetTree<State, Message> {
                     effect,
                     id,
                     &mut widget,
-                    &command_handler,
+                    &handler,
                     &mut self.event_manager,
                 );
                 cursor.insert_before(WidgetNode::from(widget));
@@ -71,7 +71,7 @@ impl<State, Message> WidgetTree<State, Message> {
                     effect,
                     id,
                     widget,
-                    &command_handler,
+                    &handler,
                     &mut self.event_manager,
                 );
             }
@@ -83,7 +83,7 @@ impl<State, Message> WidgetTree<State, Message> {
                     effect,
                     id,
                     widget,
-                    &command_handler,
+                    &handler,
                     &mut self.event_manager,
                 );
                 cursor.move_before(reference);
@@ -98,7 +98,7 @@ impl<State, Message> WidgetTree<State, Message> {
                         effect,
                         id,
                         &mut widget,
-                        &command_handler,
+                        &handler,
                         &mut self.event_manager,
                     );
                 }
@@ -113,7 +113,7 @@ impl<State, Message> WidgetTree<State, Message> {
                         effect,
                         id,
                         &mut widget,
-                        &command_handler,
+                        &handler,
                         &mut self.event_manager,
                     );
                 }
@@ -121,7 +121,7 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn dispatch<Handler>(&mut self, event: &Event<State>, command_handler: Handler)
+    pub fn dispatch<Handler>(&mut self, event: &Event<State>, handler: Handler)
     where
         Handler: Fn(Command<Message>, NodeId),
     {
@@ -135,7 +135,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 effect,
                 id,
                 widget,
-                &command_handler,
+                &handler,
                 &mut self.event_manager,
             );
         }
@@ -469,7 +469,7 @@ fn process_effect<State, Message, Handler>(
     effect: Effect<Message>,
     id: NodeId,
     widget: &mut WidgetPod<State, Message>,
-    command_handler: &Handler,
+    handler: &Handler,
     event_manager: &mut EventManager<NodeId>,
 ) where
     Handler: Fn(Command<Message>, NodeId),
@@ -490,7 +490,7 @@ fn process_effect<State, Message, Handler>(
                 event_manager.remove_listener(id, removed_events);
                 widget.event_mask ^= event_mask;
             }
-            Effect::Command(command) => command_handler(command, id),
+            Effect::Command(command) => handler(command, id),
             Effect::Batch(effects) => queue.extend(effects),
         }
 

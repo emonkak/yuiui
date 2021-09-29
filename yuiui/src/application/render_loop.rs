@@ -1,12 +1,9 @@
-use futures::FutureExt;
 use std::collections::VecDeque;
 use std::mem;
 use yuiui_support::slot_tree::NodeId;
 
-use super::message::ApplicationMessage;
 use crate::geometrics::{Rectangle, Viewport};
 use crate::graphics::Primitive;
-use crate::ui::EventLoopContext;
 use crate::widget::{
     Command, ComponentIndex, Element, ElementTree, Event, UnitOfWork, Widget, WidgetTree,
 };
@@ -72,22 +69,22 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         }
     }
 
-    pub fn render<Context>(&mut self, viewport: &Viewport, context: &Context) -> RenderFlow
+    pub fn render<Handler>(&mut self, viewport: &Viewport, handler: &Handler) -> RenderFlow
     where
-        Context: EventLoopContext<ApplicationMessage<Message>>,
+        Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
         if let Some(node) = self.work_in_progress.take() {
-            self.process_node(node, context);
+            self.process_node(node, handler);
             RenderFlow::Continue
         } else if let Some(node) = self.pending_nodes.pop_front() {
             self.progress_roots.push(node.root);
-            self.process_node(node, context);
+            self.process_node(node, handler);
             RenderFlow::Continue
         } else if !self.progress_roots.is_empty() {
             if !self.pending_works.is_empty() {
                 for unit_of_work in mem::take(&mut self.pending_works) {
                     self.widget_tree.commit(unit_of_work, &|command, id| {
-                        run_command(context, command, id, ComponentIndex::MAX)
+                        handler(command, id, ComponentIndex::MAX)
                     });
                 }
             }
@@ -112,28 +109,26 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         }
     }
 
-    pub fn dispatch<Context>(&mut self, event: &Event<State>, context: &Context)
+    pub fn dispatch<Handler>(&mut self, event: &Event<State>, handler: &Handler)
     where
-        Context: EventLoopContext<ApplicationMessage<Message>>,
+        Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
         self.element_tree
-            .dispatch(event, |command, id, component_index| {
-                run_command(context, command, id, component_index)
-            });
+            .dispatch(event, handler);
         self.widget_tree.dispatch(event, |command, id| {
-            run_command(context, command, id, ComponentIndex::MAX)
+            handler(command, id, ComponentIndex::MAX)
         })
     }
 
-    fn process_node<Context>(&mut self, node: RenderNode, context: &Context)
+    fn process_node<Handler>(&mut self, node: RenderNode, handler: &Handler)
     where
-        Context: EventLoopContext<ApplicationMessage<Message>>,
+        Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
         let next = self.element_tree.render(
             node.id,
             node.component_index,
             node.root,
-            &|command, id, component_index| run_command(context, command, id, component_index),
+            handler,
             &mut self.pending_works,
         );
         if let Some((id, component_index)) = next {
@@ -158,28 +153,4 @@ struct RenderNode {
     id: NodeId,
     component_index: usize,
     root: NodeId,
-}
-
-fn run_command<Message, Context>(
-    context: &Context,
-    command: Command<Message>,
-    id: NodeId,
-    component_index: ComponentIndex,
-) where
-    Message: 'static,
-    Context: EventLoopContext<ApplicationMessage<Message>>,
-{
-    match command {
-        Command::QuitApplication => context.send(ApplicationMessage::Quit),
-        Command::RequestUpdate => {
-            context.send(ApplicationMessage::RequestUpdate(id, component_index))
-        }
-        Command::Send(message) => context.send(ApplicationMessage::Broadcast(message)),
-        Command::Perform(future) => {
-            context.perform(future.map(ApplicationMessage::Broadcast));
-        }
-        Command::RequestIdle(callback) => {
-            context.request_idle(|deadline| ApplicationMessage::Broadcast(callback(deadline)));
-        }
-    }
 }

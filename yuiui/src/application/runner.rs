@@ -1,15 +1,16 @@
+use futures::FutureExt;
 use std::error;
 use std::time::{Duration, Instant};
 use yuiui_support::slot_tree::NodeId;
 
-use super::message::ApplicationMessage;
+use super::message::InternalMessage;
 use super::{RenderFlow, RenderLoop, Store};
 use crate::event::WindowEvent;
 use crate::graphics::{Color, Primitive, Renderer};
 use crate::ui::{
     ControlFlow, Event as UIEvent, EventLoop, EventLoopContext, Window, WindowContainer,
 };
-use crate::widget::Event;
+use crate::widget::{Command, ComponentIndex, Event};
 
 pub fn run<State, Reducer, Message, Window, EventLoop, Renderer>(
     mut render_loop: RenderLoop<State, Message>,
@@ -23,7 +24,7 @@ where
     Reducer: Fn(&mut State, Message) -> bool,
     Message: 'static,
     Window: 'static + self::Window,
-    EventLoop: 'static + self::EventLoop<ApplicationMessage<Message>, WindowId = Window::Id>,
+    EventLoop: 'static + self::EventLoop<InternalMessage<Message>, WindowId = Window::Id>,
     Renderer: 'static + self::Renderer,
 {
     let viewport = window_container.viewport();
@@ -31,24 +32,25 @@ where
     let mut surface = renderer.create_surface(viewport);
 
     event_loop.run(|event, context| {
-        println!("EVENT: {:?}", event);
         match event {
             UIEvent::LoopInitialized => {
-                context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
+                context.request_idle(|deadline| InternalMessage::RequestRender(deadline));
             }
-            UIEvent::Message(ApplicationMessage::Quit) => return ControlFlow::Break,
-            UIEvent::Message(ApplicationMessage::RequestUpdate(id, component_index)) => {
+            UIEvent::Message(InternalMessage::Quit) => return ControlFlow::Break,
+            UIEvent::Message(InternalMessage::RequestUpdate(id, component_index)) => {
                 if render_loop.schedule_update(id, component_index) {
-                    context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
+                    context.request_idle(|deadline| InternalMessage::RequestRender(deadline));
                 }
             }
-            UIEvent::Message(ApplicationMessage::RequestRender(deadline)) => loop {
+            UIEvent::Message(InternalMessage::RequestRender(deadline)) => loop {
                 let viewport = window_container.viewport();
-                match render_loop.render(viewport, context) {
+                match render_loop.render(viewport, &|command, id, component_index| {
+                    run_command(context, command, id, component_index)
+                }) {
                     RenderFlow::Continue => {
                         if deadline - Instant::now() < Duration::from_millis(1) {
                             context.request_idle(|deadline| {
-                                ApplicationMessage::RequestRender(deadline)
+                                InternalMessage::RequestRender(deadline)
                             });
                             break;
                         }
@@ -67,32 +69,42 @@ where
                     RenderFlow::Idle => break,
                 }
             },
-            UIEvent::Message(ApplicationMessage::Broadcast(message)) => {
+            UIEvent::Message(InternalMessage::Broadcast(message)) => {
                 if store.dispatch(message) {
-                    render_loop.dispatch(&Event::StateChanged(store.state()), context);
+                    render_loop.dispatch(&Event::StateChanged(store.state()), &|command, id, component_index| {
+                        run_command(context, command, id, component_index)
+                    });
                 }
             }
             UIEvent::WindowEvent(_, WindowEvent::RedrawRequested(bounds)) => {
                 let viewport = window_container.viewport();
                 renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, Color::WHITE);
-                render_loop.dispatch(&WindowEvent::RedrawRequested(bounds).into(), context);
+                render_loop.dispatch(&WindowEvent::RedrawRequested(bounds).into(), &|command, id, component_index| {
+                    run_command(context, command, id, component_index)
+                });
             }
             UIEvent::WindowEvent(_, WindowEvent::SizeChanged(size)) => {
                 if window_container.resize_viewport(size) {
                     let viewport = window_container.viewport();
                     renderer.configure_surface(&mut surface, &viewport);
                     if render_loop.schedule_update(NodeId::ROOT, 0) {
-                        context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
+                        context.request_idle(|deadline| InternalMessage::RequestRender(deadline));
                     }
                 }
-                render_loop.dispatch(&WindowEvent::SizeChanged(size).into(), context);
+                render_loop.dispatch(&WindowEvent::SizeChanged(size).into(), &|command, id, component_index| {
+                    run_command(context, command, id, component_index)
+                });
             }
             UIEvent::WindowEvent(_, WindowEvent::Closed) => {
-                render_loop.dispatch(&WindowEvent::Closed.into(), context);
+                render_loop.dispatch(&WindowEvent::Closed.into(), &|command, id, component_index| {
+                    run_command(context, command, id, component_index)
+                });
                 return ControlFlow::Break;
             }
             UIEvent::WindowEvent(_, event) => {
-                render_loop.dispatch(&event.into(), context);
+                render_loop.dispatch(&event.into(), &|command, id, component_index| {
+                    run_command(context, command, id, component_index)
+                });
             }
         }
 
@@ -100,4 +112,28 @@ where
     })?;
 
     Ok(())
+}
+
+fn run_command<Message, Context>(
+    context: &Context,
+    command: Command<Message>,
+    id: NodeId,
+    component_index: ComponentIndex,
+) where
+    Message: 'static,
+    Context: EventLoopContext<InternalMessage<Message>>,
+{
+    match command {
+        Command::QuitApplication => context.send(InternalMessage::Quit),
+        Command::RequestUpdate => {
+            context.send(InternalMessage::RequestUpdate(id, component_index))
+        }
+        Command::Send(message) => context.send(InternalMessage::Broadcast(message)),
+        Command::Perform(future) => {
+            context.perform(future.map(InternalMessage::Broadcast));
+        }
+        Command::RequestIdle(callback) => {
+            context.request_idle(|deadline| InternalMessage::Broadcast(callback(deadline)));
+        }
+    }
 }
