@@ -12,17 +12,17 @@ use crate::widget::{Command, Element, ElementTree, UnitOfWork, Widget, WidgetTre
 use crate::widget_impl::root::Root;
 
 #[derive(Debug)]
-pub struct RenderLoop<Message> {
-    element_tree: ElementTree<Message>,
-    widget_tree: WidgetTree<Message>,
+pub struct RenderLoop<State, Message> {
+    element_tree: ElementTree<State, Message>,
+    widget_tree: WidgetTree<State, Message>,
     work_in_progress: Option<RenderNode>,
     progress_roots: Vec<NodeId>,
     pending_nodes: VecDeque<RenderNode>,
-    pending_works: Vec<UnitOfWork<Message>>,
+    pending_works: Vec<UnitOfWork<State, Message>>,
 }
 
-impl<Message: 'static> RenderLoop<Message> {
-    pub fn new(element: Element<Message>) -> Self {
+impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
+    pub fn new(element: Element<State, Message>) -> Self {
         let root_widget = Root.into_rc();
         let element_tree = ElementTree::new(root_widget.clone(), element);
         let widget_tree = WidgetTree::new(root_widget);

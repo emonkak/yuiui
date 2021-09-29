@@ -9,7 +9,7 @@ pub struct Button {
     pub background: Background,
 }
 
-impl<Message> Widget<Message> for Button {
+impl<State, Message> Widget<State, Message> for Button {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
@@ -20,7 +20,7 @@ impl<Message> Widget<Message> for Button {
         &self,
         bounds: Rectangle,
         _children: &[NodeId],
-        _context: &mut DrawContext<Message>,
+        _context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Primitive {
         Primitive::Quad {
@@ -33,7 +33,7 @@ impl<Message> Widget<Message> for Button {
     }
 }
 
-impl<Message: 'static> From<Button> for ElementInstance<Message> {
+impl<State: 'static, Message: 'static> From<Button> for ElementInstance<State, Message> {
     fn from(widget: Button) -> Self {
         widget.into_rc().into()
     }

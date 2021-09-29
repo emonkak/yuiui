@@ -18,14 +18,14 @@ use yuiui::widget_impl::padding::Padding;
 
 struct App;
 
-impl<Message: 'static> Component<Message> for App {
+impl<State: 'static, Message: 'static> Component<State, Message> for App {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
         ()
     }
 
-    fn render(&self, _children: &Children<Message>, _state: &Self::LocalState) -> Element<Message> {
+    fn render(&self, _children: &Children<State, Message>, _state: &Self::LocalState) -> Element<State, Message> {
         element!(
             Flex::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [
@@ -45,8 +45,8 @@ impl<Message: 'static> Component<Message> for App {
     }
 }
 
-impl<Message: 'static> From<App> for ElementInstance<Message> {
-    fn from(component: App) -> ElementInstance<Message> {
+impl<State: 'static, Message: 'static> From<App> for ElementInstance<State, Message> {
+    fn from(component: App) -> ElementInstance<State, Message> {
         component.into_rc().into()
     }
 }
@@ -73,7 +73,7 @@ fn main() {
 
     window_container.window().show();
 
-    let element: Element<()> = element!(App);
+    let element: Element<(), ()> = element!(App);
 
     match env::var("RENDERER") {
         Ok(renderer_var) if renderer_var == "x11" => {

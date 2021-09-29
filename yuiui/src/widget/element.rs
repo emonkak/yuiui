@@ -2,17 +2,17 @@ use super::*;
 use std::array;
 use std::rc::Rc;
 
-pub type Children<Message> = Rc<Vec<Element<Message>>>;
+pub type Children<State, Message> = Rc<Vec<Element<State, Message>>>;
 
 pub type Key = usize;
 
 #[derive(Debug)]
-pub enum Element<Message> {
-    WidgetElement(WidgetElement<Message>),
-    ComponentElement(ComponentElement<Message>),
+pub enum Element<State, Message> {
+    WidgetElement(WidgetElement<State, Message>),
+    ComponentElement(ComponentElement<State, Message>),
 }
 
-impl<Message> Clone for Element<Message> {
+impl<State, Message> Clone for Element<State, Message> {
     fn clone(&self) -> Self {
         match self {
             Self::WidgetElement(element) => Self::WidgetElement(element.clone()),
@@ -21,12 +21,12 @@ impl<Message> Clone for Element<Message> {
     }
 }
 
-impl<Message> Element<Message> {
+impl<State, Message> Element<State, Message> {
     pub fn new(
-        node: ElementInstance<Message>,
+        node: ElementInstance<State, Message>,
         attributes: Rc<Attributes>,
         key: Option<Key>,
-        children: Children<Message>,
+        children: Children<State, Message>,
     ) -> Self {
         match node {
             ElementInstance::Widget(widget) => Self::WidgetElement(WidgetElement {
@@ -45,8 +45,8 @@ impl<Message> Element<Message> {
     }
 
     pub fn create<const N: usize>(
-        node: impl Into<ElementInstance<Message>>,
-        child_nodes: [Child<Message>; N],
+        node: impl Into<ElementInstance<State, Message>>,
+        child_nodes: [Child<State, Message>; N],
     ) -> Self {
         let mut attributes = Attributes::new();
         let mut children = Vec::new();
@@ -67,14 +67,14 @@ impl<Message> Element<Message> {
 }
 
 #[derive(Debug)]
-pub struct WidgetElement<Message> {
-    pub widget: RcWidget<Message>,
-    pub children: Children<Message>,
+pub struct WidgetElement<State, Message> {
+    pub widget: RcWidget<State, Message>,
+    pub children: Children<State, Message>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
-impl<Message> Clone for WidgetElement<Message> {
+impl<State, Message> Clone for WidgetElement<State, Message> {
     fn clone(&self) -> Self {
         Self {
             widget: self.widget.clone(),
@@ -86,14 +86,14 @@ impl<Message> Clone for WidgetElement<Message> {
 }
 
 #[derive(Debug)]
-pub struct ComponentElement<Message> {
-    pub component: RcComponent<Message>,
-    pub children: Children<Message>,
+pub struct ComponentElement<State, Message> {
+    pub component: RcComponent<State, Message>,
+    pub children: Children<State, Message>,
     pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
-impl<Message> Clone for ComponentElement<Message> {
+impl<State, Message> Clone for ComponentElement<State, Message> {
     fn clone(&self) -> Self {
         Self {
             component: self.component.clone(),
@@ -105,40 +105,40 @@ impl<Message> Clone for ComponentElement<Message> {
 }
 
 #[derive(Clone, Debug)]
-pub enum ElementInstance<Message> {
-    Widget(RcWidget<Message>),
-    Component(RcComponent<Message>),
+pub enum ElementInstance<State, Message> {
+    Widget(RcWidget<State, Message>),
+    Component(RcComponent<State, Message>),
 }
 
-impl<Message> From<RcWidget<Message>> for ElementInstance<Message> {
-    fn from(widget: RcWidget<Message>) -> Self {
+impl<State, Message> From<RcWidget<State, Message>> for ElementInstance<State, Message> {
+    fn from(widget: RcWidget<State, Message>) -> Self {
         Self::Widget(widget)
     }
 }
 
-impl<Message> From<RcComponent<Message>> for ElementInstance<Message> {
-    fn from(component: RcComponent<Message>) -> Self {
+impl<State, Message> From<RcComponent<State, Message>> for ElementInstance<State, Message> {
+    fn from(component: RcComponent<State, Message>) -> Self {
         Self::Component(component)
     }
 }
 
 #[derive(Debug)]
-pub enum Child<Message> {
-    Multiple(Vec<Element<Message>>),
-    Single(Element<Message>),
+pub enum Child<State, Message> {
+    Multiple(Vec<Element<State, Message>>),
+    Single(Element<State, Message>),
     Attribute(Box<dyn AnyValue>),
     Key(usize),
     None,
 }
 
-impl<Message> From<Vec<Element<Message>>> for Child<Message> {
-    fn from(elements: Vec<Element<Message>>) -> Self {
+impl<State, Message> From<Vec<Element<State, Message>>> for Child<State, Message> {
+    fn from(elements: Vec<Element<State, Message>>) -> Self {
         Child::Multiple(elements)
     }
 }
 
-impl<Message> From<Option<Element<Message>>> for Child<Message> {
-    fn from(element: Option<Element<Message>>) -> Self {
+impl<State, Message> From<Option<Element<State, Message>>> for Child<State, Message> {
+    fn from(element: Option<Element<State, Message>>) -> Self {
         match element {
             Some(element) => Child::Single(element),
             None => Child::None,
@@ -146,16 +146,19 @@ impl<Message> From<Option<Element<Message>>> for Child<Message> {
     }
 }
 
-impl<Message> From<Element<Message>> for Child<Message> {
-    fn from(element: Element<Message>) -> Self {
+impl<State, Message> From<Element<State, Message>> for Child<State, Message> {
+    fn from(element: Element<State, Message>) -> Self {
         Child::Single(element)
     }
 }
 
-impl<T: 'static + Into<ElementInstance<Message>>, Message> From<T> for Child<Message> {
-    fn from(node: T) -> Self {
+impl<State, Message, T> From<T> for Child<State, Message>
+where
+    T: 'static + Into<ElementInstance<State, Message>>,
+{
+    fn from(instance: T) -> Self {
         let element = Element::new(
-            node.into(),
+            instance.into(),
             Rc::new(Attributes::new()),
             None,
             Rc::new(Vec::new()),
@@ -164,11 +167,14 @@ impl<T: 'static + Into<ElementInstance<Message>>, Message> From<T> for Child<Mes
     }
 }
 
-pub fn attribute<T: 'static + AnyValue, Message>(value: T) -> Child<Message> {
+pub fn attribute<State, Message, Value>(value: Value) -> Child<State, Message>
+where
+    Value: 'static + AnyValue
+{
     Child::Attribute(Box::new(value))
 }
 
-pub fn key<Message>(key: Key) -> Child<Message> {
+pub fn key<State, Message>(key: Key) -> Child<State, Message> {
     Child::Key(key)
 }
 

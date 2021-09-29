@@ -10,9 +10,9 @@ use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
-pub type RcWidget<Message> = Rc<dyn Widget<Message, dyn Any, LocalState = Box<dyn Any>>>;
+pub type RcWidget<State, Message> = Rc<dyn Widget<State, Message, dyn Any, LocalState = Box<dyn Any>>>;
 
-pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
+pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
     type LocalState;
 
     fn initial_state(&self) -> Self::LocalState;
@@ -37,7 +37,7 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext<Message>,
+        context: &mut LayoutContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Size {
         if let Some(child) = children.first() {
@@ -51,7 +51,7 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         &self,
         _bounds: Rectangle,
         children: &[NodeId],
-        context: &mut DrawContext<Message>,
+        context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Primitive {
         children.iter().fold(Primitive::None, |primitive, child| {
@@ -63,17 +63,18 @@ pub trait Widget<Message, Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
-    fn into_rc(self) -> RcWidget<Message>
+    fn into_rc(self) -> RcWidget<State, Message>
     where
-        Self: 'static + Sized + Widget<Message>,
-        <Self as Widget<Message>>::LocalState: 'static,
+        Self: 'static + Sized + Widget<State, Message>,
+        <Self as Widget<State, Message>>::LocalState: 'static,
+        State: 'static,
         Message: 'static,
     {
         Rc::new(WidgetProxy::new(self))
     }
 }
 
-impl<Message, Own: ?Sized, LocalState> fmt::Debug for dyn Widget<Message, Own, LocalState = LocalState> {
+impl<State, Message, Own: ?Sized, LocalState> fmt::Debug for dyn Widget<State, Message, Own, LocalState = LocalState> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = short_type_name_of(self.type_name());
         f.debug_struct(name).finish_non_exhaustive()

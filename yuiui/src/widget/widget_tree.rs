@@ -13,20 +13,20 @@ use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
 
 #[derive(Debug)]
-pub struct WidgetTree<Message> {
-    tree: SlotTree<Option<WidgetPod<Message>>>,
+pub struct WidgetTree<State, Message> {
+    tree: SlotTree<Option<WidgetPod<State, Message>>>,
     event_manager: EventManager,
 }
 
-impl<Message> WidgetTree<Message> {
-    pub fn new(root_widget: RcWidget<Message>) -> Self {
+impl<State, Message> WidgetTree<State, Message> {
+    pub fn new(root_widget: RcWidget<State, Message>) -> Self {
         Self {
             tree: SlotTree::new(Some(WidgetPod::new(root_widget))),
             event_manager: EventManager::new(),
         }
     }
 
-    pub fn commit<Handler>(&mut self, unit_of_work: UnitOfWork<Message>, command_handler: Handler)
+    pub fn commit<Handler>(&mut self, unit_of_work: UnitOfWork<State, Message>, command_handler: Handler)
     where
         Handler: Fn(Command<Message>),
     {
@@ -159,7 +159,7 @@ impl<Message> WidgetTree<Message> {
                 widget.box_constraints
             };
             let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
-            let mut context = LayoutContext { storage: self };
+            let mut context = LayoutContext { widget_tree: self };
             let has_changed = widget.layout(box_constraints, &children, &mut context);
 
             let mut cursor = self.tree.cursor_mut(current);
@@ -189,7 +189,7 @@ impl<Message> WidgetTree<Message> {
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
 
         let mut context = DrawContext {
-            storage: self,
+            widget_tree: self,
             origin: widget.position,
         };
         let primitive = widget.draw(bounds, &children, &mut context);
@@ -209,7 +209,7 @@ impl<Message> WidgetTree<Message> {
             .expect("widget is currently in use elsewhere");
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
-        let mut context = LayoutContext { storage: self };
+        let mut context = LayoutContext { widget_tree: self };
 
         widget.layout(box_constraints, &children, &mut context);
         widget.box_constraints = box_constraints;
@@ -232,7 +232,7 @@ impl<Message> WidgetTree<Message> {
         let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = DrawContext {
-            storage: self,
+            widget_tree: self,
             origin: widget.position,
         };
         let primitive = widget.draw(bounds, &children, &mut context);
@@ -243,7 +243,7 @@ impl<Message> WidgetTree<Message> {
         primitive
     }
 
-    fn get_widget(&self, id: NodeId) -> &WidgetPod<Message> {
+    fn get_widget(&self, id: NodeId) -> &WidgetPod<State, Message> {
         self.tree
             .cursor(id)
             .current()
@@ -252,7 +252,7 @@ impl<Message> WidgetTree<Message> {
             .expect("widget is currently in use elsewhere")
     }
 
-    fn get_widget_mut(&mut self, id: NodeId) -> &mut WidgetPod<Message> {
+    fn get_widget_mut(&mut self, id: NodeId) -> &mut WidgetPod<State, Message> {
         self.tree
             .cursor_mut(id)
             .current()
@@ -262,15 +262,15 @@ impl<Message> WidgetTree<Message> {
     }
 }
 
-impl<Message: fmt::Debug> fmt::Display for WidgetTree<Message> {
+impl<State: fmt::Debug, Message: fmt::Debug> fmt::Display for WidgetTree<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.fmt(f)
     }
 }
 
 #[derive(Debug)]
-pub struct WidgetPod<Message> {
-    widget: RcWidget<Message>,
+pub struct WidgetPod<State, Message> {
+    widget: RcWidget<State, Message>,
     attributes: Rc<Attributes>,
     state: Box<dyn Any>,
     event_mask: BitFlags<WindowEventMask>,
@@ -282,8 +282,8 @@ pub struct WidgetPod<Message> {
     needs_draw: bool,
 }
 
-impl<Message> WidgetPod<Message> {
-    fn new(widget: RcWidget<Message>) -> Self {
+impl<State, Message> WidgetPod<State, Message> {
+    fn new(widget: RcWidget<State, Message>) -> Self {
         let state = widget.initial_state();
         Self {
             widget,
@@ -299,7 +299,7 @@ impl<Message> WidgetPod<Message> {
         }
     }
 
-    fn from_element(element: WidgetElement<Message>) -> Self {
+    fn from_element(element: WidgetElement<State, Message>) -> Self {
         let state = element.widget.initial_state();
         Self {
             widget: element.widget,
@@ -315,7 +315,7 @@ impl<Message> WidgetPod<Message> {
         }
     }
 
-    fn update(&mut self, element: WidgetElement<Message>) -> Effect<Message> {
+    fn update(&mut self, element: WidgetElement<State, Message>) -> Effect<Message> {
         let should_update = !element.children.is_empty()
             || &*self.attributes != &*element.attributes
             || self
@@ -346,7 +346,7 @@ impl<Message> WidgetPod<Message> {
         &mut self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext<Message>,
+        context: &mut LayoutContext<State, Message>,
     ) -> bool {
         if !self.needs_layout && self.box_constraints == box_constraints {
             return false;
@@ -368,7 +368,7 @@ impl<Message> WidgetPod<Message> {
         &mut self,
         bounds: Rectangle,
         children: &[NodeId],
-        context: &mut DrawContext<Message>,
+        context: &mut DrawContext<State, Message>,
     ) -> Primitive {
         if !self.needs_draw {
             if let Some(primitive) = &self.draw_cache {
@@ -383,46 +383,46 @@ impl<Message> WidgetPod<Message> {
 }
 
 #[derive(Debug)]
-pub struct LayoutContext<'a, Message> {
-    storage: &'a mut WidgetTree<Message>,
+pub struct LayoutContext<'a, State, Message> {
+    widget_tree: &'a mut WidgetTree<State, Message>,
 }
 
-impl<'a, Message> LayoutContext<'a, Message> {
+impl<'a, State, Message> LayoutContext<'a, State, Message> {
     pub fn get_size(&mut self, id: NodeId) -> Size {
-        let widget = self.storage.get_widget(id);
+        let widget = self.widget_tree.get_widget(id);
         widget.size
     }
 
     pub fn get_attributes(&self, id: NodeId) -> &Attributes {
-        &*self.storage.get_widget(id).attributes
+        &*self.widget_tree.get_widget(id).attributes
     }
 
     pub fn set_position(&mut self, id: NodeId, position: Point) {
-        let widget = self.storage.get_widget_mut(id);
+        let widget = self.widget_tree.get_widget_mut(id);
         widget.position = position;
     }
 
     pub fn layout_child(&mut self, id: NodeId, box_constraints: BoxConstraints) -> Size {
-        self.storage.layout_child(id, box_constraints)
+        self.widget_tree.layout_child(id, box_constraints)
     }
 }
 
 #[derive(Debug)]
-pub struct DrawContext<'a, Message> {
-    storage: &'a mut WidgetTree<Message>,
+pub struct DrawContext<'a, State, Message> {
+    widget_tree: &'a mut WidgetTree<State, Message>,
     origin: Point,
 }
 
-impl<'a, Message> DrawContext<'a, Message> {
+impl<'a, State, Message> DrawContext<'a, State, Message> {
     pub fn draw_child(&mut self, id: NodeId) -> Primitive {
-        self.storage.draw_child(id, self.origin)
+        self.widget_tree.draw_child(id, self.origin)
     }
 }
 
-fn process_effect<Message, Handler>(
+fn process_effect<State, Message, Handler>(
     effect: Effect<Message>,
     id: NodeId,
-    widget: &mut WidgetPod<Message>,
+    widget: &mut WidgetPod<State, Message>,
     command_handler: &Handler,
     event_manager: &mut EventManager,
 ) where

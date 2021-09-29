@@ -9,15 +9,16 @@ use crate::graphics::{Color, Primitive, Renderer};
 use crate::ui::{ControlFlow, Event, EventLoop, EventLoopContext, Window, WindowContainer};
 use crate::widget::Element;
 
-pub fn run<Window, Message, EventLoop, Renderer>(
+pub fn run<State, Message, Window, EventLoop, Renderer>(
     mut window_container: WindowContainer<Window>,
     mut event_loop: EventLoop,
     mut renderer: Renderer,
-    element: Element<Message>,
+    element: Element<State, Message>,
 ) -> Result<(), Box<dyn error::Error>>
 where
-    Window: 'static + self::Window,
+    State: 'static,
     Message: 'static,
+    Window: 'static + self::Window,
     EventLoop: 'static + self::EventLoop<ApplicationMessage<Message>, WindowId = Window::Id>,
     Renderer: 'static + self::Renderer,
 {

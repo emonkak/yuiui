@@ -22,7 +22,7 @@ impl Flex {
     }
 }
 
-impl<Message> Widget<Message> for Flex {
+impl<State, Message> Widget<State, Message> for Flex {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
@@ -37,7 +37,7 @@ impl<Message> Widget<Message> for Flex {
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext<Message>,
+        context: &mut LayoutContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Size {
         let mut flex_sum = 0.0;
@@ -95,7 +95,7 @@ impl<Message> Widget<Message> for Flex {
     }
 }
 
-impl<Message: 'static> From<Flex> for ElementInstance<Message> {
+impl<State: 'static, Message: 'static> From<Flex> for ElementInstance<State, Message> {
     fn from(widget: Flex) -> Self {
         widget.into_rc().into()
     }

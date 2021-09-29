@@ -7,25 +7,28 @@ use crate::event::WindowEvent;
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
-pub struct WidgetProxy<W, M, LS> {
+pub struct WidgetProxy<W, S, M, LS> {
     widget: W,
+    state_type: PhantomData<S>,
     message_type: PhantomData<M>,
     local_state_type: PhantomData<LS>,
 }
 
-impl<W, M, LS> WidgetProxy<W, M, LS> {
+impl<W, S, M, LS> WidgetProxy<W, M, S, LS> {
     pub fn new(widget: W) -> Self {
         Self {
             widget,
+            state_type: PhantomData,
             message_type: PhantomData,
             local_state_type: PhantomData,
         }
     }
 }
 
-impl<W, M> Widget<M, dyn Any> for WidgetProxy<W, M, W::LocalState>
+impl<W, S, M> Widget<S, M, dyn Any> for WidgetProxy<W, S, M, W::LocalState>
 where
-    W: 'static + Widget<M>,
+    W: 'static + Widget<S, M>,
+    S: 'static,
     M: 'static,
     W::LocalState: 'static,
 {
@@ -57,7 +60,7 @@ where
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext<M>,
+        context: &mut LayoutContext<S, M>,
         state: &mut Self::LocalState,
     ) -> Size {
         self.widget.layout(
@@ -72,7 +75,7 @@ where
         &self,
         bounds: Rectangle,
         children: &[NodeId],
-        context: &mut DrawContext<M>,
+        context: &mut DrawContext<S, M>,
         state: &mut Self::LocalState,
     ) -> Primitive {
         self.widget

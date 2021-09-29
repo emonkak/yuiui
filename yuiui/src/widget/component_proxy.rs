@@ -3,25 +3,28 @@ use std::marker::PhantomData;
 
 use super::{Children, Component, Element};
 
-pub struct ComponentProxy<C, M, LS> {
+pub struct ComponentProxy<C, S, M, LS> {
     component: C,
+    state_type: PhantomData<S>,
     message_type: PhantomData<M>,
     local_state_type: PhantomData<LS>,
 }
 
-impl<C, M, LS> ComponentProxy<C, M, LS> {
+impl<C, S, M, LS> ComponentProxy<C, S, M, LS> {
     pub fn new(component: C) -> Self {
         Self {
             component,
+            state_type: PhantomData,
             message_type: PhantomData,
             local_state_type: PhantomData,
         }
     }
 }
 
-impl<C, M> Component<M, dyn Any> for ComponentProxy<C, M, C::LocalState>
+impl<C, S, M> Component<S, M, dyn Any> for ComponentProxy<C, S, M, C::LocalState>
 where
-    C: 'static + Component<M>,
+    C: 'static + Component<S, M>,
+    S: 'static,
     M: 'static,
     C::LocalState: 'static,
 {
@@ -34,8 +37,8 @@ where
     fn should_update(
         &self,
         new_component: &dyn Any,
-        old_children: &Vec<Element<M>>,
-        new_children: &Vec<Element<M>>,
+        old_children: &Vec<Element<S, M>>,
+        new_children: &Vec<Element<S, M>>,
         state: &Self::LocalState,
     ) -> bool {
         self.component.should_update(
@@ -46,7 +49,7 @@ where
         )
     }
 
-    fn render(&self, children: &Children<M>, state: &Self::LocalState) -> Element<M> {
+    fn render(&self, children: &Children<S, M>, state: &Self::LocalState) -> Element<S, M> {
         self.component
             .render(children, state.downcast_ref().unwrap())
     }

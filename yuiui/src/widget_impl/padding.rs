@@ -8,7 +8,7 @@ pub struct Padding {
     pub thickness: Thickness,
 }
 
-impl<Message> Widget<Message> for Padding {
+impl<State, Message> Widget<State, Message> for Padding {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
@@ -23,7 +23,7 @@ impl<Message> Widget<Message> for Padding {
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext<Message>,
+        context: &mut LayoutContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Size {
         assert_eq!(children.len(), 1, "Must to receive a single element child.");
@@ -53,7 +53,7 @@ impl<Message> Widget<Message> for Padding {
     }
 }
 
-impl<Message: 'static> From<Padding> for ElementInstance<Message> {
+impl<State: 'static, Message: 'static> From<Padding> for ElementInstance<State, Message> {
     fn from(widget: Padding) -> Self {
         widget.into_rc().into()
     }

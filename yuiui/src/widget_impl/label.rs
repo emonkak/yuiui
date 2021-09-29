@@ -15,7 +15,7 @@ pub struct Label {
     pub vertical_align: VerticalAlign,
 }
 
-impl<Message> Widget<Message> for Label {
+impl<State, Message> Widget<State, Message> for Label {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
@@ -30,7 +30,7 @@ impl<Message> Widget<Message> for Label {
         &self,
         bounds: Rectangle,
         _children: &[NodeId],
-        _context: &mut DrawContext<Message>,
+        _context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Primitive {
         Primitive::Text {
@@ -45,7 +45,7 @@ impl<Message> Widget<Message> for Label {
     }
 }
 
-impl<Message: 'static> From<Label> for ElementInstance<Message> {
+impl<State: 'static, Message: 'static> From<Label> for ElementInstance<State, Message> {
     fn from(widget: Label) -> Self {
         widget.into_rc().into()
     }

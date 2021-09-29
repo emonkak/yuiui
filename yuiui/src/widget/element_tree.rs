@@ -12,13 +12,14 @@ use super::{
 type ComponentIndex = usize;
 
 #[derive(Debug)]
-pub struct ElementTree<Message> {
-    tree: SlotTree<ElementNode<Message>>,
+pub struct ElementTree<State, Message> {
+    tree: SlotTree<ElementNode<State, Message>>,
 }
 
-impl<Message> ElementTree<Message> {
-    pub fn new(root_widget: RcWidget<Message>, element: Element<Message>) -> Self
+impl<State, Message> ElementTree<State, Message> {
+    pub fn new(root_widget: RcWidget<State, Message>, element: Element<State, Message>) -> Self
     where
+        State: 'static,
         Message: 'static,
     {
         let element = WidgetElement {
@@ -40,7 +41,7 @@ impl<Message> ElementTree<Message> {
         id: NodeId,
         component_index: ComponentIndex,
         root: NodeId,
-        pending_works: &mut Vec<UnitOfWork<Message>>,
+        pending_works: &mut Vec<UnitOfWork<State, Message>>,
     ) -> Option<(NodeId, ComponentIndex)> {
         let mut cursor = self.tree.cursor_mut(id);
         let component_stack = &mut cursor.current().data_mut().component_stack;
@@ -82,10 +83,10 @@ impl<Message> ElementTree<Message> {
 
     fn commit(
         &mut self,
-        result: ReconcileResult<ElementId, Element<Message>>,
+        result: ReconcileResult<ElementId, Element<State, Message>>,
         parent: NodeId,
         in_component_rendering: bool,
-        pending_works: &mut Vec<UnitOfWork<Message>>,
+        pending_works: &mut Vec<UnitOfWork<State, Message>>,
     ) {
         match result {
             ReconcileResult::Append(Element::WidgetElement(element)) => {
@@ -189,30 +190,30 @@ impl<Message> ElementTree<Message> {
     }
 }
 
-impl<Message: fmt::Debug> fmt::Display for ElementTree<Message> {
+impl<State: fmt::Debug, Message: fmt::Debug> fmt::Display for ElementTree<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.fmt(f)
     }
 }
 
 #[derive(Debug)]
-struct ElementNode<Message> {
-    element: Option<WidgetElement<Message>>,
-    component_stack: Vec<ComponentPod<Message>>,
+struct ElementNode<State, Message> {
+    element: Option<WidgetElement<State, Message>>,
+    component_stack: Vec<ComponentPod<State, Message>>,
 }
 
 #[derive(Debug)]
-struct ComponentPod<Message> {
-    component: RcComponent<Message>,
+struct ComponentPod<State, Message> {
+    component: RcComponent<State, Message>,
     attributes: Rc<Attributes>,
-    children: Children<Message>,
+    children: Children<State, Message>,
     state: Box<dyn Any>,
     key: Option<Key>,
-    pending_element: Option<ComponentElement<Message>>,
+    pending_element: Option<ComponentElement<State, Message>>,
 }
 
-impl<Message> ComponentPod<Message> {
-    fn from_element(element: ComponentElement<Message>) -> Self {
+impl<State, Message> ComponentPod<State, Message> {
+    fn from_element(element: ComponentElement<State, Message>) -> Self {
         let state = element.component.initial_state();
         Self {
             component: element.component,
@@ -224,7 +225,7 @@ impl<Message> ComponentPod<Message> {
         }
     }
 
-    fn update(&mut self, element: ComponentElement<Message>) -> bool {
+    fn update(&mut self, element: ComponentElement<State, Message>) -> bool {
         let should_update = &*self.attributes != &*element.attributes
             || self.component.should_update(
                 element.component.as_any(),
@@ -240,7 +241,7 @@ impl<Message> ComponentPod<Message> {
         should_update
     }
 
-    fn render(&self) -> Element<Message> {
+    fn render(&self) -> Element<State, Message> {
         self.component.render(&self.children, &self.state)
     }
 
@@ -279,11 +280,11 @@ impl ElementId {
     }
 }
 
-fn create_reconciler<Message>(
-    cursor: &mut CursorMut<ElementNode<Message>>,
-    children: Vec<Element<Message>>,
+fn create_reconciler<State, Message>(
+    cursor: &mut CursorMut<ElementNode<State, Message>>,
+    children: Vec<Element<State, Message>>,
     component_index: ComponentIndex,
-) -> Reconciler<TypedKey, ElementId, Element<Message>> {
+) -> Reconciler<TypedKey, ElementId, Element<State, Message>> {
     let mut old_keys: Vec<TypedKey> = Vec::new();
     let mut old_ids: Vec<Option<ElementId>> = Vec::new();
 
@@ -307,7 +308,7 @@ fn create_reconciler<Message>(
     }
 
     let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
-    let mut new_elements: Vec<Option<Element<Message>>> = Vec::with_capacity(children.len());
+    let mut new_elements: Vec<Option<Element<State, Message>>> = Vec::with_capacity(children.len());
 
     for (index, element) in children.into_iter().enumerate() {
         let key = match &element {
