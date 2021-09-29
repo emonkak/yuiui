@@ -14,7 +14,7 @@ use crate::graphics::Primitive;
 #[derive(Debug)]
 pub struct WidgetTree<State, Message> {
     tree: SlotTree<Option<WidgetPod<State, Message>>>,
-    event_manager: EventManager,
+    event_manager: EventManager<NodeId>,
 }
 
 impl<State, Message> WidgetTree<State, Message> {
@@ -25,7 +25,7 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn commit<Handler>(&mut self, unit_of_work: UnitOfWork<State, Message>, command_handler: Handler)
+    pub fn commit<Handler>(&mut self, unit_of_work: UnitOfWork<State, Message>, command_handler: &Handler)
     where
         Handler: Fn(Command<Message>),
     {
@@ -423,7 +423,7 @@ fn process_effect<State, Message, Handler>(
     id: NodeId,
     widget: &mut WidgetPod<State, Message>,
     command_handler: &Handler,
-    event_manager: &mut EventManager,
+    event_manager: &mut EventManager<NodeId>,
 ) where
     Handler: Fn(Command<Message>),
 {

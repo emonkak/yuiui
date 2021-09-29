@@ -73,17 +73,17 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         Context: EventLoopContext<ApplicationMessage<Message>>,
     {
         if let Some(node) = self.work_in_progress.take() {
-            self.process_node(node);
+            self.process_node(node, context);
             RenderFlow::Continue
         } else if let Some(node) = self.pending_nodes.pop_front() {
             self.progress_roots.push(node.root);
-            self.process_node(node);
+            self.process_node(node, context);
             RenderFlow::Continue
         } else if !self.progress_roots.is_empty() {
             if !self.pending_works.is_empty() {
                 for unit_of_work in mem::take(&mut self.pending_works) {
                     self.widget_tree
-                        .commit(unit_of_work, |command| run_command(context, command));
+                        .commit(unit_of_work, &|command| run_command(context, command));
                 }
             }
 
@@ -115,11 +115,15 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
             .dispatch(event, |command| run_command(context, command))
     }
 
-    fn process_node(&mut self, node: RenderNode) {
+    fn process_node<Context>(&mut self, node: RenderNode, context: &Context)
+    where
+        Context: EventLoopContext<ApplicationMessage<Message>>,
+    {
         let next = self.element_tree.render(
             node.id,
             node.component_index,
             node.root,
+            &|command| run_command(context, command),
             &mut self.pending_works,
         );
         if let Some((id, component_index)) = next {

@@ -2,7 +2,7 @@ use std::any::{self, Any};
 use std::fmt;
 use std::rc::Rc;
 
-use super::{short_type_name_of, AsAny, Children, ComponentProxy, Element};
+use super::{AsAny, Children, ComponentProxy, Effect, Element, Event, Lifecycle, short_type_name_of};
 
 pub type RcComponent<State, Message> = Rc<dyn Component<State, Message, dyn Any, LocalState = Box<dyn Any>>>;
 
@@ -19,6 +19,18 @@ pub trait Component<State, Message, Own: ?Sized = Self>: AsAny {
         _state: &Self::LocalState,
     ) -> bool {
         true
+    }
+
+    fn on_event(&self, _event: &Event<State>, _state: &mut Self::LocalState) -> Effect<Message> {
+        Effect::None
+    }
+
+    fn on_lifecycle(
+        &self,
+        _lifecycle: Lifecycle<&Own>,
+        _state: &mut Self::LocalState,
+    ) -> Effect<Message> {
+        Effect::None
     }
 
     fn render(&self, children: &Children<State, Message>, state: &Self::LocalState) -> Element<State, Message>;

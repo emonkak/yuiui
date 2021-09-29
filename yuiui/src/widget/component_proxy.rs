@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::marker::PhantomData;
 
-use super::{Children, Component, Element};
+use super::{Children, Component, Event, Element, Effect, Lifecycle};
 
 pub struct ComponentProxy<C, S, M, LS> {
     component: C,
@@ -47,6 +47,18 @@ where
             new_children,
             state.downcast_ref().unwrap(),
         )
+    }
+
+    fn on_event(&self, _event: &Event<S>, _state: &mut Self::LocalState) -> Effect<M> {
+        Effect::None
+    }
+
+    fn on_lifecycle(
+        &self,
+        _lifecycle: Lifecycle<&dyn Any>,
+        _state: &mut Self::LocalState,
+    ) -> Effect<M> {
+        Effect::None
     }
 
     fn render(&self, children: &Children<S, M>, state: &Self::LocalState) -> Element<S, M> {
