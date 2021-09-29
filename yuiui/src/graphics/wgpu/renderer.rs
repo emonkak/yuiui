@@ -203,7 +203,14 @@ where
         );
 
         for child_layer in pipeline.child_layers() {
-            self.flush_layer(encoder, &target, &child_layer, projection, scale_factor, effective_bounds);
+            self.flush_layer(
+                encoder,
+                &target,
+                &child_layer,
+                projection,
+                scale_factor,
+                effective_bounds,
+            );
         }
     }
 
@@ -218,8 +225,10 @@ where
     ) {
         let scissor_bounds = match (effective_bounds, layer.bounds) {
             (Some(effective_bounds), Some(layer_bounds)) => {
-                if let Some(intersection) = effective_bounds.scale(scale_factor)
-                    .intersection(layer_bounds.scale(scale_factor)) {
+                if let Some(intersection) = effective_bounds
+                    .scale(scale_factor)
+                    .intersection(layer_bounds.scale(scale_factor))
+                {
                     Some(intersection.snap())
                 } else {
                     return;

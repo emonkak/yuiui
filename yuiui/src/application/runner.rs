@@ -81,7 +81,13 @@ where
             }
             UIEvent::WindowEvent(_, WindowEvent::RedrawRequested) => {
                 let viewport = window_container.viewport();
-                renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, None, Color::WHITE);
+                renderer.perform_pipeline(
+                    &mut pipeline,
+                    &mut surface,
+                    &viewport,
+                    None,
+                    Color::WHITE,
+                );
                 render_loop.dispatch(
                     Event::WindowEvent(&WindowEvent::RedrawRequested),
                     &|command, id, component_index| {
@@ -114,9 +120,12 @@ where
                 return ControlFlow::Break;
             }
             UIEvent::WindowEvent(_, event) => {
-                render_loop.dispatch(Event::WindowEvent(&event), &|command, id, component_index| {
-                    run_command(context, command, id, component_index)
-                });
+                render_loop.dispatch(
+                    Event::WindowEvent(&event),
+                    &|command, id, component_index| {
+                        run_command(context, command, id, component_index)
+                    },
+                );
             }
         }
 

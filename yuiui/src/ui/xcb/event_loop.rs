@@ -98,12 +98,10 @@ where
     {
         match event {
             // Handles only the last expose event.
-            protocol::Event::Expose(event) if event.count == 0 => {
-                callback(
-                    Event::WindowEvent(event.window, WindowEvent::RedrawRequested),
-                    context,
-                )
-            }
+            protocol::Event::Expose(event) if event.count == 0 => callback(
+                Event::WindowEvent(event.window, WindowEvent::RedrawRequested),
+                context,
+            ),
             protocol::Event::ButtonPress(event) => callback(
                 Event::WindowEvent(
                     event.child,

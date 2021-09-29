@@ -1,5 +1,5 @@
 use super::{Color, Primitive};
-use crate::geometrics::{Viewport, Rectangle};
+use crate::geometrics::{Rectangle, Viewport};
 
 pub trait Renderer {
     type Surface;

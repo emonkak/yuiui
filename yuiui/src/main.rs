@@ -47,7 +47,7 @@ impl Component<State, Message> for App {
                 *state = *global_state;
                 Command::RequestUpdate.into()
             }
-            _ => Effect::None
+            _ => Effect::None,
         }
     }
 
