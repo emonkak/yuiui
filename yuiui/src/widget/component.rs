@@ -24,15 +24,15 @@ pub trait Component<State, Message, Own: ?Sized = Self>: AsAny {
         true
     }
 
-    fn on_event(&self, _event: &Event<State>, _state: &mut Self::LocalState) -> Effect<Message> {
-        Effect::None
-    }
-
     fn on_lifecycle(
         &self,
         _lifecycle: Lifecycle<&Own>,
         _state: &mut Self::LocalState,
     ) -> Effect<Message> {
+        Effect::None
+    }
+
+    fn on_event(&self, _event: &Event<State>, _state: &mut Self::LocalState) -> Effect<Message> {
         Effect::None
     }
 

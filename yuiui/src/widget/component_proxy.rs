@@ -3,17 +3,17 @@ use std::marker::PhantomData;
 
 use super::{Children, Component, Effect, Element, Event, Lifecycle};
 
-pub struct ComponentProxy<C, S, M, LS> {
-    component: C,
-    state_type: PhantomData<S>,
-    message_type: PhantomData<M>,
-    local_state_type: PhantomData<LS>,
+pub struct ComponentProxy<Inner, State, Message, LocalState> {
+    inner: Inner,
+    state_type: PhantomData<State>,
+    message_type: PhantomData<Message>,
+    local_state_type: PhantomData<LocalState>,
 }
 
-impl<C, S, M, LS> ComponentProxy<C, S, M, LS> {
-    pub fn new(component: C) -> Self {
+impl<Inner, State, Message, LocalState> ComponentProxy<Inner, State, Message, LocalState> {
+    pub fn new(inner: Inner) -> Self {
         Self {
-            component,
+            inner,
             state_type: PhantomData,
             message_type: PhantomData,
             local_state_type: PhantomData,
@@ -21,28 +21,28 @@ impl<C, S, M, LS> ComponentProxy<C, S, M, LS> {
     }
 }
 
-impl<C, S, M> Component<S, M, dyn Any> for ComponentProxy<C, S, M, C::LocalState>
+impl<Inner, State, Message> Component<State, Message, dyn Any> for ComponentProxy<Inner, State, Message, Inner::LocalState>
 where
-    C: 'static + Component<S, M>,
-    S: 'static,
-    M: 'static,
-    C::LocalState: 'static,
+    Inner: 'static + Component<State, Message>,
+    State: 'static,
+    Message: 'static,
+    Inner::LocalState: 'static,
 {
     type LocalState = Box<dyn Any>;
 
     fn initial_state(&self) -> Self::LocalState {
-        Box::new(self.component.initial_state())
+        Box::new(self.inner.initial_state())
     }
 
     fn should_update(
         &self,
         new_component: &dyn Any,
-        old_children: &Vec<Element<S, M>>,
-        new_children: &Vec<Element<S, M>>,
+        old_children: &Vec<Element<State, Message>>,
+        new_children: &Vec<Element<State, Message>>,
         state: &Self::LocalState,
     ) -> bool {
-        self.component.should_update(
-            &new_component.downcast_ref::<Self>().unwrap().component,
+        self.inner.should_update(
+            &new_component.downcast_ref::<Self>().unwrap().inner,
             old_children,
             new_children,
             state.downcast_ref().unwrap(),
@@ -53,24 +53,24 @@ where
         &self,
         lifecycle: Lifecycle<&dyn Any>,
         state: &mut Self::LocalState,
-    ) -> Effect<M> {
-        self.component.on_lifecycle(
-            lifecycle.map(|component| &component.downcast_ref::<Self>().unwrap().component),
+    ) -> Effect<Message> {
+        self.inner.on_lifecycle(
+            lifecycle.map(|component| &component.downcast_ref::<Self>().unwrap().inner),
             state.downcast_mut().unwrap(),
         )
     }
 
-    fn on_event(&self, event: &Event<S>, state: &mut Self::LocalState) -> Effect<M> {
-        self.component
+    fn on_event(&self, event: &Event<State>, state: &mut Self::LocalState) -> Effect<Message> {
+        self.inner
             .on_event(event, state.downcast_mut().unwrap())
     }
 
-    fn render(&self, children: &Children<S, M>, state: &Self::LocalState) -> Element<S, M> {
-        self.component
+    fn render(&self, children: &Children<State, Message>, state: &Self::LocalState) -> Element<State, Message> {
+        self.inner
             .render(children, state.downcast_ref().unwrap())
     }
 
     fn type_name(&self) -> &'static str {
-        self.component.type_name()
+        self.inner.type_name()
     }
 }

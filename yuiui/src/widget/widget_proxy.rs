@@ -6,17 +6,17 @@ use super::{DrawContext, Effect, Event, LayoutContext, Lifecycle, Widget};
 use crate::geometrics::{BoxConstraints, Rectangle, Size};
 use crate::graphics::Primitive;
 
-pub struct WidgetProxy<W, S, M, LS> {
-    widget: W,
-    state_type: PhantomData<S>,
-    message_type: PhantomData<M>,
-    local_state_type: PhantomData<LS>,
+pub struct WidgetProxy<Inner, State, Message, LocalState> {
+    inner: Inner,
+    state_type: PhantomData<State>,
+    message_type: PhantomData<Message>,
+    local_state_type: PhantomData<LocalState>,
 }
 
-impl<W, S, M, LS> WidgetProxy<W, M, S, LS> {
-    pub fn new(widget: W) -> Self {
+impl<Inner, State, Message, LocalState> WidgetProxy<Inner, Message, State, LocalState> {
+    pub fn new(inner: Inner) -> Self {
         Self {
-            widget,
+            inner,
             state_type: PhantomData,
             message_type: PhantomData,
             local_state_type: PhantomData,
@@ -24,22 +24,22 @@ impl<W, S, M, LS> WidgetProxy<W, M, S, LS> {
     }
 }
 
-impl<W, S, M> Widget<S, M, dyn Any> for WidgetProxy<W, S, M, W::LocalState>
+impl<Inner, State, Message> Widget<State, Message, dyn Any> for WidgetProxy<Inner, State, Message, Inner::LocalState>
 where
-    W: 'static + Widget<S, M>,
-    S: 'static,
-    M: 'static,
-    W::LocalState: 'static,
+    Inner: 'static + Widget<State, Message>,
+    State: 'static,
+    Message: 'static,
+    Inner::LocalState: 'static,
 {
     type LocalState = Box<dyn Any>;
 
     fn initial_state(&self) -> Self::LocalState {
-        Box::new(self.widget.initial_state())
+        Box::new(self.inner.initial_state())
     }
 
     fn should_update(&self, new_widget: &dyn Any) -> bool {
-        self.widget.should_update(
-            &new_widget.downcast_ref::<Self>().unwrap().widget,
+        self.inner.should_update(
+            &new_widget.downcast_ref::<Self>().unwrap().inner,
         )
     }
 
@@ -47,25 +47,25 @@ where
         &self,
         lifecycle: Lifecycle<&dyn Any>,
         state: &mut Self::LocalState,
-    ) -> Effect<M> {
-        self.widget.on_lifecycle(
-            lifecycle.map(|widget| &widget.downcast_ref::<Self>().unwrap().widget),
+    ) -> Effect<Message> {
+        self.inner.on_lifecycle(
+            lifecycle.map(|widget| &widget.downcast_ref::<Self>().unwrap().inner),
             state.downcast_mut().unwrap(),
         )
     }
 
-    fn on_event(&self, event: &Event<S>, state: &mut Self::LocalState) -> Effect<M> {
-        self.widget.on_event(event, state.downcast_mut().unwrap())
+    fn on_event(&self, event: &Event<State>, bounds: Rectangle, state: &mut Self::LocalState) -> Effect<Message> {
+        self.inner.on_event(event, bounds, state.downcast_mut().unwrap())
     }
 
     fn layout(
         &self,
         box_constraints: BoxConstraints,
         children: &[NodeId],
-        context: &mut LayoutContext<S, M>,
+        context: &mut LayoutContext<State, Message>,
         state: &mut Self::LocalState,
     ) -> Size {
-        self.widget.layout(
+        self.inner.layout(
             box_constraints,
             children,
             context,
@@ -77,14 +77,14 @@ where
         &self,
         bounds: Rectangle,
         children: &[NodeId],
-        context: &mut DrawContext<S, M>,
+        context: &mut DrawContext<State, Message>,
         state: &mut Self::LocalState,
     ) -> Primitive {
-        self.widget
+        self.inner
             .draw(bounds, children, context, state.downcast_mut().unwrap())
     }
 
     fn type_name(&self) -> &'static str {
-        self.widget.type_name()
+        self.inner.type_name()
     }
 }

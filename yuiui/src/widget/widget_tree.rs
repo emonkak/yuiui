@@ -165,16 +165,13 @@ impl<State, Message> WidgetTree<State, Message> {
             parent.needs_draw = true;
             origin + parent.position
         });
-        let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
 
         let mut context = DrawContext {
             widget_tree: self,
             origin: widget.position,
         };
-        let primitive = widget.draw(bounds, &children, &mut context);
-
-        (primitive, bounds)
+        widget.draw(origin, &children, &mut context)
     }
 
     fn layout_child(&self, id: NodeId, box_constraints: BoxConstraints) -> Size {
@@ -195,14 +192,13 @@ impl<State, Message> WidgetTree<State, Message> {
         let cursor = self.tree.cursor(id);
         let mut widget = cursor.current().data().borrow_mut();
 
-        let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = DrawContext {
             widget_tree: self,
             origin: widget.position,
         };
-        let primitive = widget.draw(bounds, &children, &mut context);
 
+        let (primitive, _) = widget.draw(origin, &children, &mut context);
         primitive
     }
 
@@ -263,6 +259,7 @@ pub struct WidgetPod<State, Message> {
     position: Point,
     size: Size,
     box_constraints: BoxConstraints,
+    origin: Point,
     draw_cache: Option<Primitive>,
     needs_layout: bool,
     needs_draw: bool,
@@ -279,6 +276,7 @@ impl<State, Message> WidgetPod<State, Message> {
             position: Point::ZERO,
             size: Size::ZERO,
             box_constraints: BoxConstraints::LOOSE,
+            origin: Point::ZERO,
             draw_cache: None,
             needs_layout: true,
             needs_draw: true,
@@ -297,7 +295,8 @@ impl<State, Message> WidgetPod<State, Message> {
     }
 
     fn on_event(&mut self, event: &Event<State>) -> Effect<Message> {
-        self.widget.on_event(event, &mut self.state)
+        let bounds = self.bounds();
+        self.widget.on_event(event, bounds, &mut self.state)
     }
 
     fn on_lifecycle(&mut self, lifecycle: Lifecycle<&dyn Any>) -> Effect<Message> {
@@ -328,19 +327,25 @@ impl<State, Message> WidgetPod<State, Message> {
 
     fn draw(
         &mut self,
-        bounds: Rectangle,
+        origin: Point,
         children: &[NodeId],
         context: &mut DrawContext<State, Message>,
-    ) -> Primitive {
+    ) -> (Primitive, Rectangle) {
+        let bounds = Rectangle::new(self.position + origin, self.size);
         if !self.needs_draw {
             if let Some(primitive) = &self.draw_cache {
-                return primitive.clone();
+                return (primitive.clone(), bounds);
             }
         }
         let primitive = self.widget.draw(bounds, children, context, &mut self.state);
+        self.origin = origin;
         self.draw_cache = Some(primitive.clone());
         self.needs_draw = false;
-        primitive
+        (primitive, bounds)
+    }
+
+    fn bounds(&self) -> Rectangle {
+        Rectangle::new(self.position + self.origin, self.size)
     }
 }
 
