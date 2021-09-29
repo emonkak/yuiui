@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::rc::Rc;
 use yuiui_support::bit_flags::BitFlags;
-use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
+use yuiui_support::slot_tree::{Node, NodeId, SlotTree};
 
 use super::event_manager::EventManager;
 use super::reconciler::{ReconcileResult, Reconciler};
@@ -74,7 +74,11 @@ impl<State, Message> ElementTree<State, Message> {
 
             if is_updated {
                 let children = vec![component.render()];
-                let reconciler = create_reconciler(&mut cursor, children, component_index);
+                let reconciler = create_reconciler(
+                    vec![(cursor.id(), cursor.current())],
+                    children,
+                    component_index + 1,
+                );
 
                 for result in reconciler {
                     self.commit(result, id, true, command_handler, pending_works)
@@ -89,7 +93,7 @@ impl<State, Message> ElementTree<State, Message> {
 
                 let element = element_node.element.as_ref().expect("element not found");
                 let children = (*element.children).clone();
-                let reconciler = create_reconciler(&mut cursor, children, component_index);
+                let reconciler = create_reconciler(cursor.children(), children, component_index);
 
                 for result in reconciler {
                     self.commit(result, id, false, command_handler, pending_works)
@@ -137,7 +141,7 @@ impl<State, Message> ElementTree<State, Message> {
 
     fn commit<Handler>(
         &mut self,
-        result: ReconcileResult<ElementId, Element<State, Message>>,
+        reconcile_result: ReconcileResult<ElementId, Element<State, Message>>,
         parent: NodeId,
         in_component_rendering: bool,
         command_handler: &Handler,
@@ -145,7 +149,7 @@ impl<State, Message> ElementTree<State, Message> {
     ) where
         Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
-        match result {
+        match reconcile_result {
             ReconcileResult::Append(Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(parent);
                 if in_component_rendering {
@@ -249,7 +253,7 @@ impl<State, Message> ElementTree<State, Message> {
     }
 }
 
-impl<State: fmt::Debug, Message: fmt::Debug> fmt::Display for ElementTree<State, Message> {
+impl<State, Message> fmt::Display for ElementTree<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.tree.fmt(f)
     }
@@ -277,6 +281,28 @@ impl<State, Message> ElementNode<State, Message> {
     fn update(&mut self, element: WidgetElement<State, Message>) {
         self.element = Some(element);
         self.dirty = true;
+    }
+}
+
+impl<State, Message> fmt::Display for ElementNode<State, Message> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "<{}",
+            self.element
+                .as_ref()
+                .map_or("?", |element| element.widget.short_type_name())
+        )?;
+        write!(
+            f,
+            " components={:?}",
+            self.component_stack
+                .iter()
+                .map(|component| component.component.short_type_name())
+                .collect::<Vec<_>>()
+        )?;
+        write!(f, ">")?;
+        Ok(())
     }
 }
 
@@ -374,37 +400,37 @@ impl ElementId {
     }
 }
 
-fn create_reconciler<State, Message>(
-    cursor: &mut CursorMut<ElementNode<State, Message>>,
-    children: Vec<Element<State, Message>>,
+fn create_reconciler<'a, State: 'a, Message: 'a>(
+    tree_children: impl IntoIterator<Item = (NodeId, &'a mut Node<ElementNode<State, Message>>)>,
+    element_children: Vec<Element<State, Message>>,
     component_index: ComponentIndex,
 ) -> Reconciler<TypedKey, ElementId, Element<State, Message>> {
     let mut old_keys: Vec<TypedKey> = Vec::new();
     let mut old_ids: Vec<Option<ElementId>> = Vec::new();
 
-    for (index, (child_id, child)) in cursor.children().enumerate() {
+    for (index, (child_id, child)) in tree_children.into_iter().enumerate() {
         let child_node = child.data();
-        let (key, id) = if component_index < child_node.component_stack.len() {
+        if component_index < child_node.component_stack.len() {
             let component = &child_node.component_stack[component_index];
             let type_id = component.as_any().type_id();
             let key = TypedKey::new(type_id, component.key, index);
             let id = ElementId::Component(child_id, component_index);
-            (key, id)
-        } else {
-            let element = child_node.element.as_ref().expect("element not found");
+            old_keys.push(key);
+            old_ids.push(Some(id));
+        } else if let Some(element) = child_node.element.as_ref() {
             let type_id = element.widget.as_any().type_id();
             let key = TypedKey::new(type_id, element.key, index);
             let id = ElementId::Widget(child_id);
-            (key, id)
-        };
-        old_keys.push(key);
-        old_ids.push(Some(id));
+            old_keys.push(key);
+            old_ids.push(Some(id));
+        }
     }
 
-    let mut new_keys: Vec<TypedKey> = Vec::with_capacity(children.len());
-    let mut new_elements: Vec<Option<Element<State, Message>>> = Vec::with_capacity(children.len());
+    let mut new_keys: Vec<TypedKey> = Vec::with_capacity(element_children.len());
+    let mut new_elements: Vec<Option<Element<State, Message>>> =
+        Vec::with_capacity(element_children.len());
 
-    for (index, element) in children.into_iter().enumerate() {
+    for (index, element) in element_children.into_iter().enumerate() {
         let key = match &element {
             Element::WidgetElement(element) => {
                 TypedKey::new(element.widget.as_any().type_id(), element.key, index)

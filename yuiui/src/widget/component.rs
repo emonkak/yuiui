@@ -46,6 +46,10 @@ pub trait Component<State, Message, Own: ?Sized = Self>: AsAny {
         any::type_name::<Self>()
     }
 
+    fn short_type_name(&self) -> &'static str {
+        short_type_name_of(self.type_name())
+    }
+
     fn into_rc(self) -> RcComponent<State, Message>
     where
         Self: 'static + Sized + Component<State, Message>,

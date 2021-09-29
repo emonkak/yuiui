@@ -7,6 +7,6 @@ use crate::widget::ComponentIndex;
 pub enum ApplicationMessage<Message> {
     Quit,
     RequestUpdate(NodeId, ComponentIndex),
-    Render(Instant),
+    RequestRender(Instant),
     Broadcast(Message),
 }

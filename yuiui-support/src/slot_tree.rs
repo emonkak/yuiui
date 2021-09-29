@@ -134,9 +134,9 @@ impl<T> SlotTree<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Display for SlotTree<T> {
+impl<T: fmt::Display> fmt::Display for SlotTree<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn fmt_rec<T: fmt::Debug>(
+        fn fmt_rec<T: fmt::Display>(
             tree: &SlotTree<T>,
             f: &mut fmt::Formatter,
             id: NodeId,
@@ -145,12 +145,11 @@ impl<T: fmt::Debug> fmt::Display for SlotTree<T> {
             let indent = unsafe { String::from_utf8_unchecked(vec![b' '; level * 4]) };
             let node = tree.get(id);
 
-            write!(f, "{}{} => {:?}", indent, id.get(), node.data)?;
+            write!(f, "{}{} => {}", indent, id.get(), node.data)?;
 
             if let Some(child_id) = node.first_child {
-                write!(f, " {{\n")?;
+                write!(f, "\n")?;
                 fmt_rec(tree, f, child_id, level + 1)?;
-                write!(f, "\n{}}}", indent)?;
             }
 
             if let Some(sibling_id) = node.next_sibling {

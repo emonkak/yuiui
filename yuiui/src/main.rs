@@ -66,8 +66,8 @@ fn main() {
         connection.clone(),
         screen_num,
         PhysicalRectangle {
-            x: 0,
-            y: 0,
+            x: 960,
+            y: 240,
             width: 640,
             height: 480,
         },

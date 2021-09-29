@@ -39,7 +39,7 @@ where
 
     fn should_update(&self, new_widget: &dyn Any, state: &Self::LocalState) -> bool {
         self.widget.should_update(
-            new_widget.downcast_ref().unwrap(),
+            &new_widget.downcast_ref::<Self>().unwrap().widget,
             state.downcast_ref().unwrap(),
         )
     }
@@ -50,7 +50,7 @@ where
         state: &mut Self::LocalState,
     ) -> Effect<M> {
         self.widget.on_lifecycle(
-            lifecycle.map(|widget| widget.downcast_ref().unwrap()),
+            lifecycle.map(|widget| &widget.downcast_ref::<Self>().unwrap().widget),
             state.downcast_mut().unwrap(),
         )
     }

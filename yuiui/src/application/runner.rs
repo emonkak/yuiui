@@ -33,18 +33,20 @@ where
     event_loop.run(|event, context| {
         match event {
             UIEvent::LoopInitialized => {
-                context.request_idle(|deadline| ApplicationMessage::Render(deadline));
+                context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
             }
             UIEvent::Message(ApplicationMessage::Quit) => return ControlFlow::Break,
             UIEvent::Message(ApplicationMessage::RequestUpdate(id, component_index)) => {
                 render_loop.schedule_update(id, component_index)
             }
-            UIEvent::Message(ApplicationMessage::Render(deadline)) => loop {
+            UIEvent::Message(ApplicationMessage::RequestRender(deadline)) => loop {
                 let viewport = window_container.viewport();
                 match render_loop.render(viewport, context) {
                     RenderFlow::Continue => {
                         if deadline - Instant::now() < Duration::from_millis(1) {
-                            context.request_idle(|deadline| ApplicationMessage::Render(deadline));
+                            context.request_idle(|deadline| {
+                                ApplicationMessage::RequestRender(deadline)
+                            });
                             break;
                         }
                     }
@@ -77,7 +79,7 @@ where
                     let viewport = window_container.viewport();
                     renderer.configure_surface(&mut surface, &viewport);
                     render_loop.schedule_update(NodeId::ROOT, 0);
-                    context.request_idle(|deadline| ApplicationMessage::Render(deadline));
+                    context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
                 }
                 render_loop.dispatch(&WindowEvent::SizeChanged(size).into(), context);
             }

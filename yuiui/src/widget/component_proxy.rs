@@ -49,16 +49,20 @@ where
         )
     }
 
-    fn on_event(&self, _event: &Event<S>, _state: &mut Self::LocalState) -> Effect<M> {
-        Effect::None
-    }
-
     fn on_lifecycle(
         &self,
-        _lifecycle: Lifecycle<&dyn Any>,
-        _state: &mut Self::LocalState,
+        lifecycle: Lifecycle<&dyn Any>,
+        state: &mut Self::LocalState,
     ) -> Effect<M> {
-        Effect::None
+        self.component.on_lifecycle(
+            lifecycle.map(|component| &component.downcast_ref::<Self>().unwrap().component),
+            state.downcast_mut().unwrap(),
+        )
+    }
+
+    fn on_event(&self, event: &Event<S>, state: &mut Self::LocalState) -> Effect<M> {
+        self.component
+            .on_event(event, state.downcast_mut().unwrap())
     }
 
     fn render(&self, children: &Children<S, M>, state: &Self::LocalState) -> Element<S, M> {
