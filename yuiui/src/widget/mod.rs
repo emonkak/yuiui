@@ -5,6 +5,7 @@ mod component_proxy;
 mod effect;
 mod element;
 mod element_tree;
+mod event;
 mod event_manager;
 mod lifecycle;
 mod reconciler;
@@ -16,6 +17,7 @@ mod widget_tree;
 pub use attributes::{AnyValue, Attributes};
 pub use command::Command;
 pub use component::{Component, RcComponent};
+pub use event::{Event, EventMask};
 pub use component_proxy::ComponentProxy;
 pub use effect::Effect;
 pub use element::{

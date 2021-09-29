@@ -1,13 +1,12 @@
 use std::ops::Add;
 use yuiui_support::bit_flags::BitFlags;
 
-use super::Command;
-use crate::event::WindowEventMask;
+use super::{Command, EventMask};
 
 pub enum Effect<Message> {
     None,
-    AddListener(BitFlags<WindowEventMask>),
-    RemoveListener(BitFlags<WindowEventMask>),
+    AddListener(BitFlags<EventMask>),
+    RemoveListener(BitFlags<EventMask>),
     Command(Command<Message>),
     Batch(Vec<Effect<Message>>),
 }

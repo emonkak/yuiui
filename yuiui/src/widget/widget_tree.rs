@@ -7,8 +7,7 @@ use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{NodeId, SlotTree};
 
 use super::event_manager::EventManager;
-use super::{Attributes, Command, Effect, Lifecycle, RcWidget, UnitOfWork, WidgetElement};
-use crate::event::{WindowEvent, WindowEventMask};
+use super::{Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork, WidgetElement};
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
 
@@ -35,7 +34,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 let id = self.tree.next_node_id();
                 let mut cursor = self.tree.cursor_mut(parent);
                 let mut widget = WidgetPod::from_element(element);
-                let effect = widget.on_lifecycle(Lifecycle::OnMount);
+                let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(
                     effect,
                     id,
@@ -49,7 +48,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 let id = self.tree.next_node_id();
                 let mut cursor = self.tree.cursor_mut(reference);
                 let mut widget = WidgetPod::from_element(element);
-                let effect = widget.on_lifecycle(Lifecycle::OnMount);
+                let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(
                     effect,
                     id,
@@ -89,7 +88,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 for (id, node) in cursor.drain_subtree() {
                     let mut widget = node.into_data().unwrap();
                     self.event_manager.remove_listener(id, widget.event_mask);
-                    let effect = widget.on_lifecycle(Lifecycle::OnUnmount);
+                    let effect = widget.on_lifecycle(Lifecycle::Unmounted);
                     process_effect(
                         effect,
                         id,
@@ -104,7 +103,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 for (id, node) in cursor.drain_descendants() {
                     let mut widget = node.into_data().unwrap();
                     self.event_manager.remove_listener(id, widget.event_mask);
-                    let effect = widget.on_lifecycle(Lifecycle::OnUnmount);
+                    let effect = widget.on_lifecycle(Lifecycle::Unmounted);
                     process_effect(
                         effect,
                         id,
@@ -117,7 +116,7 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn dispatch<Handler>(&mut self, event: &WindowEvent, command_handler: Handler)
+    pub fn dispatch<Handler>(&mut self, event: &Event<State>, command_handler: Handler)
     where
         Handler: Fn(Command<Message>),
     {
@@ -273,7 +272,7 @@ pub struct WidgetPod<State, Message> {
     widget: RcWidget<State, Message>,
     attributes: Rc<Attributes>,
     state: Box<dyn Any>,
-    event_mask: BitFlags<WindowEventMask>,
+    event_mask: BitFlags<EventMask>,
     position: Point,
     size: Size,
     box_constraints: BoxConstraints,
@@ -328,13 +327,13 @@ impl<State, Message> WidgetPod<State, Message> {
         self.needs_draw = should_update;
 
         if should_update {
-            self.on_lifecycle(Lifecycle::OnUpdate(old_widget.as_any()))
+            self.on_lifecycle(Lifecycle::Updated(old_widget.as_any()))
         } else {
             Effect::None
         }
     }
 
-    fn on_event(&mut self, event: &WindowEvent) -> Effect<Message> {
+    fn on_event(&mut self, event: &Event<State>) -> Effect<Message> {
         self.widget.on_event(event, &mut self.state)
     }
 

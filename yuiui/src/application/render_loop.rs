@@ -4,11 +4,10 @@ use std::mem;
 use yuiui_support::slot_tree::NodeId;
 
 use super::message::ApplicationMessage;
-use crate::event::WindowEvent;
 use crate::geometrics::{Rectangle, Viewport};
 use crate::graphics::Primitive;
 use crate::ui::EventLoopContext;
-use crate::widget::{Command, Element, ElementTree, UnitOfWork, Widget, WidgetTree};
+use crate::widget::{Command, Element, ElementTree, Event, UnitOfWork, Widget, WidgetTree};
 use crate::widget_impl::root::Root;
 
 #[derive(Debug)]
@@ -108,7 +107,7 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         }
     }
 
-    pub fn dispatch<Context>(&mut self, event: &WindowEvent, context: &Context)
+    pub fn dispatch<Context>(&mut self, event: &Event<State>, context: &Context)
     where
         Context: EventLoopContext<ApplicationMessage<Message>>,
     {

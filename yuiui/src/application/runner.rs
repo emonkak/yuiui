@@ -61,7 +61,7 @@ where
             Event::WindowEvent(_, WindowEvent::RedrawRequested(bounds)) => {
                 let viewport = window_container.viewport();
                 renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, Color::WHITE);
-                render_loop.dispatch(&WindowEvent::RedrawRequested(bounds), context);
+                render_loop.dispatch(&WindowEvent::RedrawRequested(bounds).into(), context);
             }
             Event::WindowEvent(_, WindowEvent::SizeChanged(size)) => {
                 if window_container.resize_viewport(size) {
@@ -70,14 +70,14 @@ where
                     render_loop.schedule_update(NodeId::ROOT, 0);
                     context.request_idle(|deadline| ApplicationMessage::Render(deadline));
                 }
-                render_loop.dispatch(&WindowEvent::SizeChanged(size), context);
+                render_loop.dispatch(&WindowEvent::SizeChanged(size).into(), context);
             }
             Event::WindowEvent(_, WindowEvent::Closed) => {
-                render_loop.dispatch(&WindowEvent::Closed, context);
+                render_loop.dispatch(&WindowEvent::Closed.into(), context);
                 return ControlFlow::Break;
             }
             Event::WindowEvent(_, event) => {
-                render_loop.dispatch(&event, context);
+                render_loop.dispatch(&event.into(), context);
             }
         }
 

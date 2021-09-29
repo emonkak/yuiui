@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub enum Lifecycle<T> {
-    OnMount,
-    OnUpdate(T),
-    OnUnmount,
+    Mounted,
+    Updated(T),
+    Unmounted,
 }
 
 impl<T> Lifecycle<T> {
@@ -11,9 +11,9 @@ impl<T> Lifecycle<T> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Self::OnMount => Lifecycle::OnMount,
-            Self::OnUpdate(new_value) => Lifecycle::OnUpdate(f(new_value)),
-            Self::OnUnmount => Lifecycle::OnUnmount,
+            Self::Mounted => Lifecycle::Mounted,
+            Self::Updated(new_value) => Lifecycle::Updated(f(new_value)),
+            Self::Unmounted => Lifecycle::Unmounted,
         }
     }
 }
