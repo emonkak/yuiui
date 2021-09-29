@@ -21,11 +21,7 @@ pub struct ElementTree<State, Message> {
 }
 
 impl<State, Message> ElementTree<State, Message> {
-    pub fn new(root_widget: RcWidget<State, Message>, element: Element<State, Message>) -> Self
-    where
-        State: 'static,
-        Message: 'static,
-    {
+    pub fn new(root_widget: RcWidget<State, Message>, element: Element<State, Message>) -> Self {
         let element = WidgetElement {
             widget: root_widget,
             attributes: Default::default(),
@@ -153,15 +149,20 @@ impl<State, Message> ElementTree<State, Message> {
             ReconcileResult::Append(Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(parent);
                 if in_component_rendering {
-                    let element_node = cursor.current().data_mut();
-                    element_node.element = Some(element.clone());
                     pending_works.push(UnitOfWork::Append(
                         cursor.current().parent().expect("parent node not found"),
-                        element,
-                    ))
+                        element.widget.clone(),
+                        element.attributes.clone(),
+                    ));
+                    let element_node = cursor.current().data_mut();
+                    element_node.element = Some(element);
                 } else {
-                    cursor.append_child(ElementNode::new(Some(element.clone()), Vec::new()));
-                    pending_works.push(UnitOfWork::Append(parent, element))
+                    pending_works.push(UnitOfWork::Append(
+                        parent,
+                        element.widget.clone(),
+                        element.attributes.clone()
+                    ));
+                    cursor.append_child(ElementNode::new(Some(element), Vec::new()));
                 }
             }
             ReconcileResult::Append(Element::ComponentElement(element)) => {
@@ -174,9 +175,13 @@ impl<State, Message> ElementTree<State, Message> {
                 }
             }
             ReconcileResult::Insert(reference, Element::WidgetElement(element)) => {
+                pending_works.push(UnitOfWork::Insert(
+                    reference.id(),
+                    element.widget.clone(),
+                    element.attributes.clone(),
+                ));
                 let mut cursor = self.tree.cursor_mut(reference.id());
-                cursor.insert_before(ElementNode::new(Some(element.clone()), Vec::new()));
-                pending_works.push(UnitOfWork::Insert(reference.id(), element))
+                cursor.insert_before(ElementNode::new(Some(element), Vec::new()));
             }
             ReconcileResult::Insert(reference, Element::ComponentElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(reference.id());
@@ -185,8 +190,15 @@ impl<State, Message> ElementTree<State, Message> {
             }
             ReconcileResult::Update(ElementId::Widget(id), Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                cursor.current().data_mut().update(element.clone());
-                pending_works.push(UnitOfWork::Update(id, element))
+                let element_node = cursor.current().data_mut();
+                if element_node.should_update(&element.widget) {
+                    pending_works.push(UnitOfWork::Update(
+                        id,
+                        element.widget.clone(),
+                        element.attributes.clone(),
+                    ));
+                }
+                element_node.set_element(element);
             }
             ReconcileResult::Update(
                 ElementId::Component(id, component_index),
@@ -202,9 +214,20 @@ impl<State, Message> ElementTree<State, Message> {
                 Element::WidgetElement(element),
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                cursor.current().data_mut().update(element.clone());
+                let element_node = cursor.current().data_mut();
+                if element_node.should_update(&element.widget) {
+                    pending_works.push(UnitOfWork::Update(
+                        id,
+                        element.widget.clone(),
+                        element.attributes.clone(),
+                    ));
+                }
+                element_node.set_element(element);
+                pending_works.push(UnitOfWork::Move(
+                    id,
+                    reference.id(),
+                ));
                 cursor.move_before(reference.id());
-                pending_works.push(UnitOfWork::UpdateAndMove(id, reference.id(), element))
             }
             ReconcileResult::UpdateAndMove(
                 ElementId::Component(id, component_index),
@@ -278,9 +301,17 @@ impl<State, Message> ElementNode<State, Message> {
         }
     }
 
-    fn update(&mut self, element: WidgetElement<State, Message>) {
+    fn set_element(&mut self, element: WidgetElement<State, Message>) {
         self.element = Some(element);
         self.dirty = true;
+    }
+
+    fn should_update(&self, widget: &RcWidget<State, Message>) -> bool {
+        self.element
+            .as_ref()
+            .expect("element not found")
+            .widget
+            .should_update(widget.as_any())
     }
 }
 

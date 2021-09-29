@@ -37,10 +37,9 @@ where
         Box::new(self.widget.initial_state())
     }
 
-    fn should_update(&self, new_widget: &dyn Any, state: &Self::LocalState) -> bool {
+    fn should_update(&self, new_widget: &dyn Any) -> bool {
         self.widget.should_update(
             &new_widget.downcast_ref::<Self>().unwrap().widget,
-            state.downcast_ref().unwrap(),
         )
     }
 

@@ -1,12 +1,14 @@
-use super::WidgetElement;
+use std::rc::Rc;
 use yuiui_support::slot_tree::NodeId;
+
+use super::{Attributes, RcWidget};
 
 #[derive(Debug)]
 pub enum UnitOfWork<State, Message> {
-    Append(NodeId, WidgetElement<State, Message>),
-    Insert(NodeId, WidgetElement<State, Message>),
-    Update(NodeId, WidgetElement<State, Message>),
-    UpdateAndMove(NodeId, NodeId, WidgetElement<State, Message>),
+    Append(NodeId, RcWidget<State, Message>, Rc<Attributes>),
+    Insert(NodeId, RcWidget<State, Message>, Rc<Attributes>),
+    Update(NodeId, RcWidget<State, Message>, Rc<Attributes>),
+    Move(NodeId, NodeId),
     Remove(NodeId),
     RemoveChildren(NodeId),
 }

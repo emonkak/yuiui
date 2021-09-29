@@ -17,7 +17,7 @@ pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
 
     fn initial_state(&self) -> Self::LocalState;
 
-    fn should_update(&self, _new_widget: &Own, _state: &Self::LocalState) -> bool {
+    fn should_update(&self, _new_widget: &Own) -> bool {
         true
     }
 

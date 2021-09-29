@@ -22,7 +22,7 @@ impl<State, Message> Widget<State, Message> for Label {
         ()
     }
 
-    fn should_update(&self, new_widget: &Self, _state: &Self::LocalState) -> bool {
+    fn should_update(&self, new_widget: &Self) -> bool {
         self != new_widget
     }
 

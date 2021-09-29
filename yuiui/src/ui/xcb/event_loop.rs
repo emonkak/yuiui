@@ -202,7 +202,7 @@ where
         let message_sender = self.message_sender.clone();
         self.local_set.spawn_local(async move {
             task::yield_now().await;
-            // FIXME: Appropriate deadline
+            // TODO: Appropriate deadline
             let deadline = Instant::now() + Duration::from_millis(50);
             message_sender
                 .send(callback(deadline))
