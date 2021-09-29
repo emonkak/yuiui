@@ -46,7 +46,7 @@ impl<State, Message> Widget<State, Message> for Flex {
 
         let flex_params = children
             .iter()
-            .map(|child| context.get_attributes(*child).get::<FlexParam>())
+            .map(|child| context.get_attribute::<FlexParam>(*child))
             .collect::<Vec<_>>();
 
         for (i, child) in children.iter().enumerate() {

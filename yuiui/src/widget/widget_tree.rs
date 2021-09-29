@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::mem;
 use std::rc::Rc;
+use std::cell::{Ref, RefCell, RefMut};
 use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{NodeId, SlotTree};
 
@@ -64,25 +65,25 @@ impl<State, Message> WidgetTree<State, Message> {
                 cursor.insert_before(WidgetNode::from(widget));
             }
             UnitOfWork::Update(id, element) => {
-                let mut cursor = self.tree.cursor_mut(id);
-                let widget = cursor.current().data_mut().borrow_mut();
+                let cursor = self.tree.cursor(id);
+                let mut widget = cursor.current().data().borrow_mut();
                 let effect = widget.update(element);
                 process_effect(
                     effect,
                     id,
-                    widget,
+                    &mut widget,
                     &handler,
                     &mut self.event_manager,
                 );
             }
             UnitOfWork::UpdateAndMove(id, reference, element) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let widget = cursor.current().data_mut().borrow_mut();
+                let mut widget = cursor.current().data().borrow_mut();
                 let effect = widget.update(element);
                 process_effect(
                     effect,
                     id,
-                    widget,
+                    &mut widget,
                     &handler,
                     &mut self.event_manager,
                 );
@@ -91,7 +92,7 @@ impl<State, Message> WidgetTree<State, Message> {
             UnitOfWork::Remove(id) => {
                 let cursor = self.tree.cursor_mut(id);
                 for (id, node) in cursor.drain_subtree() {
-                    let mut widget = node.into_data().get();
+                    let mut widget = node.into_data().into_inner();
                     self.event_manager.remove_listener(id, widget.event_mask);
                     let effect = widget.on_lifecycle(Lifecycle::Unmounted);
                     process_effect(
@@ -106,7 +107,7 @@ impl<State, Message> WidgetTree<State, Message> {
             UnitOfWork::RemoveChildren(id) => {
                 let mut cursor = self.tree.cursor_mut(id);
                 for (id, node) in cursor.drain_descendants() {
-                    let mut widget = node.into_data().get();
+                    let mut widget = node.into_data().into_inner();
                     self.event_manager.remove_listener(id, widget.event_mask);
                     let effect = widget.on_lifecycle(Lifecycle::Unmounted);
                     process_effect(
@@ -129,24 +130,24 @@ impl<State, Message> WidgetTree<State, Message> {
         let listeners = self.event_manager.get_listerners(event_mask);
 
         for id in listeners {
-            let widget = self.tree.cursor_mut(id).current().data_mut().borrow_mut();
+            let mut widget = self.tree.cursor(id).current().data().borrow_mut();
             let effect = widget.on_event(event);
             process_effect(
                 effect,
                 id,
-                widget,
+                &mut widget,
                 &handler,
                 &mut self.event_manager,
             );
         }
     }
 
-    pub fn layout(&mut self, id: NodeId, viewport: &Viewport) -> NodeId {
+    pub fn layout(&self, id: NodeId, viewport: &Viewport) -> NodeId {
         let mut current = id;
 
         loop {
-            let mut cursor = self.tree.cursor_mut(current);
-            let mut widget = cursor.current().data_mut().take();
+            let cursor = self.tree.cursor(current);
+            let mut widget = cursor.current().data().borrow_mut();
 
             let box_constraints = if id.is_root() {
                 BoxConstraints::tight(viewport.logical_size())
@@ -157,9 +158,6 @@ impl<State, Message> WidgetTree<State, Message> {
             let mut context = LayoutContext { widget_tree: self };
             let has_changed = widget.layout(box_constraints, &children, &mut context);
 
-            let mut cursor = self.tree.cursor_mut(current);
-            cursor.current().data_mut().replace(widget);
-
             match (has_changed, cursor.current().parent()) {
                 (true, Some(parent)) => current = parent,
                 _ => break current,
@@ -167,12 +165,12 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn draw(&mut self, id: NodeId) -> (Primitive, Rectangle) {
-        let mut cursor = self.tree.cursor_mut(id);
-        let mut widget = cursor.current().data_mut().take();
+    pub fn draw(&self, id: NodeId) -> (Primitive, Rectangle) {
+        let cursor = self.tree.cursor(id);
+        let mut widget = cursor.current().data().borrow_mut();
 
         let origin = cursor.ancestors().fold(Point::ZERO, |origin, (_, node)| {
-            let mut parent = node.data_mut().borrow_mut();
+            let mut parent = node.data().borrow_mut();
             parent.needs_draw = true;
             origin + parent.position
         });
@@ -185,15 +183,12 @@ impl<State, Message> WidgetTree<State, Message> {
         };
         let primitive = widget.draw(bounds, &children, &mut context);
 
-        let mut cursor = self.tree.cursor_mut(id);
-        cursor.current().data_mut().replace(widget);
-
         (primitive, bounds)
     }
 
-    fn layout_child(&mut self, id: NodeId, box_constraints: BoxConstraints) -> Size {
-        let mut cursor = self.tree.cursor_mut(id);
-        let mut widget = cursor.current().data_mut().take();
+    fn layout_child(&self, id: NodeId, box_constraints: BoxConstraints) -> Size {
+        let cursor = self.tree.cursor(id);
+        let mut widget = cursor.current().data().borrow_mut();
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = LayoutContext { widget_tree: self };
@@ -202,15 +197,12 @@ impl<State, Message> WidgetTree<State, Message> {
         widget.box_constraints = box_constraints;
         let size = widget.size;
 
-        let mut cursor = self.tree.cursor_mut(id);
-        cursor.current().data_mut().replace(widget);
-
         size
     }
 
-    fn draw_child(&mut self, id: NodeId, origin: Point) -> Primitive {
-        let mut cursor = self.tree.cursor_mut(id);
-        let mut widget = cursor.current().data_mut().take();
+    fn draw_child(&self, id: NodeId, origin: Point) -> Primitive {
+        let cursor = self.tree.cursor(id);
+        let mut widget = cursor.current().data().borrow_mut();
 
         let bounds = Rectangle::new(origin + widget.position, widget.size);
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
@@ -220,18 +212,15 @@ impl<State, Message> WidgetTree<State, Message> {
         };
         let primitive = widget.draw(bounds, &children, &mut context);
 
-        let mut cursor = self.tree.cursor_mut(id);
-        cursor.current().data_mut().replace(widget);
-
         primitive
     }
 
-    fn get_widget(&self, id: NodeId) -> &WidgetPod<State, Message> {
+    fn get(&self, id: NodeId) -> Ref<WidgetPod<State, Message>> {
         self.tree.cursor(id).current().data().borrow()
     }
 
-    fn get_widget_mut(&mut self, id: NodeId) -> &mut WidgetPod<State, Message> {
-        self.tree.cursor_mut(id).current().data_mut().borrow_mut()
+    fn get_mut(&self, id: NodeId) -> RefMut<WidgetPod<State, Message>> {
+        self.tree.cursor(id).current().data().borrow_mut()
     }
 }
 
@@ -243,51 +232,34 @@ impl<State, Message> fmt::Display for WidgetTree<State, Message> {
 
 #[derive(Debug)]
 pub struct WidgetNode<State, Message> {
-    widget: Option<WidgetPod<State, Message>>,
+    widget: RefCell<WidgetPod<State, Message>>,
 }
 
 impl<State, Message> WidgetNode<State, Message> {
-    fn get(self) -> WidgetPod<State, Message> {
-        self.widget.expect("widget is currently in use elsewhere")
+    fn into_inner(self) -> WidgetPod<State, Message> {
+        self.widget.into_inner()
     }
 
-    fn borrow(&self) -> &WidgetPod<State, Message> {
-        self.widget
-            .as_ref()
-            .expect("widget is currently in use elsewhere")
+    fn borrow(&self) -> Ref<WidgetPod<State, Message>> {
+        self.widget.borrow()
     }
 
-    fn borrow_mut(&mut self) -> &mut WidgetPod<State, Message> {
-        self.widget
-            .as_mut()
-            .expect("widget is currently in use elsewhere")
-    }
-
-    fn take(&mut self) -> WidgetPod<State, Message> {
-        self.widget
-            .take()
-            .expect("widget is currently in use elsewhere")
-    }
-
-    fn replace(&mut self, widget: WidgetPod<State, Message>) -> Option<WidgetPod<State, Message>> {
-        self.widget.replace(widget)
+    fn borrow_mut(&self) -> RefMut<WidgetPod<State, Message>> {
+        self.widget.borrow_mut()
     }
 }
 
 impl<State, Message> From<WidgetPod<State, Message>> for WidgetNode<State, Message> {
     fn from(widget: WidgetPod<State, Message>) -> Self {
         Self {
-            widget: Some(widget),
+            widget: RefCell::new(widget),
         }
     }
 }
 
 impl<State, Message> fmt::Display for WidgetNode<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.widget {
-            Some(widget) => widget.fmt(f),
-            None => write!(f, "<?>"),
-        }
+        self.widget.borrow().fmt(f)
     }
 }
 
@@ -430,37 +402,40 @@ impl<State, Message> fmt::Display for WidgetPod<State, Message> {
 
 #[derive(Debug)]
 pub struct LayoutContext<'a, State, Message> {
-    widget_tree: &'a mut WidgetTree<State, Message>,
+    widget_tree: &'a WidgetTree<State, Message>,
 }
 
 impl<'a, State, Message> LayoutContext<'a, State, Message> {
     pub fn get_size(&mut self, id: NodeId) -> Size {
-        let widget = self.widget_tree.get_widget(id);
+        let widget = self.widget_tree.get(id);
         widget.size
     }
 
-    pub fn get_attributes(&self, id: NodeId) -> &Attributes {
-        &*self.widget_tree.get_widget(id).attributes
+    pub fn get_attribute<Attribute>(&self, id: NodeId) -> Option<Attribute>
+    where
+        Attribute: 'static + Copy
+    {
+        self.widget_tree.get(id).attributes.get::<Attribute>()
     }
 
-    pub fn set_position(&mut self, id: NodeId, position: Point) {
-        let widget = self.widget_tree.get_widget_mut(id);
+    pub fn set_position(&self, id: NodeId, position: Point) {
+        let mut widget = self.widget_tree.get_mut(id);
         widget.position = position;
     }
 
-    pub fn layout_child(&mut self, id: NodeId, box_constraints: BoxConstraints) -> Size {
+    pub fn layout_child(&self, id: NodeId, box_constraints: BoxConstraints) -> Size {
         self.widget_tree.layout_child(id, box_constraints)
     }
 }
 
 #[derive(Debug)]
 pub struct DrawContext<'a, State, Message> {
-    widget_tree: &'a mut WidgetTree<State, Message>,
+    widget_tree: &'a WidgetTree<State, Message>,
     origin: Point,
 }
 
 impl<'a, State, Message> DrawContext<'a, State, Message> {
-    pub fn draw_child(&mut self, id: NodeId) -> Primitive {
+    pub fn draw_child(&self, id: NodeId) -> Primitive {
         self.widget_tree.draw_child(id, self.origin)
     }
 }
