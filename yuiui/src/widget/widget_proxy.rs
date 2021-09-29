@@ -24,7 +24,8 @@ impl<Inner, State, Message, LocalState> WidgetProxy<Inner, Message, State, Local
     }
 }
 
-impl<Inner, State, Message> Widget<State, Message, dyn Any> for WidgetProxy<Inner, State, Message, Inner::LocalState>
+impl<Inner, State, Message> Widget<State, Message, dyn Any>
+    for WidgetProxy<Inner, State, Message, Inner::LocalState>
 where
     Inner: 'static + Widget<State, Message>,
     State: 'static,
@@ -38,9 +39,8 @@ where
     }
 
     fn should_update(&self, new_widget: &dyn Any) -> bool {
-        self.inner.should_update(
-            &new_widget.downcast_ref::<Self>().unwrap().inner,
-        )
+        self.inner
+            .should_update(&new_widget.downcast_ref::<Self>().unwrap().inner)
     }
 
     fn on_lifecycle(
@@ -54,8 +54,14 @@ where
         )
     }
 
-    fn on_event(&self, event: &Event<State>, bounds: Rectangle, state: &mut Self::LocalState) -> Effect<Message> {
-        self.inner.on_event(event, bounds, state.downcast_mut().unwrap())
+    fn on_event(
+        &self,
+        event: Event<State>,
+        bounds: Rectangle,
+        state: &mut Self::LocalState,
+    ) -> Effect<Message> {
+        self.inner
+            .on_event(event, bounds, state.downcast_mut().unwrap())
     }
 
     fn layout(

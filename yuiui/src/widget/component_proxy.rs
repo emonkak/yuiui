@@ -21,7 +21,8 @@ impl<Inner, State, Message, LocalState> ComponentProxy<Inner, State, Message, Lo
     }
 }
 
-impl<Inner, State, Message> Component<State, Message, dyn Any> for ComponentProxy<Inner, State, Message, Inner::LocalState>
+impl<Inner, State, Message> Component<State, Message, dyn Any>
+    for ComponentProxy<Inner, State, Message, Inner::LocalState>
 where
     Inner: 'static + Component<State, Message>,
     State: 'static,
@@ -60,14 +61,16 @@ where
         )
     }
 
-    fn on_event(&self, event: &Event<State>, state: &mut Self::LocalState) -> Effect<Message> {
-        self.inner
-            .on_event(event, state.downcast_mut().unwrap())
+    fn on_event(&self, event: Event<State>, state: &mut Self::LocalState) -> Effect<Message> {
+        self.inner.on_event(event, state.downcast_mut().unwrap())
     }
 
-    fn render(&self, children: &Children<State, Message>, state: &Self::LocalState) -> Element<State, Message> {
-        self.inner
-            .render(children, state.downcast_ref().unwrap())
+    fn render(
+        &self,
+        children: &Children<State, Message>,
+        state: &Self::LocalState,
+    ) -> Element<State, Message> {
+        self.inner.render(children, state.downcast_ref().unwrap())
     }
 
     fn type_name(&self) -> &'static str {

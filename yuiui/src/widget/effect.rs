@@ -11,11 +11,11 @@ pub enum Effect<Message> {
     Batch(Vec<Effect<Message>>),
 }
 
-impl<Message> Add for Effect<Message> {
+impl<Message, Rhs: Into<Effect<Message>>> Add<Rhs> for Effect<Message> {
     type Output = Self;
 
-    fn add(self, other: Self) -> Self::Output {
-        match (self, other) {
+    fn add(self, other: Rhs) -> Self::Output {
+        match (self, other.into()) {
             (Self::None, y) => y,
             (x, Self::None) => x,
             (Self::Batch(mut xs), Self::Batch(ys)) => {
@@ -33,5 +33,17 @@ impl<Message> Add for Effect<Message> {
             }
             (x, y) => Self::Batch(vec![x, y]),
         }
+    }
+}
+
+impl<Message> From<Command<Message>> for Effect<Message> {
+    fn from(command: Command<Message>) -> Self {
+        Self::Command(command)
+    }
+}
+
+impl<Message> From<Vec<Effect<Message>>> for Effect<Message> {
+    fn from(effects: Vec<Effect<Message>>) -> Self {
+        Self::Batch(effects)
     }
 }

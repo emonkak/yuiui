@@ -15,7 +15,7 @@ use x11rb::protocol;
 use x11rb::protocol::xproto;
 
 use crate::event::{MouseEvent, WindowEvent};
-use crate::geometrics::{PhysicalRectangle, PhysicalSize};
+use crate::geometrics::PhysicalSize;
 use crate::ui::{ControlFlow, Event};
 
 pub struct EventLoop<Connection> {
@@ -99,14 +99,8 @@ where
         match event {
             // Handles only the last expose event.
             protocol::Event::Expose(event) if event.count == 0 => {
-                let bounds = PhysicalRectangle {
-                    x: event.x as _,
-                    y: event.y as _,
-                    width: event.width as _,
-                    height: event.height as _,
-                };
                 callback(
-                    Event::WindowEvent(event.window, WindowEvent::RedrawRequested(bounds)),
+                    Event::WindowEvent(event.window, WindowEvent::RedrawRequested),
                     context,
                 )
             }

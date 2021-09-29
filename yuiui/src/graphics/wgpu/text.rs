@@ -191,7 +191,7 @@ impl Text {
             scale: (self.font_size * scale_factor).into(),
             font_id: segment.font_id,
             extra: wgpu_glyph::Extra {
-                color: self.color.into(),
+                color: self.color.into_f32_components(),
                 z: 0.0,
             },
         }

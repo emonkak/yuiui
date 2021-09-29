@@ -3,14 +3,19 @@ use crate::event::WindowEvent;
 #[derive(Debug)]
 pub enum Event<'a, State> {
     StateChanged(&'a State),
-    WindowEvent(WindowEvent),
+    WindowEvent(&'a WindowEvent),
 }
 
-impl<'a, State> From<WindowEvent> for Event<'a, State> {
-    fn from(window_event: WindowEvent) -> Self {
-        Self::WindowEvent(window_event)
+impl<'a, State> Clone for Event<'a, State> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::StateChanged(state) => Self::StateChanged(state.clone()),
+            Self::WindowEvent(event) => Self::WindowEvent(event.clone()),
+        }
     }
 }
+
+impl<'a, State> Copy for Event<'a, State> {}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(usize)]
@@ -33,7 +38,7 @@ impl<'a, State> Event<'a, State> {
             Self::WindowEvent(WindowEvent::PointerReleased(_)) => EventMask::PointerReleased,
             Self::WindowEvent(WindowEvent::SizeChanged(_)) => EventMask::SizeChanged,
             Self::WindowEvent(WindowEvent::Closed) => EventMask::Closed,
-            Self::WindowEvent(WindowEvent::RedrawRequested(_)) => EventMask::RedrawRequested,
+            Self::WindowEvent(WindowEvent::RedrawRequested) => EventMask::RedrawRequested,
         }
     }
 }

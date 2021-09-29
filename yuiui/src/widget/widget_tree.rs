@@ -1,15 +1,13 @@
 use std::any::Any;
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::VecDeque;
 use std::fmt;
 use std::rc::Rc;
-use std::cell::{Ref, RefCell, RefMut};
 use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{NodeId, SlotTree};
 
 use super::event_manager::EventManager;
-use super::{
-    Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork,
-};
+use super::{Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork};
 use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
 use crate::graphics::Primitive;
 
@@ -28,11 +26,8 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn commit<Handler>(
-        &mut self,
-        unit_of_work: UnitOfWork<State, Message>,
-        handler: &Handler,
-    ) where
+    pub fn commit<Handler>(&mut self, unit_of_work: UnitOfWork<State, Message>, handler: &Handler)
+    where
         Handler: Fn(Command<Message>, NodeId),
     {
         match unit_of_work {
@@ -41,13 +36,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 let mut cursor = self.tree.cursor_mut(parent);
                 let mut widget = WidgetPod::new(widget, attributes);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
-                process_effect(
-                    effect,
-                    id,
-                    &mut widget,
-                    &handler,
-                    &mut self.event_manager,
-                );
+                process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 cursor.append_child(WidgetNode::from(widget));
             }
             UnitOfWork::Insert(reference, widget, attributes) => {
@@ -55,26 +44,14 @@ impl<State, Message> WidgetTree<State, Message> {
                 let mut cursor = self.tree.cursor_mut(reference);
                 let mut widget = WidgetPod::new(widget, attributes);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
-                process_effect(
-                    effect,
-                    id,
-                    &mut widget,
-                    &handler,
-                    &mut self.event_manager,
-                );
+                process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 cursor.insert_before(WidgetNode::from(widget));
             }
             UnitOfWork::Update(id, new_widget, new_attributes) => {
                 let cursor = self.tree.cursor(id);
                 let mut widget = cursor.current().data().borrow_mut();
                 let effect = widget.update(new_widget, new_attributes);
-                process_effect(
-                    effect,
-                    id,
-                    &mut widget,
-                    &handler,
-                    &mut self.event_manager,
-                );
+                process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
             }
             UnitOfWork::Move(id, reference) => {
                 let mut cursor = self.tree.cursor_mut(id);
@@ -86,13 +63,7 @@ impl<State, Message> WidgetTree<State, Message> {
                     let mut widget = node.into_data().into_inner();
                     self.event_manager.remove_listener(id, widget.event_mask);
                     let effect = widget.on_lifecycle(Lifecycle::Unmounted);
-                    process_effect(
-                        effect,
-                        id,
-                        &mut widget,
-                        &handler,
-                        &mut self.event_manager,
-                    );
+                    process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 }
             }
             UnitOfWork::RemoveChildren(id) => {
@@ -101,19 +72,13 @@ impl<State, Message> WidgetTree<State, Message> {
                     let mut widget = node.into_data().into_inner();
                     self.event_manager.remove_listener(id, widget.event_mask);
                     let effect = widget.on_lifecycle(Lifecycle::Unmounted);
-                    process_effect(
-                        effect,
-                        id,
-                        &mut widget,
-                        &handler,
-                        &mut self.event_manager,
-                    );
+                    process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 }
             }
         }
     }
 
-    pub fn dispatch<Handler>(&mut self, event: &Event<State>, handler: Handler)
+    pub fn dispatch<Handler>(&mut self, event: Event<State>, handler: Handler)
     where
         Handler: Fn(Command<Message>, NodeId),
     {
@@ -123,13 +88,7 @@ impl<State, Message> WidgetTree<State, Message> {
         for id in listeners {
             let mut widget = self.tree.cursor(id).current().data().borrow_mut();
             let effect = widget.on_event(event);
-            process_effect(
-                effect,
-                id,
-                &mut widget,
-                &handler,
-                &mut self.event_manager,
-            );
+            process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
         }
     }
 
@@ -169,7 +128,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
         let mut context = DrawContext {
             widget_tree: self,
-            origin: widget.position,
+            origin: widget.origin + widget.position,
         };
         widget.draw(origin, &children, &mut context)
     }
@@ -195,7 +154,7 @@ impl<State, Message> WidgetTree<State, Message> {
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = DrawContext {
             widget_tree: self,
-            origin: widget.position,
+            origin: widget.origin + widget.position,
         };
 
         let (primitive, _) = widget.draw(origin, &children, &mut context);
@@ -283,8 +242,13 @@ impl<State, Message> WidgetPod<State, Message> {
         }
     }
 
-    fn update(&mut self, new_widget: RcWidget<State, Message>, new_attributes: Rc<Attributes>) -> Effect<Message> {
-        let effect = new_widget.on_lifecycle(Lifecycle::Updated(self.widget.as_any()), &mut self.state);
+    fn update(
+        &mut self,
+        new_widget: RcWidget<State, Message>,
+        new_attributes: Rc<Attributes>,
+    ) -> Effect<Message> {
+        let effect =
+            new_widget.on_lifecycle(Lifecycle::Updated(self.widget.as_any()), &mut self.state);
 
         self.widget = new_widget;
         self.attributes = new_attributes;
@@ -294,7 +258,7 @@ impl<State, Message> WidgetPod<State, Message> {
         effect
     }
 
-    fn on_event(&mut self, event: &Event<State>) -> Effect<Message> {
+    fn on_event(&mut self, event: Event<State>) -> Effect<Message> {
         let bounds = self.bounds();
         self.widget.on_event(event, bounds, &mut self.state)
     }
@@ -331,36 +295,40 @@ impl<State, Message> WidgetPod<State, Message> {
         children: &[NodeId],
         context: &mut DrawContext<State, Message>,
     ) -> (Primitive, Rectangle) {
-        let bounds = Rectangle::new(self.position + origin, self.size);
+        let bounds = Rectangle::new(origin + self.position, self.size);
+        self.origin = origin;
+
         if !self.needs_draw {
             if let Some(primitive) = &self.draw_cache {
                 return (primitive.clone(), bounds);
             }
         }
+
         let primitive = self.widget.draw(bounds, children, context, &mut self.state);
-        self.origin = origin;
         self.draw_cache = Some(primitive.clone());
         self.needs_draw = false;
+
         (primitive, bounds)
     }
 
     fn bounds(&self) -> Rectangle {
-        Rectangle::new(self.position + self.origin, self.size)
+        Rectangle::new(self.origin + self.position, self.size)
     }
 }
 
 impl<State, Message> fmt::Display for WidgetPod<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<{}", self.widget.short_type_name())?;
-        write!(f, " x={:?}", self.position.x)?;
-        write!(f, " y={:?}", self.position.y)?;
-        write!(f, " width={:?}", self.size.width)?;
-        write!(f, " height={:?}", self.size.height)?;
-        write!(
-            f,
-            " event_mask={:?}",
-            self.event_mask.iter().collect::<Vec<_>>()
-        )?;
+        write!(f, " pos={:?}", (self.position.x, self.position.y))?;
+        write!(f, " size={:?}", (self.size.width, self.size.height))?;
+        write!(f, " origin={:?}", (self.origin.x, self.origin.y))?;
+        if !self.event_mask.is_empty() {
+            write!(
+                f,
+                " event_mask={:?}",
+                self.event_mask.iter().collect::<Vec<_>>()
+            )?;
+        }
         if self.needs_layout {
             write!(f, " needs_layout")?;
         }
@@ -385,7 +353,7 @@ impl<'a, State, Message> LayoutContext<'a, State, Message> {
 
     pub fn get_attribute<Attribute>(&self, id: NodeId) -> Option<Attribute>
     where
-        Attribute: 'static + Copy
+        Attribute: 'static + Copy,
     {
         self.widget_tree.get(id).attributes.get::<Attribute>()
     }

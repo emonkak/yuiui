@@ -127,6 +127,17 @@ impl<T> Rectangle<T> {
     }
 
     #[inline]
+    pub fn contains(&self, point: Point<T>) -> bool
+    where
+        T: Add<Output = T> + Copy + Ord,
+    {
+        self.x <= point.x
+            && point.x <= self.x + self.width
+            && self.y <= point.y
+            && point.y <= self.y + self.height
+    }
+
+    #[inline]
     pub fn translate(&self, vector: Vector<T>) -> Self
     where
         T: Copy + Add<Output = T>,

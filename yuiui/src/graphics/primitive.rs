@@ -4,7 +4,7 @@ use crate::geometrics::{Rectangle, Transform};
 use crate::graphics::{Background, Color};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Primitive {
     None,
     Batch(Vec<Primitive>),
@@ -26,6 +26,12 @@ pub enum Primitive {
         horizontal_align: HorizontalAlign,
         vertical_align: VerticalAlign,
     },
+}
+
+impl Default for Primitive {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Add for Primitive {

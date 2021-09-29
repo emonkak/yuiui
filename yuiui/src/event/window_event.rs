@@ -1,5 +1,5 @@
 use super::mouse::MouseEvent;
-use crate::geometrics::{PhysicalRectangle, PhysicalSize};
+use crate::geometrics::{PhysicalSize};
 
 #[derive(Debug)]
 pub enum WindowEvent {
@@ -7,5 +7,5 @@ pub enum WindowEvent {
     PointerReleased(MouseEvent),
     SizeChanged(PhysicalSize),
     Closed,
-    RedrawRequested(PhysicalRectangle),
+    RedrawRequested,
 }

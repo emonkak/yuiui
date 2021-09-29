@@ -102,6 +102,9 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
                 }
             }
 
+            println!("ELEMENT_TREE:\n{}", self.element_tree);
+            println!("WIDGET_TREE:\n{}", self.widget_tree);
+
             let (primitive, _) = self.widget_tree.draw(NodeId::ROOT);
             RenderFlow::Paint(primitive, scissor_bounds)
         } else {
@@ -109,12 +112,11 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         }
     }
 
-    pub fn dispatch<Handler>(&mut self, event: &Event<State>, handler: &Handler)
+    pub fn dispatch<Handler>(&mut self, event: Event<State>, handler: &Handler)
     where
         Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
-        self.element_tree
-            .dispatch(event, handler);
+        self.element_tree.dispatch(event, handler);
         self.widget_tree.dispatch(event, |command, id| {
             handler(command, id, ComponentIndex::MAX)
         })

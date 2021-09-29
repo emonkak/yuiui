@@ -49,9 +49,8 @@ where
                 }) {
                     RenderFlow::Continue => {
                         if deadline - Instant::now() < Duration::from_millis(1) {
-                            context.request_idle(|deadline| {
-                                InternalMessage::RequestRender(deadline)
-                            });
+                            context
+                                .request_idle(|deadline| InternalMessage::RequestRender(deadline));
                             break;
                         }
                     }
@@ -71,17 +70,23 @@ where
             },
             UIEvent::Message(InternalMessage::Broadcast(message)) => {
                 if store.dispatch(message) {
-                    render_loop.dispatch(&Event::StateChanged(store.state()), &|command, id, component_index| {
-                        run_command(context, command, id, component_index)
-                    });
+                    render_loop.dispatch(
+                        Event::StateChanged(store.state()),
+                        &|command, id, component_index| {
+                            run_command(context, command, id, component_index)
+                        },
+                    );
                 }
             }
-            UIEvent::WindowEvent(_, WindowEvent::RedrawRequested(bounds)) => {
+            UIEvent::WindowEvent(_, WindowEvent::RedrawRequested) => {
                 let viewport = window_container.viewport();
                 renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, Color::WHITE);
-                render_loop.dispatch(&WindowEvent::RedrawRequested(bounds).into(), &|command, id, component_index| {
-                    run_command(context, command, id, component_index)
-                });
+                render_loop.dispatch(
+                    Event::WindowEvent(&WindowEvent::RedrawRequested),
+                    &|command, id, component_index| {
+                        run_command(context, command, id, component_index)
+                    },
+                );
             }
             UIEvent::WindowEvent(_, WindowEvent::SizeChanged(size)) => {
                 if window_container.resize_viewport(size) {
@@ -91,18 +96,24 @@ where
                         context.request_idle(|deadline| InternalMessage::RequestRender(deadline));
                     }
                 }
-                render_loop.dispatch(&WindowEvent::SizeChanged(size).into(), &|command, id, component_index| {
-                    run_command(context, command, id, component_index)
-                });
+                render_loop.dispatch(
+                    Event::WindowEvent(&WindowEvent::SizeChanged(size)),
+                    &|command, id, component_index| {
+                        run_command(context, command, id, component_index)
+                    },
+                );
             }
             UIEvent::WindowEvent(_, WindowEvent::Closed) => {
-                render_loop.dispatch(&WindowEvent::Closed.into(), &|command, id, component_index| {
-                    run_command(context, command, id, component_index)
-                });
+                render_loop.dispatch(
+                    Event::WindowEvent(&WindowEvent::Closed),
+                    &|command, id, component_index| {
+                        run_command(context, command, id, component_index)
+                    },
+                );
                 return ControlFlow::Break;
             }
             UIEvent::WindowEvent(_, event) => {
-                render_loop.dispatch(&event.into(), &|command, id, component_index| {
+                render_loop.dispatch(Event::WindowEvent(&event), &|command, id, component_index| {
                     run_command(context, command, id, component_index)
                 });
             }
@@ -125,9 +136,7 @@ fn run_command<Message, Context>(
 {
     match command {
         Command::QuitApplication => context.send(InternalMessage::Quit),
-        Command::RequestUpdate => {
-            context.send(InternalMessage::RequestUpdate(id, component_index))
-        }
+        Command::RequestUpdate => context.send(InternalMessage::RequestUpdate(id, component_index)),
         Command::Send(message) => context.send(InternalMessage::Broadcast(message)),
         Command::Perform(future) => {
             context.perform(future.map(InternalMessage::Broadcast));

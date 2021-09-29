@@ -88,19 +88,17 @@ impl Color {
             (self.a * 65535.0).round() as u16,
         ]
     }
+
+    #[inline]
+    pub fn into_f32_components(self) -> [f32; 4] {
+        [self.r, self.g, self.b, self.a]
+    }
 }
 
 impl Default for Color {
     #[inline]
     fn default() -> Self {
-        Self::TRANSPARENT
-    }
-}
-
-impl From<Color> for [f32; 4] {
-    #[inline]
-    fn from(color: Color) -> Self {
-        [color.r, color.g, color.b, color.a]
+        Self::BLACK
     }
 }
 

@@ -10,49 +10,107 @@ use yuiui::application::{self, RenderLoop, Store};
 use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
+use yuiui::text::{HorizontalAlign, VerticalAlign};
 use yuiui::ui::{xcb, Window};
-use yuiui::widget::{attribute, Children, Component, Element, ElementInstance};
+use yuiui::widget::{
+    attribute, Children, Command, Component, Effect, Element, ElementInstance, Event, EventMask,
+    Lifecycle,
+};
 use yuiui::widget_impl::button::Button;
 use yuiui::widget_impl::flex::{Flex, FlexParam};
+use yuiui::widget_impl::label::Label;
 use yuiui::widget_impl::padding::Padding;
 
 struct App;
 
-impl<State: 'static, Message: 'static> Component<State, Message> for App {
-    type LocalState = ();
+impl Component<State, Message> for App {
+    type LocalState = State;
 
     fn initial_state(&self) -> Self::LocalState {
-        ()
+        State::default()
+    }
+
+    fn on_lifecycle(
+        &self,
+        lifecycle: Lifecycle<&Self>,
+        _state: &mut Self::LocalState,
+    ) -> Effect<Message> {
+        match lifecycle {
+            Lifecycle::Mounted => Effect::AddListener(EventMask::StateChanged.into()),
+            _ => Effect::None,
+        }
+    }
+
+    fn on_event(&self, event: Event<State>, state: &mut Self::LocalState) -> Effect<Message> {
+        match event {
+            Event::StateChanged(global_state) => {
+                *state = *global_state;
+                Command::RequestUpdate.into()
+            }
+            _ => Effect::None
+        }
     }
 
     fn render(
         &self,
         _children: &Children<State, Message>,
-        _state: &Self::LocalState,
+        state: &Self::LocalState,
     ) -> Element<State, Message> {
         element!(
-            Flex::column() => [
+            Flex::row() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [
-                    Button { background: Color::RED.into() },
                     attribute(FlexParam(1.0)),
+                    Button { background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(), on_click: Some(Box::new(|_| Command::Send(Message::Increment).into())) } => [
+                        Label {
+                            content: "Increment".to_owned(),
+                            font_size: 32.0,
+                            horizontal_align: HorizontalAlign::Center,
+                            vertical_align: VerticalAlign::Middle,
+                            ..Label::default()
+                        }
+                    ]
                 ]
                 Padding { thickness: Thickness::uniform(8.0) } => [
-                    Button { background: Color::GREEN.into() },
                     attribute(FlexParam(1.0)),
+                    Button { background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(), on_click: Some(Box::new(|_| Command::Send(Message::Decrement).into())) } => [
+                        Label {
+                            content: "Decrement".to_owned(),
+                            font_size: 32.0,
+                            horizontal_align: HorizontalAlign::Center,
+                            vertical_align: VerticalAlign::Middle,
+                            ..Label::default()
+                        },
+                    ]
                 ]
                 Padding { thickness: Thickness::uniform(8.0) } => [
-                    Button { background: Color::BLUE.into() },
                     attribute(FlexParam(1.0)),
+                    Label {
+                        content: format!("{}", state.count),
+                        font_size: 32.0,
+                        horizontal_align: HorizontalAlign::Center,
+                        vertical_align: VerticalAlign::Middle,
+                        ..Label::default()
+                    },
                 ]
             ]
         )
     }
 }
 
-impl<State: 'static, Message: 'static> From<App> for ElementInstance<State, Message> {
+impl From<App> for ElementInstance<State, Message> {
     fn from(component: App) -> ElementInstance<State, Message> {
         component.into_rc().into()
     }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct State {
+    count: isize,
+}
+
+enum Message {
+    Increment,
+    Decrement,
 }
 
 fn main() {
@@ -77,10 +135,13 @@ fn main() {
 
     window_container.window().show();
 
-    let element: Element<usize, ()> = element!(App);
+    let element = element!(App);
     let render_loop = RenderLoop::new(element);
-    let store = Store::new(0, |counter, _| {
-        *counter += 1;
+    let store = Store::new(State { count: 0 }, |state, message| {
+        match message {
+            Message::Decrement => state.count -= 1,
+            Message::Increment => state.count += 1,
+        }
         true
     });
 

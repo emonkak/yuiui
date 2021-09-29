@@ -104,7 +104,7 @@ impl<State, Message> ElementTree<State, Message> {
         }
     }
 
-    pub fn dispatch<Handler>(&mut self, event: &Event<State>, handler: Handler)
+    pub fn dispatch<Handler>(&mut self, event: Event<State>, handler: Handler)
     where
         Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
@@ -160,7 +160,7 @@ impl<State, Message> ElementTree<State, Message> {
                     pending_works.push(UnitOfWork::Append(
                         parent,
                         element.widget.clone(),
-                        element.attributes.clone()
+                        element.attributes.clone(),
                     ));
                     cursor.append_child(ElementNode::new(Some(element), Vec::new()));
                 }
@@ -191,7 +191,7 @@ impl<State, Message> ElementTree<State, Message> {
             ReconcileResult::Update(ElementId::Widget(id), Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(id);
                 let element_node = cursor.current().data_mut();
-                if element_node.should_update(&element.widget) {
+                if !element.children.is_empty() || element_node.should_update(&element.widget) {
                     pending_works.push(UnitOfWork::Update(
                         id,
                         element.widget.clone(),
@@ -215,7 +215,7 @@ impl<State, Message> ElementTree<State, Message> {
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
                 let element_node = cursor.current().data_mut();
-                if element_node.should_update(&element.widget) {
+                if !element.children.is_empty() || element_node.should_update(&element.widget) {
                     pending_works.push(UnitOfWork::Update(
                         id,
                         element.widget.clone(),
@@ -223,10 +223,7 @@ impl<State, Message> ElementTree<State, Message> {
                     ));
                 }
                 element_node.set_element(element);
-                pending_works.push(UnitOfWork::Move(
-                    id,
-                    reference.id(),
-                ));
+                pending_works.push(UnitOfWork::Move(id, reference.id()));
                 cursor.move_before(reference.id());
             }
             ReconcileResult::UpdateAndMove(
@@ -324,14 +321,16 @@ impl<State, Message> fmt::Display for ElementNode<State, Message> {
                 .as_ref()
                 .map_or("?", |element| element.widget.short_type_name())
         )?;
-        write!(
-            f,
-            " components={:?}",
-            self.component_stack
-                .iter()
-                .map(|component| component.component.short_type_name())
-                .collect::<Vec<_>>()
-        )?;
+        if !self.component_stack.is_empty() {
+            write!(
+                f,
+                " components={:?}",
+                self.component_stack
+                    .iter()
+                    .map(|component| component.component.short_type_name())
+                    .collect::<Vec<_>>()
+            )?;
+        }
         write!(f, ">")?;
         Ok(())
     }
@@ -388,7 +387,7 @@ impl<State, Message> ComponentPod<State, Message> {
         self.component.on_lifecycle(lifecycle, &mut self.state)
     }
 
-    fn on_event(&mut self, event: &Event<State>) -> Effect<Message> {
+    fn on_event(&mut self, event: Event<State>) -> Effect<Message> {
         self.component.on_event(event, &mut self.state)
     }
 

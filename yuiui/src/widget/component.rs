@@ -32,7 +32,7 @@ pub trait Component<State, Message, Own: ?Sized = Self>: AsAny {
         Effect::None
     }
 
-    fn on_event(&self, _event: &Event<State>, _state: &mut Self::LocalState) -> Effect<Message> {
+    fn on_event(&self, _event: Event<State>, _state: &mut Self::LocalState) -> Effect<Message> {
         Effect::None
     }
 
