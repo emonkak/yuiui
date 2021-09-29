@@ -6,7 +6,7 @@ extern crate yuiui;
 use std::env;
 use std::rc::Rc;
 use x11rb::xcb_ffi::XCBConnection;
-use yuiui::application;
+use yuiui::application::{self, RenderLoop, Store};
 use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
@@ -77,13 +77,18 @@ fn main() {
 
     window_container.window().show();
 
-    let element: Element<(), ()> = element!(App);
+    let element: Element<usize, ()> = element!(App);
+    let render_loop = RenderLoop::new(element);
+    let store = Store::new(0, |counter, _| {
+        *counter += 1;
+        true
+    });
 
     match env::var("RENDERER") {
         Ok(renderer_var) if renderer_var == "x11" => {
             let renderer =
                 xcb_graphics::Renderer::new(connection, screen_num, window_container.window().id());
-            application::run(window_container, event_loop, renderer, element).unwrap();
+            application::run(render_loop, store, window_container, event_loop, renderer).unwrap();
         }
         _ => {
             let font_loader = FontLoader;
@@ -93,7 +98,7 @@ fn main() {
                 wgpu::Settings::default(),
             )
             .unwrap();
-            application::run(window_container, event_loop, renderer, element).unwrap();
+            application::run(render_loop, store, window_container, event_loop, renderer).unwrap();
         }
     };
 }

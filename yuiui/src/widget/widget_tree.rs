@@ -126,8 +126,9 @@ impl<State, Message> WidgetTree<State, Message> {
         Handler: Fn(Command<Message>, NodeId),
     {
         let event_mask = event.event_mask();
+        let listeners = self.event_manager.get_listerners(event_mask);
 
-        for id in self.event_manager.get_listerners(event_mask) {
+        for id in listeners {
             let widget = self
                 .tree
                 .cursor_mut(id)

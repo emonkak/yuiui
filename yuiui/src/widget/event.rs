@@ -1,12 +1,12 @@
 use crate::event::WindowEvent;
 
 #[derive(Debug)]
-pub enum Event<State> {
-    StateChanged(State),
+pub enum Event<'a, State> {
+    StateChanged(&'a State),
     WindowEvent(WindowEvent),
 }
 
-impl<State> From<WindowEvent> for Event<State> {
+impl<'a, State> From<WindowEvent> for Event<'a, State> {
     fn from(window_event: WindowEvent) -> Self {
         Self::WindowEvent(window_event)
     }
@@ -25,7 +25,7 @@ pub enum EventMask {
     RedrawRequested = 1 << 5,
 }
 
-impl<State> Event<State> {
+impl<'a, State> Event<'a, State> {
     pub fn event_mask(&self) -> EventMask {
         match self {
             Self::StateChanged(_) => EventMask::StateChanged,

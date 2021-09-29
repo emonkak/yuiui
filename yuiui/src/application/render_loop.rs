@@ -112,6 +112,10 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
     where
         Context: EventLoopContext<ApplicationMessage<Message>>,
     {
+        self.element_tree
+            .dispatch(event, |command, id, component_index| {
+                run_command(context, command, id, component_index)
+            });
         self.widget_tree.dispatch(event, |command, id| {
             run_command(context, command, id, ComponentIndex::MAX)
         })

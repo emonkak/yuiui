@@ -8,8 +8,8 @@ use yuiui_support::slot_tree::{CursorMut, NodeId, SlotTree};
 use super::event_manager::EventManager;
 use super::reconciler::{ReconcileResult, Reconciler};
 use super::{
-    Attributes, Children, Command, ComponentElement, Effect, Element, EventMask, Key, Lifecycle,
-    RcComponent, RcWidget, UnitOfWork, WidgetElement,
+    Attributes, Children, Command, ComponentElement, Effect, Element, Event, EventMask, Key,
+    Lifecycle, RcComponent, RcWidget, UnitOfWork, WidgetElement,
 };
 
 pub type ComponentIndex = usize;
@@ -101,6 +101,37 @@ impl<State, Message> ElementTree<State, Message> {
                 .descendants_from(root)
                 .next()
                 .map(|(next_id, _)| (next_id, 0))
+        }
+    }
+
+    pub fn dispatch<Handler>(&mut self, event: &Event<State>, command_handler: Handler)
+    where
+        Handler: Fn(Command<Message>, NodeId, ComponentIndex),
+    {
+        let event_mask = event.event_mask();
+        let listeners = self.event_manager.get_listerners(event_mask);
+
+        for (id, component_index) in listeners {
+            let component = self
+                .tree
+                .cursor_mut(id)
+                .current()
+                .data_mut()
+                .component_stack
+                .get_mut(component_index)
+                .expect(&format!(
+                    "Component not found at index {:?}",
+                    component_index
+                ));
+            let effect = component.on_event(event);
+            process_effect(
+                effect,
+                id,
+                component_index,
+                component,
+                &command_handler,
+                &mut self.event_manager,
+            );
         }
     }
 
@@ -298,6 +329,10 @@ impl<State, Message> ComponentPod<State, Message> {
 
     fn on_lifecycle(&mut self, lifecycle: Lifecycle<&dyn Any>) -> Effect<Message> {
         self.component.on_lifecycle(lifecycle, &mut self.state)
+    }
+
+    fn on_event(&mut self, event: &Event<State>) -> Effect<Message> {
+        self.component.on_event(event, &mut self.state)
     }
 
     fn render(&self) -> Element<State, Message> {
