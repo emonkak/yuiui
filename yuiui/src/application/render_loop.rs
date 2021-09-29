@@ -8,7 +8,7 @@ use crate::geometrics::{Rectangle, Viewport};
 use crate::graphics::Primitive;
 use crate::ui::EventLoopContext;
 use crate::widget::{Command, Element, ElementTree, Event, UnitOfWork, Widget, WidgetTree};
-use crate::widget_impl::root::Root;
+use crate::widget_impl::null::Null;
 
 #[derive(Debug)]
 pub struct RenderLoop<State, Message> {
@@ -22,7 +22,7 @@ pub struct RenderLoop<State, Message> {
 
 impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
     pub fn new(element: Element<State, Message>) -> Self {
-        let root_widget = Root.into_rc();
+        let root_widget = Null.into_rc();
         let element_tree = ElementTree::new(root_widget.clone(), element);
         let widget_tree = WidgetTree::new(root_widget);
 
