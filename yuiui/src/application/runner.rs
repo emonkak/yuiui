@@ -54,13 +54,14 @@ where
                             break;
                         }
                     }
-                    RenderFlow::Paint(primitive, _scissor_bounds) => {
+                    RenderFlow::Paint(primitive, effective_bounds) => {
                         let viewport = window_container.viewport();
                         pipeline = renderer.create_pipeline(primitive);
                         renderer.perform_pipeline(
                             &mut pipeline,
                             &mut surface,
                             &viewport,
+                            effective_bounds,
                             Color::WHITE,
                         );
                         break;
@@ -80,7 +81,7 @@ where
             }
             UIEvent::WindowEvent(_, WindowEvent::RedrawRequested) => {
                 let viewport = window_container.viewport();
-                renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, Color::WHITE);
+                renderer.perform_pipeline(&mut pipeline, &mut surface, &viewport, None, Color::WHITE);
                 render_loop.dispatch(
                     Event::WindowEvent(&WindowEvent::RedrawRequested),
                     &|command, id, component_index| {

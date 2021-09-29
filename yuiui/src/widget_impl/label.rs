@@ -23,7 +23,6 @@ impl<State, Message> Widget<State, Message> for Label {
     }
 
     fn should_update(&self, new_widget: &Self) -> bool {
-        println!("{:?} {:?}", self.content, new_widget.content);
         self != new_widget
     }
 
@@ -34,7 +33,6 @@ impl<State, Message> Widget<State, Message> for Label {
         _context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,
     ) -> Primitive {
-        println!("{:?}", self.content);
         Primitive::Text {
             bounds,
             content: self.content.clone(),

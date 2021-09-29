@@ -1,5 +1,5 @@
 use super::{Color, Primitive};
-use crate::geometrics::Viewport;
+use crate::geometrics::{Viewport, Rectangle};
 
 pub trait Renderer {
     type Surface;
@@ -17,6 +17,7 @@ pub trait Renderer {
         pipeline: &mut Self::Pipeline,
         surface: &mut Self::Surface,
         viewport: &Viewport,
+        effective_bounds: Option<Rectangle>,
         background_color: Color,
     );
 }

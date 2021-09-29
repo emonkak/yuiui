@@ -6,7 +6,7 @@ use wgpu_glyph::ab_glyph;
 
 use super::layer::Layer;
 use super::{quad, text, Pipeline, Settings};
-use crate::geometrics::{Size, Transform, Viewport};
+use crate::geometrics::{Rectangle, Size, Transform, Viewport};
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, FontLoader};
 
@@ -188,6 +188,7 @@ where
         target: &wgpu::TextureView,
         pipeline: &Pipeline,
         viewport: &Viewport,
+        effective_bounds: Option<Rectangle>,
     ) {
         let projection = viewport.projection();
         let scale_factor = viewport.scale_factor();
@@ -198,10 +199,11 @@ where
             pipeline.primary_layer(),
             projection,
             scale_factor,
+            effective_bounds,
         );
 
         for child_layer in pipeline.child_layers() {
-            self.flush_layer(encoder, &target, &child_layer, projection, scale_factor);
+            self.flush_layer(encoder, &target, &child_layer, projection, scale_factor, effective_bounds);
         }
     }
 
@@ -212,8 +214,21 @@ where
         layer: &Layer,
         projection: Transform,
         scale_factor: f32,
+        effective_bounds: Option<Rectangle>,
     ) {
-        let scissor_bounds = layer.bounds.map(|bounds| bounds.scale(scale_factor).snap());
+        let scissor_bounds = match (effective_bounds, layer.bounds) {
+            (Some(effective_bounds), Some(layer_bounds)) => {
+                if let Some(intersection) = effective_bounds.scale(scale_factor)
+                    .intersection(layer_bounds.scale(scale_factor)) {
+                    Some(intersection.snap())
+                } else {
+                    return;
+                }
+            }
+            (Some(effective_bounds), None) => Some(effective_bounds.scale(scale_factor).snap()),
+            (None, Some(layer_bounds)) => Some(layer_bounds.scale(scale_factor).snap()),
+            (None, None) => None,
+        };
 
         if !layer.quads.is_empty() {
             self.quad_pipeline.run(
@@ -277,7 +292,7 @@ where
     fn create_pipeline(&mut self, primitive: Primitive) -> Self::Pipeline {
         let mut pipeline = Pipeline::new();
         pipeline.push(primitive, self);
-        // FIXME: Is this really necessary?
+        // TODO: Is this really necessary?
         self.text_pipeline.trim_measurement_cache();
         pipeline
     }
@@ -287,6 +302,7 @@ where
         pipeline: &mut Self::Pipeline,
         surface: &mut Self::Surface,
         viewport: &Viewport,
+        effective_bounds: Option<Rectangle>,
         background_color: Color,
     ) {
         let frame = surface.get_current_frame().expect("Next frame");
@@ -323,7 +339,7 @@ where
             depth_stencil_attachment: None,
         });
 
-        self.flush_pipeline(&mut encoder, &view, pipeline, viewport);
+        self.flush_pipeline(&mut encoder, &view, pipeline, viewport, effective_bounds);
         self.staging_belt.finish();
         self.queue.submit(Some(encoder.finish()));
 

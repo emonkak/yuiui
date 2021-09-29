@@ -5,7 +5,7 @@ use x11rb::protocol::xproto;
 use x11rb::protocol::xproto::ConnectionExt;
 
 use super::pipeline::{DrawOp, Pipeline};
-use crate::geometrics::{PhysicalRectangle, PhysicalSize, Viewport};
+use crate::geometrics::{PhysicalRectangle, PhysicalSize, Rectangle, Viewport};
 use crate::graphics::{Color, Primitive};
 
 #[derive(Debug)]
@@ -121,6 +121,7 @@ impl<Connection: self::Connection> crate::graphics::Renderer for Renderer<Connec
         pipeline: &mut Self::Pipeline,
         surface: &mut Self::Surface,
         viewport: &Viewport,
+        _effective_bounds: Option<Rectangle>,
         background_color: Color,
     ) {
         let alloc_background_color = pipeline.alloc_color(background_color).unwrap();

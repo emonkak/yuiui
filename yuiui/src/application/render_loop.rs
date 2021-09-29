@@ -89,24 +89,21 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
                 }
             }
 
-            let mut scissor_bounds = None;
+            let mut effective_bounds = None;
             for root in mem::take(&mut self.progress_roots) {
                 let layout_root = self.widget_tree.layout(root, viewport);
                 if !layout_root.is_root() {
                     let (_, draw_bounds) = self.widget_tree.draw(layout_root);
 
-                    scissor_bounds = match scissor_bounds {
+                    effective_bounds = match effective_bounds {
                         None => Some(draw_bounds),
-                        Some(bounds) => Some(bounds.union(draw_bounds)),
+                        Some(effective_bounds) => Some(effective_bounds.union(draw_bounds)),
                     };
                 }
             }
 
-            println!("ELEMENT_TREE:\n{}", self.element_tree);
-            println!("WIDGET_TREE:\n{}", self.widget_tree);
-
             let (primitive, _) = self.widget_tree.draw(NodeId::ROOT);
-            RenderFlow::Paint(primitive, scissor_bounds)
+            RenderFlow::Paint(primitive, effective_bounds)
         } else {
             RenderFlow::Idle
         }
