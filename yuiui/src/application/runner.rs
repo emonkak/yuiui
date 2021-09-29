@@ -95,7 +95,7 @@ where
                     },
                 );
             }
-            UIEvent::WindowEvent(_, WindowEvent::SizeChanged(size)) => {
+            UIEvent::WindowEvent(_, WindowEvent::Resized(size)) => {
                 if window_container.resize_viewport(size) {
                     let viewport = window_container.viewport();
                     renderer.configure_surface(&mut surface, &viewport);
@@ -104,7 +104,7 @@ where
                     }
                 }
                 render_loop.dispatch(
-                    Event::WindowEvent(&WindowEvent::SizeChanged(size)),
+                    Event::WindowEvent(&WindowEvent::Resized(size)),
                     &|command, id, component_index| {
                         run_command(context, command, id, component_index)
                     },

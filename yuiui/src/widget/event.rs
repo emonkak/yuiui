@@ -25,7 +25,7 @@ pub enum EventMask {
     StateChanged    = 1 << 0,
     PointerPressed  = 1 << 1,
     PointerReleased = 1 << 2,
-    SizeChanged     = 1 << 3,
+    Resized         = 1 << 3,
     Closed          = 1 << 4,
     RedrawRequested = 1 << 5,
 }
@@ -36,7 +36,7 @@ impl<'a, State> Event<'a, State> {
             Self::StateChanged(_) => EventMask::StateChanged,
             Self::WindowEvent(WindowEvent::PointerPressed(_)) => EventMask::PointerPressed,
             Self::WindowEvent(WindowEvent::PointerReleased(_)) => EventMask::PointerReleased,
-            Self::WindowEvent(WindowEvent::SizeChanged(_)) => EventMask::SizeChanged,
+            Self::WindowEvent(WindowEvent::Resized(_)) => EventMask::Resized,
             Self::WindowEvent(WindowEvent::Closed) => EventMask::Closed,
             Self::WindowEvent(WindowEvent::RedrawRequested) => EventMask::RedrawRequested,
         }

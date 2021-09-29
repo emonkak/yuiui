@@ -97,7 +97,8 @@ where
         F: FnMut(Event<Message, xproto::Window>, &EventLoopContext<Message>) -> ControlFlow,
     {
         match event {
-            // Handles only the last expose event.
+            // Handles only the last expose event because do not optimize by distinguishing between
+            // subareas.
             protocol::Event::Expose(event) if event.count == 0 => callback(
                 Event::WindowEvent(event.window, WindowEvent::RedrawRequested),
                 context,
@@ -126,7 +127,7 @@ where
                     height: event.height as _,
                 };
                 callback(
-                    Event::WindowEvent(event.window, WindowEvent::SizeChanged(size)),
+                    Event::WindowEvent(event.window, WindowEvent::Resized(size)),
                     context,
                 )
             }

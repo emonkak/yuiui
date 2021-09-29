@@ -5,7 +5,7 @@ use crate::geometrics::PhysicalSize;
 pub enum WindowEvent {
     PointerPressed(MouseEvent),
     PointerReleased(MouseEvent),
-    SizeChanged(PhysicalSize),
+    Resized(PhysicalSize),
     Closed,
     RedrawRequested,
 }
