@@ -329,6 +329,13 @@ impl<State, Message> fmt::Display for WidgetPod<State, Message> {
         write!(f, " pos={:?}", (self.position.x, self.position.y))?;
         write!(f, " size={:?}", (self.size.width, self.size.height))?;
         write!(f, " origin={:?}", (self.origin.x, self.origin.y))?;
+        if !self.attributes.is_empty() {
+            write!(
+                f,
+                " attributes={:?}",
+                self.attributes
+            )?;
+        }
         if !self.event_mask.is_empty() {
             write!(
                 f,

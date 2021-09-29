@@ -31,6 +31,14 @@ impl Attributes {
         self.get().unwrap_or_default()
     }
 
+    pub fn len(&self) -> usize {
+        self.attribute_map.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.attribute_map.is_empty()
+    }
+
     pub fn add(&mut self, value: Box<dyn AnyValue>) {
         self.attribute_map.insert(value.as_any().type_id(), value);
     }
