@@ -21,14 +21,14 @@ pub struct ElementTree<State, Message> {
 }
 
 impl<State, Message> ElementTree<State, Message> {
-    pub fn new(root_widget: RcWidget<State, Message>, element: Element<State, Message>) -> Self {
-        let element = WidgetElement {
-            widget: root_widget,
-            attributes: Default::default(),
-            key: None,
-            children: Rc::new(vec![element]),
+    pub fn new(element: Element<State, Message>) -> Self {
+        let element_node = match element {
+            Element::WidgetElement(element) => ElementNode::new(Some(element), Vec::new()),
+            Element::ComponentElement(element) => {
+                let component = ComponentPod::from(element);
+                ElementNode::new(None, vec![component])
+            }
         };
-        let element_node = ElementNode::new(Some(element), Vec::new());
         Self {
             tree: SlotTree::new(element_node),
             event_manager: EventManager::new(),
@@ -149,11 +149,20 @@ impl<State, Message> ElementTree<State, Message> {
             ReconcileResult::Append(Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(parent);
                 if in_component_rendering {
-                    pending_works.push(UnitOfWork::Append(
-                        cursor.current().parent().expect("parent node not found"),
-                        element.widget.clone(),
-                        element.attributes.clone(),
-                    ));
+                    let unit_of_work = if let Some(parent) = cursor.current().parent() {
+                        UnitOfWork::Append(
+                            parent,
+                            element.widget.clone(),
+                            element.attributes.clone(),
+                        )
+                    } else {
+                        UnitOfWork::Replace(
+                            NodeId::ROOT,
+                            element.widget.clone(),
+                            element.attributes.clone(),
+                        )
+                    };
+                    pending_works.push(unit_of_work);
                     let element_node = cursor.current().data_mut();
                     element_node.element = Some(element);
                 } else {
@@ -167,7 +176,7 @@ impl<State, Message> ElementTree<State, Message> {
             }
             ReconcileResult::Append(Element::ComponentElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(parent);
-                let component = ComponentPod::from_element(element);
+                let component = ComponentPod::from(element);
                 if in_component_rendering {
                     cursor.current().data_mut().component_stack.push(component);
                 } else {
@@ -185,7 +194,7 @@ impl<State, Message> ElementTree<State, Message> {
             }
             ReconcileResult::Insert(reference, Element::ComponentElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(reference.id());
-                let component = ComponentPod::from_element(element);
+                let component = ComponentPod::from(element);
                 cursor.insert_before(ElementNode::new(None, vec![component]));
             }
             ReconcileResult::Update(ElementId::Widget(id), Element::WidgetElement(element)) => {
@@ -348,19 +357,6 @@ struct ComponentPod<State, Message> {
 }
 
 impl<State, Message> ComponentPod<State, Message> {
-    fn from_element(element: ComponentElement<State, Message>) -> Self {
-        let state = element.component.initial_state();
-        Self {
-            component: element.component,
-            attributes: element.attributes,
-            children: element.children,
-            key: element.key,
-            state,
-            pending_element: None,
-            event_mask: BitFlags::empty(),
-        }
-    }
-
     fn update(&mut self, element: ComponentElement<State, Message>) -> (bool, Effect<Message>) {
         let should_update = &*self.attributes != &*element.attributes
             || self.component.should_update(
@@ -397,6 +393,21 @@ impl<State, Message> ComponentPod<State, Message> {
 
     fn as_any(&self) -> &dyn Any {
         self.component.as_any()
+    }
+}
+
+impl<State, Message> From<ComponentElement<State, Message>> for ComponentPod<State, Message> {
+    fn from(element: ComponentElement<State, Message>) -> Self {
+        let state = element.component.initial_state();
+        Self {
+            component: element.component,
+            attributes: element.attributes,
+            children: element.children,
+            key: element.key,
+            state,
+            pending_element: None,
+            event_mask: BitFlags::empty(),
+        }
     }
 }
 

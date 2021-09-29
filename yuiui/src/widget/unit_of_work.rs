@@ -7,6 +7,7 @@ use super::{Attributes, RcWidget};
 pub enum UnitOfWork<State, Message> {
     Append(NodeId, RcWidget<State, Message>, Rc<Attributes>),
     Insert(NodeId, RcWidget<State, Message>, Rc<Attributes>),
+    Replace(NodeId, RcWidget<State, Message>, Rc<Attributes>),
     Update(NodeId, RcWidget<State, Message>, Rc<Attributes>),
     Move(NodeId, NodeId),
     Remove(NodeId),

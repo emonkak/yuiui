@@ -33,19 +33,26 @@ impl<State, Message> WidgetTree<State, Message> {
         match unit_of_work {
             UnitOfWork::Append(parent, widget, attributes) => {
                 let id = self.tree.next_node_id();
-                let mut cursor = self.tree.cursor_mut(parent);
                 let mut widget = WidgetPod::new(widget, attributes);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
+                let mut cursor = self.tree.cursor_mut(parent);
                 cursor.append_child(WidgetNode::from(widget));
             }
             UnitOfWork::Insert(reference, widget, attributes) => {
                 let id = self.tree.next_node_id();
-                let mut cursor = self.tree.cursor_mut(reference);
                 let mut widget = WidgetPod::new(widget, attributes);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
+                let mut cursor = self.tree.cursor_mut(reference);
                 cursor.insert_before(WidgetNode::from(widget));
+            }
+            UnitOfWork::Replace(id, widget, attributes) => {
+                let mut widget = WidgetPod::new(widget, attributes);
+                let effect = widget.on_lifecycle(Lifecycle::Mounted);
+                process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
+                let mut cursor = self.tree.cursor_mut(id);
+                *cursor.current().data_mut() = WidgetNode::from(widget);
             }
             UnitOfWork::Update(id, new_widget, new_attributes) => {
                 let cursor = self.tree.cursor(id);

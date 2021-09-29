@@ -22,7 +22,7 @@ pub struct RenderLoop<State, Message> {
 impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
     pub fn new(element: Element<State, Message>) -> Self {
         let root_widget = Null.into_rc();
-        let element_tree = ElementTree::new(root_widget.clone(), element);
+        let element_tree = ElementTree::new(element);
         let widget_tree = WidgetTree::new(root_widget);
 
         let initial_node = RenderNode {
