@@ -22,7 +22,7 @@ impl Attributes {
         let type_id = TypeId::of::<T>();
         self.attribute_map
             .get(&type_id)
-            .map(|value| *value.as_any().downcast_ref::<T>().unwrap())
+            .map(|value| *(**value).as_any().downcast_ref::<T>().unwrap())
     }
 
     #[inline]
@@ -47,7 +47,7 @@ impl Attributes {
 
     #[inline]
     pub fn add(&mut self, value: Box<dyn AnyValue>) {
-        self.attribute_map.insert(value.as_any().type_id(), value);
+        self.attribute_map.insert((*value).as_any().type_id(), value);
     }
 }
 
@@ -86,6 +86,7 @@ pub trait AnyValue: AsAny {
         any::type_name::<Self>()
     }
 
+    #[inline]
     fn short_type_name(&self) -> &'static str {
         short_type_name_of(self.type_name())
     }
