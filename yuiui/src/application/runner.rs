@@ -31,13 +31,16 @@ where
     let mut surface = renderer.create_surface(viewport);
 
     event_loop.run(|event, context| {
+        println!("EVENT: {:?}", event);
         match event {
             UIEvent::LoopInitialized => {
                 context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
             }
             UIEvent::Message(ApplicationMessage::Quit) => return ControlFlow::Break,
             UIEvent::Message(ApplicationMessage::RequestUpdate(id, component_index)) => {
-                render_loop.schedule_update(id, component_index)
+                if render_loop.schedule_update(id, component_index) {
+                    context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
+                }
             }
             UIEvent::Message(ApplicationMessage::RequestRender(deadline)) => loop {
                 let viewport = window_container.viewport();
@@ -78,8 +81,9 @@ where
                 if window_container.resize_viewport(size) {
                     let viewport = window_container.viewport();
                     renderer.configure_surface(&mut surface, &viewport);
-                    render_loop.schedule_update(NodeId::ROOT, 0);
-                    context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
+                    if render_loop.schedule_update(NodeId::ROOT, 0) {
+                        context.request_idle(|deadline| ApplicationMessage::RequestRender(deadline));
+                    }
                 }
                 render_loop.dispatch(&WindowEvent::SizeChanged(size).into(), context);
             }

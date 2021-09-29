@@ -44,7 +44,7 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
         }
     }
 
-    pub fn schedule_update(&mut self, id: NodeId, component_index: usize) {
+    pub fn schedule_update(&mut self, id: NodeId, component_index: usize) -> bool {
         if self.work_in_progress.is_none() {
             self.progress_roots.push(id);
             self.work_in_progress = Some(RenderNode {
@@ -52,6 +52,7 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
                 component_index,
                 root: id,
             });
+            true
         } else {
             if self
                 .pending_nodes
@@ -64,6 +65,9 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
                     component_index,
                     root: id,
                 });
+                true
+            } else {
+                false
             }
         }
     }
