@@ -102,7 +102,7 @@ impl Default for Color {
     }
 }
 
-// https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
+// See: https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
 fn linear_component(u: f32) -> f32 {
     if u < 0.04045 {
         u / 12.92
