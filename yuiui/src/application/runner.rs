@@ -1,5 +1,4 @@
 use futures::FutureExt;
-use std::error;
 use std::time::{Duration, Instant};
 use yuiui_support::slot_tree::NodeId;
 
@@ -18,7 +17,7 @@ pub fn run<State, Reducer, Message, Window, EventLoop, Renderer>(
     mut window_container: WindowContainer<Window>,
     mut event_loop: EventLoop,
     mut renderer: Renderer,
-) -> Result<(), Box<dyn error::Error>>
+) -> anyhow::Result<()>
 where
     State: 'static,
     Reducer: Fn(&mut State, Message) -> bool,
@@ -48,7 +47,8 @@ where
                     run_command(context, command, id, component_index)
                 }) {
                     RenderFlow::Continue => {
-                        if deadline - Instant::now() < Duration::from_millis(1) {
+                        let time_remaining = deadline - Instant::now();
+                        if time_remaining < Duration::from_millis(1) {
                             context
                                 .request_idle(|deadline| InternalMessage::RequestRender(deadline));
                             break;
@@ -150,6 +150,12 @@ fn run_command<Message, Context>(
         Command::Send(message) => context.send(InternalMessage::Broadcast(message)),
         Command::Perform(future) => {
             context.perform(future.map(InternalMessage::Broadcast));
+        }
+        Command::Delay(duration, callback) => {
+            context.delay(duration, || InternalMessage::Broadcast(callback()));
+        }
+        Command::RequestAnimationFrame(callback) => {
+            context.request_animation_frame(|| InternalMessage::Broadcast(callback()));
         }
         Command::RequestIdle(callback) => {
             context.request_idle(|deadline| InternalMessage::Broadcast(callback(deadline)));

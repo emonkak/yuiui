@@ -47,7 +47,8 @@ impl Attributes {
 
     #[inline]
     pub fn add(&mut self, value: Box<dyn AnyValue>) {
-        self.attribute_map.insert((*value).as_any().type_id(), value);
+        self.attribute_map
+            .insert((*value).as_any().type_id(), value);
     }
 }
 

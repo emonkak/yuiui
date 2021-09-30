@@ -10,7 +10,7 @@ use yuiui::application::{self, RenderLoop, Store};
 use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
-use yuiui::text::{FontDescriptor, Weight, HorizontalAlign, VerticalAlign};
+use yuiui::text::{FontDescriptor, HorizontalAlign, VerticalAlign, Weight};
 use yuiui::ui::{xcb, Window};
 use yuiui::widget::{
     attribute, Children, Command, Component, Effect, Element, ElementInstance, Event, EventMask,
@@ -133,7 +133,7 @@ fn main() {
     let (connection, screen_num) = XCBConnection::connect(None).unwrap();
     let connection = Rc::new(connection);
 
-    let event_loop = xcb::EventLoop::new(connection.clone());
+    let event_loop = xcb::EventLoop::new(connection.clone(), screen_num);
     let window_container = xcb::Window::create_container(
         connection.clone(),
         screen_num,

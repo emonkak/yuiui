@@ -417,11 +417,7 @@ impl<State, Message> From<ComponentElement<State, Message>> for ComponentPod<Sta
 
 impl<State, Message> fmt::Display for ComponentPod<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "<{}",
-            self.component.short_type_name()
-        )?;
+        write!(f, "<{}", self.component.short_type_name())?;
         if !self.attributes.is_empty() {
             write!(f, " attributes={:?}", self.attributes)?;
         }
