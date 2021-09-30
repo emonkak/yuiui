@@ -323,6 +323,14 @@ impl<State, Message> ElementNode<State, Message> {
 
 impl<State, Message> fmt::Display for ElementNode<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        struct Wrapper<T>(T);
+
+        impl<T: fmt::Display> fmt::Debug for Wrapper<T> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", &self.0)
+            }
+        }
+
         write!(
             f,
             "<{}",
@@ -331,14 +339,10 @@ impl<State, Message> fmt::Display for ElementNode<State, Message> {
                 .map_or("?", |element| element.widget.short_type_name())
         )?;
         if !self.component_stack.is_empty() {
-            write!(
-                f,
-                " components={:?}",
-                self.component_stack
-                    .iter()
-                    .map(|component| component.component.short_type_name())
-                    .collect::<Vec<_>>()
-            )?;
+            write!(f, " components=")?;
+            f.debug_list()
+                .entries(self.component_stack.iter().map(Wrapper))
+                .finish()?;
         }
         write!(f, ">")?;
         Ok(())
@@ -408,6 +412,28 @@ impl<State, Message> From<ComponentElement<State, Message>> for ComponentPod<Sta
             pending_element: None,
             event_mask: BitFlags::empty(),
         }
+    }
+}
+
+impl<State, Message> fmt::Display for ComponentPod<State, Message> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "<{}",
+            self.component.short_type_name()
+        )?;
+        if !self.attributes.is_empty() {
+            write!(f, " attributes={:?}", self.attributes)?;
+        }
+        if !self.event_mask.is_empty() {
+            write!(
+                f,
+                " event_mask={:?}",
+                self.event_mask.iter().collect::<Vec<_>>()
+            )?;
+        }
+        write!(f, ">")?;
+        Ok(())
     }
 }
 

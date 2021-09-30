@@ -135,7 +135,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
         let mut context = DrawContext {
             widget_tree: self,
-            origin: widget.origin + widget.position,
+            origin: origin + widget.position,
         };
         widget.draw(origin, &children, &mut context)
     }
@@ -161,7 +161,7 @@ impl<State, Message> WidgetTree<State, Message> {
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = DrawContext {
             widget_tree: self,
-            origin: widget.origin + widget.position,
+            origin: origin + widget.position,
         };
 
         let (primitive, _) = widget.draw(origin, &children, &mut context);

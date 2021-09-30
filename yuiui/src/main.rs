@@ -10,7 +10,7 @@ use yuiui::application::{self, RenderLoop, Store};
 use yuiui::geometrics::{PhysicalRectangle, Thickness};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
-use yuiui::text::{HorizontalAlign, VerticalAlign};
+use yuiui::text::{FontDescriptor, Weight, HorizontalAlign, VerticalAlign};
 use yuiui::ui::{xcb, Window};
 use yuiui::widget::{
     attribute, Children, Command, Component, Effect, Element, ElementInstance, Event, EventMask,
@@ -57,24 +57,19 @@ impl Component<State, Message> for App {
         state: &Self::LocalState,
     ) -> Element<State, Message> {
         element!(
-            Flex::row() => [
+            Flex::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [
                     attribute(FlexParam(1.0)),
-                    Button { background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(), on_click: Some(Box::new(|_| Command::Send(Message::Increment).into())) } => [
+                    Button {
+                        background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
+                        on_click: Some(Box::new(|_| Command::Send(Message::Decrement).into()))
+                    } => [
                         Label {
-                            content: "Increment".to_owned(),
-                            font_size: 32.0,
-                            horizontal_align: HorizontalAlign::Center,
-                            vertical_align: VerticalAlign::Middle,
-                            ..Label::default()
-                        }
-                    ]
-                ]
-                Padding { thickness: Thickness::uniform(8.0) } => [
-                    attribute(FlexParam(1.0)),
-                    Button { background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(), on_click: Some(Box::new(|_| Command::Send(Message::Decrement).into())) } => [
-                        Label {
-                            content: "Decrement".to_owned(),
+                            content: "-".to_owned(),
+                            font: FontDescriptor {
+                                weight: Weight::BOLD,
+                                ..FontDescriptor::default()
+                            },
                             font_size: 32.0,
                             horizontal_align: HorizontalAlign::Center,
                             vertical_align: VerticalAlign::Middle,
@@ -91,6 +86,25 @@ impl Component<State, Message> for App {
                         vertical_align: VerticalAlign::Middle,
                         ..Label::default()
                     },
+                ]
+                Padding { thickness: Thickness::uniform(8.0) } => [
+                    attribute(FlexParam(1.0)),
+                    Button {
+                        background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
+                        on_click: Some(Box::new(|_| Command::Send(Message::Increment).into()))
+                    } => [
+                        Label {
+                            content: "+".to_owned(),
+                            font: FontDescriptor {
+                                weight: Weight::BOLD,
+                                ..FontDescriptor::default()
+                            },
+                            font_size: 32.0,
+                            horizontal_align: HorizontalAlign::Center,
+                            vertical_align: VerticalAlign::Middle,
+                            ..Label::default()
+                        },
+                    ]
                 ]
             ]
         )
@@ -127,7 +141,7 @@ fn main() {
             x: 960,
             y: 240,
             width: 640,
-            height: 480,
+            height: 240,
         },
         1.0,
     )
