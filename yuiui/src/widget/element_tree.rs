@@ -53,7 +53,7 @@ impl<State, Message> ElementTree<State, Message> {
             let component = &mut component_stack[component_index];
             let (is_updated, effect) =
                 if let Some(pending_element) = component.pending_element.take() {
-                    component.update(pending_element)
+                    component.update_element(pending_element)
                 } else {
                     let effect = component.on_lifecycle(Lifecycle::Mounted);
                     (true, effect)
@@ -207,7 +207,7 @@ impl<State, Message> ElementTree<State, Message> {
                         element.attributes.clone(),
                     ));
                 }
-                element_node.set_element(element);
+                element_node.update_element(element);
             }
             ReconcileResult::Update(
                 ElementId::Component(id, component_index),
@@ -231,7 +231,7 @@ impl<State, Message> ElementTree<State, Message> {
                         element.attributes.clone(),
                     ));
                 }
-                element_node.set_element(element);
+                element_node.update_element(element);
                 pending_works.push(UnitOfWork::Move(id, reference.id()));
                 cursor.move_before(reference.id());
             }
@@ -307,7 +307,7 @@ impl<State, Message> ElementNode<State, Message> {
         }
     }
 
-    fn set_element(&mut self, element: WidgetElement<State, Message>) {
+    fn update_element(&mut self, element: WidgetElement<State, Message>) {
         self.element = Some(element);
         self.dirty = true;
     }
@@ -361,7 +361,7 @@ struct ComponentPod<State, Message> {
 }
 
 impl<State, Message> ComponentPod<State, Message> {
-    fn update(&mut self, element: ComponentElement<State, Message>) -> (bool, Effect<Message>) {
+    fn update_element(&mut self, element: ComponentElement<State, Message>) -> (bool, Effect<Message>) {
         let should_update = &*self.attributes != &*element.attributes
             || self.component.should_update(
                 element.component.as_any(),
