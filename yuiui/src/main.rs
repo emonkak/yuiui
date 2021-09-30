@@ -5,6 +5,7 @@ extern crate yuiui;
 
 use std::env;
 use std::rc::Rc;
+use x11rb::connection::Connection as _;
 use x11rb::xcb_ffi::XCBConnection;
 use yuiui::application::{self, RenderLoop, Store};
 use yuiui::geometrics::{PhysicalRectangle, Thickness};
@@ -132,14 +133,15 @@ fn main() {
 
     let (connection, screen_num) = XCBConnection::connect(None).unwrap();
     let connection = Rc::new(connection);
+    let screen = &connection.setup().roots[screen_num];
 
     let event_loop = xcb::EventLoop::new(connection.clone(), screen_num);
     let window_container = xcb::Window::create_container(
         connection.clone(),
         screen_num,
         PhysicalRectangle {
-            x: 960,
-            y: 240,
+            x: ((screen.width_in_pixels / 2) as u32).saturating_sub(640 / 2),
+            y: ((screen.height_in_pixels / 2) as u32).saturating_sub(240 / 2),
             width: 640,
             height: 240,
         },
