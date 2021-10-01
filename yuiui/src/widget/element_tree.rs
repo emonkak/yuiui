@@ -317,9 +317,12 @@ impl<State, Message> ElementNode<State, Message> {
             return true;
         }
 
-        self.element
-            .as_ref()
-            .expect("element not found")
+        let current_element = self.element.as_ref().expect("element not found");
+        if current_element.attributes != element.attributes {
+            return true;
+        }
+
+        current_element
             .widget
             .should_update(element.widget.as_any())
     }
@@ -369,7 +372,7 @@ impl<State, Message> ComponentPod<State, Message> {
         &mut self,
         element: ComponentElement<State, Message>,
     ) -> (bool, Effect<Message>) {
-        let should_update = &*self.attributes != &*element.attributes
+        let should_update = self.attributes != element.attributes
             || self.component.should_update(
                 element.component.as_any(),
                 &self.children,
