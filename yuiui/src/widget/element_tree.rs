@@ -89,7 +89,7 @@ impl<State, Message> ElementTree<State, Message> {
 
                 let element = element_node.element.as_ref().expect("element not found");
                 let children = (*element.children).clone();
-                let reconciler = create_reconciler(cursor.children(), children, component_index);
+                let reconciler = create_reconciler(cursor.children(), children, 0);
 
                 for result in reconciler {
                     self.commit(result, id, false, handler, pending_works)
