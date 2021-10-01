@@ -9,7 +9,7 @@ use super::event_manager::EventManager;
 use super::reconciler::{ReconcileResult, Reconciler};
 use super::{
     Attributes, Children, Command, ComponentElement, Effect, Element, Event, EventMask, Key,
-    Lifecycle, RcComponent, RcWidget, UnitOfWork, WidgetElement,
+    Lifecycle, RcComponent, UnitOfWork, WidgetElement,
 };
 
 pub type ComponentIndex = usize;
@@ -200,7 +200,7 @@ impl<State, Message> ElementTree<State, Message> {
             ReconcileResult::Update(ElementId::Widget(id), Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(id);
                 let element_node = cursor.current().data_mut();
-                if !element.children.is_empty() || element_node.should_update(&element.widget) {
+                if element_node.should_update(&element) {
                     pending_works.push(UnitOfWork::Update(
                         id,
                         element.widget.clone(),
@@ -224,7 +224,7 @@ impl<State, Message> ElementTree<State, Message> {
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
                 let element_node = cursor.current().data_mut();
-                if !element.children.is_empty() || element_node.should_update(&element.widget) {
+                if element_node.should_update(&element) {
                     pending_works.push(UnitOfWork::Update(
                         id,
                         element.widget.clone(),
@@ -312,12 +312,16 @@ impl<State, Message> ElementNode<State, Message> {
         self.dirty = true;
     }
 
-    fn should_update(&self, widget: &RcWidget<State, Message>) -> bool {
+    fn should_update(&self, element: &WidgetElement<State, Message>) -> bool {
+        if !element.children.is_empty() {
+            return true;
+        }
+
         self.element
             .as_ref()
             .expect("element not found")
             .widget
-            .should_update(widget.as_any())
+            .should_update(element.widget.as_any())
     }
 }
 
@@ -361,7 +365,10 @@ struct ComponentPod<State, Message> {
 }
 
 impl<State, Message> ComponentPod<State, Message> {
-    fn update_element(&mut self, element: ComponentElement<State, Message>) -> (bool, Effect<Message>) {
+    fn update_element(
+        &mut self,
+        element: ComponentElement<State, Message>,
+    ) -> (bool, Effect<Message>) {
         let should_update = &*self.attributes != &*element.attributes
             || self.component.should_update(
                 element.component.as_any(),
