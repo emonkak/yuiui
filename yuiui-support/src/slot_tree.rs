@@ -25,7 +25,7 @@ impl<T> SlotTree<T> {
             parent: None,
             data,
         });
-        debug_assert_eq!(root, 1);
+        debug_assert_eq!(root, NodeId::ROOT.get());
 
         Self { arena }
     }
