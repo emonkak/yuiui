@@ -103,7 +103,7 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
             }
 
             let (primitive, _) = self.widget_tree.draw(NodeId::ROOT);
-            RenderFlow::Paint(primitive, effective_bounds)
+            RenderFlow::Done(primitive, effective_bounds)
         } else {
             RenderFlow::Idle
         }
@@ -143,7 +143,7 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
 #[derive(Debug)]
 pub enum RenderFlow {
     Continue,
-    Paint(Primitive, Option<Rectangle>),
+    Done(Primitive, Option<Rectangle>),
     Idle,
 }
 

@@ -54,7 +54,7 @@ where
                             break;
                         }
                     }
-                    RenderFlow::Paint(primitive, effective_bounds) => {
+                    RenderFlow::Done(primitive, effective_bounds) => {
                         let viewport = window_container.viewport();
                         pipeline = renderer.create_pipeline(primitive);
                         renderer.perform_pipeline(
