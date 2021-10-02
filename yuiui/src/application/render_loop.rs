@@ -94,7 +94,6 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
                 let layout_root = self.widget_tree.layout(root, viewport);
                 if !layout_root.is_root() {
                     let (_, draw_bounds) = self.widget_tree.draw(layout_root);
-
                     effective_bounds = match effective_bounds {
                         None => Some(draw_bounds),
                         Some(effective_bounds) => Some(effective_bounds.union(draw_bounds)),

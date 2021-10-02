@@ -272,7 +272,6 @@ where
                 .map_or(max_deadline, |Reverse(next_wake)| {
                     max_deadline.min(*next_wake)
                 });
-
             message_sender
                 .send(callback(deadline))
                 .ok()
