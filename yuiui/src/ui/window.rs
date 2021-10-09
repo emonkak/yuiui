@@ -17,7 +17,7 @@ pub trait Window: HasRawWindowHandle {
     fn request_redraw(&self, bounds: PhysicalRectangle);
 }
 
-impl<Window: self::Window> WindowContainer<Window> {
+impl<Window> WindowContainer<Window> {
     pub fn new(window: Window, size: PhysicalSize, scale_factor: f32) -> Self {
         let viewport = Viewport::from_physical(size, scale_factor);
         Self { window, viewport }

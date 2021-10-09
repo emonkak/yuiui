@@ -18,13 +18,23 @@ pub struct Window<Connection> {
     window_id: xproto::Window,
 }
 
-impl Window<XCBConnection> {
+impl<Connection: self::Connection> Window<Connection> {
     pub fn create_container(
-        connection: Rc<XCBConnection>,
+        connection: Rc<Connection>,
         screen_num: usize,
         bounds: PhysicalRectangle,
         scale_factor: f32,
     ) -> Result<WindowContainer<Self>, ConnectionError> {
+        let window = Self::new(connection, screen_num, bounds)?;
+        let container = WindowContainer::new(window, bounds.size(), scale_factor);
+        Ok(container)
+    }
+
+    pub fn new(
+        connection: Rc<Connection>,
+        screen_num: usize,
+        bounds: PhysicalRectangle,
+    ) -> Result<Self, ConnectionError> {
         let window_id = connection.generate_id().unwrap();
         let screen = &connection.setup().roots[screen_num];
 
@@ -54,17 +64,15 @@ impl Window<XCBConnection> {
             &window_aux,
         )?;
 
-        let window = Self {
+        Ok(Self {
             connection,
             screen_num,
             window_id,
-        };
-        let window_container = WindowContainer::new(window, bounds.size(), scale_factor);
-        Ok(window_container)
+        })
     }
 }
 
-impl Clone for Window<XCBConnection> {
+impl<Connection> Clone for Window<Connection> {
     fn clone(&self) -> Self {
         Self {
             connection: self.connection.clone(),
