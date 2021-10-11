@@ -24,14 +24,14 @@ pub trait FontLoader {
         content: &'a str,
     ) -> SplitSegments<'a, Self, Self::Bundle, Self::FontId>
     where
-        Self: Sized,
+        Self: Sized
     {
         SplitSegments::new(self, bundle, content)
     }
 }
 
-pub struct SplitSegments<'a, Selector, Bundle, FontId> {
-    selector: &'a Selector,
+pub struct SplitSegments<'a, Loader, Bundle, FontId> {
+    loader: &'a Loader,
     bundle: &'a Bundle,
     content: &'a str,
     primary_font: FontId,
@@ -40,11 +40,11 @@ pub struct SplitSegments<'a, Selector, Bundle, FontId> {
     char_indices: CharIndices<'a>,
 }
 
-impl<'a, Selector: FontLoader> SplitSegments<'a, Selector, Selector::Bundle, Selector::FontId> {
-    fn new(selector: &'a Selector, bundle: &'a Selector::Bundle, content: &'a str) -> Self {
-        let primary_font = selector.get_primary_font(bundle);
+impl<'a, Loader: FontLoader> SplitSegments<'a, Loader, Loader::Bundle, Loader::FontId> {
+    fn new(loader: &'a Loader, bundle: &'a Loader::Bundle, content: &'a str) -> Self {
+        let primary_font = loader.get_primary_font(bundle);
         Self {
-            selector,
+            loader,
             bundle,
             content,
             primary_font,
@@ -55,15 +55,15 @@ impl<'a, Selector: FontLoader> SplitSegments<'a, Selector, Selector::Bundle, Sel
     }
 }
 
-impl<'a, Selector: FontLoader> Iterator
-    for SplitSegments<'a, Selector, Selector::Bundle, Selector::FontId>
+impl<'a, Loader: FontLoader> Iterator
+    for SplitSegments<'a, Loader, Loader::Bundle, Loader::FontId>
 {
-    type Item = (Selector::FontId, Range<usize>);
+    type Item = (Loader::FontId, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((i, c)) = self.char_indices.next() {
             let font = self
-                .selector
+                .loader
                 .match_optimal_font(&self.bundle, c)
                 .unwrap_or(self.primary_font);
             if font != self.current_font {
