@@ -18,8 +18,8 @@ use yuiui::widget::{
     Lifecycle,
 };
 use yuiui::widget_impl::button::Button;
-use yuiui::widget_impl::flex::{Flex, FlexParam};
-use yuiui::widget_impl::label::Label;
+use yuiui::widget_impl::view::{View, FlexParam};
+use yuiui::widget_impl::text::Text;
 use yuiui::widget_impl::padding::Padding;
 
 struct App;
@@ -58,14 +58,14 @@ impl Component<State, Message> for App {
         state: &Self::LocalState,
     ) -> Element<State, Message> {
         element!(
-            Flex::column() => [
+            View::column() => [
                 Padding { thickness: Thickness::uniform(8.0) } => [
                     attribute(FlexParam(1.0)),
                     Button {
                         background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
                         on_click: Some(Box::new(|_| Command::Send(Message::Decrement).into()))
                     } => [
-                        Label {
+                        Text {
                             content: "-".to_owned(),
                             font: FontDescriptor {
                                 weight: Weight::BOLD,
@@ -74,18 +74,18 @@ impl Component<State, Message> for App {
                             font_size: 32.0,
                             horizontal_align: HorizontalAlign::Center,
                             vertical_align: VerticalAlign::Middle,
-                            ..Label::default()
+                            ..Text::default()
                         },
                     ]
                 ]
                 Padding { thickness: Thickness::uniform(8.0) } => [
                     attribute(FlexParam(1.0)),
-                    Label {
+                    Text {
                         content: format!("{}", state.count),
                         font_size: 32.0,
                         horizontal_align: HorizontalAlign::Center,
                         vertical_align: VerticalAlign::Middle,
-                        ..Label::default()
+                        ..Text::default()
                     },
                 ]
                 Padding { thickness: Thickness::uniform(8.0) } => [
@@ -94,7 +94,7 @@ impl Component<State, Message> for App {
                         background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
                         on_click: Some(Box::new(|_| Command::Send(Message::Increment).into()))
                     } => [
-                        Label {
+                        Text {
                             content: "+".to_owned(),
                             font: FontDescriptor {
                                 weight: Weight::BOLD,
@@ -103,7 +103,7 @@ impl Component<State, Message> for App {
                             font_size: 32.0,
                             horizontal_align: HorizontalAlign::Center,
                             vertical_align: VerticalAlign::Middle,
-                            ..Label::default()
+                            ..Text::default()
                         },
                     ]
                 ]

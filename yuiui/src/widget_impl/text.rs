@@ -6,7 +6,7 @@ use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 use crate::widget::{DrawContext, ElementInstance, Widget};
 
 #[derive(Debug, PartialEq, Default)]
-pub struct Label {
+pub struct Text {
     pub content: String,
     pub color: Color,
     pub font: FontDescriptor,
@@ -15,7 +15,7 @@ pub struct Label {
     pub vertical_align: VerticalAlign,
 }
 
-impl<State, Message> Widget<State, Message> for Label {
+impl<State, Message> Widget<State, Message> for Text {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
@@ -45,8 +45,8 @@ impl<State, Message> Widget<State, Message> for Label {
     }
 }
 
-impl<State: 'static, Message: 'static> From<Label> for ElementInstance<State, Message> {
-    fn from(widget: Label) -> Self {
+impl<State: 'static, Message: 'static> From<Text> for ElementInstance<State, Message> {
+    fn from(widget: Text) -> Self {
         widget.into_rc().into()
     }
 }

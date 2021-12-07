@@ -4,11 +4,11 @@ use crate::geometrics::{BoxConstraints, Point, Size};
 use crate::widget::{ElementInstance, LayoutContext, Widget};
 
 #[derive(Debug, PartialEq)]
-pub struct Flex {
+pub struct View {
     direction: Axis,
 }
 
-impl Flex {
+impl View {
     pub fn row() -> Self {
         Self {
             direction: Axis::Vertical,
@@ -22,7 +22,7 @@ impl Flex {
     }
 }
 
-impl<State, Message> Widget<State, Message> for Flex {
+impl<State, Message> Widget<State, Message> for View {
     type LocalState = ();
 
     fn initial_state(&self) -> Self::LocalState {
@@ -95,8 +95,8 @@ impl<State, Message> Widget<State, Message> for Flex {
     }
 }
 
-impl<State: 'static, Message: 'static> From<Flex> for ElementInstance<State, Message> {
-    fn from(widget: Flex) -> Self {
+impl<State: 'static, Message: 'static> From<View> for ElementInstance<State, Message> {
+    fn from(widget: View) -> Self {
         widget.into_rc().into()
     }
 }

@@ -1,5 +1,5 @@
 pub mod button;
-pub mod flex;
-pub mod label;
 pub mod null;
 pub mod padding;
+pub mod text;
+pub mod view;
