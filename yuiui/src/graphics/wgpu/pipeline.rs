@@ -5,7 +5,7 @@ use super::layer::Layer;
 use super::quad::Quad;
 use super::renderer::Renderer;
 use super::text::Text;
-use crate::geometrics::{Rectangle, Transform};
+use crate::geometrics::{Rect, Transform};
 use crate::graphics::{Background, Primitive};
 use crate::text::FontLoader;
 
@@ -55,7 +55,7 @@ impl Pipeline {
             }
             Primitive::Clip(clip_bounds, primitive) => {
                 let bounds = match self.primary_layer.bounds {
-                    Some(bounds) => bounds.intersection(clip_bounds).unwrap_or(Rectangle::ZERO),
+                    Some(bounds) => bounds.intersection(clip_bounds).unwrap_or(Rect::ZERO),
                     None => clip_bounds,
                 };
                 let standby_layer = self.switch_layer(Some(bounds), self.primary_layer.transform);
@@ -105,7 +105,7 @@ impl Pipeline {
         }
     }
 
-    fn switch_layer(&mut self, bounds: Option<Rectangle>, transform: Transform) -> Option<Layer> {
+    fn switch_layer(&mut self, bounds: Option<Rect>, transform: Transform) -> Option<Layer> {
         if self.primary_layer.is_empty() {
             self.primary_layer.bounds = bounds;
             self.primary_layer.transform = transform;

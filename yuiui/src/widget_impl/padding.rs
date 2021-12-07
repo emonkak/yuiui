@@ -1,11 +1,11 @@
 use yuiui_support::slot_tree::NodeId;
 
-use crate::geometrics::{BoxConstraints, Point, Size, Thickness};
+use crate::geometrics::{BoxConstraints, Point, RectOutsets, Size};
 use crate::widget::{ElementInstance, LayoutContext, Widget};
 
 #[derive(Debug, PartialEq)]
 pub struct Padding {
-    pub thickness: Thickness,
+    pub thickness: RectOutsets,
 }
 
 impl<State, Message> Widget<State, Message> for Padding {

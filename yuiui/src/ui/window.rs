@@ -1,6 +1,6 @@
 use raw_window_handle::HasRawWindowHandle;
 
-use crate::geometrics::{PhysicalRectangle, PhysicalSize, Viewport};
+use crate::geometrics::{PhysicalRect, PhysicalSize, Viewport};
 
 pub struct WindowContainer<Window> {
     window: Window,
@@ -14,7 +14,7 @@ pub trait Window: HasRawWindowHandle {
 
     fn show(&self);
 
-    fn request_redraw(&self, bounds: PhysicalRectangle);
+    fn request_redraw(&self, bounds: PhysicalRect);
 }
 
 impl<Window> WindowContainer<Window> {

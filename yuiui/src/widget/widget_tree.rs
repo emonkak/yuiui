@@ -8,7 +8,7 @@ use yuiui_support::slot_tree::{NodeId, SlotTree};
 
 use super::event_manager::EventManager;
 use super::{Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork};
-use crate::geometrics::{BoxConstraints, Point, Rectangle, Size, Viewport};
+use crate::geometrics::{BoxConstraints, Point, Rect, Size, Viewport};
 use crate::graphics::Primitive;
 
 #[derive(Debug)]
@@ -122,7 +122,7 @@ impl<State, Message> WidgetTree<State, Message> {
         }
     }
 
-    pub fn draw(&self, id: NodeId) -> (Primitive, Rectangle) {
+    pub fn draw(&self, id: NodeId) -> (Primitive, Rect) {
         let cursor = self.tree.cursor(id);
         let mut widget = cursor.current().data().borrow_mut();
 
@@ -301,8 +301,8 @@ impl<State, Message> WidgetPod<State, Message> {
         origin: Point,
         children: &[NodeId],
         context: &mut DrawContext<State, Message>,
-    ) -> (Primitive, Rectangle) {
-        let bounds = Rectangle::new(origin + self.position, self.size);
+    ) -> (Primitive, Rect) {
+        let bounds = Rect::new(origin + self.position, self.size);
         self.origin = origin;
 
         if !self.needs_draw {
@@ -318,8 +318,8 @@ impl<State, Message> WidgetPod<State, Message> {
         (primitive, bounds)
     }
 
-    fn bounds(&self) -> Rectangle {
-        Rectangle::new(self.origin + self.position, self.size)
+    fn bounds(&self) -> Rect {
+        Rect::new(self.origin + self.position, self.size)
     }
 }
 

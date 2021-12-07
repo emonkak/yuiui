@@ -1,6 +1,6 @@
 use wgpu_glyph::{ab_glyph, GlyphCruncher};
 
-use crate::geometrics::{PhysicalRectangle, Rectangle, Size, Transform};
+use crate::geometrics::{PhysicalRect, Rect, Size, Transform};
 use crate::graphics::Color;
 use crate::text::{HorizontalAlign, VerticalAlign};
 
@@ -14,7 +14,7 @@ pub struct Pipeline {
 pub struct Text {
     pub content: String,
     pub segments: Vec<Segment>,
-    pub bounds: Rectangle,
+    pub bounds: Rect,
     pub color: Color,
     pub font_size: f32,
     pub horizontal_align: HorizontalAlign,
@@ -55,7 +55,7 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         texts: &[Text],
-        scissor_bounds: Option<PhysicalRectangle>,
+        scissor_bounds: Option<PhysicalRect>,
         projection: Transform,
         transform: Transform,
         scale_factor: f32,

@@ -6,7 +6,7 @@ use wgpu_glyph::ab_glyph;
 
 use super::layer::Layer;
 use super::{quad, text, Pipeline, Settings};
-use crate::geometrics::{Rectangle, Size, Transform, Viewport};
+use crate::geometrics::{Rect, Size, Transform, Viewport};
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, FontLoader};
 
@@ -188,7 +188,7 @@ where
         target: &wgpu::TextureView,
         pipeline: &Pipeline,
         viewport: &Viewport,
-        effective_bounds: Option<Rectangle>,
+        effective_bounds: Option<Rect>,
     ) {
         let projection = viewport.projection();
         let scale_factor = viewport.scale_factor();
@@ -221,7 +221,7 @@ where
         layer: &Layer,
         projection: Transform,
         scale_factor: f32,
-        effective_bounds: Option<Rectangle>,
+        effective_bounds: Option<Rect>,
     ) {
         let scissor_bounds = match (effective_bounds, layer.bounds) {
             (Some(effective_bounds), Some(layer_bounds)) => {
@@ -311,7 +311,7 @@ where
         pipeline: &mut Self::Pipeline,
         surface: &mut Self::Surface,
         viewport: &Viewport,
-        effective_bounds: Option<Rectangle>,
+        effective_bounds: Option<Rect>,
         background_color: Color,
     ) {
         let frame = surface.get_current_frame().expect("Next frame");

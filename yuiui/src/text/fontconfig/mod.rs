@@ -9,7 +9,7 @@ use std::io::Read;
 use std::os::raw::*;
 use std::ptr;
 
-use crate::text::{Family, FontDescriptor, Stretch, Style};
+use crate::text::{FontDescriptor, FontFamily, FontStretch, FontStyle};
 
 static SERIF_FAMILY: &'static str = "Serif\0";
 static SANS_SERIF_FAMILY: &'static str = "Sans\0";
@@ -168,7 +168,7 @@ unsafe fn create_pattern(descriptor: &FontDescriptor) -> *mut ffi::FcPattern {
     let pattern = ffi::FcPatternCreate();
 
     match &descriptor.family {
-        Family::Name(name) => {
+        FontFamily::Name(name) => {
             if let Ok(name_str) = CString::new(name.as_str()) {
                 ffi::FcPatternAddString(
                     pattern,
@@ -177,21 +177,21 @@ unsafe fn create_pattern(descriptor: &FontDescriptor) -> *mut ffi::FcPattern {
                 );
             }
         }
-        Family::Serif => {
+        FontFamily::Serif => {
             ffi::FcPatternAddString(
                 pattern,
                 ffi::FC_FAMILY.as_ptr() as *mut c_char,
                 SERIF_FAMILY.as_ptr(),
             );
         }
-        Family::SansSerif => {
+        FontFamily::SansSerif => {
             ffi::FcPatternAddString(
                 pattern,
                 ffi::FC_FAMILY.as_ptr() as *mut c_char,
                 SANS_SERIF_FAMILY.as_ptr(),
             );
         }
-        Family::Monospace => {
+        FontFamily::Monospace => {
             ffi::FcPatternAddString(
                 pattern,
                 ffi::FC_FAMILY.as_ptr() as *mut c_char,
@@ -204,22 +204,22 @@ unsafe fn create_pattern(descriptor: &FontDescriptor) -> *mut ffi::FcPattern {
     ffi::FcPatternAddDouble(pattern, ffi::FC_WEIGHT.as_ptr() as *mut c_char, weight);
 
     let slant = match descriptor.style {
-        Style::Italic => ffi::FC_SLANT_ITALIC,
-        Style::Normal => ffi::FC_SLANT_ROMAN,
-        Style::Oblique => ffi::FC_SLANT_OBLIQUE,
+        FontStyle::Italic => ffi::FC_SLANT_ITALIC,
+        FontStyle::Normal => ffi::FC_SLANT_ROMAN,
+        FontStyle::Oblique => ffi::FC_SLANT_OBLIQUE,
     };
     ffi::FcPatternAddInteger(pattern, ffi::FC_SLANT.as_ptr() as *mut c_char, slant);
 
     let width = match descriptor.stretch {
-        Stretch::UltraCondensed => ffi::FC_WIDTH_ULTRACONDENSED,
-        Stretch::ExtraCondensed => ffi::FC_WIDTH_EXTRACONDENSED,
-        Stretch::Condensed => ffi::FC_WIDTH_CONDENSED,
-        Stretch::SemiCondensed => ffi::FC_WIDTH_SEMICONDENSED,
-        Stretch::Normal => ffi::FC_WIDTH_NORMAL,
-        Stretch::SemiExpanded => ffi::FC_WIDTH_SEMIEXPANDED,
-        Stretch::Expanded => ffi::FC_WIDTH_EXPANDED,
-        Stretch::ExtraExpanded => ffi::FC_WIDTH_EXTRAEXPANDED,
-        Stretch::UltraExpanded => ffi::FC_WIDTH_ULTRAEXPANDED,
+        FontStretch::UltraCondensed => ffi::FC_WIDTH_ULTRACONDENSED,
+        FontStretch::ExtraCondensed => ffi::FC_WIDTH_EXTRACONDENSED,
+        FontStretch::Condensed => ffi::FC_WIDTH_CONDENSED,
+        FontStretch::SemiCondensed => ffi::FC_WIDTH_SEMICONDENSED,
+        FontStretch::Normal => ffi::FC_WIDTH_NORMAL,
+        FontStretch::SemiExpanded => ffi::FC_WIDTH_SEMIEXPANDED,
+        FontStretch::Expanded => ffi::FC_WIDTH_EXPANDED,
+        FontStretch::ExtraExpanded => ffi::FC_WIDTH_EXTRAEXPANDED,
+        FontStretch::UltraExpanded => ffi::FC_WIDTH_ULTRAEXPANDED,
     };
     ffi::FcPatternAddInteger(pattern, ffi::FC_WIDTH.as_ptr() as *mut c_char, width);
 

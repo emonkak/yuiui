@@ -8,7 +8,7 @@ use x11rb::protocol::xproto;
 use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::xcb_ffi::XCBConnection;
 
-use crate::geometrics::PhysicalRectangle;
+use crate::geometrics::PhysicalRect;
 use crate::ui::WindowContainer;
 
 #[derive(Debug)]
@@ -22,7 +22,7 @@ impl<Connection: self::Connection> Window<Connection> {
     pub fn create_container(
         connection: Rc<Connection>,
         screen_num: usize,
-        bounds: PhysicalRectangle,
+        bounds: PhysicalRect,
         scale_factor: f32,
     ) -> Result<WindowContainer<Self>, ConnectionError> {
         let window = Self::new(connection, screen_num, bounds)?;
@@ -33,7 +33,7 @@ impl<Connection: self::Connection> Window<Connection> {
     pub fn new(
         connection: Rc<Connection>,
         screen_num: usize,
-        bounds: PhysicalRectangle,
+        bounds: PhysicalRect,
     ) -> Result<Self, ConnectionError> {
         let window_id = connection.generate_id().unwrap();
         let screen = &connection.setup().roots[screen_num];
@@ -96,7 +96,7 @@ impl crate::ui::Window for Window<XCBConnection> {
         self.connection.flush().unwrap();
     }
 
-    fn request_redraw(&self, bounds: PhysicalRectangle) {
+    fn request_redraw(&self, bounds: PhysicalRect) {
         let event = xproto::ExposeEvent {
             response_type: xproto::EXPOSE_EVENT,
             sequence: 0,

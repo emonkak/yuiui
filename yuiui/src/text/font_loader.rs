@@ -24,7 +24,7 @@ pub trait FontLoader {
         content: &'a str,
     ) -> SplitSegments<'a, Self, Self::Bundle, Self::FontId>
     where
-        Self: Sized
+        Self: Sized,
     {
         SplitSegments::new(self, bundle, content)
     }

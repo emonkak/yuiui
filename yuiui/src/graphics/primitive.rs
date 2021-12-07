@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use crate::geometrics::{Rectangle, Transform};
+use crate::geometrics::{Rect, Transform};
 use crate::graphics::{Background, Color};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 
@@ -9,16 +9,16 @@ pub enum Primitive {
     None,
     Batch(Vec<Primitive>),
     Transform(Transform, Box<Primitive>),
-    Clip(Rectangle, Box<Primitive>),
+    Clip(Rect, Box<Primitive>),
     Quad {
-        bounds: Rectangle,
+        bounds: Rect,
         background: Background,
         border_radius: f32,
         border_width: f32,
         border_color: Color,
     },
     Text {
-        bounds: Rectangle,
+        bounds: Rect,
         content: String,
         color: Color,
         font: FontDescriptor,

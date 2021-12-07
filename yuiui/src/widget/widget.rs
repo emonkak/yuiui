@@ -6,7 +6,7 @@ use yuiui_support::slot_tree::NodeId;
 use super::{
     short_type_name_of, AsAny, DrawContext, Effect, Event, LayoutContext, Lifecycle, WidgetProxy,
 };
-use crate::geometrics::{BoxConstraints, Rectangle, Size};
+use crate::geometrics::{BoxConstraints, Rect, Size};
 use crate::graphics::Primitive;
 
 pub type RcWidget<State, Message> =
@@ -32,7 +32,7 @@ pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
     fn on_event(
         &self,
         _event: Event<State>,
-        _bounds: Rectangle,
+        _bounds: Rect,
         _state: &mut Self::LocalState,
     ) -> Effect<Message> {
         Effect::None
@@ -54,7 +54,7 @@ pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
 
     fn draw(
         &self,
-        _bounds: Rectangle,
+        _bounds: Rect,
         children: &[NodeId],
         context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,

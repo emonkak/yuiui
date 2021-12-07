@@ -8,19 +8,19 @@ use std::rc::Rc;
 use x11rb::connection::Connection as _;
 use x11rb::xcb_ffi::XCBConnection;
 use yuiui::application::{self, RenderLoop, Store};
-use yuiui::geometrics::{PhysicalRectangle, Thickness};
+use yuiui::geometrics::{PhysicalRect, RectOutsets};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
 use yuiui::text::fontconfig::FontLoader;
-use yuiui::text::{FontDescriptor, HorizontalAlign, VerticalAlign, Weight};
+use yuiui::text::{FontDescriptor, FontWeight, HorizontalAlign, VerticalAlign};
 use yuiui::ui::{xcb, Window};
 use yuiui::widget::{
     attribute, Children, Command, Component, Effect, Element, ElementInstance, Event, EventMask,
     Lifecycle,
 };
 use yuiui::widget_impl::button::Button;
-use yuiui::widget_impl::view::{View, FlexParam};
-use yuiui::widget_impl::text::Text;
 use yuiui::widget_impl::padding::Padding;
+use yuiui::widget_impl::text::Text;
+use yuiui::widget_impl::view::{FlexParam, View};
 
 struct App;
 
@@ -59,7 +59,7 @@ impl Component<State, Message> for App {
     ) -> Element<State, Message> {
         element!(
             View::column() => [
-                Padding { thickness: Thickness::uniform(8.0) } => [
+                Padding { thickness: RectOutsets::uniform(8.0) } => [
                     attribute(FlexParam(1.0)),
                     Button {
                         background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
@@ -68,7 +68,7 @@ impl Component<State, Message> for App {
                         Text {
                             content: "-".to_owned(),
                             font: FontDescriptor {
-                                weight: Weight::BOLD,
+                                weight: FontWeight::BOLD,
                                 ..FontDescriptor::default()
                             },
                             font_size: 32.0,
@@ -78,7 +78,7 @@ impl Component<State, Message> for App {
                         },
                     ]
                 ]
-                Padding { thickness: Thickness::uniform(8.0) } => [
+                Padding { thickness: RectOutsets::uniform(8.0) } => [
                     attribute(FlexParam(1.0)),
                     Text {
                         content: format!("{}", state.count),
@@ -88,7 +88,7 @@ impl Component<State, Message> for App {
                         ..Text::default()
                     },
                 ]
-                Padding { thickness: Thickness::uniform(8.0) } => [
+                Padding { thickness: RectOutsets::uniform(8.0) } => [
                     attribute(FlexParam(1.0)),
                     Button {
                         background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
@@ -97,7 +97,7 @@ impl Component<State, Message> for App {
                         Text {
                             content: "+".to_owned(),
                             font: FontDescriptor {
-                                weight: Weight::BOLD,
+                                weight: FontWeight::BOLD,
                                 ..FontDescriptor::default()
                             },
                             font_size: 32.0,
@@ -139,7 +139,7 @@ fn main() {
     let window_container = xcb::Window::create_container(
         connection.clone(),
         screen_num,
-        PhysicalRectangle {
+        PhysicalRect {
             x: ((screen.width_in_pixels / 2) as u32).saturating_sub(640 / 2),
             y: ((screen.height_in_pixels / 2) as u32).saturating_sub(240 / 2),
             width: 640,

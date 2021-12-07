@@ -4,7 +4,7 @@ use x11rb::errors::ReplyOrIdError;
 use x11rb::protocol::xproto;
 use x11rb::protocol::xproto::ConnectionExt;
 
-use crate::geometrics::PhysicalRectangle;
+use crate::geometrics::PhysicalRect;
 use crate::graphics::{Background, Color, Primitive};
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub struct Pipeline<Connection: self::Connection> {
 
 #[derive(Debug)]
 pub enum DrawOp {
-    FillRectangle(xproto::AllocColorReply, PhysicalRectangle),
+    FillRect(xproto::AllocColorReply, PhysicalRect),
 }
 
 impl<Connection: self::Connection> Pipeline<Connection> {
@@ -74,7 +74,7 @@ impl<Connection: self::Connection> Pipeline<Connection> {
                     Background::Color(color) => self.alloc_color(color).unwrap(),
                 };
                 self.draw_ops
-                    .push(DrawOp::FillRectangle(background_color, bounds.snap()));
+                    .push(DrawOp::FillRect(background_color, bounds.snap()));
             }
             Primitive::Text { .. } => {
                 // TODO:

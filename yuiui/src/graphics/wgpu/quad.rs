@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use std::mem;
 
-use crate::geometrics::{PhysicalRectangle, Transform};
+use crate::geometrics::{PhysicalRect, Transform};
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -154,7 +154,7 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         instances: &[Quad],
-        scissor_bounds: Option<PhysicalRectangle>,
+        scissor_bounds: Option<PhysicalRect>,
         projection: Transform,
         transform: Transform,
         scale_factor: f32,

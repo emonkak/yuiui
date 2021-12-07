@@ -1,17 +1,17 @@
 use super::quad::Quad;
 use super::text::Text;
-use crate::geometrics::{Rectangle, Transform};
+use crate::geometrics::{Rect, Transform};
 
 #[derive(Debug)]
 pub struct Layer {
-    pub bounds: Option<Rectangle>,
+    pub bounds: Option<Rect>,
     pub transform: Transform,
     pub quads: Vec<Quad>,
     pub texts: Vec<Text>,
 }
 
 impl Layer {
-    pub fn new(bounds: Option<Rectangle>, transform: Transform) -> Self {
+    pub fn new(bounds: Option<Rect>, transform: Transform) -> Self {
         Self {
             bounds,
             transform,

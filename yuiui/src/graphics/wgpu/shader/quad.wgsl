@@ -53,7 +53,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
             vec4<f32>(position - vec2<f32>(0.5), 0.0, 1.0)
         );
 
-    let rectangle_position: vec2<f32> = RECTANGLE_POSITIONS[input.vertex_index];
+    let rect_position: vec2<f32> = RECTANGLE_POSITIONS[input.vertex_index];
 
     var output: VertexOutput;
     output.position = position;
@@ -62,7 +62,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.border_color = input.border_color;
     output.border_radius = border_radius * uniforms.scale_factor;
     output.border_width = input.border_width * uniforms.scale_factor;
-    output.coord = transform * vec4<f32>(rectangle_position, 0.0, 1.0);
+    output.coord = transform * vec4<f32>(rect_position, 0.0, 1.0);
 
     return output;
 }

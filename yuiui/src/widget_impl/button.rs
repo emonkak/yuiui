@@ -1,7 +1,7 @@
 use yuiui_support::slot_tree::NodeId;
 
 use crate::event::{MouseEvent, WindowEvent};
-use crate::geometrics::Rectangle;
+use crate::geometrics::Rect;
 use crate::graphics::{Background, Color, Primitive};
 use crate::widget::{DrawContext, Effect, ElementInstance, Event, EventMask, Lifecycle, Widget};
 
@@ -33,7 +33,7 @@ impl<State, Message: 'static> Widget<State, Message> for Button<Message> {
     fn on_event(
         &self,
         event: Event<State>,
-        bounds: Rectangle,
+        bounds: Rect,
         state: &mut Self::LocalState,
     ) -> Effect<Message> {
         match event {
@@ -60,7 +60,7 @@ impl<State, Message: 'static> Widget<State, Message> for Button<Message> {
 
     fn draw(
         &self,
-        bounds: Rectangle,
+        bounds: Rect,
         children: &[NodeId],
         context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,

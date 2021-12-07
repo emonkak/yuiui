@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use yuiui_support::slot_tree::NodeId;
 
 use super::{DrawContext, Effect, Event, LayoutContext, Lifecycle, Widget};
-use crate::geometrics::{BoxConstraints, Rectangle, Size};
+use crate::geometrics::{BoxConstraints, Rect, Size};
 use crate::graphics::Primitive;
 
 pub struct WidgetProxy<Inner, State, Message, LocalState> {
@@ -57,7 +57,7 @@ where
     fn on_event(
         &self,
         event: Event<State>,
-        bounds: Rectangle,
+        bounds: Rect,
         state: &mut Self::LocalState,
     ) -> Effect<Message> {
         self.inner
@@ -81,7 +81,7 @@ where
 
     fn draw(
         &self,
-        bounds: Rectangle,
+        bounds: Rect,
         children: &[NodeId],
         context: &mut DrawContext<State, Message>,
         state: &mut Self::LocalState,

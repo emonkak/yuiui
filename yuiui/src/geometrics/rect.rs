@@ -3,16 +3,16 @@ use std::ops::{Add, Mul};
 use super::{Point, Size, Vector};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Rectangle<T = f32> {
+pub struct Rect<T = f32> {
     pub x: T,
     pub y: T,
     pub width: T,
     pub height: T,
 }
 
-pub type PhysicalRectangle = Rectangle<u32>;
+pub type PhysicalRect = Rect<u32>;
 
-impl Rectangle {
+impl Rect {
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
@@ -21,8 +21,8 @@ impl Rectangle {
     };
 
     #[inline]
-    pub fn snap(self) -> PhysicalRectangle {
-        Rectangle {
+    pub fn snap(self) -> PhysicalRect {
+        Rect {
             x: self.x as u32,
             y: self.y as u32,
             width: self.width as u32,
@@ -67,7 +67,7 @@ impl Rectangle {
     }
 }
 
-impl<T> Rectangle<T> {
+impl<T> Rect<T> {
     #[inline]
     pub fn new(point: Point<T>, size: Size<T>) -> Self {
         Self {

@@ -1,17 +1,17 @@
 mod box_constraints;
 mod point;
-mod rectangle;
+mod rect;
+mod rect_outsets;
 mod size;
-mod thickness;
 mod transform;
 mod vector;
 mod viewport;
 
 pub use box_constraints::BoxConstraints;
 pub use point::{PhysicalPoint, Point};
-pub use rectangle::{PhysicalRectangle, Rectangle};
+pub use rect::{PhysicalRect, Rect};
+pub use rect_outsets::RectOutsets;
 pub use size::{PhysicalSize, Size};
-pub use thickness::Thickness;
 pub use transform::Transform;
 pub use vector::Vector;
 pub use viewport::Viewport;

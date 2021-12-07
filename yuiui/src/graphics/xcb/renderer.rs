@@ -5,7 +5,7 @@ use x11rb::protocol::xproto;
 use x11rb::protocol::xproto::ConnectionExt;
 
 use super::pipeline::{DrawOp, Pipeline};
-use crate::geometrics::{PhysicalRectangle, PhysicalSize, Rectangle, Viewport};
+use crate::geometrics::{PhysicalRect, PhysicalSize, Rect, Viewport};
 use crate::graphics::{Color, Primitive};
 
 #[derive(Debug)]
@@ -31,11 +31,11 @@ impl<Connection: self::Connection> Renderer<Connection> {
         }
     }
 
-    fn fill_rectangle(
+    fn fill_rect(
         &self,
         surface: &Surface<Connection>,
         color: &xproto::AllocColorReply,
-        bounds: PhysicalRectangle,
+        bounds: PhysicalRect,
     ) -> Result<(), ConnectionError> {
         self.connection.change_gc(
             surface.gc,
@@ -80,8 +80,8 @@ impl<Connection: self::Connection> Renderer<Connection> {
         surface: &Surface<Connection>,
     ) -> Result<(), ConnectionError> {
         match draw_op {
-            DrawOp::FillRectangle(color, bounds) => {
-                self.fill_rectangle(surface, color, *bounds)?;
+            DrawOp::FillRect(color, bounds) => {
+                self.fill_rect(surface, color, *bounds)?;
             }
         }
         Ok(())
@@ -121,15 +121,15 @@ impl<Connection: self::Connection> crate::graphics::Renderer for Renderer<Connec
         pipeline: &mut Self::Pipeline,
         surface: &mut Self::Surface,
         viewport: &Viewport,
-        _effective_bounds: Option<Rectangle>,
+        _effective_bounds: Option<Rect>,
         background_color: Color,
     ) {
         let alloc_background_color = pipeline.alloc_color(background_color).unwrap();
 
-        self.fill_rectangle(
+        self.fill_rect(
             surface,
             &alloc_background_color,
-            PhysicalRectangle::from_size(viewport.physical_size()),
+            PhysicalRect::from_size(viewport.physical_size()),
         )
         .unwrap();
 

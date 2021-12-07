@@ -1,6 +1,6 @@
 use yuiui_support::slot_tree::NodeId;
 
-use crate::geometrics::Rectangle;
+use crate::geometrics::Rect;
 use crate::graphics::{Color, Primitive};
 use crate::text::{FontDescriptor, HorizontalAlign, VerticalAlign};
 use crate::widget::{DrawContext, ElementInstance, Widget};
@@ -28,7 +28,7 @@ impl<State, Message> Widget<State, Message> for Text {
 
     fn draw(
         &self,
-        bounds: Rectangle,
+        bounds: Rect,
         _children: &[NodeId],
         _context: &mut DrawContext<State, Message>,
         _state: &mut Self::LocalState,

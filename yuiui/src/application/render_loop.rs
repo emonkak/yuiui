@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::mem;
 use yuiui_support::slot_tree::NodeId;
 
-use crate::geometrics::{Rectangle, Viewport};
+use crate::geometrics::{Rect, Viewport};
 use crate::graphics::Primitive;
 use crate::widget::{
     Command, ComponentIndex, Element, ElementTree, Event, UnitOfWork, Widget, WidgetTree,
@@ -142,7 +142,7 @@ impl<State: 'static, Message: 'static> RenderLoop<State, Message> {
 #[derive(Debug)]
 pub enum RenderFlow {
     Continue,
-    Done(Primitive, Option<Rectangle>),
+    Done(Primitive, Option<Rect>),
     Idle,
 }
 
