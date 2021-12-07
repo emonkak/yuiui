@@ -8,6 +8,7 @@ use super::{
 };
 use crate::geometrics::{BoxConstraints, Rect, Size};
 use crate::graphics::Primitive;
+use crate::style::LayoutStyle;
 
 pub type RcWidget<State, Message> =
     Rc<dyn Widget<State, Message, dyn Any, LocalState = Box<dyn Any>>>;
@@ -50,6 +51,10 @@ pub trait Widget<State, Message, Own: ?Sized = Self>: AsAny {
         } else {
             box_constraints.max
         }
+    }
+
+    fn layout_style(&self) -> LayoutStyle {
+        LayoutStyle::default()
     }
 
     fn draw(

@@ -17,10 +17,10 @@ where
     type Output = Self;
 
     #[inline]
-    fn add(self, other: Self) -> Self {
+    fn add(self, vector: Self) -> Self {
         Self {
-            dx: self.dx + other.dx,
-            dy: self.dy + other.dy,
+            dx: self.dx + vector.dx,
+            dy: self.dy + vector.dy,
         }
     }
 }
@@ -32,10 +32,10 @@ where
     type Output = Self;
 
     #[inline]
-    fn sub(self, other: Self) -> Self {
+    fn sub(self, vector: Self) -> Self {
         Self {
-            dx: self.dx - other.dx,
-            dy: self.dy - other.dy,
+            dx: self.dx - vector.dx,
+            dy: self.dy - vector.dy,
         }
     }
 }

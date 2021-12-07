@@ -1,15 +1,14 @@
 use std::any::{Any, TypeId};
 use std::collections::VecDeque;
 use std::fmt;
-use std::rc::Rc;
 use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{Node, NodeId, SlotTree};
 
 use super::event_manager::EventManager;
 use super::reconciler::{ReconcileResult, Reconciler};
 use super::{
-    Attributes, Children, Command, ComponentElement, Effect, Element, Event, EventMask, Key,
-    Lifecycle, RcComponent, UnitOfWork, WidgetElement,
+    Children, Command, ComponentElement, Effect, Element, Event, EventMask, Key, Lifecycle,
+    RcComponent, UnitOfWork, WidgetElement,
 };
 
 pub type ComponentIndex = usize;
@@ -150,27 +149,15 @@ impl<State, Message> ElementTree<State, Message> {
                 let mut cursor = self.tree.cursor_mut(parent);
                 if in_component_rendering {
                     let unit_of_work = if let Some(parent) = cursor.current().parent() {
-                        UnitOfWork::Append(
-                            parent,
-                            element.widget.clone(),
-                            element.attributes.clone(),
-                        )
+                        UnitOfWork::Append(parent, element.widget.clone())
                     } else {
-                        UnitOfWork::Replace(
-                            NodeId::ROOT,
-                            element.widget.clone(),
-                            element.attributes.clone(),
-                        )
+                        UnitOfWork::Replace(NodeId::ROOT, element.widget.clone())
                     };
                     pending_works.push(unit_of_work);
                     let element_node = cursor.current().data_mut();
                     element_node.element = Some(element);
                 } else {
-                    pending_works.push(UnitOfWork::Append(
-                        parent,
-                        element.widget.clone(),
-                        element.attributes.clone(),
-                    ));
+                    pending_works.push(UnitOfWork::Append(parent, element.widget.clone()));
                     cursor.append_child(ElementNode::new(Some(element), Vec::new()));
                 }
             }
@@ -184,11 +171,7 @@ impl<State, Message> ElementTree<State, Message> {
                 }
             }
             ReconcileResult::Insert(reference, Element::WidgetElement(element)) => {
-                pending_works.push(UnitOfWork::Insert(
-                    reference.id(),
-                    element.widget.clone(),
-                    element.attributes.clone(),
-                ));
+                pending_works.push(UnitOfWork::Insert(reference.id(), element.widget.clone()));
                 let mut cursor = self.tree.cursor_mut(reference.id());
                 cursor.insert_before(ElementNode::new(Some(element), Vec::new()));
             }
@@ -201,11 +184,7 @@ impl<State, Message> ElementTree<State, Message> {
                 let mut cursor = self.tree.cursor_mut(id);
                 let element_node = cursor.current().data_mut();
                 if element_node.should_update(&element) {
-                    pending_works.push(UnitOfWork::Update(
-                        id,
-                        element.widget.clone(),
-                        element.attributes.clone(),
-                    ));
+                    pending_works.push(UnitOfWork::Update(id, element.widget.clone()));
                 }
                 element_node.update_element(element);
             }
@@ -225,11 +204,7 @@ impl<State, Message> ElementTree<State, Message> {
                 let mut cursor = self.tree.cursor_mut(id);
                 let element_node = cursor.current().data_mut();
                 if element_node.should_update(&element) {
-                    pending_works.push(UnitOfWork::Update(
-                        id,
-                        element.widget.clone(),
-                        element.attributes.clone(),
-                    ));
+                    pending_works.push(UnitOfWork::Update(id, element.widget.clone()));
                 }
                 element_node.update_element(element);
                 pending_works.push(UnitOfWork::Move(id, reference.id()));
@@ -318,10 +293,6 @@ impl<State, Message> ElementNode<State, Message> {
         }
 
         let current_element = self.element.as_ref().expect("element not found");
-        if current_element.attributes != element.attributes {
-            return true;
-        }
-
         current_element
             .widget
             .should_update(element.widget.as_any())
@@ -359,7 +330,6 @@ impl<State, Message> fmt::Display for ElementNode<State, Message> {
 #[derive(Debug)]
 struct ComponentPod<State, Message> {
     component: RcComponent<State, Message>,
-    attributes: Rc<Attributes>,
     children: Children<State, Message>,
     state: Box<dyn Any>,
     key: Option<Key>,
@@ -372,13 +342,12 @@ impl<State, Message> ComponentPod<State, Message> {
         &mut self,
         element: ComponentElement<State, Message>,
     ) -> (bool, Effect<Message>) {
-        let should_update = self.attributes != element.attributes
-            || self.component.should_update(
-                element.component.as_any(),
-                &self.children,
-                &element.children,
-                &self.state,
-            );
+        let should_update = self.component.should_update(
+            element.component.as_any(),
+            &self.children,
+            &element.children,
+            &self.state,
+        );
 
         let effect = if should_update {
             self.on_lifecycle(Lifecycle::Updated(element.component.as_any()))
@@ -387,7 +356,6 @@ impl<State, Message> ComponentPod<State, Message> {
         };
 
         self.component = element.component;
-        self.attributes = element.attributes;
         self.children = element.children;
 
         (should_update, effect)
@@ -415,7 +383,6 @@ impl<State, Message> From<ComponentElement<State, Message>> for ComponentPod<Sta
         let state = element.component.initial_state();
         Self {
             component: element.component,
-            attributes: element.attributes,
             children: element.children,
             key: element.key,
             state,
@@ -428,9 +395,6 @@ impl<State, Message> From<ComponentElement<State, Message>> for ComponentPod<Sta
 impl<State, Message> fmt::Display for ComponentPod<State, Message> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<{}", self.component.short_type_name())?;
-        if !self.attributes.is_empty() {
-            write!(f, " attributes={:?}", self.attributes)?;
-        }
         if !self.event_mask.is_empty() {
             write!(
                 f,

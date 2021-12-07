@@ -5,6 +5,7 @@ use yuiui_support::slot_tree::NodeId;
 use super::{DrawContext, Effect, Event, LayoutContext, Lifecycle, Widget};
 use crate::geometrics::{BoxConstraints, Rect, Size};
 use crate::graphics::Primitive;
+use crate::style::LayoutStyle;
 
 pub struct WidgetProxy<Inner, State, Message, LocalState> {
     inner: Inner,
@@ -77,6 +78,10 @@ where
             context,
             state.downcast_mut().unwrap(),
         )
+    }
+
+    fn layout_style(&self) -> LayoutStyle {
+        self.inner.layout_style()
     }
 
     fn draw(

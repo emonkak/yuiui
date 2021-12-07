@@ -10,17 +10,16 @@ use x11rb::xcb_ffi::XCBConnection;
 use yuiui::application::{self, RenderLoop, Store};
 use yuiui::geometrics::{PhysicalRect, RectOutsets};
 use yuiui::graphics::{wgpu, xcb as xcb_graphics, Color};
+use yuiui::style::LayoutStyle;
 use yuiui::text::fontconfig::FontLoader;
 use yuiui::text::{FontDescriptor, FontWeight, HorizontalAlign, VerticalAlign};
 use yuiui::ui::{xcb, Window};
 use yuiui::widget::{
-    attribute, Children, Command, Component, Effect, Element, ElementInstance, Event, EventMask,
-    Lifecycle,
+    Children, Command, Component, Effect, Element, ElementInstance, Event, EventMask, Lifecycle,
 };
 use yuiui::widget_impl::button::Button;
-use yuiui::widget_impl::padding::Padding;
 use yuiui::widget_impl::text::Text;
-use yuiui::widget_impl::view::{FlexParam, View};
+use yuiui::widget_impl::view::View;
 
 struct App;
 
@@ -58,9 +57,12 @@ impl Component<State, Message> for App {
         state: &Self::LocalState,
     ) -> Element<State, Message> {
         element!(
-            View::column() => [
-                Padding { thickness: RectOutsets::uniform(8.0) } => [
-                    attribute(FlexParam(1.0)),
+            View::column(LayoutStyle::default()) => [
+                View::row(LayoutStyle {
+                    flex: 1.0,
+                    padding: RectOutsets::uniform(8.0),
+                    ..Default::default()
+                }) => [
                     Button {
                         background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
                         on_click: Some(Box::new(|_| Command::Send(Message::Decrement).into()))
@@ -78,8 +80,11 @@ impl Component<State, Message> for App {
                         },
                     ]
                 ]
-                Padding { thickness: RectOutsets::uniform(8.0) } => [
-                    attribute(FlexParam(1.0)),
+                View::row(LayoutStyle {
+                    flex: 1.0,
+                    padding: RectOutsets::uniform(8.0),
+                    ..Default::default()
+                }) => [
                     Text {
                         content: format!("{}", state.count),
                         font_size: 32.0,
@@ -88,8 +93,11 @@ impl Component<State, Message> for App {
                         ..Text::default()
                     },
                 ]
-                Padding { thickness: RectOutsets::uniform(8.0) } => [
-                    attribute(FlexParam(1.0)),
+                View::row(LayoutStyle {
+                    flex: 1.0,
+                    padding: RectOutsets::uniform(8.0),
+                    ..Default::default()
+                }) => [
                     Button {
                         background: Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }.into(),
                         on_click: Some(Box::new(|_| Command::Send(Message::Increment).into()))

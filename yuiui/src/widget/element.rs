@@ -24,20 +24,17 @@ impl<State, Message> Clone for Element<State, Message> {
 impl<State, Message> Element<State, Message> {
     pub fn new(
         node: ElementInstance<State, Message>,
-        attributes: Rc<Attributes>,
         key: Option<Key>,
         children: Children<State, Message>,
     ) -> Self {
         match node {
             ElementInstance::Widget(widget) => Self::WidgetElement(WidgetElement {
                 widget,
-                attributes,
                 key,
                 children,
             }),
             ElementInstance::Component(component) => Self::ComponentElement(ComponentElement {
                 component,
-                attributes,
                 key,
                 children,
             }),
@@ -48,7 +45,6 @@ impl<State, Message> Element<State, Message> {
         node: impl Into<ElementInstance<State, Message>>,
         child_nodes: [Child<State, Message>; N],
     ) -> Self {
-        let mut attributes = Attributes::new();
         let mut children = Vec::new();
         let mut key = None;
 
@@ -56,13 +52,12 @@ impl<State, Message> Element<State, Message> {
             match child_node {
                 Child::Multiple(elements) => children.extend(elements),
                 Child::Single(element) => children.push(element),
-                Child::Attribute(value) => attributes.add(value),
                 Child::Key(value) => key = Some(value),
                 Child::None => {}
             }
         }
 
-        Self::new(node.into(), Rc::new(attributes), key, Rc::new(children))
+        Self::new(node.into(), key, Rc::new(children))
     }
 }
 
@@ -70,7 +65,6 @@ impl<State, Message> Element<State, Message> {
 pub struct WidgetElement<State, Message> {
     pub widget: RcWidget<State, Message>,
     pub children: Children<State, Message>,
-    pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
@@ -78,7 +72,6 @@ impl<State, Message> Clone for WidgetElement<State, Message> {
     fn clone(&self) -> Self {
         Self {
             widget: self.widget.clone(),
-            attributes: self.attributes.clone(),
             key: self.key.clone(),
             children: self.children.clone(),
         }
@@ -89,7 +82,6 @@ impl<State, Message> Clone for WidgetElement<State, Message> {
 pub struct ComponentElement<State, Message> {
     pub component: RcComponent<State, Message>,
     pub children: Children<State, Message>,
-    pub attributes: Rc<Attributes>,
     pub key: Option<Key>,
 }
 
@@ -98,7 +90,6 @@ impl<State, Message> Clone for ComponentElement<State, Message> {
         Self {
             component: self.component.clone(),
             children: self.children.clone(),
-            attributes: self.attributes.clone(),
             key: self.key.clone(),
         }
     }
@@ -126,7 +117,6 @@ impl<State, Message> From<RcComponent<State, Message>> for ElementInstance<State
 pub enum Child<State, Message> {
     Multiple(Vec<Element<State, Message>>),
     Single(Element<State, Message>),
-    Attribute(Box<dyn AnyValue>),
     Key(usize),
     None,
 }
@@ -157,21 +147,9 @@ where
     T: 'static + Into<ElementInstance<State, Message>>,
 {
     fn from(instance: T) -> Self {
-        let element = Element::new(
-            instance.into(),
-            Rc::new(Attributes::new()),
-            None,
-            Rc::new(Vec::new()),
-        );
+        let element = Element::new(instance.into(), None, Rc::new(Vec::new()));
         Child::Single(element)
     }
-}
-
-pub fn attribute<State, Message, Value>(value: Value) -> Child<State, Message>
-where
-    Value: 'static + AnyValue,
-{
-    Child::Attribute(Box::new(value))
 }
 
 pub fn key<State, Message>(key: Key) -> Child<State, Message> {

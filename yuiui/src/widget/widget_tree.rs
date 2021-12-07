@@ -2,14 +2,14 @@ use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::VecDeque;
 use std::fmt;
-use std::rc::Rc;
 use yuiui_support::bit_flags::BitFlags;
 use yuiui_support::slot_tree::{NodeId, SlotTree};
 
 use super::event_manager::EventManager;
-use super::{Attributes, Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork};
+use super::{Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork};
 use crate::geometrics::{BoxConstraints, Point, Rect, Size, Viewport};
 use crate::graphics::Primitive;
+use crate::style::LayoutStyle;
 
 #[derive(Debug)]
 pub struct WidgetTree<State, Message> {
@@ -19,7 +19,7 @@ pub struct WidgetTree<State, Message> {
 
 impl<State, Message> WidgetTree<State, Message> {
     pub fn new(root_widget: RcWidget<State, Message>) -> Self {
-        let widget = WidgetPod::new(root_widget, Default::default());
+        let widget = WidgetPod::new(root_widget);
         Self {
             tree: SlotTree::new(WidgetNode::from(widget)),
             event_manager: EventManager::new(),
@@ -31,33 +31,33 @@ impl<State, Message> WidgetTree<State, Message> {
         Handler: Fn(Command<Message>, NodeId),
     {
         match unit_of_work {
-            UnitOfWork::Append(parent, widget, attributes) => {
+            UnitOfWork::Append(parent, widget) => {
                 let id = self.tree.next_node_id();
-                let mut widget = WidgetPod::new(widget, attributes);
+                let mut widget = WidgetPod::new(widget);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 let mut cursor = self.tree.cursor_mut(parent);
                 cursor.append_child(WidgetNode::from(widget));
             }
-            UnitOfWork::Insert(reference, widget, attributes) => {
+            UnitOfWork::Insert(reference, widget) => {
                 let id = self.tree.next_node_id();
-                let mut widget = WidgetPod::new(widget, attributes);
+                let mut widget = WidgetPod::new(widget);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 let mut cursor = self.tree.cursor_mut(reference);
                 cursor.insert_before(WidgetNode::from(widget));
             }
-            UnitOfWork::Replace(id, widget, attributes) => {
-                let mut widget = WidgetPod::new(widget, attributes);
+            UnitOfWork::Replace(id, widget) => {
+                let mut widget = WidgetPod::new(widget);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 let mut cursor = self.tree.cursor_mut(id);
                 *cursor.current().data_mut() = WidgetNode::from(widget);
             }
-            UnitOfWork::Update(id, new_widget, new_attributes) => {
+            UnitOfWork::Update(id, new_widget) => {
                 let cursor = self.tree.cursor(id);
                 let mut widget = cursor.current().data().borrow_mut();
-                let effect = widget.update(new_widget, new_attributes);
+                let effect = widget.update(new_widget);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
             }
             UnitOfWork::Move(id, reference) => {
@@ -219,7 +219,6 @@ impl<State, Message> fmt::Display for WidgetNode<State, Message> {
 #[derive(Debug)]
 struct WidgetPod<State, Message> {
     widget: RcWidget<State, Message>,
-    attributes: Rc<Attributes>,
     state: Box<dyn Any>,
     event_mask: BitFlags<EventMask>,
     position: Point,
@@ -232,11 +231,10 @@ struct WidgetPod<State, Message> {
 }
 
 impl<State, Message> WidgetPod<State, Message> {
-    fn new(widget: RcWidget<State, Message>, attributes: Rc<Attributes>) -> Self {
+    fn new(widget: RcWidget<State, Message>) -> Self {
         let state = widget.initial_state();
         Self {
             widget,
-            attributes,
             state,
             event_mask: BitFlags::empty(),
             position: Point::ZERO,
@@ -249,16 +247,11 @@ impl<State, Message> WidgetPod<State, Message> {
         }
     }
 
-    fn update(
-        &mut self,
-        new_widget: RcWidget<State, Message>,
-        new_attributes: Rc<Attributes>,
-    ) -> Effect<Message> {
+    fn update(&mut self, new_widget: RcWidget<State, Message>) -> Effect<Message> {
         let effect =
             new_widget.on_lifecycle(Lifecycle::Updated(self.widget.as_any()), &mut self.state);
 
         self.widget = new_widget;
-        self.attributes = new_attributes;
         self.needs_layout = true;
         self.needs_draw = true;
 
@@ -329,9 +322,6 @@ impl<State, Message> fmt::Display for WidgetPod<State, Message> {
         write!(f, " pos={:?}", (self.position.x, self.position.y))?;
         write!(f, " size={:?}", (self.size.width, self.size.height))?;
         write!(f, " origin={:?}", (self.origin.x, self.origin.y))?;
-        if !self.attributes.is_empty() {
-            write!(f, " attributes={:?}", self.attributes)?;
-        }
         if !self.event_mask.is_empty() {
             write!(
                 f,
@@ -361,11 +351,8 @@ impl<'a, State, Message> LayoutContext<'a, State, Message> {
         widget.size
     }
 
-    pub fn get_attribute<Attribute>(&self, id: NodeId) -> Option<Attribute>
-    where
-        Attribute: 'static + Copy,
-    {
-        self.widget_tree.get(id).attributes.get::<Attribute>()
+    pub fn get_layout_style(&self, id: NodeId) -> LayoutStyle {
+        self.widget_tree.get(id).widget.layout_style()
     }
 
     pub fn set_position(&self, id: NodeId, position: Point) {

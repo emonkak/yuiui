@@ -1,4 +1,3 @@
-mod attributes;
 mod command;
 mod component;
 mod component_proxy;
@@ -14,13 +13,12 @@ mod widget;
 mod widget_proxy;
 mod widget_tree;
 
-pub use attributes::{AnyValue, Attributes};
 pub use command::Command;
 pub use component::{Component, RcComponent};
 pub use component_proxy::ComponentProxy;
 pub use effect::Effect;
 pub use element::{
-    attribute, key, Child, Children, ComponentElement, Element, ElementInstance, Key, WidgetElement,
+    key, Child, Children, ComponentElement, Element, ElementInstance, Key, WidgetElement,
 };
 pub use element_tree::{ComponentIndex, ElementTree};
 pub use event::{Event, EventMask};
