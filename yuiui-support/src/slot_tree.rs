@@ -72,7 +72,7 @@ impl<T> SlotTree<T> {
 
     #[inline]
     pub fn next_node_id(&self) -> NodeId {
-        NodeId::new(self.arena.next_slot_index())
+        NodeId::new(self.arena.next_key())
     }
 
     #[inline]
@@ -720,7 +720,7 @@ impl<'a, T> Iterator for DrainDescendants<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_stack.pop().map(|id| {
-            let node = self.tree.arena.remove(id.get());
+            let node = self.tree.arena.remove(id.get()).unwrap();
             self.tree.detach_node(&node, self.root);
             if let Some(next_id) = node.next_sibling {
                 self.next_stack.push(next_id)
@@ -750,7 +750,7 @@ impl<'a, T> Iterator for DrainSubtree<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_stack.pop().map(|id| {
-            let node = self.tree.arena.remove(id.get());
+            let node = self.tree.arena.remove(id.get()).unwrap();
             self.tree.detach_node(&node, self.root);
             if node.parent != Some(self.root) {
                 if let Some(next_id) = node.next_sibling {

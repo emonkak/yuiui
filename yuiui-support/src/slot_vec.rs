@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-use std::fmt;
 use std::mem;
 use std::ops::{Index, IndexMut};
 
@@ -7,18 +5,15 @@ use std::ops::{Index, IndexMut};
 pub struct SlotVec<T> {
     entries: Vec<(usize, T)>,
     slots: Vec<Slot>,
-    free_indexes: Vec<usize>,
+    free_keys: Vec<usize>,
 }
-
-#[derive(Eq, PartialEq, Clone, Copy)]
-struct Slot(isize);
 
 impl<T> SlotVec<T> {
     pub const fn new() -> SlotVec<T> {
         SlotVec {
             entries: Vec::new(),
             slots: Vec::new(),
-            free_indexes: Vec::new(),
+            free_keys: Vec::new(),
         }
     }
 
@@ -27,137 +22,129 @@ impl<T> SlotVec<T> {
         SlotVec {
             entries: Vec::with_capacity(capacity),
             slots: Vec::with_capacity(capacity),
-            free_indexes: Vec::new(),
+            free_keys: Vec::new(),
         }
+    }
+
+    pub fn contains(&self, key: usize) -> bool {
+        self.slots.get(key).map_or(false, |slot| slot.is_filled())
+    }
+
+    pub fn get(&self, key: usize) -> Option<&T> {
+        let entries = &self.entries;
+        self.slots
+            .get(key)
+            .and_then(|slot| slot.as_filled())
+            .map(move |index| &entries[index].1)
+    }
+
+    pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
+        let entries = &mut self.entries;
+        self.slots
+            .get(key)
+            .and_then(|slot| slot.as_filled())
+            .map(move |index| &mut entries[index].1)
+    }
+
+    pub fn get_or_insert(&mut self, key: usize, value: T) -> &mut T {
+        self.get_or_insert_with(key, || value)
+    }
+
+    pub fn get_or_insert_default(&mut self, key: usize) -> &mut T
+    where
+        T: Default,
+    {
+        self.get_or_insert_with(key, Default::default)
+    }
+
+    pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
+        if let Some(slot) = self.slots.get(key) {
+            if slot.is_filled() {
+                let index = slot.force_filled();
+                return &mut self.entries[index].1;
+            }
+
+            let free_position = slot.force_free();
+            let free_key = self.consume_free_slot(free_position);
+            debug_assert_eq!(free_key, key);
+
+            self.slots[key] = Slot::filled(self.entries.len());
+        } else {
+            self.extend_until(key);
+            self.slots.push(Slot::filled(self.entries.len()));
+        }
+
+        self.entries.push((key, f()));
+
+        &mut self.entries.last_mut().unwrap().1
     }
 
     pub fn insert(&mut self, value: T) -> usize {
-        let slot_index = if let Some(slot_index) = self.free_indexes.pop() {
-            debug_assert!(self.slots[slot_index].is_free());
-            self.slots[slot_index] = Slot::filled(self.entries.len());
-            slot_index
+        let key = if let Some(key) = self.free_keys.pop() {
+            debug_assert!(self.slots[key].is_free());
+            self.slots[key] = Slot::filled(self.entries.len());
+            key
         } else {
-            let slot_index = self.slots.len();
+            let key = self.slots.len();
             self.slots.push(Slot::filled(self.entries.len()));
-            slot_index
+            key
         };
 
-        self.entries.push((slot_index, value));
+        self.entries.push((key, value));
 
-        slot_index
+        key
     }
 
     pub fn insert_null(&mut self) -> usize {
-        let slot_index = self.slots.len();
+        let key = self.slots.len();
         self.slots.push(Slot::NULL);
-        slot_index
+        key
     }
 
-    pub fn insert_at(&mut self, slot_index: usize, value: T) -> Option<T> {
-        if let Some(slot) = self.slots.get(slot_index) {
+    pub fn replace(&mut self, key: usize, value: T) -> Option<T> {
+        if let Some(slot) = self.slots.get(key) {
             if slot.is_filled() {
-                let entry_index = slot.force_filled();
-                let old_value = mem::replace(&mut self.entries[entry_index].1, value);
+                let index = slot.force_filled();
+                let old_value = mem::replace(&mut self.entries[index].1, value);
                 return Some(old_value);
             } else if slot.is_free() {
                 let free_position = slot.force_free();
-                let free_slot_index = self.take_free_index(free_position);
-                debug_assert_eq!(free_slot_index, slot_index);
-
-                self.slots[slot_index] = Slot::filled(self.entries.len());
+                let free_key = self.consume_free_slot(free_position);
+                debug_assert_eq!(free_key, key);
+                self.slots[key] = Slot::filled(self.entries.len());
             } else {
-                unreachable!("null slot")
+                panic!("null slot")
             }
         } else {
-            self.extend_until(slot_index);
+            self.extend_until(key);
             self.slots.push(Slot::filled(self.entries.len()));
         }
 
-        self.entries.push((slot_index, value));
+        self.entries.push((key, value));
 
         None
     }
 
-    pub fn try_remove(&mut self, slot_index: usize) -> Option<T> {
-        if let Some(entry_index) = self.slots[slot_index].as_filled() {
-            if slot_index == self.slots.len().saturating_sub(1) {
+    pub fn remove(&mut self, key: usize) -> Option<T> {
+        if let Some(index) = self.slots.get(key).and_then(|slot| slot.as_filled()) {
+            if key == self.slots.len().saturating_sub(1) {
                 self.slots.pop();
                 self.truncate_to_fit();
             } else {
-                self.slots[slot_index] = Slot::free(self.free_indexes.len());
-                self.free_indexes.push(slot_index);
+                self.slots[key] = Slot::free(self.free_keys.len());
+                self.free_keys.push(key);
             }
 
-            Some(self.remove_entry(entry_index))
+            Some(self.remove_entry(index))
         } else {
             None
         }
     }
 
-    pub fn remove(&mut self, slot_index: usize) -> T {
-        self.try_remove(slot_index)
-            .unwrap_or_else(|| panic!("Already removed entry at {}", slot_index))
-    }
-
-    pub fn get(&self, slot_index: usize) -> Option<&T> {
-        let entries = &self.entries;
-        self.slots.get(slot_index).and_then(move |slot| {
-            slot.as_filled()
-                .map(move |entry_index| &entries[entry_index].1)
-        })
-    }
-
-    pub fn get_mut(&mut self, slot_index: usize) -> Option<&mut T> {
-        let entries = &mut self.entries;
-        self.slots.get(slot_index).and_then(move |slot| {
-            slot.as_filled()
-                .map(move |entry_index| &mut entries[entry_index].1)
-        })
-    }
-
-    pub fn get_or_insert(&mut self, slot_index: usize, value: T) -> &mut T {
-        self.get_or_insert_with(slot_index, || value)
-    }
-
-    pub fn get_or_insert_default(&mut self, slot_index: usize) -> &mut T
-    where
-        T: Default,
-    {
-        self.get_or_insert_with(slot_index, Default::default)
-    }
-
-    pub fn get_or_insert_with(&mut self, slot_index: usize, f: impl FnOnce() -> T) -> &mut T {
-        if let Some(slot) = self.slots.get(slot_index) {
-            if slot.is_filled() {
-                let entry_index = slot.force_filled();
-                return &mut self.entries[entry_index].1;
-            }
-
-            let free_position = slot.force_free();
-            let free_slot_index = self.take_free_index(free_position);
-            debug_assert_eq!(free_slot_index, slot_index);
-
-            self.slots[slot_index] = Slot::filled(self.entries.len());
-        } else {
-            self.extend_until(slot_index);
-            self.slots.push(Slot::filled(self.entries.len()));
-        }
-
-        self.entries.push((slot_index, f()));
-
-        &mut self.entries.last_mut().unwrap().1
-    }
-
-    pub fn contains(&self, slot_index: usize) -> bool {
-        self.slots
-            .get(slot_index)
-            .map_or(false, |slot| slot.is_filled())
-    }
-
     pub fn clear(&mut self) {
         self.entries = Vec::new();
         self.slots = Vec::new();
-        self.free_indexes = Vec::new();
+        self.free_keys = Vec::new();
     }
 
     #[inline]
@@ -176,51 +163,62 @@ impl<T> SlotVec<T> {
     }
 
     #[inline]
-    pub fn next_slot_index(&self) -> usize {
-        self.free_indexes
-            .last()
-            .copied()
-            .unwrap_or(self.slots.len())
+    pub fn next_key(&self) -> usize {
+        self.free_keys.last().copied().unwrap_or(self.slots.len())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.entries.iter().map(|entry| &entry.1)
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        self.entries.iter_mut().map(|entry| &mut entry.1)
-    }
-
-    pub fn entries(&self) -> impl Iterator<Item = (usize, &T)> {
+    pub fn iter(&self) -> impl Iterator<Item = (usize, &T)> {
         self.entries.iter().map(|entry| (entry.0, &entry.1))
     }
 
-    pub fn entries_mut(&mut self) -> impl Iterator<Item = (usize, &mut T)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (usize, &mut T)> {
         self.entries.iter_mut().map(|entry| (entry.0, &mut entry.1))
     }
 
-    fn remove_entry(&mut self, entry_index: usize) -> T {
-        if entry_index == self.entries.len().saturating_sub(1) {
+    pub fn ordered(&self) -> impl Iterator<Item = (usize, &T)> {
+        let entries = &self.entries;
+        self.slots
+            .iter()
+            .filter_map(|slot| slot.as_filled())
+            .map(move |index| {
+                let (key, value) = &entries[index];
+                (*key, value)
+            })
+    }
+
+    pub fn ordered_mut(&mut self) -> impl Iterator<Item = (usize, &mut T)> {
+        let entries: *mut _ = &mut self.entries;
+        self.slots
+            .iter()
+            .filter_map(|slot| slot.as_filled())
+            .map(move |index| {
+                let (key, value) = unsafe { &mut (*entries)[index] };
+                (*key, value)
+            })
+    }
+
+    fn remove_entry(&mut self, index: usize) -> T {
+        if index == self.entries.len().saturating_sub(1) {
             self.entries.pop().unwrap().1
         } else {
-            let swap_slot_index = self.entries[self.entries.len() - 1].0;
-            self.slots[swap_slot_index] = Slot::filled(entry_index);
-            self.entries.swap_remove(entry_index).1
+            let swap_key = self.entries[self.entries.len() - 1].0;
+            self.slots[swap_key] = Slot::filled(index);
+            self.entries.swap_remove(index).1
         }
     }
 
     fn truncate_to_fit(&mut self) {
         let mut removable_len = 0;
 
-        for slot_index in (0..self.slots.len()).rev() {
-            let slot = &self.slots[slot_index];
+        for key in (0..self.slots.len()).rev() {
+            let slot = &self.slots[key];
             if slot.is_filled() {
                 break;
             }
 
             let free_position = slot.force_free();
-            let free_slot_index = self.take_free_index(free_position);
-            debug_assert_eq!(free_slot_index, slot_index);
+            let free_key = self.consume_free_slot(free_position);
+            debug_assert_eq!(free_key, key);
 
             removable_len += 1;
         }
@@ -230,23 +228,23 @@ impl<T> SlotVec<T> {
         }
     }
 
-    fn extend_until(&mut self, slot_index: usize) {
-        for _ in self.slots.len()..slot_index {
-            let slot_index = self.slots.len();
-            self.slots.push(Slot::free(self.free_indexes.len()));
-            self.free_indexes.push(slot_index);
+    fn extend_until(&mut self, key: usize) {
+        for _ in self.slots.len()..key {
+            let key = self.slots.len();
+            self.slots.push(Slot::free(self.free_keys.len()));
+            self.free_keys.push(key);
         }
-        debug_assert_eq!(slot_index, self.slots.len());
+        debug_assert_eq!(key, self.slots.len());
     }
 
-    fn take_free_index(&mut self, position: usize) -> usize {
-        if position == self.free_indexes.len().saturating_sub(1) {
-            self.free_indexes.pop().unwrap()
+    fn consume_free_slot(&mut self, position: usize) -> usize {
+        if position == self.free_keys.len().saturating_sub(1) {
+            self.free_keys.pop().unwrap()
         } else {
-            let free_slot_index = self.free_indexes.swap_remove(position);
-            let swap_slot_index = self.free_indexes[position];
-            self.slots[swap_slot_index] = Slot::free(position);
-            free_slot_index
+            let free_key = self.free_keys.swap_remove(position);
+            let alt_key = self.free_keys[position];
+            self.slots[alt_key] = Slot::free(position);
+            free_key
         }
     }
 }
@@ -255,23 +253,26 @@ impl<T> Index<usize> for SlotVec<T> {
     type Output = T;
 
     #[inline]
-    fn index(&self, index: usize) -> &T {
-        let entry_index = self.slots[index]
+    fn index(&self, key: usize) -> &T {
+        let index = self.slots[key]
             .as_filled()
-            .unwrap_or_else(|| panic!("Already removed entry at {}", index));
-        &self.entries[entry_index].1
+            .unwrap_or_else(|| panic!("invalid key: {}", key));
+        &self.entries[index].1
     }
 }
 
 impl<T> IndexMut<usize> for SlotVec<T> {
     #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut T {
-        let entry_index = self.slots[index]
+    fn index_mut(&mut self, key: usize) -> &mut T {
+        let index = self.slots[key]
             .as_filled()
-            .unwrap_or_else(|| panic!("Already removed entry at {}", index));
-        &mut self.entries[entry_index].1
+            .unwrap_or_else(|| panic!("invalid key: {}", key));
+        &mut self.entries[index].1
     }
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct Slot(isize);
 
 impl Slot {
     const NULL: Self = Self(0);
@@ -311,18 +312,223 @@ impl Slot {
     }
 }
 
-impl fmt::Debug for Slot {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.is_filled() {
-            f.debug_tuple("Slot::filled")
-                .field(&self.force_filled())
-                .finish()
-        } else if self.is_free() {
-            f.debug_tuple("Slot::free")
-                .field(&self.force_free())
-                .finish()
-        } else {
-            f.write_str("Slot::null")
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::panic::catch_unwind;
+
+    #[test]
+    fn test_with_capacity() {
+        let xs: SlotVec<&str> = SlotVec::with_capacity(100);
+        assert_eq!(100, xs.capacity());
+    }
+
+    #[test]
+    fn test_contains() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(true, xs.contains(foo));
+        assert_eq!(true, xs.contains(bar));
+        assert_eq!(false, xs.contains(baz));
+    }
+
+    #[test]
+    fn test_index() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(&"foo", xs.index(foo));
+        assert_eq!(&"bar", xs.index(bar));
+        assert!(catch_unwind(|| xs.index(baz)).is_err());
+
+        assert_eq!(&mut "foo", xs.index_mut(foo));
+        assert_eq!(&mut "bar", xs.index_mut(bar));
+        assert!(catch_unwind(move || {
+            xs.index_mut(baz);
+        })
+        .is_err());
+    }
+
+    #[test]
+    fn test_get() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(Some(&"foo"), xs.get(foo));
+        assert_eq!(Some(&"bar"), xs.get(bar));
+        assert_eq!(None, xs.get(baz));
+
+        assert_eq!(Some(&mut "foo"), xs.get_mut(foo));
+        assert_eq!(Some(&mut "bar"), xs.get_mut(bar));
+        assert_eq!(None, xs.get_mut(baz));
+    }
+
+    #[test]
+    fn test_get_or_insert() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(&mut "foo", xs.get_or_insert(foo, "baz"));
+        assert_eq!(&mut "bar", xs.get_or_insert(bar, "baz"));
+        assert_eq!(&mut "baz", xs.get_or_insert(baz, "baz"));
+    }
+
+    #[test]
+    fn test_get_or_insert_default() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(&mut "foo", xs.get_or_insert_default(foo));
+        assert_eq!(&mut "bar", xs.get_or_insert_default(bar));
+        assert_eq!(&mut "", xs.get_or_insert_default(baz));
+    }
+
+    #[test]
+    fn test_get_or_insert_with() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+        let f = || "baz";
+
+        assert_eq!(&mut "foo", xs.get_or_insert_with(foo, f));
+        assert_eq!(&mut "bar", xs.get_or_insert_with(bar, f));
+        assert_eq!(&mut "baz", xs.get_or_insert_with(baz, f));
+    }
+
+    #[test]
+    fn test_insert_null() {
+        let mut xs = SlotVec::new();
+        let null = xs.insert_null();
+        let foo = xs.insert("foo");
+
+        assert_ne!(null, foo);
+        assert_eq!("foo", xs[foo]);
+        assert!(catch_unwind(|| xs[null]).is_err());
+        assert!(catch_unwind(move || { xs.replace(null, "bar"); }).is_err());
+    }
+
+    #[test]
+    fn test_replace() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(Some("foo"), xs.replace(foo, "baz"));
+        assert_eq!(Some("bar"), xs.replace(bar, "baz"));
+        assert_eq!(None, xs.replace(baz, "baz"));
+
+        assert_eq!("baz", xs[foo]);
+        assert_eq!("baz", xs[bar]);
+        assert_eq!("baz", xs[baz]);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.next_key();
+
+        assert_eq!(Some("foo"), xs.remove(foo));
+        assert_eq!(1, xs.len());
+        assert_eq!(2, xs.slot_size());
+        assert_eq!(false, xs.contains(foo));
+        assert_eq!(true, xs.contains(bar));
+        assert_eq!(false, xs.contains(baz));
+
+        assert_eq!(Some("bar"), xs.remove(bar));
+        assert_eq!(0, xs.len());
+        assert_eq!(0, xs.slot_size());
+        assert_eq!(false, xs.contains(foo));
+        assert_eq!(false, xs.contains(bar));
+        assert_eq!(false, xs.contains(baz));
+
+        assert_eq!(None, xs.remove(baz));
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.insert("baz");
+
+        assert_eq!(3, xs.len());
+        assert_eq!(3, xs.slot_size());
+
+        xs.clear();
+
+        assert_eq!(0, xs.len());
+        assert_eq!(0, xs.slot_size());
+        assert_eq!(false, xs.contains(foo));
+        assert_eq!(false, xs.contains(bar));
+        assert_eq!(false, xs.contains(baz));
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.insert("baz");
+
+        assert_eq!(
+            vec![(foo, &"foo"), (bar, &"bar"), (baz, &"baz")],
+            xs.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            vec![(foo, &mut "foo"), (bar, &mut "bar"), (baz, &mut "baz")],
+            xs.iter_mut().collect::<Vec<_>>()
+        );
+
+        assert_eq!(Some("foo"), xs.remove(foo));
+        assert_eq!(
+            vec![(baz, &"baz"), (bar, &"bar")],
+            xs.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            vec![(baz, &mut "baz"), (bar, &mut "bar")],
+            xs.iter_mut().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_ordered() {
+        let mut xs = SlotVec::new();
+        let foo = xs.insert("foo");
+        let bar = xs.insert("bar");
+        let baz = xs.insert("baz");
+
+        assert_eq!(
+            vec![(foo, &"foo"), (bar, &"bar"), (baz, &"baz")],
+            xs.ordered().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            vec![(foo, &mut "foo"), (bar, &mut "bar"), (baz, &mut "baz")],
+            xs.ordered_mut().collect::<Vec<_>>()
+        );
+
+        assert_eq!(Some("foo"), xs.remove(foo));
+        assert_eq!(
+            vec![(bar, &"bar"), (baz, &"baz")],
+            xs.ordered().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            vec![(bar, &mut "bar"), (baz, &mut "baz")],
+            xs.ordered_mut().collect::<Vec<_>>()
+        );
     }
 }
