@@ -1,5 +1,4 @@
 use super::*;
-use std::array;
 use std::rc::Rc;
 
 pub type Children<State, Message> = Rc<Vec<Element<State, Message>>>;
@@ -48,7 +47,7 @@ impl<State, Message> Element<State, Message> {
         let mut children = Vec::new();
         let mut key = None;
 
-        for child_node in array::IntoIter::new(child_nodes) {
+        for child_node in child_nodes {
             match child_node {
                 Child::Multiple(elements) => children.extend(elements),
                 Child::Single(element) => children.push(element),

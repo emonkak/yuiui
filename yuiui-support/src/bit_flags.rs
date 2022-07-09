@@ -1,4 +1,3 @@
-use std::array;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::mem;
@@ -68,7 +67,8 @@ impl<T: Into<usize>, const N: usize> From<[T; N]> for BitFlags<T> {
     #[inline]
     fn from(values: [T; N]) -> Self {
         Self {
-            flags: array::IntoIter::new(values)
+            flags: values
+                .into_iter()
                 .fold(0 as usize, |flags, value| flags | value.into()),
             value_type: PhantomData,
         }
