@@ -1,6 +1,6 @@
-mod children;
 mod component;
 mod element;
+mod element_seq;
 mod view;
 mod widget;
 mod world;
@@ -9,9 +9,9 @@ use std::borrow::Cow;
 use std::convert::Infallible;
 use std::marker::PhantomData;
 
-pub use children::{Children, Either};
 pub use component::Component;
-pub use element::{Element, view, component};
+pub use element::{component, view, Element};
+pub use element_seq::{ElementSeq, Either};
 pub use view::View;
 pub use widget::Widget;
 pub use world::{Id, World};
@@ -25,7 +25,7 @@ pub struct Text {
 impl Text {
     pub fn new(content: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            content: content.into()
+            content: content.into(),
         }
     }
 }
@@ -40,8 +40,7 @@ impl View for Text {
     }
 }
 
-impl Widget for Text {
-}
+impl Widget for Text {}
 
 #[derive(Debug)]
 pub struct Block<Children> {
@@ -56,7 +55,7 @@ impl<Children> Block<Children> {
     }
 }
 
-impl<Children: self::Children> View for Block<Children> {
+impl<Children: ElementSeq> View for Block<Children> {
     type Widget = BlockWidget;
 
     type Children = Children;
@@ -66,11 +65,9 @@ impl<Children: self::Children> View for Block<Children> {
     }
 }
 
-pub struct BlockWidget {
-}
+pub struct BlockWidget {}
 
-impl Widget for BlockWidget {
-}
+impl Widget for BlockWidget {}
 
 #[derive(Debug)]
 pub struct Button {
@@ -80,7 +77,7 @@ pub struct Button {
 impl Button {
     pub fn new(label: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            label: label.into()
+            label: label.into(),
         }
     }
 }
