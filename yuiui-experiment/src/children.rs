@@ -4,16 +4,23 @@ use crate::element::Element;
 use crate::world::{Id, World};
 
 pub trait Children: 'static {
-    fn attach(self, origin: Id, world: &mut World);
+    fn len(&self) -> usize;
 
-    fn reconcile(self, origin: Id, world: &mut World);
+    fn append(self, origin: Id, world: &mut World);
+
+    fn update(self, target: Id, world: &mut World) -> Option<Id>;
 }
 
 impl Children for () {
-    fn attach(self, _origin: Id, _world: &mut World) {
+    fn len(&self) -> usize {
+        0
     }
 
-    fn reconcile(self, _origin: Id, _world: &mut World) {
+    fn append(self, _origin: Id, _world: &mut World) {
+    }
+
+    fn update(self, _target: Id, _world: &mut World) -> Option<Id> {
+        None
     }
 }
 
@@ -22,14 +29,16 @@ where
     V1: View,
     C1: Component,
 {
-    fn attach(self, origin: Id, world: &mut World) {
-        world.attach(origin, self.0);
+    fn len(&self) -> usize {
+        1
     }
 
-    fn reconcile(self, origin: Id, world: &mut World) {
-        let mut cursor = world.tree.cursor_mut(origin);
-        let target = cursor.node().first_child().unwrap();
-        world.update(target, self.0);
+    fn append(self, origin: Id, world: &mut World) {
+        world.append(origin, self.0);
+    }
+
+    fn update(self, target: Id, world: &mut World) -> Option<Id> {
+        world.update(target, 0, self.0)
     }
 }
 
@@ -40,12 +49,18 @@ where
     C1: Component,
     C2: Component,
 {
-    fn attach(self, origin: Id, world: &mut World) {
-        world.attach(origin, self.0);
-        world.attach(origin, self.1);
+    fn len(&self) -> usize {
+        2
     }
 
-    fn reconcile(self, _origin: Id, _world: &mut World) {
+    fn append(self, origin: Id, world: &mut World) {
+        world.append(origin, self.0);
+        world.append(origin, self.1);
+    }
+
+    fn update(self, target: Id, world: &mut World) -> Option<Id> {
+        let target = world.update(target, 0, self.0).unwrap();
+        world.update(target, 0, self.1)
     }
 }
 
@@ -58,35 +73,56 @@ where
     C2: Component,
     C3: Component,
 {
-    fn attach(self, origin: Id, world: &mut World) {
-        world.attach(origin, self.0);
-        world.attach(origin, self.1);
-        world.attach(origin, self.2);
+    fn len(&self) -> usize {
+        3
     }
 
-    fn reconcile(self, _origin: Id, _world: &mut World) {
+    fn append(self, origin: Id, world: &mut World) {
+        world.append(origin, self.0);
+        world.append(origin, self.1);
+        world.append(origin, self.2);
+    }
+
+    fn update(self, target: Id, world: &mut World) -> Option<Id> {
+        let target = world.update(target, 0, self.0).unwrap();
+        let target = world.update(target, 0, self.1).unwrap();
+        world.update(target, 0, self.2)
     }
 }
 
 impl<V: View, C: Component> Children for Option<Element<V, C>> {
-    fn attach(self, origin: Id, world: &mut World) {
+    fn len(&self) -> usize {
+        if self.is_some() { 1 } else { 0 }
+    }
+
+    fn append(self, origin: Id, world: &mut World) {
         if let Some(el) = self {
-            world.attach(origin, el);
+            world.append(origin, el);
         }
     }
 
-    fn reconcile(self, _origin: Id, _world: &mut World) {
+    fn update(self, target: Id, world: &mut World) -> Option<Id> {
+        if let Some(el) = self {
+            world.update(target, 0, el)
+        } else {
+            world.remove(target, 0)
+        }
     }
 }
 
 impl<V: View, C: Component> Children for Vec<Element<V, C>> {
-    fn attach(self, origin: Id, world: &mut World) {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn append(self, origin: Id, world: &mut World) {
         for el in self {
-            world.attach(origin, el);
+            world.append(origin, el);
         }
     }
 
-    fn reconcile(self, _origin: Id, _world: &mut World) {
+    fn update(self, _target: Id, _world: &mut World) -> Option<Id> {
+        None
     }
 }
 
@@ -103,13 +139,18 @@ where
     C1: Component,
     C2: Component,
 {
-    fn attach(self, origin: Id, world: &mut World) {
+    fn len(&self) -> usize {
+        1
+    }
+
+    fn append(self, origin: Id, world: &mut World) {
         match self {
-            Either::Left(el) => world.attach(origin, el),
-            Either::Right(el) => world.attach(origin, el),
+            Either::Left(el) => world.append(origin, el),
+            Either::Right(el) => world.append(origin, el),
         }
     }
 
-    fn reconcile(self, _origin: Id, _world: &mut World) {
+    fn update(self, _target: Id, _world: &mut World) -> Option<Id> {
+        None
     }
 }

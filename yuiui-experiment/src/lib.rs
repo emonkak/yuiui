@@ -1,8 +1,9 @@
 mod children;
 mod component;
-mod view;
-mod world;
 mod element;
+mod view;
+mod widget;
+mod world;
 
 use std::borrow::Cow;
 use std::convert::Infallible;
@@ -12,9 +13,10 @@ pub use children::{Children, Either};
 pub use component::Component;
 pub use element::{Element, view, component};
 pub use view::View;
+pub use widget::Widget;
 pub use world::{Id, World};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Text {
     content: Cow<'static, str>,
@@ -29,7 +31,16 @@ impl Text {
 }
 
 impl View for Text {
+    type Widget = Text;
+
     type Children = ();
+
+    fn build(&self, _children: &Self::Children) -> Self::Widget {
+        self.clone()
+    }
+}
+
+impl Widget for Text {
 }
 
 #[derive(Debug)]
@@ -46,7 +57,19 @@ impl<Children> Block<Children> {
 }
 
 impl<Children: self::Children> View for Block<Children> {
+    type Widget = BlockWidget;
+
     type Children = Children;
+
+    fn build(&self, _children: &Self::Children) -> Self::Widget {
+        BlockWidget {}
+    }
+}
+
+pub struct BlockWidget {
+}
+
+impl Widget for BlockWidget {
 }
 
 #[derive(Debug)]

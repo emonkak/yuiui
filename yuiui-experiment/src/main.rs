@@ -13,5 +13,6 @@ fn app() -> Element<impl View, impl Component> {
 
 fn main() {
     let world = World::create(app());
-    println!("{}", world.tree);
+    println!("{}", world.widget_tree);
+    println!("{}", world.element_tree);
 }

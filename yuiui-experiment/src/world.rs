@@ -6,11 +6,13 @@ use crate::children::Children as _;
 use crate::component::{AnyComponent, Component};
 use crate::element::Element;
 use crate::view::{AnyView, View};
+use crate::widget::AnyWidget;
 
 pub type Id = NodeId;
 
 pub struct World {
-    pub tree: SlotTree<Node>,
+    pub element_tree: SlotTree<ElementNode>,
+    pub widget_tree: SlotTree<WidgetNode>,
 }
 
 impl World {
@@ -21,11 +23,13 @@ impl World {
     fn do_create<V: View, C: Component>(element: Element<V, C>, components: &mut Vec<Box<dyn AnyComponent>>) -> Self {
         match element {
             Element::View(view, children) => {
-                let node = Node::new(Box::new(view), mem::take(components));
+                let widget_node = WidgetNode::new(Box::new(view.build(&children)));
+                let element_node = ElementNode::new(Box::new(view), mem::take(components));
                 let mut world = World {
-                    tree: SlotTree::new(node),
+                    element_tree: SlotTree::new(element_node),
+                    widget_tree: SlotTree::new(widget_node),
                 };
-                children.attach(NodeId::ROOT, &mut world);
+                children.append(Id::ROOT, &mut world);
                 world
             }
             Element::Component(node) => {
@@ -36,65 +40,93 @@ impl World {
         }
     }
 
-    pub(crate) fn attach<V: View, C: Component>(&mut self, origin: NodeId, element: Element<V, C>) {
-        self.do_attach(origin, element, &mut Vec::new())
+    pub(crate) fn append<V: View, C: Component>(&mut self, origin: Id, element: Element<V, C>) {
+        self.do_append(origin, element, &mut Vec::new())
     }
 
-    fn do_attach<V: View, C: Component>(&mut self, origin: NodeId, element: Element<V, C>, components: &mut Vec<Box<dyn AnyComponent>>) {
+    fn do_append<V: View, C: Component>(&mut self, origin: Id, element: Element<V, C>, components: &mut Vec<Box<dyn AnyComponent>>) {
         match element {
             Element::View(view, children) => {
-                let node = Node::new(Box::new(view), mem::take(components));
-                let child = self.tree.cursor_mut(origin).append_child(node);
-                children.attach(child, self);
+                let widget_node = WidgetNode::new(Box::new(view.build(&children)));
+                let widget_child = self.widget_tree.cursor_mut(origin).append_child(widget_node);
+                let element_node = ElementNode::new(Box::new(view), mem::take(components));
+                let child = self.element_tree.cursor_mut(origin).append_child(element_node);
+                assert_eq!(widget_child, child);
+                children.append(child, self);
             }
             Element::Component(node) => {
                 let child = node.render();
                 components.push(Box::new(node));
-                self.do_attach(origin, child, components);
+                self.do_append(origin, child, components);
             }
         }
     }
 
-    pub(crate) fn update<V: View, C: Component>(&mut self, target: NodeId, element: Element<V, C>) -> Option<NodeId> {
-        let mut cursor = self.tree.cursor_mut(target);
+    pub(crate) fn update<V: View, C: Component>(&mut self, target: Id, component_index: usize, element: Element<V, C>) -> Option<Id> {
+        let mut cursor = self.element_tree.cursor_mut(target);
         let mut node = cursor.node().data_mut();
-        let next = cursor.node().next_sibling();
         match element {
             Element::View(view, children) => {
-                assert!(node.update_index == node.components.len());
+                assert!(component_index == node.components.len());
                 node.view = Box::new(view);
-                node.update_index += 1;
-                children.reconcile(cursor.id(), self);
-                next
+                node.removed = false;
+                if children.len() > 0 {
+                    let child = cursor.node().first_child().unwrap();
+                    children.update(child, self)
+                } else {
+                    cursor.node().next_sibling()
+                }
             }
             Element::Component(component) => {
-                assert!(node.update_index < node.components.len());
+                assert!(component_index < node.components.len());
                 let element = component.render();
-                node.components[node.update_index] = Box::new(component);
-                node.update_index += 1;
-                self.update(target, element)
+                node.components[component_index] = Box::new(component);
+                self.update(target, component_index + 1, element)
             }
         }
     }
+
+    pub(crate) fn remove(&mut self, target: Id, component_index: usize) -> Option<Id> {
+        let mut cursor = self.element_tree.cursor_mut(target);
+        let mut node = cursor.node().data_mut();
+
+        assert!(component_index < node.components.len());
+
+        for _component in node.components.drain(component_index..) {
+            // TODO: component lifecycle
+        }
+
+        let next = cursor.node().next_sibling();
+
+        if component_index > 0 {
+            node.removed = true;
+            // TODO: add unit of work
+            let _ = cursor.drain_descendants();
+        } else {
+            let _ = cursor.drain_subtree();
+        }
+
+        next
+    }
 }
 
-pub struct Node {
+pub struct ElementNode {
     view: Box<dyn AnyView>,
     components: Vec<Box<dyn AnyComponent>>,
-    update_index: usize,
+    removed: bool,
 }
 
-impl Node {
-    fn new(view: Box<dyn AnyView>, components: Vec<Box<dyn AnyComponent>>) -> Node {
+impl ElementNode {
+    fn new(view: Box<dyn AnyView>, components: Vec<Box<dyn AnyComponent>>) -> ElementNode {
         Self {
             view,
             components,
-            update_index: 0,
+            removed: false,
         }
     }
 }
 
-impl fmt::Display for Node {
+impl fmt::Display for ElementNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -107,6 +139,30 @@ impl fmt::Display for Node {
                 .entries(self.components.iter().map(|component| short_type_name(component.name())))
                 .finish()?;
         }
+        write!(f, ">")?;
+        Ok(())
+    }
+}
+
+pub struct WidgetNode {
+    widget: Box<dyn AnyWidget>,
+}
+
+impl WidgetNode {
+    fn new(widget: Box<dyn AnyWidget>) -> WidgetNode {
+        Self {
+            widget
+        }
+    }
+}
+
+impl fmt::Display for WidgetNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "<{}",
+            short_type_name(self.widget.name())
+        )?;
         write!(f, ">")?;
         Ok(())
     }
