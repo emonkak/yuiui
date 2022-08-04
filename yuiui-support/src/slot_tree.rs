@@ -278,7 +278,7 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn ancestors(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn ancestors(&self) -> Ancestors<T> {
         Ancestors {
             next: self.node.parent,
             tree: self.tree,
@@ -286,7 +286,7 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn children(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn children(&self) -> Siblings<T> {
         Siblings {
             next: self.node.first_child,
             tree: self.tree,
@@ -294,7 +294,7 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn siblings(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn siblings(&self) -> Siblings<T> {
         Siblings {
             next: self.node.next_sibling,
             tree: self.tree,
@@ -302,7 +302,7 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn descendants(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn descendants(&self) -> Descendants<T> {
         Descendants {
             next: self.node.first_child,
             root: self.id,
@@ -311,7 +311,7 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn descendants_from(&self, root: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
+    pub fn descendants_from(&self, root: NodeId) -> Descendants<T> {
         Descendants {
             next: next_descendant(&self.tree, &self.node, root),
             root,
@@ -480,7 +480,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn ancestors(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn ancestors(&mut self) -> AncestorsMut<T> {
         AncestorsMut {
             next: self.node().parent,
             tree: self.tree,
@@ -488,7 +488,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn children(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn children(&mut self) -> SiblingsMut<T> {
         SiblingsMut {
             next: self.node().first_child,
             tree: self.tree,
@@ -496,7 +496,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn siblings(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn siblings(&mut self) -> SiblingsMut<T> {
         SiblingsMut {
             next: self.node().next_sibling,
             tree: self.tree,
@@ -504,7 +504,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn descendants(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn descendants(&mut self) -> DescendantsMut<T> {
         DescendantsMut {
             next: self.node().first_child,
             root: self.id,
@@ -513,10 +513,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn descendants_from(
-        &mut self,
-        root: NodeId,
-    ) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
+    pub fn descendants_from(&mut self, root: NodeId) -> DescendantsMut<T> {
         DescendantsMut {
             next: next_descendant(&self.tree, unsafe { self.node.as_ref() }, root),
             root,
@@ -525,7 +522,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn drain_descendants(&mut self) -> impl Iterator<Item = (NodeId, Node<T>)> + '_ {
+    pub fn drain_descendants(&mut self) -> DrainDescendants<T> {
         let next_stack = self
             .node()
             .first_child
@@ -539,7 +536,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn drain_subtree(mut self) -> impl Iterator<Item = (NodeId, Node<T>)> + 'a {
+    pub fn drain_subtree(mut self) -> DrainSubtree<'a, T> {
         let root = self.node().parent.expect("Cannot detach the root.");
         DrainSubtree {
             next_stack: vec![self.id],
