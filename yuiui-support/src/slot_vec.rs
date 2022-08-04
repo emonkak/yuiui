@@ -416,7 +416,10 @@ mod tests {
         assert_ne!(null, foo);
         assert_eq!("foo", xs[foo]);
         assert!(catch_unwind(|| xs[null]).is_err());
-        assert!(catch_unwind(move || { xs.replace(null, "bar"); }).is_err());
+        assert!(catch_unwind(move || {
+            xs.replace(null, "bar");
+        })
+        .is_err());
     }
 
     #[test]

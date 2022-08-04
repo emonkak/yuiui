@@ -252,7 +252,7 @@ impl NodeId {
 #[derive(Debug)]
 pub struct Cursor<'a, T> {
     id: NodeId,
-    current: &'a Node<T>,
+    node: &'a Node<T>,
     tree: &'a SlotTree<T>,
 }
 
@@ -260,13 +260,13 @@ impl<'a, T> Cursor<'a, T> {
     fn new(id: NodeId, tree: &'a SlotTree<T>) -> Self {
         Self {
             id,
-            current: tree.get(id),
+            node: tree.get(id),
             tree,
         }
     }
 
     fn try_new(id: NodeId, tree: &'a SlotTree<T>) -> Option<Self> {
-        tree.try_get(id).map(|current| Self { id, current, tree })
+        tree.try_get(id).map(|node| Self { id, node, tree })
     }
 
     #[inline]
@@ -275,49 +275,47 @@ impl<'a, T> Cursor<'a, T> {
     }
 
     #[inline]
-    pub fn current(&self) -> &'a Node<T> {
-        self.current
+    pub fn node(&self) -> &'a Node<T> {
+        self.node
     }
 
     #[inline]
     pub fn first_child(&self) -> Option<Cursor<T>> {
-        self.current
+        self.node
             .first_child
             .map(move |id| Cursor::new(id, self.tree))
     }
 
     #[inline]
     pub fn last_child(&self) -> Option<Cursor<T>> {
-        self.current
+        self.node
             .last_child
             .map(move |id| Cursor::new(id, self.tree))
     }
 
     #[inline]
     pub fn prev_sibling(&self) -> Option<Cursor<T>> {
-        self.current
+        self.node
             .prev_sibling
             .map(move |id| Cursor::new(id, self.tree))
     }
 
     #[inline]
     pub fn next_sibling(&self) -> Option<Cursor<T>> {
-        self.current
+        self.node
             .next_sibling
             .map(move |id| Cursor::new(id, self.tree))
     }
 
     #[inline]
     pub fn parent(&self) -> Option<Cursor<T>> {
-        self.current
-            .parent
-            .map(move |id| Cursor::new(id, self.tree))
+        self.node.parent.map(move |id| Cursor::new(id, self.tree))
     }
 
     #[inline]
     pub fn ancestors(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Ancestors {
-            next: self.current.parent,
+            next: self.node.parent,
             tree: self.tree,
         }
     }
@@ -325,7 +323,7 @@ impl<'a, T> Cursor<'a, T> {
     #[inline]
     pub fn children(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Siblings {
-            next: self.current.first_child,
+            next: self.node.first_child,
             tree: self.tree,
         }
     }
@@ -333,7 +331,7 @@ impl<'a, T> Cursor<'a, T> {
     #[inline]
     pub fn siblings(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Siblings {
-            next: self.current.next_sibling,
+            next: self.node.next_sibling,
             tree: self.tree,
         }
     }
@@ -341,7 +339,7 @@ impl<'a, T> Cursor<'a, T> {
     #[inline]
     pub fn descendants(&self) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Descendants {
-            next: self.current.first_child,
+            next: self.node.first_child,
             root: self.id,
             tree: self.tree,
         }
@@ -350,7 +348,7 @@ impl<'a, T> Cursor<'a, T> {
     #[inline]
     pub fn descendants_from(&self, root: NodeId) -> impl Iterator<Item = (NodeId, &Node<T>)> {
         Descendants {
-            next: next_descendant(&self.tree, &self.current, root),
+            next: next_descendant(&self.tree, &self.node, root),
             root,
             tree: self.tree,
         }
@@ -360,7 +358,7 @@ impl<'a, T> Cursor<'a, T> {
 #[derive(Debug)]
 pub struct CursorMut<'a, T> {
     id: NodeId,
-    current: NonNull<Node<T>>,
+    node: NonNull<Node<T>>,
     tree: &'a mut SlotTree<T>,
 }
 
@@ -368,15 +366,15 @@ impl<'a, T> CursorMut<'a, T> {
     fn new(id: NodeId, tree: &'a mut SlotTree<T>) -> Self {
         Self {
             id,
-            current: unsafe { NonNull::new_unchecked(tree.get_mut(id) as *mut _) },
+            node: unsafe { NonNull::new_unchecked(tree.get_mut(id) as *mut _) },
             tree,
         }
     }
 
     fn try_new(id: NodeId, tree: &'a mut SlotTree<T>) -> Option<Self> {
         tree.try_get_mut(id)
-            .map(|current| unsafe { NonNull::new_unchecked(current as *mut _) })
-            .map(move |current| Self { id, current, tree })
+            .map(|node| unsafe { NonNull::new_unchecked(node as *mut _) })
+            .map(move |node| Self { id, node, tree })
     }
 
     #[inline]
@@ -385,48 +383,48 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     #[inline]
-    pub fn current(&mut self) -> &'a mut Node<T> {
-        unsafe { self.current.as_mut() }
+    pub fn node(&mut self) -> &'a mut Node<T> {
+        unsafe { self.node.as_mut() }
     }
 
     #[inline]
     pub fn first_child(&mut self) -> Option<CursorMut<T>> {
-        self.current()
+        self.node()
             .first_child
             .map(move |id| CursorMut::new(id, self.tree))
     }
 
     #[inline]
     pub fn last_child(&mut self) -> Option<CursorMut<T>> {
-        self.current()
+        self.node()
             .last_child
             .map(move |id| CursorMut::new(id, self.tree))
     }
 
     #[inline]
     pub fn prev_sibling(&mut self) -> Option<CursorMut<T>> {
-        self.current()
+        self.node()
             .prev_sibling
             .map(move |id| CursorMut::new(id, self.tree))
     }
 
     #[inline]
     pub fn next_sibling(&mut self) -> Option<CursorMut<T>> {
-        self.current()
+        self.node()
             .next_sibling
             .map(move |id| CursorMut::new(id, self.tree))
     }
 
     #[inline]
     pub fn parent(&mut self) -> Option<CursorMut<T>> {
-        self.current()
+        self.node()
             .parent
             .map(move |id| CursorMut::new(id, self.tree))
     }
 
     pub fn append_child(&mut self, data: T) -> NodeId {
         let new_id = self.tree.next_node_id();
-        let current = unsafe { self.current.as_mut() };
+        let current = unsafe { self.node.as_mut() };
 
         let new_child = Node {
             first_child: None,
@@ -448,7 +446,7 @@ impl<'a, T> CursorMut<'a, T> {
 
     pub fn insert_before(&mut self, data: T) -> NodeId {
         let new_id = self.tree.next_node_id();
-        let current = unsafe { self.current.as_mut() };
+        let current = unsafe { self.node.as_mut() };
 
         if current.parent.is_none() {
             panic!("Cannot insert a node on before of the root.");
@@ -473,7 +471,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     pub fn move_before(&mut self, destination_id: NodeId) {
-        let current = unsafe { self.current.as_mut() };
+        let current = unsafe { self.node.as_mut() };
         let parent_id = current.parent.expect("Cannot move the root.");
 
         self.tree.detach_node(current, parent_id);
@@ -495,7 +493,7 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     pub fn move_after(&mut self, destination_id: NodeId) {
-        let current = unsafe { self.current.as_mut() };
+        let current = unsafe { self.node.as_mut() };
         let parent_id = current.parent.expect("Cannot move the root.");
 
         self.tree.detach_node(current, parent_id);
@@ -519,7 +517,7 @@ impl<'a, T> CursorMut<'a, T> {
     #[inline]
     pub fn ancestors(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         AncestorsMut {
-            next: self.current().parent,
+            next: self.node().parent,
             tree: self.tree,
         }
     }
@@ -527,7 +525,7 @@ impl<'a, T> CursorMut<'a, T> {
     #[inline]
     pub fn children(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         SiblingsMut {
-            next: self.current().first_child,
+            next: self.node().first_child,
             tree: self.tree,
         }
     }
@@ -535,7 +533,7 @@ impl<'a, T> CursorMut<'a, T> {
     #[inline]
     pub fn siblings(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         SiblingsMut {
-            next: self.current().next_sibling,
+            next: self.node().next_sibling,
             tree: self.tree,
         }
     }
@@ -543,7 +541,7 @@ impl<'a, T> CursorMut<'a, T> {
     #[inline]
     pub fn descendants(&mut self) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         DescendantsMut {
-            next: self.current().first_child,
+            next: self.node().first_child,
             root: self.id,
             tree: self.tree,
         }
@@ -555,7 +553,7 @@ impl<'a, T> CursorMut<'a, T> {
         root: NodeId,
     ) -> impl Iterator<Item = (NodeId, &mut Node<T>)> {
         DescendantsMut {
-            next: next_descendant(&self.tree, unsafe { self.current.as_ref() }, root),
+            next: next_descendant(&self.tree, unsafe { self.node.as_ref() }, root),
             root,
             tree: self.tree,
         }
@@ -564,7 +562,7 @@ impl<'a, T> CursorMut<'a, T> {
     #[inline]
     pub fn drain_descendants(&mut self) -> impl Iterator<Item = (NodeId, Node<T>)> + '_ {
         let next_stack = self
-            .current()
+            .node()
             .first_child
             .map(|child_id| vec![child_id])
             .unwrap_or_default();
@@ -577,7 +575,7 @@ impl<'a, T> CursorMut<'a, T> {
 
     #[inline]
     pub fn drain_subtree(mut self) -> impl Iterator<Item = (NodeId, Node<T>)> + 'a {
-        let root = self.current().parent.expect("Cannot detach the root.");
+        let root = self.node().parent.expect("Cannot detach the root.");
         DrainSubtree {
             next_stack: vec![self.id],
             root,

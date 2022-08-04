@@ -46,7 +46,7 @@ impl<State, Message> ElementTree<State, Message> {
         Handler: Fn(Command<Message>, NodeId, ComponentIndex),
     {
         let mut cursor = self.tree.cursor_mut(id);
-        let component_stack = &mut cursor.current().data_mut().component_stack;
+        let component_stack = &mut cursor.node().data_mut().component_stack;
 
         if component_index < component_stack.len() {
             let component = &mut component_stack[component_index];
@@ -70,7 +70,7 @@ impl<State, Message> ElementTree<State, Message> {
             if is_updated {
                 let children = vec![component.render()];
                 let reconciler = create_reconciler(
-                    vec![(cursor.id(), cursor.current())],
+                    vec![(cursor.id(), cursor.node())],
                     children,
                     component_index + 1,
                 );
@@ -82,7 +82,7 @@ impl<State, Message> ElementTree<State, Message> {
 
             Some((id, component_index + 1))
         } else {
-            let element_node = cursor.current().data_mut();
+            let element_node = cursor.node().data_mut();
             if element_node.dirty {
                 element_node.dirty = false;
 
@@ -114,7 +114,7 @@ impl<State, Message> ElementTree<State, Message> {
             let component = self
                 .tree
                 .cursor_mut(id)
-                .current()
+                .node()
                 .data_mut()
                 .component_stack
                 .get_mut(component_index)
@@ -148,13 +148,13 @@ impl<State, Message> ElementTree<State, Message> {
             ReconcileResult::Append(Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(parent);
                 if in_component_rendering {
-                    let unit_of_work = if let Some(parent) = cursor.current().parent() {
+                    let unit_of_work = if let Some(parent) = cursor.node().parent() {
                         UnitOfWork::Append(parent, element.widget.clone())
                     } else {
                         UnitOfWork::Replace(NodeId::ROOT, element.widget.clone())
                     };
                     pending_works.push(unit_of_work);
-                    let element_node = cursor.current().data_mut();
+                    let element_node = cursor.node().data_mut();
                     element_node.element = Some(element);
                 } else {
                     pending_works.push(UnitOfWork::Append(parent, element.widget.clone()));
@@ -165,7 +165,7 @@ impl<State, Message> ElementTree<State, Message> {
                 let mut cursor = self.tree.cursor_mut(parent);
                 let component = ComponentPod::from(element);
                 if in_component_rendering {
-                    cursor.current().data_mut().component_stack.push(component);
+                    cursor.node().data_mut().component_stack.push(component);
                 } else {
                     cursor.append_child(ElementNode::new(None, vec![component]));
                 }
@@ -182,7 +182,7 @@ impl<State, Message> ElementTree<State, Message> {
             }
             ReconcileResult::Update(ElementId::Widget(id), Element::WidgetElement(element)) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let element_node = cursor.current().data_mut();
+                let element_node = cursor.node().data_mut();
                 if element_node.should_update(&element) {
                     pending_works.push(UnitOfWork::Update(id, element.widget.clone()));
                 }
@@ -193,7 +193,7 @@ impl<State, Message> ElementTree<State, Message> {
                 Element::ComponentElement(element),
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let component = &mut cursor.current().data_mut().component_stack[component_index];
+                let component = &mut cursor.node().data_mut().component_stack[component_index];
                 component.pending_element = Some(element);
             }
             ReconcileResult::UpdateAndMove(
@@ -202,7 +202,7 @@ impl<State, Message> ElementTree<State, Message> {
                 Element::WidgetElement(element),
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let element_node = cursor.current().data_mut();
+                let element_node = cursor.node().data_mut();
                 if element_node.should_update(&element) {
                     pending_works.push(UnitOfWork::Update(id, element.widget.clone()));
                 }
@@ -216,7 +216,7 @@ impl<State, Message> ElementTree<State, Message> {
                 Element::ComponentElement(element),
             ) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let component = &mut cursor.current().data_mut().component_stack[component_index];
+                let component = &mut cursor.node().data_mut().component_stack[component_index];
                 component.pending_element = Some(element);
                 cursor.move_before(reference.id());
             }
@@ -227,7 +227,7 @@ impl<State, Message> ElementTree<State, Message> {
             }
             ReconcileResult::Remove(ElementId::Component(id, component_index)) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                let mut element_node = cursor.current().data_mut();
+                let mut element_node = cursor.node().data_mut();
                 for (component_index, mut component) in element_node
                     .component_stack
                     .drain(component_index..)
