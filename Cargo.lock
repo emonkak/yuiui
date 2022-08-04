@@ -1458,5 +1458,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "yuiui-experiment"
+version = "0.0.0"
+dependencies = [
+ "yuiui-support",
+]
+
+[[package]]
 name = "yuiui-support"
 version = "0.0.0"

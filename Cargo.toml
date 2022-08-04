@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "yuiui",
+    "yuiui-experiment",
     "yuiui-support",
 ]
 resolver = "2"
