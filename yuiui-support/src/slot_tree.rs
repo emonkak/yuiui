@@ -167,50 +167,15 @@ impl<T: fmt::Display> fmt::Display for SlotTree<T> {
 
 #[derive(Clone, Debug)]
 pub struct Node<T> {
-    first_child: Option<NodeId>,
-    last_child: Option<NodeId>,
-    prev_sibling: Option<NodeId>,
-    next_sibling: Option<NodeId>,
-    parent: Option<NodeId>,
-    data: T,
+    pub first_child: Option<NodeId>,
+    pub last_child: Option<NodeId>,
+    pub prev_sibling: Option<NodeId>,
+    pub next_sibling: Option<NodeId>,
+    pub parent: Option<NodeId>,
+    pub data: T,
 }
 
 impl<T> Node<T> {
-    #[inline]
-    pub fn first_child(&self) -> Option<NodeId> {
-        self.first_child
-    }
-
-    #[inline]
-    pub fn last_child(&self) -> Option<NodeId> {
-        self.last_child
-    }
-
-    #[inline]
-    pub fn prev_sibling(&self) -> Option<NodeId> {
-        self.prev_sibling
-    }
-
-    #[inline]
-    pub fn next_sibling(&self) -> Option<NodeId> {
-        self.next_sibling
-    }
-
-    #[inline]
-    pub fn parent(&self) -> Option<NodeId> {
-        self.parent
-    }
-
-    #[inline]
-    pub fn data(&self) -> &T {
-        &self.data
-    }
-
-    #[inline]
-    pub fn data_mut(&mut self) -> &mut T {
-        &mut self.data
-    }
-
     #[inline]
     pub fn into_data(self) -> T {
         self.data
@@ -696,10 +661,10 @@ fn next_descendant<T>(tree: &SlotTree<T>, node: &Node<T>, root: NodeId) -> Optio
     } else {
         let mut current = node;
         loop {
-            if let Some(sibling_id) = current.next_sibling() {
+            if let Some(sibling_id) = current.next_sibling {
                 break Some(sibling_id);
             }
-            match current.parent() {
+            match current.parent {
                 Some(parent_id) if parent_id != root => current = tree.get(parent_id),
                 _ => break None,
             }

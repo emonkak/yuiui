@@ -52,11 +52,11 @@ impl<State, Message> WidgetTree<State, Message> {
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 let mut cursor = self.tree.cursor_mut(id);
-                *cursor.node().data_mut() = WidgetNode::from(widget);
+                cursor.node().data = WidgetNode::from(widget);
             }
             UnitOfWork::Update(id, new_widget) => {
                 let cursor = self.tree.cursor(id);
-                let mut widget = cursor.node().data().borrow_mut();
+                let mut widget = cursor.node().data.borrow_mut();
                 let effect = widget.update(new_widget);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
             }
@@ -93,7 +93,7 @@ impl<State, Message> WidgetTree<State, Message> {
         let listeners = self.event_manager.get_listerners(event_mask);
 
         for id in listeners {
-            let mut widget = self.tree.cursor(id).node().data().borrow_mut();
+            let mut widget = self.tree.cursor(id).node().data.borrow_mut();
             let effect = widget.on_event(event);
             process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
         }
@@ -104,7 +104,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
         loop {
             let cursor = self.tree.cursor(current);
-            let mut widget = cursor.node().data().borrow_mut();
+            let mut widget = cursor.node().data.borrow_mut();
 
             let box_constraints = if id.is_root() {
                 BoxConstraints::tight(viewport.logical_size())
@@ -115,7 +115,7 @@ impl<State, Message> WidgetTree<State, Message> {
             let mut context = LayoutContext { widget_tree: self };
             let has_changed = widget.layout(box_constraints, &children, &mut context);
 
-            match (has_changed, cursor.node().parent()) {
+            match (has_changed, cursor.node().parent) {
                 (true, Some(parent)) => current = parent,
                 _ => break current,
             }
@@ -124,10 +124,10 @@ impl<State, Message> WidgetTree<State, Message> {
 
     pub fn draw(&self, id: NodeId) -> (Primitive, Rect) {
         let cursor = self.tree.cursor(id);
-        let mut widget = cursor.node().data().borrow_mut();
+        let mut widget = cursor.node().data.borrow_mut();
 
         let origin = cursor.ancestors().fold(Point::ZERO, |origin, (_, node)| {
-            let mut parent = node.data().borrow_mut();
+            let mut parent = node.data.borrow_mut();
             parent.needs_draw = true;
             origin + parent.position
         });
@@ -142,7 +142,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
     fn layout_child(&self, id: NodeId, box_constraints: BoxConstraints) -> Size {
         let cursor = self.tree.cursor(id);
-        let mut widget = cursor.node().data().borrow_mut();
+        let mut widget = cursor.node().data.borrow_mut();
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = LayoutContext { widget_tree: self };
@@ -156,7 +156,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
     fn draw_child(&self, id: NodeId, origin: Point) -> Primitive {
         let cursor = self.tree.cursor(id);
-        let mut widget = cursor.node().data().borrow_mut();
+        let mut widget = cursor.node().data.borrow_mut();
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = DrawContext {
@@ -169,11 +169,11 @@ impl<State, Message> WidgetTree<State, Message> {
     }
 
     fn get(&self, id: NodeId) -> Ref<WidgetPod<State, Message>> {
-        self.tree.cursor(id).node().data().borrow()
+        self.tree.cursor(id).node().data.borrow()
     }
 
     fn get_mut(&self, id: NodeId) -> RefMut<WidgetPod<State, Message>> {
-        self.tree.cursor(id).node().data().borrow_mut()
+        self.tree.cursor(id).node().data.borrow_mut()
     }
 }
 
