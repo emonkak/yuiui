@@ -1,5 +1,7 @@
 use std::any::{self, Any};
 
+use crate::context::Id;
+
 pub trait Widget: 'static + AnyWidget {
     type Children;
 }
@@ -32,6 +34,7 @@ impl<T: Widget> AnyWidget for T {
 
 #[derive(Debug)]
 pub struct WidgetPod<W: Widget> {
+    pub(crate) id: Id,
     pub(crate) widget: W,
     pub(crate) children: W::Children,
 }

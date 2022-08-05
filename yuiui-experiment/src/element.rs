@@ -1,4 +1,5 @@
 use crate::component::Component;
+use crate::context::Context;
 use crate::element_seq::ElementSeq;
 use crate::view::{View, ViewPod, ViewInspector};
 use crate::widget::{Widget, WidgetPod};
@@ -21,6 +22,7 @@ pub trait Element: 'static {
         view_pod: &ViewPod<Self::View, Self::Components>,
     ) -> WidgetPod<<Self::View as View>::Widget> {
         WidgetPod {
+            id: view_pod.id,
             widget: Self::View::build(&view_pod.view, &view_pod.children),
             children: <Self::View as View>::Children::compile(&view_pod.children),
         }
@@ -36,13 +38,14 @@ pub trait Element: 'static {
         has_changed
     }
 
-    fn build(self) -> ViewPod<Self::View, Self::Components>;
+    fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components>;
 
     fn rebuild(
         self,
         view: &mut Self::View,
         children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
         components: &mut Self::Components,
+        context: &mut Context,
     ) -> bool;
 }
 
@@ -57,10 +60,15 @@ impl<V: View> Element for ViewElement<V> {
 
     type Components = ();
 
-    fn build(self) -> ViewPod<Self::View, Self::Components> {
+    fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components> {
+        let id = context.next_identity();
+        context.push(id);
+        let children = ElementSeq::build(self.children, context);
+        context.pop();
         ViewPod {
+            id,
             view: self.view,
-            children: ElementSeq::build(self.children),
+            children,
             components: (),
         }
     }
@@ -70,9 +78,10 @@ impl<V: View> Element for ViewElement<V> {
         view: &mut Self::View,
         children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
         _components: &mut Self::Components,
+        context: &mut Context,
     ) -> bool {
         *view = self.view;
-        *children = self.children.build();
+        *children = self.children.build(context);
         true
     }
 }
@@ -87,9 +96,10 @@ impl<C: Component> Element for ComponentElement<C> {
 
     type Components = (C, <C::Element as Element>::Components);
 
-    fn build(self) -> ViewPod<Self::View, Self::Components> {
-        let view_pod = Component::render(&self.component).build();
+    fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components> {
+        let view_pod = Component::render(&self.component).build(context);
         ViewPod {
+            id: view_pod.id,
             view: view_pod.view,
             children: view_pod.children,
             components: (self.component, view_pod.components),
@@ -101,10 +111,11 @@ impl<C: Component> Element for ComponentElement<C> {
         view: &mut Self::View,
         children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
         components: &mut Self::Components,
+        context: &mut Context,
     ) -> bool {
         let (ref old_component, rest_components) = components;
         if self.component.should_update(old_component) {
-            Component::render(&self.component).rebuild(view, children, rest_components)
+            Component::render(&self.component).rebuild(view, children, rest_components, context)
         } else {
             false
         }

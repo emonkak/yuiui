@@ -1,6 +1,7 @@
 use crate::element::Element;
 use crate::view::{View, ViewPod, ViewInspector};
 use crate::widget::WidgetPod;
+use crate::context::Context;
 
 pub trait ElementSeq: 'static {
     type Views;
@@ -15,9 +16,9 @@ pub trait ElementSeq: 'static {
 
     fn len(&self) -> usize;
 
-    fn build(self) -> Self::Views;
+    fn build(self, context: &mut Context) -> Self::Views;
 
-    fn rebuild(self, views: &mut Self::Views) -> bool;
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool;
 }
 
 impl ElementSeq for () {
@@ -40,11 +41,11 @@ impl ElementSeq for () {
         0
     }
 
-    fn build(self) -> Self::Views {
+    fn build(self, _context: &mut Context) -> Self::Views {
         ()
     }
 
-    fn rebuild(self, _views: &mut Self::Views) -> bool {
+    fn rebuild(self, _views: &mut Self::Views, _context: &mut Context) -> bool {
         false
     }
 }
@@ -73,15 +74,16 @@ where
         1
     }
 
-    fn build(self) -> Self::Views {
-        (self.0.build(),)
+    fn build(self, context: &mut Context) -> Self::Views {
+        (self.0.build(context),)
     }
 
-    fn rebuild(self, views: &mut Self::Views) -> bool {
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         self.0.rebuild(
             &mut views.0.view,
             &mut views.0.children,
             &mut views.0.components,
+            context,
         )
     }
 }
@@ -121,21 +123,23 @@ where
         2
     }
 
-    fn build(self) -> Self::Views {
-        (self.0.build(), self.1.build())
+    fn build(self, context: &mut Context) -> Self::Views {
+        (self.0.build(context), self.1.build(context))
     }
 
-    fn rebuild(self, views: &mut Self::Views) -> bool {
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         let mut has_changed = false;
         has_changed |= self.0.rebuild(
             &mut views.0.view,
             &mut views.0.children,
             &mut views.0.components,
+            context,
         );
         has_changed |= self.1.rebuild(
             &mut views.1.view,
             &mut views.1.children,
             &mut views.1.components,
+            context,
         );
         has_changed
     }
@@ -185,26 +189,29 @@ where
         3
     }
 
-    fn build(self) -> Self::Views {
-        (self.0.build(), self.1.build(), self.2.build())
+    fn build(self, context: &mut Context) -> Self::Views {
+        (self.0.build(context), self.1.build(context), self.2.build(context))
     }
 
-    fn rebuild(self, views: &mut Self::Views) -> bool {
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         let mut has_changed = false;
         has_changed |= self.0.rebuild(
             &mut views.0.view,
             &mut views.0.children,
             &mut views.0.components,
+            context,
         );
         has_changed |= self.1.rebuild(
             &mut views.1.view,
             &mut views.1.children,
             &mut views.1.components,
+            context,
         );
         has_changed |= self.2.rebuild(
             &mut views.2.view,
             &mut views.2.children,
             &mut views.2.components,
+            context,
         );
         has_changed
     }
@@ -253,19 +260,20 @@ where
         }
     }
 
-    fn build(self) -> Self::Views {
-        self.map(|el| el.build())
+    fn build(self, context: &mut Context) -> Self::Views {
+        self.map(|el| el.build(context))
     }
 
-    fn rebuild(self, views: &mut Self::Views) -> bool {
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         match (self, views.as_mut()) {
             (Some(el), Some(view_pod)) => el.rebuild(
                 &mut view_pod.view,
                 &mut view_pod.children,
                 &mut view_pod.components,
+                context,
             ),
             (Some(el), None) => {
-                *views = Some(el.build());
+                *views = Some(el.build(context));
                 true
             }
             (None, Some(_)) => {
@@ -321,11 +329,15 @@ where
         has_changed
     }
 
-    fn build(self) -> Self::Views {
-        self.into_iter().map(|el| el.build()).collect()
+    fn len(&self) -> usize {
+        self.len()
     }
 
-    fn rebuild(self, views: &mut Self::Views) -> bool {
+    fn build(self, context: &mut Context) -> Self::Views {
+        self.into_iter().map(|el| el.build(context)).collect()
+    }
+
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         if self.len() < views.len() {
             views.drain(views.len() - self.len() - 1..);
         } else {
@@ -342,11 +354,12 @@ where
                     &mut view_pod.view,
                     &mut view_pod.children,
                     &mut view_pod.components,
+                    context,
                 ) {
                     has_changed = true;
                 }
             } else {
-                let view_pod = el.build();
+                let view_pod = el.build(context);
                 views.push(view_pod);
                 has_changed = true;
             }
@@ -425,31 +438,33 @@ where
         1
     }
 
-    fn build(self) -> Self::Views {
+    fn build(self, context: &mut Context) -> Self::Views {
         match self {
-            Either::Left(el) => Either::Left(el.build()),
-            Either::Right(el) => Either::Right(el.build()),
+            Either::Left(el) => Either::Left(el.build(context)),
+            Either::Right(el) => Either::Right(el.build(context)),
         }
     }
 
-    fn rebuild(self, views: &mut Self::Views) -> bool {
+    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         match (self, views.as_mut()) {
             (Either::Left(el), Either::Left(view_pod)) => el.rebuild(
                 &mut view_pod.view,
                 &mut view_pod.children,
                 &mut view_pod.components,
+                context,
             ),
             (Either::Right(el), Either::Right(view_pod)) => el.rebuild(
                 &mut view_pod.view,
                 &mut view_pod.children,
                 &mut view_pod.components,
+                context,
             ),
             (Either::Left(el), Either::Right(_)) => {
-                *views = Either::Left(el.build());
+                *views = Either::Left(el.build(context));
                 true
             }
             (Either::Right(el), Either::Left(_)) => {
-                *views = Either::Right(el.build());
+                *views = Either::Right(el.build(context));
                 true
             }
         }

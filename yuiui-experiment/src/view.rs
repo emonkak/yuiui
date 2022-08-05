@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::element_seq::ElementSeq;
 use crate::widget::{AnyWidget, Widget};
+use crate::context::Id;
 
 pub trait View: 'static + AnyView {
     type Widget: Widget;
@@ -60,6 +61,7 @@ impl<T: View> AnyView for T {
 }
 
 pub struct ViewPod<V: View, C> {
+    pub(crate) id: Id,
     pub(crate) view: V,
     pub(crate) children: <V::Children as ElementSeq>::Views,
     pub(crate) components: C,
@@ -73,6 +75,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ViewPod")
+            .field("id", &self.id)
             .field("view", &self.view)
             .field("children", &self.children)
             .field("components", &self.components)

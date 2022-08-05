@@ -3,6 +3,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use yuiui_support::slot_tree::{NodeId, SlotTree};
 
+use crate::context::Context;
 use crate::element::Element;
 use crate::element_seq::ElementSeq as _;
 use crate::real_world::RealWorld;
@@ -11,14 +12,17 @@ use crate::view::{AnyView, View, ViewInspector, ViewPod};
 pub struct VirtualWorld<E: Element> {
     view_pod: Pin<Box<ViewPod<E::View, E::Components>>>,
     tree: VirtualTree,
+    context: Context,
 }
 
 impl<E: Element> VirtualWorld<E> {
     pub fn new(element: E) -> Self {
-        let view_pod = Box::pin(element.build());
+        let mut context = Context::new();
+        let view_pod = Box::pin(element.build(&mut context));
         let tree = VirtualTree::new(&*view_pod.as_ref());
         println!("{:#?}", tree.arena);
-        Self { view_pod, tree }
+        println!("{:#?}", context);
+        Self { view_pod, tree, context }
     }
 
     pub fn realize(&self) -> RealWorld<E> {
