@@ -79,3 +79,9 @@ where
             .finish()
     }
 }
+
+pub trait ViewInspector: Sized {
+    type Id: Copy;
+
+    fn push<V: View, C>(&mut self, origin: Self::Id, view_pod: &ViewPod<V, C>) -> Self::Id;
+}

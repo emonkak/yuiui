@@ -1,6 +1,6 @@
 use crate::component::Component;
 use crate::element_seq::ElementSeq;
-use crate::view::{View, ViewPod};
+use crate::view::{View, ViewPod, ViewInspector};
 use crate::widget::{Widget, WidgetPod};
 
 pub trait Element: 'static {
@@ -8,14 +8,14 @@ pub trait Element: 'static {
 
     type Components;
 
-    fn build(self) -> ViewPod<Self::View, Self::Components>;
-
-    fn rebuild(
-        self,
-        view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
-        components: &mut Self::Components,
-    ) -> bool;
+    fn inspect<I: ViewInspector>(
+        inspector: &mut I,
+        origin: I::Id,
+        view_pod: &ViewPod<Self::View, Self::Components>,
+    ) {
+        let origin = inspector.push(origin, view_pod);
+        <Self::View as View>::Children::inspect(inspector, origin, &view_pod.children);
+    }
 
     fn compile(
         view_pod: &ViewPod<Self::View, Self::Components>,
@@ -35,6 +35,15 @@ pub trait Element: 'static {
         has_changed |= <Self::View as View>::Children::recompile(&view_pod.children, children);
         has_changed
     }
+
+    fn build(self) -> ViewPod<Self::View, Self::Components>;
+
+    fn rebuild(
+        self,
+        view: &mut Self::View,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
+        components: &mut Self::Components,
+    ) -> bool;
 }
 
 #[derive(Debug)]

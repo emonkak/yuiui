@@ -1,5 +1,5 @@
 use crate::element::Element;
-use crate::view::{View, ViewPod};
+use crate::view::{View, ViewPod, ViewInspector};
 use crate::widget::WidgetPod;
 
 pub trait ElementSeq: 'static {
@@ -7,21 +7,34 @@ pub trait ElementSeq: 'static {
 
     type Widgets;
 
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views);
+
+    fn compile(views: &Self::Views) -> Self::Widgets;
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool;
+
     fn len(&self) -> usize;
 
     fn build(self) -> Self::Views;
 
     fn rebuild(self, views: &mut Self::Views) -> bool;
-
-    fn compile(views: &Self::Views) -> Self::Widgets;
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool;
 }
 
 impl ElementSeq for () {
     type Views = ();
 
     type Widgets = ();
+
+    fn inspect<I: ViewInspector>(_inspector: &mut I, _origin: I::Id, _views: &Self::Views) {
+    }
+
+    fn compile(_views: &Self::Views) -> Self::Widgets {
+        ()
+    }
+
+    fn recompile(_views: &Self::Views, _widgets: &mut Self::Widgets) -> bool {
+        false
+    }
 
     fn len(&self) -> usize {
         0
@@ -34,14 +47,6 @@ impl ElementSeq for () {
     fn rebuild(self, _views: &mut Self::Views) -> bool {
         false
     }
-
-    fn compile(_views: &Self::Views) -> Self::Widgets {
-        ()
-    }
-
-    fn recompile(_views: &Self::Views, _widgets: &mut Self::Widgets) -> bool {
-        false
-    }
 }
 
 impl<T1> ElementSeq for (T1,)
@@ -51,6 +56,18 @@ where
     type Views = (ViewPod<T1::View, T1::Components>,);
 
     type Widgets = (WidgetPod<<T1::View as View>::Widget>,);
+
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
+        T1::inspect(inspector, origin, &views.0);
+    }
+
+    fn compile(views: &Self::Views) -> Self::Widgets {
+        (T1::compile(&views.0),)
+    }
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+        T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children)
+    }
 
     fn len(&self) -> usize {
         1
@@ -66,14 +83,6 @@ where
             &mut views.0.children,
             &mut views.0.components,
         )
-    }
-
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        (T1::compile(&views.0),)
-    }
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children)
     }
 }
 
@@ -91,6 +100,22 @@ where
         WidgetPod<<T1::View as View>::Widget>,
         WidgetPod<<T2::View as View>::Widget>,
     );
+
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
+        T1::inspect(inspector, origin, &views.0);
+        T2::inspect(inspector, origin, &views.1);
+    }
+
+    fn compile(views: &Self::Views) -> Self::Widgets {
+        (T1::compile(&views.0), T2::compile(&views.1))
+    }
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+        let mut has_changed = false;
+        has_changed |= T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children);
+        has_changed |= T2::recompile(&views.1, &mut widgets.1.widget, &mut widgets.1.children);
+        has_changed
+    }
 
     fn len(&self) -> usize {
         2
@@ -114,17 +139,6 @@ where
         );
         has_changed
     }
-
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        (T1::compile(&views.0), T2::compile(&views.1))
-    }
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        let mut has_changed = false;
-        has_changed |= T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children);
-        has_changed |= T2::recompile(&views.1, &mut widgets.1.widget, &mut widgets.1.children);
-        has_changed
-    }
 }
 
 impl<T1, T2, T3> ElementSeq for (T1, T2, T3)
@@ -144,6 +158,28 @@ where
         WidgetPod<<T2::View as View>::Widget>,
         WidgetPod<<T3::View as View>::Widget>,
     );
+
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
+        T1::inspect(inspector, origin, &views.0);
+        T2::inspect(inspector, origin, &views.1);
+        T3::inspect(inspector, origin, &views.2);
+    }
+
+    fn compile(views: &Self::Views) -> Self::Widgets {
+        (
+            T1::compile(&views.0),
+            T2::compile(&views.1),
+            T3::compile(&views.2),
+        )
+    }
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+        let mut has_changed = false;
+        has_changed |= T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children);
+        has_changed |= T2::recompile(&views.1, &mut widgets.1.widget, &mut widgets.1.children);
+        has_changed |= T3::recompile(&views.2, &mut widgets.2.widget, &mut widgets.2.children);
+        has_changed
+    }
 
     fn len(&self) -> usize {
         3
@@ -172,22 +208,6 @@ where
         );
         has_changed
     }
-
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        (
-            T1::compile(&views.0),
-            T2::compile(&views.1),
-            T3::compile(&views.2),
-        )
-    }
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        let mut has_changed = false;
-        has_changed |= T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children);
-        has_changed |= T2::recompile(&views.1, &mut widgets.1.widget, &mut widgets.1.children);
-        has_changed |= T3::recompile(&views.2, &mut widgets.2.widget, &mut widgets.2.children);
-        has_changed
-    }
 }
 
 impl<T> ElementSeq for Option<T>
@@ -197,6 +217,33 @@ where
     type Views = Option<ViewPod<T::View, T::Components>>;
 
     type Widgets = Option<WidgetPod<<T::View as View>::Widget>>;
+
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
+        if let Some(view_pod) = views {
+            T::inspect(inspector, origin, view_pod);
+        }
+    }
+
+    fn compile(views: &Self::Views) -> Self::Widgets {
+        views.as_ref().map(|view_pod| T::compile(view_pod))
+    }
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+        match (views, widgets.as_mut()) {
+            (Some(view_pod), Some(widget_pod)) => {
+                T::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
+            }
+            (Some(view_pod), None) => {
+                *widgets = Some(T::compile(view_pod));
+                true
+            }
+            (None, Some(_)) => {
+                *widgets = None;
+                true
+            }
+            (None, None) => false,
+        }
+    }
 
     fn len(&self) -> usize {
         if self.is_some() {
@@ -228,27 +275,6 @@ where
             (None, None) => false,
         }
     }
-
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        views.as_ref().map(|view_pod| T::compile(view_pod))
-    }
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        match (views, widgets.as_mut()) {
-            (Some(view_pod), Some(widget_pod)) => {
-                T::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
-            }
-            (Some(view_pod), None) => {
-                *widgets = Some(T::compile(view_pod));
-                true
-            }
-            (None, Some(_)) => {
-                *widgets = None;
-                true
-            }
-            (None, None) => false,
-        }
-    }
 }
 
 impl<T> ElementSeq for Vec<T>
@@ -259,8 +285,40 @@ where
 
     type Widgets = Vec<WidgetPod<<T::View as View>::Widget>>;
 
-    fn len(&self) -> usize {
-        self.len()
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
+        for view_pod in views {
+            T::inspect(inspector, origin, view_pod);
+        }
+    }
+
+    fn compile(views: &Self::Views) -> Self::Widgets {
+        views.into_iter().map(T::compile).collect()
+    }
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+        if views.len() < widgets.len() {
+            widgets.drain(widgets.len() - views.len() - 1..);
+        } else {
+            widgets.reserve_exact(views.len());
+        }
+
+        let reuse_len = views.len().min(widgets.len());
+        let mut has_changed = false;
+
+        for (i, view_pod) in views.into_iter().enumerate() {
+            if i < reuse_len {
+                let widget_pod = &mut widgets[i];
+                if T::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children) {
+                    has_changed = true;
+                }
+            } else {
+                let widget_pod = T::compile(view_pod);
+                widgets.push(widget_pod);
+                has_changed = true;
+            }
+        }
+
+        has_changed
     }
 
     fn build(self) -> Self::Views {
@@ -269,9 +327,7 @@ where
 
     fn rebuild(self, views: &mut Self::Views) -> bool {
         if self.len() < views.len() {
-            for _ in 0..(views.len() - self.len()) {
-                views.pop();
-            }
+            views.drain(views.len() - self.len() - 1..);
         } else {
             views.reserve_exact(self.len());
         }
@@ -295,37 +351,7 @@ where
                 has_changed = true;
             }
         }
-        has_changed
-    }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        views.into_iter().map(T::compile).collect()
-    }
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        if views.len() < widgets.len() {
-            for _ in 0..(widgets.len() - views.len()) {
-                widgets.pop();
-            }
-        } else {
-            widgets.reserve_exact(views.len());
-        }
-
-        let reuse_len = views.len().min(widgets.len());
-        let mut has_changed = false;
-
-        for (i, view_pod) in views.into_iter().enumerate() {
-            if i < reuse_len {
-                let widget_pod = &mut widgets[i];
-                if T::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children) {
-                    has_changed = true;
-                }
-            } else {
-                let widget_pod = T::compile(view_pod);
-                widgets.push(widget_pod);
-                has_changed = true;
-            }
-        }
         has_changed
     }
 }
@@ -362,6 +388,39 @@ where
     type Widgets =
         Either<WidgetPod<<L::View as View>::Widget>, WidgetPod<<R::View as View>::Widget>>;
 
+    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
+        match views {
+            Either::Left(view_pod) => L::inspect(inspector, origin, view_pod),
+            Either::Right(view_pod) => R::inspect(inspector, origin, view_pod),
+        }
+    }
+
+    fn compile(views: &Self::Views) -> Self::Widgets {
+        match views {
+            Either::Left(view_pod) => Either::Left(L::compile(view_pod)),
+            Either::Right(view_pod) => Either::Right(R::compile(view_pod)),
+        }
+    }
+
+    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+        match (views, widgets.as_mut()) {
+            (Either::Left(view_pod), Either::Left(widget_pod)) => {
+                L::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
+            }
+            (Either::Right(view_pod), Either::Right(widget_pod)) => {
+                R::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
+            }
+            (Either::Left(view_pod), Either::Right(_)) => {
+                *widgets = Either::Left(L::compile(view_pod));
+                true
+            }
+            (Either::Right(view_pod), Either::Left(_)) => {
+                *widgets = Either::Right(R::compile(view_pod));
+                true
+            }
+        }
+    }
+
     fn len(&self) -> usize {
         1
     }
@@ -391,32 +450,6 @@ where
             }
             (Either::Right(el), Either::Left(_)) => {
                 *views = Either::Right(el.build());
-                true
-            }
-        }
-    }
-
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        match views {
-            Either::Left(view_pod) => Either::Left(L::compile(view_pod)),
-            Either::Right(view_pod) => Either::Right(R::compile(view_pod)),
-        }
-    }
-
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        match (views, widgets.as_mut()) {
-            (Either::Left(view_pod), Either::Left(widget_pod)) => {
-                L::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
-            }
-            (Either::Right(view_pod), Either::Right(widget_pod)) => {
-                R::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
-            }
-            (Either::Left(view_pod), Either::Right(_)) => {
-                *widgets = Either::Left(L::compile(view_pod));
-                true
-            }
-            (Either::Right(view_pod), Either::Left(_)) => {
-                *widgets = Either::Right(R::compile(view_pod));
                 true
             }
         }

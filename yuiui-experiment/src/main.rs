@@ -25,7 +25,7 @@ fn app() -> impl Element<
 fn main() {
     let root = app();
     let virtual_world = VirtualWorld::new(root);
-    let real_world = virtual_world.render();
-    println!("{:#?}", virtual_world.tree());
-    println!("{:#?}", real_world.tree());
+    let real_world = virtual_world.realize();
+    println!("{:#?}", virtual_world.view_pod());
+    println!("{:#?}", real_world.widget_pod());
 }

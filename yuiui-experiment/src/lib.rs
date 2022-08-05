@@ -1,9 +1,10 @@
 mod component;
 mod element;
 mod element_seq;
+mod real_world;
 mod view;
+mod virtual_world;
 mod widget;
-mod world;
 
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -13,7 +14,8 @@ pub use element::{component, view, ComponentElement, Element, ViewElement};
 pub use element_seq::{Either, ElementSeq};
 pub use view::View;
 pub use widget::Widget;
-pub use world::{RealWorld, VirtualWorld};
+pub use real_world::RealWorld;
+pub use virtual_world::VirtualWorld;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
