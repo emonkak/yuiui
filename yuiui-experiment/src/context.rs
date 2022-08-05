@@ -4,15 +4,16 @@ pub type Id = usize;
 
 #[derive(Debug)]
 pub struct Context {
-    path: Vec<Id>,
     arena: SlotVec<Vec<Id>>,
+    path: Vec<Id>,
 }
 
 impl Context {
-    pub fn new() -> Self {
+    pub fn new(depth: usize) -> Self {
+        assert!(depth > 0);
         Self {
-            path: Vec::new(),
             arena: SlotVec::new(),
+            path: Vec::with_capacity(depth),
         }
     }
 

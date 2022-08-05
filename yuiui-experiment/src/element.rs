@@ -1,7 +1,7 @@
 use crate::component::Component;
 use crate::context::Context;
 use crate::element_seq::ElementSeq;
-use crate::view::{View, ViewPod, ViewInspector};
+use crate::view::{View, ViewPod};
 use crate::widget::{Widget, WidgetPod};
 
 pub trait Element: 'static {
@@ -9,14 +9,7 @@ pub trait Element: 'static {
 
     type Components;
 
-    fn inspect<I: ViewInspector>(
-        inspector: &mut I,
-        origin: I::Id,
-        view_pod: &ViewPod<Self::View, Self::Components>,
-    ) {
-        let origin = inspector.push(origin, view_pod);
-        <Self::View as View>::Children::inspect(inspector, origin, &view_pod.children);
-    }
+    fn depth() -> usize;
 
     fn compile(
         view_pod: &ViewPod<Self::View, Self::Components>,
@@ -36,6 +29,11 @@ pub trait Element: 'static {
         let mut has_changed = view_pod.view.rebuild(&view_pod.children, widget);
         has_changed |= <Self::View as View>::Children::recompile(&view_pod.children, children);
         has_changed
+    }
+
+    fn invalidate(view_pod: &ViewPod<Self::View, Self::Components>, context: &mut Context) {
+        context.invalidate(view_pod.id);
+        <Self::View as View>::Children::invalidate(&view_pod.children, context);
     }
 
     fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components>;
@@ -59,6 +57,10 @@ impl<V: View> Element for ViewElement<V> {
     type View = V;
 
     type Components = ();
+
+    fn depth() -> usize {
+        Self::View::depth()
+    }
 
     fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components> {
         let id = context.next_identity();
@@ -95,6 +97,10 @@ impl<C: Component> Element for ComponentElement<C> {
     type View = <C::Element as Element>::View;
 
     type Components = (C, <C::Element as Element>::Components);
+
+    fn depth() -> usize {
+        Self::View::depth()
+    }
 
     fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components> {
         let view_pod = Component::render(&self.component).build(context);

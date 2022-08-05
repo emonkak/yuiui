@@ -10,6 +10,10 @@ pub trait View: 'static + AnyView {
 
     type Children: ElementSeq<Widgets = <Self::Widget as Widget>::Children>;
 
+    fn depth() -> usize {
+        1 + Self::Children::depth()
+    }
+
     fn build(&self, children: &<Self::Children as ElementSeq>::Views) -> Self::Widget;
 
     fn rebuild(
@@ -81,10 +85,4 @@ where
             .field("components", &self.components)
             .finish()
     }
-}
-
-pub trait ViewInspector: Sized {
-    type Id: Copy;
-
-    fn push<V: View, C>(&mut self, origin: Self::Id, view_pod: &ViewPod<V, C>) -> Self::Id;
 }

@@ -1,5 +1,5 @@
 use crate::element::Element;
-use crate::view::{View, ViewPod, ViewInspector};
+use crate::view::{View, ViewPod};
 use crate::widget::WidgetPod;
 use crate::context::Context;
 
@@ -8,13 +8,13 @@ pub trait ElementSeq: 'static {
 
     type Widgets;
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views);
+    fn depth() -> usize;
 
     fn compile(views: &Self::Views) -> Self::Widgets;
 
     fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool;
 
-    fn len(&self) -> usize;
+    fn invalidate(views: &Self::Views, context: &mut Context);
 
     fn build(self, context: &mut Context) -> Self::Views;
 
@@ -26,7 +26,8 @@ impl ElementSeq for () {
 
     type Widgets = ();
 
-    fn inspect<I: ViewInspector>(_inspector: &mut I, _origin: I::Id, _views: &Self::Views) {
+    fn depth() -> usize {
+        0
     }
 
     fn compile(_views: &Self::Views) -> Self::Widgets {
@@ -37,8 +38,7 @@ impl ElementSeq for () {
         false
     }
 
-    fn len(&self) -> usize {
-        0
+    fn invalidate(_views: &Self::Views, _context: &mut Context) {
     }
 
     fn build(self, _context: &mut Context) -> Self::Views {
@@ -58,8 +58,8 @@ where
 
     type Widgets = (WidgetPod<<T1::View as View>::Widget>,);
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
-        T1::inspect(inspector, origin, &views.0);
+    fn depth() -> usize {
+        T1::View::depth()
     }
 
     fn compile(views: &Self::Views) -> Self::Widgets {
@@ -70,8 +70,8 @@ where
         T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children)
     }
 
-    fn len(&self) -> usize {
-        1
+    fn invalidate(views: &Self::Views, context: &mut Context) {
+        T1::invalidate(&views.0, context);
     }
 
     fn build(self, context: &mut Context) -> Self::Views {
@@ -103,9 +103,8 @@ where
         WidgetPod<<T2::View as View>::Widget>,
     );
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
-        T1::inspect(inspector, origin, &views.0);
-        T2::inspect(inspector, origin, &views.1);
+    fn depth() -> usize {
+        0.max(T1::View::depth()).max(T2::View::depth())
     }
 
     fn compile(views: &Self::Views) -> Self::Widgets {
@@ -119,8 +118,9 @@ where
         has_changed
     }
 
-    fn len(&self) -> usize {
-        2
+    fn invalidate(views: &Self::Views, context: &mut Context) {
+        T1::invalidate(&views.0, context);
+        T2::invalidate(&views.1, context);
     }
 
     fn build(self, context: &mut Context) -> Self::Views {
@@ -163,10 +163,8 @@ where
         WidgetPod<<T3::View as View>::Widget>,
     );
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
-        T1::inspect(inspector, origin, &views.0);
-        T2::inspect(inspector, origin, &views.1);
-        T3::inspect(inspector, origin, &views.2);
+    fn depth() -> usize {
+        0.max(T1::View::depth()).max(T2::View::depth()).max(T3::View::depth())
     }
 
     fn compile(views: &Self::Views) -> Self::Widgets {
@@ -185,8 +183,10 @@ where
         has_changed
     }
 
-    fn len(&self) -> usize {
-        3
+    fn invalidate(views: &Self::Views, context: &mut Context) {
+        T1::invalidate(&views.0, context);
+        T2::invalidate(&views.1, context);
+        T3::invalidate(&views.2, context);
     }
 
     fn build(self, context: &mut Context) -> Self::Views {
@@ -225,10 +225,8 @@ where
 
     type Widgets = Option<WidgetPod<<T::View as View>::Widget>>;
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
-        if let Some(view_pod) = views {
-            T::inspect(inspector, origin, view_pod);
-        }
+    fn depth() -> usize {
+        T::View::depth()
     }
 
     fn compile(views: &Self::Views) -> Self::Widgets {
@@ -252,11 +250,9 @@ where
         }
     }
 
-    fn len(&self) -> usize {
-        if self.is_some() {
-            1
-        } else {
-            0
+    fn invalidate(views: &Self::Views, context: &mut Context) {
+        if let Some(view_pod) = views {
+            T::invalidate(view_pod, context);
         }
     }
 
@@ -276,7 +272,8 @@ where
                 *views = Some(el.build(context));
                 true
             }
-            (None, Some(_)) => {
+            (None, Some(view_pod)) => {
+                T::invalidate(view_pod, context);
                 *views = None;
                 true
             }
@@ -293,10 +290,8 @@ where
 
     type Widgets = Vec<WidgetPod<<T::View as View>::Widget>>;
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
-        for view_pod in views {
-            T::inspect(inspector, origin, view_pod);
-        }
+    fn depth() -> usize {
+        T::View::depth()
     }
 
     fn compile(views: &Self::Views) -> Self::Widgets {
@@ -329,8 +324,10 @@ where
         has_changed
     }
 
-    fn len(&self) -> usize {
-        self.len()
+    fn invalidate(views: &Self::Views, context: &mut Context) {
+        for view_pod in views {
+            T::invalidate(view_pod, context);
+        }
     }
 
     fn build(self, context: &mut Context) -> Self::Views {
@@ -339,7 +336,9 @@ where
 
     fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
         if self.len() < views.len() {
-            views.drain(views.len() - self.len() - 1..);
+            for view_pod in views.drain(views.len() - self.len() - 1..) {
+                T::invalidate(&view_pod, context);
+            }
         } else {
             views.reserve_exact(self.len());
         }
@@ -401,11 +400,8 @@ where
     type Widgets =
         Either<WidgetPod<<L::View as View>::Widget>, WidgetPod<<R::View as View>::Widget>>;
 
-    fn inspect<I: ViewInspector>(inspector: &mut I, origin: I::Id, views: &Self::Views) {
-        match views {
-            Either::Left(view_pod) => L::inspect(inspector, origin, view_pod),
-            Either::Right(view_pod) => R::inspect(inspector, origin, view_pod),
-        }
+    fn depth() -> usize {
+        L::View::depth().max(R::View::depth())
     }
 
     fn compile(views: &Self::Views) -> Self::Widgets {
@@ -434,8 +430,11 @@ where
         }
     }
 
-    fn len(&self) -> usize {
-        1
+    fn invalidate(views: &Self::Views, context: &mut Context) {
+        match views {
+            Either::Left(el) => L::invalidate(el, context),
+            Either::Right(el) => R::invalidate(el, context),
+        }
     }
 
     fn build(self, context: &mut Context) -> Self::Views {
@@ -459,11 +458,13 @@ where
                 &mut view_pod.components,
                 context,
             ),
-            (Either::Left(el), Either::Right(_)) => {
+            (Either::Left(el), Either::Right(view_pod)) => {
+                R::invalidate(view_pod, context);
                 *views = Either::Left(el.build(context));
                 true
             }
-            (Either::Right(el), Either::Left(_)) => {
+            (Either::Right(el), Either::Left(view_pod)) => {
+                L::invalidate(view_pod, context);
                 *views = Either::Right(el.build(context));
                 true
             }
