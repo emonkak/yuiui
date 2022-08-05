@@ -1,11 +1,10 @@
-use std::any::{self, Any};
 use std::fmt;
 
 use crate::element_seq::ElementSeq;
-use crate::widget::{AnyWidget, Widget};
+use crate::widget::Widget;
 use crate::context::Id;
 
-pub trait View: 'static + AnyView {
+pub trait View: 'static {
     type Widget: Widget;
 
     type Children: ElementSeq<Widgets = <Self::Widget as Widget>::Children>;
@@ -23,44 +22,6 @@ pub trait View: 'static + AnyView {
     ) -> bool {
         *widget = View::build(self, children);
         true
-    }
-}
-
-pub trait AnyView {
-    fn build(&self, children: &Box<dyn Any>) -> Box<dyn AnyWidget>;
-
-    fn rebuild(&self, children: &Box<dyn Any>, widget: &mut Box<dyn AnyWidget>) -> bool;
-
-    fn name(&self) -> &'static str;
-
-    fn as_any(&self) -> &dyn Any;
-
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-impl<T: View> AnyView for T {
-    fn build(&self, children: &Box<dyn Any>) -> Box<dyn AnyWidget> {
-        Box::new(View::build(self, *children.downcast_ref().unwrap()))
-    }
-
-    fn rebuild(&self, children: &Box<dyn Any>, widget: &mut Box<dyn AnyWidget>) -> bool {
-        View::rebuild(
-            self,
-            children.downcast_ref().unwrap(),
-            widget.as_any_mut().downcast_mut().unwrap(),
-        )
-    }
-
-    fn name(&self) -> &'static str {
-        any::type_name::<T>()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }
 
