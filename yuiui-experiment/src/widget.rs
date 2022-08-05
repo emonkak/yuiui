@@ -1,8 +1,12 @@
 use std::any::{self, Any};
 
-pub trait Widget: 'static {}
+pub trait Widget: 'static + AnyWidget {
+    type Children;
+}
 
-impl Widget for () {}
+impl Widget for () {
+    type Children = ();
+}
 
 pub trait AnyWidget {
     fn name(&self) -> &'static str;
@@ -24,4 +28,10 @@ impl<T: Widget> AnyWidget for T {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+}
+
+#[derive(Debug)]
+pub struct WidgetPod<W: Widget> {
+    pub(crate) widget: W,
+    pub(crate) children: W::Children,
 }

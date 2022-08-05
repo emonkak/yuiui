@@ -1,6 +1,14 @@
+use std::fmt::Debug;
+
 use yuiui_experiment::*;
 
-fn app() -> Element<impl View, impl Component> {
+fn app() -> impl Element<
+    View = impl View<
+        Widget = impl Widget<Children = impl Debug> + Debug,
+        Children = impl ElementSeq<Views = impl Debug>,
+    > + Debug,
+    Components = impl Debug,
+> {
     view(
         Block::new(),
         (
@@ -15,7 +23,9 @@ fn app() -> Element<impl View, impl Component> {
 }
 
 fn main() {
-    let world = World::create(app());
-    println!("{}", world.widget_tree);
-    println!("{}", world.element_tree);
+    let root = app();
+    let virtual_world = VirtualWorld::new(root);
+    let real_world = virtual_world.render();
+    println!("{:#?}", virtual_world.tree());
+    println!("{:#?}", real_world.tree());
 }

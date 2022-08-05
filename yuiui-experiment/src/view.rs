@@ -1,39 +1,23 @@
 use std::any::{self, Any};
-use std::convert::Infallible;
+use std::fmt;
 
 use crate::element_seq::ElementSeq;
 use crate::widget::{AnyWidget, Widget};
-use crate::world::{Id, World};
 
 pub trait View: 'static + AnyView {
     type Widget: Widget;
 
-    type Children: ElementSeq;
+    type Children: ElementSeq<Widgets = <Self::Widget as Widget>::Children>;
 
-    fn build(&self, children: &Self::Children) -> Self::Widget;
+    fn build(&self, children: &<Self::Children as ElementSeq>::Views) -> Self::Widget;
 
-    fn rebuild(&self, children: &Self::Children, widget: &mut Self::Widget) -> bool {
+    fn rebuild(
+        &self,
+        children: &<Self::Children as ElementSeq>::Views,
+        widget: &mut Self::Widget,
+    ) -> bool {
         *widget = View::build(self, children);
         true
-    }
-
-    fn reconcile_children(
-        &self,
-        children: Self::Children,
-        target: Id,
-        world: &mut World,
-    ) -> Option<Id> {
-        children.reconcile(target, world)
-    }
-}
-
-impl View for Infallible {
-    type Widget = ();
-
-    type Children = ();
-
-    fn build(&self, _children: &Self::Children) -> Self::Widget {
-        ()
     }
 }
 
@@ -41,13 +25,6 @@ pub trait AnyView {
     fn build(&self, children: &Box<dyn Any>) -> Box<dyn AnyWidget>;
 
     fn rebuild(&self, children: &Box<dyn Any>, widget: &mut Box<dyn AnyWidget>) -> bool;
-
-    fn reconcile_children(
-        &self,
-        children: Box<dyn Any>,
-        target: Id,
-        world: &mut World,
-    ) -> Option<Id>;
 
     fn name(&self) -> &'static str;
 
@@ -69,15 +46,6 @@ impl<T: View> AnyView for T {
         )
     }
 
-    fn reconcile_children(
-        &self,
-        children: Box<dyn Any>,
-        target: Id,
-        world: &mut World,
-    ) -> Option<Id> {
-        View::reconcile_children(self, *children.downcast().unwrap(), target, world)
-    }
-
     fn name(&self) -> &'static str {
         any::type_name::<T>()
     }
@@ -88,5 +56,26 @@ impl<T: View> AnyView for T {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+pub struct ViewPod<V: View, C> {
+    pub(crate) view: V,
+    pub(crate) children: <V::Children as ElementSeq>::Views,
+    pub(crate) components: C,
+}
+
+impl<V, C> fmt::Debug for ViewPod<V, C>
+where
+    V: View + fmt::Debug,
+    <V::Children as ElementSeq>::Views: fmt::Debug,
+    C: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ViewPod")
+            .field("view", &self.view)
+            .field("children", &self.children)
+            .field("components", &self.components)
+            .finish()
     }
 }

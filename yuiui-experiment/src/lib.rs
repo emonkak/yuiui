@@ -6,15 +6,14 @@ mod widget;
 mod world;
 
 use std::borrow::Cow;
-use std::convert::Infallible;
 use std::marker::PhantomData;
 
 pub use component::Component;
-pub use element::{component, view, Element};
-pub use element_seq::{ElementSeq, Either};
+pub use element::{component, view, ComponentElement, Element, ViewElement};
+pub use element_seq::{Either, ElementSeq};
 pub use view::View;
 pub use widget::Widget;
-pub use world::{Id, World};
+pub use world::{RealWorld, VirtualWorld};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -40,9 +39,11 @@ impl View for Text {
     }
 }
 
-impl Widget for Text {}
+impl Widget for Text {
+    type Children = ();
+}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block<Children> {
     children: PhantomData<Children>,
 }
@@ -56,20 +57,27 @@ impl<Children> Block<Children> {
 }
 
 impl<Children: ElementSeq> View for Block<Children> {
-    type Widget = BlockWidget;
+    type Widget = BlockWidget<<Children as ElementSeq>::Widgets>;
 
     type Children = Children;
 
-    fn build(&self, _children: &Self::Children) -> Self::Widget {
-        BlockWidget {}
+    fn build(&self, _children: &<Self::Children as ElementSeq>::Views) -> Self::Widget {
+        BlockWidget {
+            children: PhantomData,
+        }
     }
 }
 
-pub struct BlockWidget {}
+#[derive(Debug, Clone)]
+pub struct BlockWidget<Children> {
+    children: PhantomData<Children>,
+}
 
-impl Widget for BlockWidget {}
+impl<Children: 'static> Widget for BlockWidget<Children> {
+    type Children = Children;
+}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Button {
     label: Cow<'static, str>,
 }
@@ -83,11 +91,9 @@ impl Button {
 }
 
 impl Component for Button {
-    type View = Block<(Element<Text, Infallible>,)>;
+    type Element = ViewElement<Block<(ViewElement<Text>,)>>;
 
-    type Component = Infallible;
-
-    fn render(&self) -> Element<Self::View, Self::Component> {
+    fn render(&self) -> Self::Element {
         view(Block::new(), (view(Text::new(self.label.clone()), ()),))
     }
 }
