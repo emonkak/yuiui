@@ -2,9 +2,9 @@ mod component;
 mod context;
 mod element;
 mod element_seq;
-mod real_world;
+mod node;
+mod stage;
 mod view;
-mod virtual_world;
 mod widget;
 
 use std::borrow::Cow;
@@ -13,10 +13,9 @@ use std::marker::PhantomData;
 pub use component::Component;
 pub use element::{component, view, ComponentElement, Element, ViewElement};
 pub use element_seq::{Either, ElementSeq};
+pub use stage::Stage;
 pub use view::View;
 pub use widget::Widget;
-pub use real_world::RealWorld;
-pub use virtual_world::VirtualWorld;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -60,11 +59,11 @@ impl<Children> Block<Children> {
 }
 
 impl<Children: ElementSeq> View for Block<Children> {
-    type Widget = BlockWidget<<Children as ElementSeq>::Widgets>;
+    type Widget = BlockWidget<<Children as ElementSeq>::UINodes>;
 
     type Children = Children;
 
-    fn build(&self, _children: &<Self::Children as ElementSeq>::Views) -> Self::Widget {
+    fn build(&self, _children: &<Self::Children as ElementSeq>::VNodes) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
         }

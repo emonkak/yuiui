@@ -1,8 +1,9 @@
 use crate::component::Component;
 use crate::context::Context;
 use crate::element_seq::ElementSeq;
-use crate::view::{View, ViewPod};
-use crate::widget::{Widget, WidgetPod};
+use crate::node::{UINode, VNode};
+use crate::view::View;
+use crate::widget::Widget;
 
 pub trait Element: 'static {
     type View: View;
@@ -11,37 +12,37 @@ pub trait Element: 'static {
 
     fn depth() -> usize;
 
-    fn compile(
-        view_pod: &ViewPod<Self::View, Self::Components>,
-    ) -> WidgetPod<<Self::View as View>::Widget> {
-        WidgetPod {
-            id: view_pod.id,
-            widget: Self::View::build(&view_pod.view, &view_pod.children),
-            children: <Self::View as View>::Children::compile(&view_pod.children),
+    fn render(
+        v_node: &VNode<Self::View, Self::Components>,
+    ) -> UINode<<Self::View as View>::Widget> {
+        UINode {
+            id: v_node.id,
+            widget: v_node.view.build(&v_node.children),
+            children: <Self::View as View>::Children::render(&v_node.children),
         }
     }
 
-    fn recompile(
-        view_pod: &ViewPod<Self::View, Self::Components>,
+    fn rerender(
+        v_node: &VNode<Self::View, Self::Components>,
         widget: &mut <Self::View as View>::Widget,
         children: &mut <<Self::View as View>::Widget as Widget>::Children,
     ) -> bool {
-        let mut has_changed = view_pod.view.rebuild(&view_pod.children, widget);
-        has_changed |= <Self::View as View>::Children::recompile(&view_pod.children, children);
+        let mut has_changed = v_node.view.rebuild(&v_node.children, widget);
+        has_changed |= <Self::View as View>::Children::rerender(&v_node.children, children);
         has_changed
     }
 
-    fn invalidate(view_pod: &ViewPod<Self::View, Self::Components>, context: &mut Context) {
-        context.invalidate(view_pod.id);
-        <Self::View as View>::Children::invalidate(&view_pod.children, context);
+    fn invalidate(v_node: &VNode<Self::View, Self::Components>, context: &mut Context) {
+        context.invalidate(v_node.id);
+        <Self::View as View>::Children::invalidate(&v_node.children, context);
     }
 
-    fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components>;
+    fn build(self, context: &mut Context) -> VNode<Self::View, Self::Components>;
 
     fn rebuild(
         self,
         view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::VNodes,
         components: &mut Self::Components,
         context: &mut Context,
     ) -> bool;
@@ -62,12 +63,12 @@ impl<V: View> Element for ViewElement<V> {
         Self::View::depth()
     }
 
-    fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components> {
+    fn build(self, context: &mut Context) -> VNode<Self::View, Self::Components> {
         let id = context.next_identity();
         context.push(id);
-        let children = ElementSeq::build(self.children, context);
+        let children = self.children.build(context);
         context.pop();
-        ViewPod {
+        VNode {
             id,
             view: self.view,
             children,
@@ -78,7 +79,7 @@ impl<V: View> Element for ViewElement<V> {
     fn rebuild(
         self,
         view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::VNodes,
         _components: &mut Self::Components,
         context: &mut Context,
     ) -> bool {
@@ -102,20 +103,20 @@ impl<C: Component> Element for ComponentElement<C> {
         Self::View::depth()
     }
 
-    fn build(self, context: &mut Context) -> ViewPod<Self::View, Self::Components> {
-        let view_pod = Component::render(&self.component).build(context);
-        ViewPod {
-            id: view_pod.id,
-            view: view_pod.view,
-            children: view_pod.children,
-            components: (self.component, view_pod.components),
+    fn build(self, context: &mut Context) -> VNode<Self::View, Self::Components> {
+        let v_node = Component::render(&self.component).build(context);
+        VNode {
+            id: v_node.id,
+            view: v_node.view,
+            children: v_node.children,
+            components: (self.component, v_node.components),
         }
     }
 
     fn rebuild(
         self,
         view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Views,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::VNodes,
         components: &mut Self::Components,
         context: &mut Context,
     ) -> bool {

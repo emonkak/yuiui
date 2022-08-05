@@ -1,51 +1,50 @@
-use crate::element::Element;
-use crate::view::{View, ViewPod};
-use crate::widget::WidgetPod;
 use crate::context::Context;
+use crate::element::Element;
+use crate::node::{UINode, VNode};
+use crate::view::View;
 
 pub trait ElementSeq: 'static {
-    type Views;
+    type VNodes;
 
-    type Widgets;
+    type UINodes;
 
     fn depth() -> usize;
 
-    fn compile(views: &Self::Views) -> Self::Widgets;
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes;
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool;
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool;
 
-    fn invalidate(views: &Self::Views, context: &mut Context);
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context);
 
-    fn build(self, context: &mut Context) -> Self::Views;
+    fn build(self, context: &mut Context) -> Self::VNodes;
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool;
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool;
 }
 
 impl ElementSeq for () {
-    type Views = ();
+    type VNodes = ();
 
-    type Widgets = ();
+    type UINodes = ();
 
     fn depth() -> usize {
         0
     }
 
-    fn compile(_views: &Self::Views) -> Self::Widgets {
+    fn render(_v_nodes: &Self::VNodes) -> Self::UINodes {
         ()
     }
 
-    fn recompile(_views: &Self::Views, _widgets: &mut Self::Widgets) -> bool {
+    fn rerender(_v_nodes: &Self::VNodes, _widgets: &mut Self::UINodes) -> bool {
         false
     }
 
-    fn invalidate(_views: &Self::Views, _context: &mut Context) {
-    }
+    fn invalidate(_v_nodes: &Self::VNodes, _context: &mut Context) {}
 
-    fn build(self, _context: &mut Context) -> Self::Views {
+    fn build(self, _context: &mut Context) -> Self::VNodes {
         ()
     }
 
-    fn rebuild(self, _views: &mut Self::Views, _context: &mut Context) -> bool {
+    fn rebuild(self, _v_nodes: &mut Self::VNodes, _context: &mut Context) -> bool {
         false
     }
 }
@@ -54,35 +53,35 @@ impl<T1> ElementSeq for (T1,)
 where
     T1: Element,
 {
-    type Views = (ViewPod<T1::View, T1::Components>,);
+    type VNodes = (VNode<T1::View, T1::Components>,);
 
-    type Widgets = (WidgetPod<<T1::View as View>::Widget>,);
+    type UINodes = (UINode<<T1::View as View>::Widget>,);
 
     fn depth() -> usize {
         T1::View::depth()
     }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        (T1::compile(&views.0),)
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
+        (T1::render(&v_nodes.0),)
     }
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children)
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
+        T1::rerender(&v_nodes.0, &mut ui_nodes.0.widget, &mut ui_nodes.0.children)
     }
 
-    fn invalidate(views: &Self::Views, context: &mut Context) {
-        T1::invalidate(&views.0, context);
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
+        T1::invalidate(&v_nodes.0, context);
     }
 
-    fn build(self, context: &mut Context) -> Self::Views {
+    fn build(self, context: &mut Context) -> Self::VNodes {
         (self.0.build(context),)
     }
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
         self.0.rebuild(
-            &mut views.0.view,
-            &mut views.0.children,
-            &mut views.0.components,
+            &mut v_nodes.0.view,
+            &mut v_nodes.0.children,
+            &mut v_nodes.0.components,
             context,
         )
     }
@@ -93,52 +92,52 @@ where
     T1: Element,
     T2: Element,
 {
-    type Views = (
-        ViewPod<T1::View, T1::Components>,
-        ViewPod<T2::View, T2::Components>,
+    type VNodes = (
+        VNode<T1::View, T1::Components>,
+        VNode<T2::View, T2::Components>,
     );
 
-    type Widgets = (
-        WidgetPod<<T1::View as View>::Widget>,
-        WidgetPod<<T2::View as View>::Widget>,
+    type UINodes = (
+        UINode<<T1::View as View>::Widget>,
+        UINode<<T2::View as View>::Widget>,
     );
 
     fn depth() -> usize {
         0.max(T1::View::depth()).max(T2::View::depth())
     }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        (T1::compile(&views.0), T2::compile(&views.1))
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
+        (T1::render(&v_nodes.0), T2::render(&v_nodes.1))
     }
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
         let mut has_changed = false;
-        has_changed |= T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children);
-        has_changed |= T2::recompile(&views.1, &mut widgets.1.widget, &mut widgets.1.children);
+        has_changed |= T1::rerender(&v_nodes.0, &mut ui_nodes.0.widget, &mut ui_nodes.0.children);
+        has_changed |= T2::rerender(&v_nodes.1, &mut ui_nodes.1.widget, &mut ui_nodes.1.children);
         has_changed
     }
 
-    fn invalidate(views: &Self::Views, context: &mut Context) {
-        T1::invalidate(&views.0, context);
-        T2::invalidate(&views.1, context);
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
+        T1::invalidate(&v_nodes.0, context);
+        T2::invalidate(&v_nodes.1, context);
     }
 
-    fn build(self, context: &mut Context) -> Self::Views {
+    fn build(self, context: &mut Context) -> Self::VNodes {
         (self.0.build(context), self.1.build(context))
     }
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
         let mut has_changed = false;
         has_changed |= self.0.rebuild(
-            &mut views.0.view,
-            &mut views.0.children,
-            &mut views.0.components,
+            &mut v_nodes.0.view,
+            &mut v_nodes.0.children,
+            &mut v_nodes.0.components,
             context,
         );
         has_changed |= self.1.rebuild(
-            &mut views.1.view,
-            &mut views.1.children,
-            &mut views.1.components,
+            &mut v_nodes.1.view,
+            &mut v_nodes.1.children,
+            &mut v_nodes.1.components,
             context,
         );
         has_changed
@@ -151,66 +150,72 @@ where
     T2: Element,
     T3: Element,
 {
-    type Views = (
-        ViewPod<T1::View, T1::Components>,
-        ViewPod<T2::View, T2::Components>,
-        ViewPod<T3::View, T3::Components>,
+    type VNodes = (
+        VNode<T1::View, T1::Components>,
+        VNode<T2::View, T2::Components>,
+        VNode<T3::View, T3::Components>,
     );
 
-    type Widgets = (
-        WidgetPod<<T1::View as View>::Widget>,
-        WidgetPod<<T2::View as View>::Widget>,
-        WidgetPod<<T3::View as View>::Widget>,
+    type UINodes = (
+        UINode<<T1::View as View>::Widget>,
+        UINode<<T2::View as View>::Widget>,
+        UINode<<T3::View as View>::Widget>,
     );
 
     fn depth() -> usize {
-        0.max(T1::View::depth()).max(T2::View::depth()).max(T3::View::depth())
+        0.max(T1::View::depth())
+            .max(T2::View::depth())
+            .max(T3::View::depth())
     }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
         (
-            T1::compile(&views.0),
-            T2::compile(&views.1),
-            T3::compile(&views.2),
+            T1::render(&v_nodes.0),
+            T2::render(&v_nodes.1),
+            T3::render(&v_nodes.2),
         )
     }
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
         let mut has_changed = false;
-        has_changed |= T1::recompile(&views.0, &mut widgets.0.widget, &mut widgets.0.children);
-        has_changed |= T2::recompile(&views.1, &mut widgets.1.widget, &mut widgets.1.children);
-        has_changed |= T3::recompile(&views.2, &mut widgets.2.widget, &mut widgets.2.children);
+        has_changed |= T1::rerender(&v_nodes.0, &mut ui_nodes.0.widget, &mut ui_nodes.0.children);
+        has_changed |= T2::rerender(&v_nodes.1, &mut ui_nodes.1.widget, &mut ui_nodes.1.children);
+        has_changed |= T3::rerender(&v_nodes.2, &mut ui_nodes.2.widget, &mut ui_nodes.2.children);
         has_changed
     }
 
-    fn invalidate(views: &Self::Views, context: &mut Context) {
-        T1::invalidate(&views.0, context);
-        T2::invalidate(&views.1, context);
-        T3::invalidate(&views.2, context);
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
+        T1::invalidate(&v_nodes.0, context);
+        T2::invalidate(&v_nodes.1, context);
+        T3::invalidate(&v_nodes.2, context);
     }
 
-    fn build(self, context: &mut Context) -> Self::Views {
-        (self.0.build(context), self.1.build(context), self.2.build(context))
+    fn build(self, context: &mut Context) -> Self::VNodes {
+        (
+            self.0.build(context),
+            self.1.build(context),
+            self.2.build(context),
+        )
     }
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
         let mut has_changed = false;
         has_changed |= self.0.rebuild(
-            &mut views.0.view,
-            &mut views.0.children,
-            &mut views.0.components,
+            &mut v_nodes.0.view,
+            &mut v_nodes.0.children,
+            &mut v_nodes.0.components,
             context,
         );
         has_changed |= self.1.rebuild(
-            &mut views.1.view,
-            &mut views.1.children,
-            &mut views.1.components,
+            &mut v_nodes.1.view,
+            &mut v_nodes.1.children,
+            &mut v_nodes.1.components,
             context,
         );
         has_changed |= self.2.rebuild(
-            &mut views.2.view,
-            &mut views.2.children,
-            &mut views.2.components,
+            &mut v_nodes.2.view,
+            &mut v_nodes.2.children,
+            &mut v_nodes.2.components,
             context,
         );
         has_changed
@@ -221,60 +226,60 @@ impl<T> ElementSeq for Option<T>
 where
     T: Element,
 {
-    type Views = Option<ViewPod<T::View, T::Components>>;
+    type VNodes = Option<VNode<T::View, T::Components>>;
 
-    type Widgets = Option<WidgetPod<<T::View as View>::Widget>>;
+    type UINodes = Option<UINode<<T::View as View>::Widget>>;
 
     fn depth() -> usize {
         T::View::depth()
     }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        views.as_ref().map(|view_pod| T::compile(view_pod))
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
+        v_nodes.as_ref().map(|v_node| T::render(v_node))
     }
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        match (views, widgets.as_mut()) {
-            (Some(view_pod), Some(widget_pod)) => {
-                T::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
+        match (v_nodes, ui_nodes.as_mut()) {
+            (Some(v_node), Some(ui_node)) => {
+                T::rerender(v_node, &mut ui_node.widget, &mut ui_node.children)
             }
-            (Some(view_pod), None) => {
-                *widgets = Some(T::compile(view_pod));
+            (Some(v_node), None) => {
+                *ui_nodes = Some(T::render(v_node));
                 true
             }
             (None, Some(_)) => {
-                *widgets = None;
+                *ui_nodes = None;
                 true
             }
             (None, None) => false,
         }
     }
 
-    fn invalidate(views: &Self::Views, context: &mut Context) {
-        if let Some(view_pod) = views {
-            T::invalidate(view_pod, context);
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
+        if let Some(v_node) = v_nodes {
+            T::invalidate(v_node, context);
         }
     }
 
-    fn build(self, context: &mut Context) -> Self::Views {
-        self.map(|el| el.build(context))
+    fn build(self, context: &mut Context) -> Self::VNodes {
+        self.map(|element| element.build(context))
     }
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
-        match (self, views.as_mut()) {
-            (Some(el), Some(view_pod)) => el.rebuild(
-                &mut view_pod.view,
-                &mut view_pod.children,
-                &mut view_pod.components,
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
+        match (self, v_nodes.as_mut()) {
+            (Some(element), Some(v_node)) => element.rebuild(
+                &mut v_node.view,
+                &mut v_node.children,
+                &mut v_node.components,
                 context,
             ),
-            (Some(el), None) => {
-                *views = Some(el.build(context));
+            (Some(element), None) => {
+                *v_nodes = Some(element.build(context));
                 true
             }
-            (None, Some(view_pod)) => {
-                T::invalidate(view_pod, context);
-                *views = None;
+            (None, Some(v_node)) => {
+                T::invalidate(v_node, context);
+                *v_nodes = None;
                 true
             }
             (None, None) => false,
@@ -286,37 +291,37 @@ impl<T> ElementSeq for Vec<T>
 where
     T: Element,
 {
-    type Views = Vec<ViewPod<T::View, T::Components>>;
+    type VNodes = Vec<VNode<T::View, T::Components>>;
 
-    type Widgets = Vec<WidgetPod<<T::View as View>::Widget>>;
+    type UINodes = Vec<UINode<<T::View as View>::Widget>>;
 
     fn depth() -> usize {
         T::View::depth()
     }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        views.into_iter().map(T::compile).collect()
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
+        v_nodes.into_iter().map(T::render).collect()
     }
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        if views.len() < widgets.len() {
-            widgets.drain(widgets.len() - views.len() - 1..);
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
+        if v_nodes.len() < ui_nodes.len() {
+            ui_nodes.drain(ui_nodes.len() - v_nodes.len() - 1..);
         } else {
-            widgets.reserve_exact(views.len());
+            ui_nodes.reserve_exact(v_nodes.len());
         }
 
-        let reuse_len = views.len().min(widgets.len());
+        let reuse_len = v_nodes.len().min(ui_nodes.len());
         let mut has_changed = false;
 
-        for (i, view_pod) in views.into_iter().enumerate() {
+        for (i, v_node) in v_nodes.into_iter().enumerate() {
             if i < reuse_len {
-                let widget_pod = &mut widgets[i];
-                if T::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children) {
+                let ui_node = &mut ui_nodes[i];
+                if T::rerender(v_node, &mut ui_node.widget, &mut ui_node.children) {
                     has_changed = true;
                 }
             } else {
-                let widget_pod = T::compile(view_pod);
-                widgets.push(widget_pod);
+                let ui_node = T::render(v_node);
+                ui_nodes.push(ui_node);
                 has_changed = true;
             }
         }
@@ -324,42 +329,44 @@ where
         has_changed
     }
 
-    fn invalidate(views: &Self::Views, context: &mut Context) {
-        for view_pod in views {
-            T::invalidate(view_pod, context);
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
+        for v_node in v_nodes {
+            T::invalidate(v_node, context);
         }
     }
 
-    fn build(self, context: &mut Context) -> Self::Views {
-        self.into_iter().map(|el| el.build(context)).collect()
+    fn build(self, context: &mut Context) -> Self::VNodes {
+        self.into_iter()
+            .map(|element| element.build(context))
+            .collect()
     }
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
-        if self.len() < views.len() {
-            for view_pod in views.drain(views.len() - self.len() - 1..) {
-                T::invalidate(&view_pod, context);
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
+        if self.len() < v_nodes.len() {
+            for v_node in v_nodes.drain(v_nodes.len() - self.len() - 1..) {
+                T::invalidate(&v_node, context);
             }
         } else {
-            views.reserve_exact(self.len());
+            v_nodes.reserve_exact(self.len());
         }
 
-        let reuse_len = self.len().min(views.len());
+        let reuse_len = self.len().min(v_nodes.len());
         let mut has_changed = false;
 
-        for (i, el) in self.into_iter().enumerate() {
+        for (i, element) in self.into_iter().enumerate() {
             if i < reuse_len {
-                let view_pod = &mut views[i];
-                if el.rebuild(
-                    &mut view_pod.view,
-                    &mut view_pod.children,
-                    &mut view_pod.components,
+                let v_node = &mut v_nodes[i];
+                if element.rebuild(
+                    &mut v_node.view,
+                    &mut v_node.children,
+                    &mut v_node.components,
                     context,
                 ) {
                     has_changed = true;
                 }
             } else {
-                let view_pod = el.build(context);
-                views.push(view_pod);
+                let v_node = element.build(context);
+                v_nodes.push(v_node);
                 has_changed = true;
             }
         }
@@ -395,77 +402,76 @@ where
     L: Element,
     R: Element,
 {
-    type Views = Either<ViewPod<L::View, L::Components>, ViewPod<R::View, R::Components>>;
+    type VNodes = Either<VNode<L::View, L::Components>, VNode<R::View, R::Components>>;
 
-    type Widgets =
-        Either<WidgetPod<<L::View as View>::Widget>, WidgetPod<<R::View as View>::Widget>>;
+    type UINodes = Either<UINode<<L::View as View>::Widget>, UINode<<R::View as View>::Widget>>;
 
     fn depth() -> usize {
         L::View::depth().max(R::View::depth())
     }
 
-    fn compile(views: &Self::Views) -> Self::Widgets {
-        match views {
-            Either::Left(view_pod) => Either::Left(L::compile(view_pod)),
-            Either::Right(view_pod) => Either::Right(R::compile(view_pod)),
+    fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
+        match v_nodes {
+            Either::Left(v_node) => Either::Left(L::render(v_node)),
+            Either::Right(v_node) => Either::Right(R::render(v_node)),
         }
     }
 
-    fn recompile(views: &Self::Views, widgets: &mut Self::Widgets) -> bool {
-        match (views, widgets.as_mut()) {
-            (Either::Left(view_pod), Either::Left(widget_pod)) => {
-                L::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
+    fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
+        match (v_nodes, ui_nodes.as_mut()) {
+            (Either::Left(v_node), Either::Left(ui_node)) => {
+                L::rerender(v_node, &mut ui_node.widget, &mut ui_node.children)
             }
-            (Either::Right(view_pod), Either::Right(widget_pod)) => {
-                R::recompile(view_pod, &mut widget_pod.widget, &mut widget_pod.children)
+            (Either::Right(v_node), Either::Right(ui_node)) => {
+                R::rerender(v_node, &mut ui_node.widget, &mut ui_node.children)
             }
-            (Either::Left(view_pod), Either::Right(_)) => {
-                *widgets = Either::Left(L::compile(view_pod));
+            (Either::Left(v_node), Either::Right(_)) => {
+                *ui_nodes = Either::Left(L::render(v_node));
                 true
             }
-            (Either::Right(view_pod), Either::Left(_)) => {
-                *widgets = Either::Right(R::compile(view_pod));
+            (Either::Right(v_node), Either::Left(_)) => {
+                *ui_nodes = Either::Right(R::render(v_node));
                 true
             }
         }
     }
 
-    fn invalidate(views: &Self::Views, context: &mut Context) {
-        match views {
-            Either::Left(el) => L::invalidate(el, context),
-            Either::Right(el) => R::invalidate(el, context),
+    fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
+        match v_nodes {
+            Either::Left(element) => L::invalidate(element, context),
+            Either::Right(element) => R::invalidate(element, context),
         }
     }
 
-    fn build(self, context: &mut Context) -> Self::Views {
+    fn build(self, context: &mut Context) -> Self::VNodes {
         match self {
-            Either::Left(el) => Either::Left(el.build(context)),
-            Either::Right(el) => Either::Right(el.build(context)),
+            Either::Left(element) => Either::Left(element.build(context)),
+            Either::Right(element) => Either::Right(element.build(context)),
         }
     }
 
-    fn rebuild(self, views: &mut Self::Views, context: &mut Context) -> bool {
-        match (self, views.as_mut()) {
-            (Either::Left(el), Either::Left(view_pod)) => el.rebuild(
-                &mut view_pod.view,
-                &mut view_pod.children,
-                &mut view_pod.components,
+    fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
+        match (self, v_nodes.as_mut()) {
+            (Either::Left(element), Either::Left(v_node)) => element.rebuild(
+                &mut v_node.view,
+                &mut v_node.children,
+                &mut v_node.components,
                 context,
             ),
-            (Either::Right(el), Either::Right(view_pod)) => el.rebuild(
-                &mut view_pod.view,
-                &mut view_pod.children,
-                &mut view_pod.components,
+            (Either::Right(element), Either::Right(v_node)) => element.rebuild(
+                &mut v_node.view,
+                &mut v_node.children,
+                &mut v_node.components,
                 context,
             ),
-            (Either::Left(el), Either::Right(view_pod)) => {
-                R::invalidate(view_pod, context);
-                *views = Either::Left(el.build(context));
+            (Either::Left(element), Either::Right(v_node)) => {
+                R::invalidate(v_node, context);
+                *v_nodes = Either::Left(element.build(context));
                 true
             }
-            (Either::Right(el), Either::Left(view_pod)) => {
-                L::invalidate(view_pod, context);
-                *views = Either::Right(el.build(context));
+            (Either::Right(element), Either::Left(v_node)) => {
+                L::invalidate(v_node, context);
+                *v_nodes = Either::Right(element.build(context));
                 true
             }
         }

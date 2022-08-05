@@ -5,7 +5,7 @@ use yuiui_experiment::*;
 fn app() -> impl Element<
     View = impl View<
         Widget = impl Widget<Children = impl Debug> + Debug,
-        Children = impl ElementSeq<Views = impl Debug>,
+        Children = impl ElementSeq<VNodes = impl Debug>,
     > + Debug,
     Components = impl Debug,
 > {
@@ -24,8 +24,7 @@ fn app() -> impl Element<
 
 fn main() {
     let root = app();
-    let virtual_world = VirtualWorld::new(root);
-    let real_world = virtual_world.realize();
-    println!("{:#?}", virtual_world.view_pod());
-    println!("{:#?}", real_world.widget_pod());
+    let stage = Stage::new(root);
+    println!("{:#?}", stage.v_node());
+    println!("{:#?}", stage.ui_node());
 }
