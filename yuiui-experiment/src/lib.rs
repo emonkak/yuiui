@@ -11,9 +11,9 @@ mod component;
 mod context;
 mod element;
 mod element_seq;
-mod node;
 mod stage;
 mod view;
+mod view_node;
 mod widget;
 
 use std::borrow::Cow;
@@ -98,8 +98,9 @@ impl Component for Button {
     type Element = ViewElement<Block<hlist_type![ViewElement<Text>]>>;
 
     fn render(&self) -> Self::Element {
-        view(Block::new(), hlist![
-            view(Text::new(self.label.clone()), hlist![])
-        ])
+        view(
+            Block::new(),
+            hlist![view(Text::new(self.label.clone()), hlist![])],
+        )
     }
 }

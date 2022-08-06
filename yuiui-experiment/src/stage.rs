@@ -1,10 +1,10 @@
 use crate::context::Context;
 use crate::element::Element;
-use crate::node::UINode;
+use crate::view_node::ViewNode;
 
 #[allow(dead_code)]
 pub struct Stage<E: Element> {
-    node: UINode<E::View, E::Components>,
+    node: ViewNode<E::View, E::Components>,
     context: Context,
 }
 
@@ -12,13 +12,10 @@ impl<E: Element> Stage<E> {
     pub fn new(element: E) -> Self {
         let mut context = Context::new();
         let node = element.build(&mut context);
-        Self {
-            node,
-            context,
-        }
+        Self { node, context }
     }
 
-    pub fn node(&self) -> &UINode<E::View, E::Components> {
+    pub fn node(&self) -> &ViewNode<E::View, E::Components> {
         &self.node
     }
 }

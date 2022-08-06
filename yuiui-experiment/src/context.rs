@@ -2,12 +2,10 @@ use yuiui_support::slot_vec::SlotVec;
 
 pub type Id = usize;
 
-pub type IdPath = Vec<Id>;
-
 #[derive(Debug)]
 pub struct Context {
-    arena: SlotVec<IdPath>,
-    id_path: IdPath,
+    arena: SlotVec<Vec<Id>>,
+    id_path: Vec<Id>,
 }
 
 impl Context {

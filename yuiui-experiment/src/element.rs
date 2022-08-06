@@ -1,21 +1,22 @@
+use std::mem;
+
 use crate::component::Component;
 use crate::context::Context;
 use crate::element_seq::ElementSeq;
-use crate::node::{UINode, UIStatus};
+use crate::hlist::{HCons, HList, HNil};
 use crate::view::View;
+use crate::view_node::{ViewNode, ViewNodeScope};
 
 pub trait Element: 'static {
     type View: View;
 
-    type Components;
+    type Components: HList;
 
-    fn build(self, context: &mut Context) -> UINode<Self::View, Self::Components>;
+    fn build(self, context: &mut Context) -> ViewNode<Self::View, Self::Components>;
 
     fn rebuild(
         self,
-        view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Nodes,
-        components: &mut Self::Components,
+        node: ViewNodeScope<Self::View, Self::Components>,
         context: &mut Context,
     ) -> bool;
 }
@@ -29,32 +30,30 @@ pub struct ViewElement<V: View> {
 impl<V: View> Element for ViewElement<V> {
     type View = V;
 
-    type Components = ();
+    type Components = HNil;
 
-    fn build(self, context: &mut Context) -> UINode<Self::View, Self::Components> {
+    fn build(self, context: &mut Context) -> ViewNode<Self::View, Self::Components> {
         let id = context.next_identity();
         context.push(id);
         let children = self.children.build(context);
         context.pop();
-        UINode {
+        ViewNode {
             id,
             widget: self.view.build(&children),
             view: self.view,
             children,
-            components: (),
-            status: UIStatus::Committed,
+            components: HNil,
         }
     }
 
     fn rebuild(
         self,
-        view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Nodes,
-        _components: &mut Self::Components,
+        node: ViewNodeScope<Self::View, Self::Components>,
         context: &mut Context,
     ) -> bool {
-        *view = self.view;
-        *children = self.children.build(context);
+        *node.children = self.children.build(context);
+        *node.widget = self.view.build(node.children);
+        *node.view = self.view;
         true
     }
 }
@@ -67,30 +66,28 @@ pub struct ComponentElement<C: Component> {
 impl<C: Component> Element for ComponentElement<C> {
     type View = <C::Element as Element>::View;
 
-    type Components = (C, <C::Element as Element>::Components);
+    type Components = HCons<C, <C::Element as Element>::Components>;
 
-    fn build(self, context: &mut Context) -> UINode<Self::View, Self::Components> {
+    fn build(self, context: &mut Context) -> ViewNode<Self::View, Self::Components> {
         let node = Component::render(&self.component).build(context);
-        UINode {
+        ViewNode {
             id: node.id,
             widget: node.widget,
             view: node.view,
             children: node.children,
-            components: (self.component, node.components),
-            status: node.status,
+            components: HCons(self.component, node.components),
         }
     }
 
     fn rebuild(
         self,
-        view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::Nodes,
-        components: &mut Self::Components,
+        node: ViewNodeScope<Self::View, Self::Components>,
         context: &mut Context,
     ) -> bool {
-        let (ref old_component, rest_components) = components;
-        if self.component.should_update(old_component) {
-            Component::render(&self.component).rebuild(view, children, rest_components, context)
+        let (head_component, node) = node.destruct_components();
+        let old_component = mem::replace(head_component, self.component);
+        if old_component.should_update(head_component) {
+            Component::render(head_component).rebuild(node, context)
         } else {
             false
         }

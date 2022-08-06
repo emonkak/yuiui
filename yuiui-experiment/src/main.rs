@@ -3,18 +3,22 @@ use std::fmt::Debug;
 use yuiui_experiment::*;
 
 fn app() -> impl Element<
-    View = impl View<
-        Widget = impl Debug,
-        Children = impl ElementSeq<Nodes = impl Debug>,
-    > + Debug,
-    Components = impl Debug,
+    View = impl View<Widget = impl Debug, Children = impl ElementSeq<Nodes = impl Debug>> + Debug,
+    Components = impl hlist::HList + Debug,
 > {
     view(
         Block::new(),
         hlist![
             view(
                 Block::new(),
-                vec![view(Text::new("hello"), hlist![]), view(Text::new("world"), hlist![])],
+                vec![
+                    view(Text::new("hello"), hlist![]),
+                    view(Text::new("world"), hlist![])
+                ],
+            ),
+            view(
+                Block::new(),
+                Some(view(Text::new("hello world!"), hlist![]))
             ),
             view(Text::new("!"), hlist![]),
             component(Button::new("click me!")),
