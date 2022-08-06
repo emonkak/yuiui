@@ -286,12 +286,12 @@ where
         match (self, nodes.active.as_mut()) {
             (Either::Left(element), Either::Left(node)) => {
                 let has_changed = element.rebuild(node.scope(), context);
-                nodes.dirty |= true;
+                nodes.dirty |= has_changed;
                 has_changed
             }
             (Either::Right(element), Either::Right(node)) => {
                 let has_changed = element.rebuild(node.scope(), context);
-                nodes.dirty |= true;
+                nodes.dirty |= has_changed;
                 has_changed
             }
             (Either::Left(element), Either::Right(_)) => {

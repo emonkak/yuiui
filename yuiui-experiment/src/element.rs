@@ -1,8 +1,8 @@
 use std::mem;
 
-use crate::component::Component;
+use crate::component::{Component, ComponentNode, ComponentStack};
 use crate::context::Context;
-use crate::hlist::{HCons, HList, HNil};
+use crate::hlist::{HCons, HNil};
 use crate::sequence::ElementSeq;
 use crate::view::View;
 use crate::widget::{WidgetNode, WidgetNodeScope};
@@ -10,7 +10,7 @@ use crate::widget::{WidgetNode, WidgetNodeScope};
 pub trait Element: 'static {
     type View: View;
 
-    type Components: HList;
+    type Components: ComponentStack;
 
     fn build(
         self,
@@ -71,18 +71,19 @@ pub struct ComponentElement<C: Component> {
 impl<C: Component> Element for ComponentElement<C> {
     type View = <C::Element as Element>::View;
 
-    type Components = HCons<C, <C::Element as Element>::Components>;
+    type Components = HCons<ComponentNode<C>, <C::Element as Element>::Components>;
 
     fn build(
         self,
         context: &mut Context,
     ) -> WidgetNode<<Self::View as View>::Widget, Self::Components> {
-        let node = Component::render(&self.component).build(context);
+        let component_node = ComponentNode::new(self.component);
+        let widget_node = component_node.render().build(context);
         WidgetNode {
-            id: node.id,
-            widget: node.widget,
-            children: node.children,
-            components: HCons(self.component, node.components),
+            id: widget_node.id,
+            widget: widget_node.widget,
+            children: widget_node.children,
+            components: HCons(component_node, widget_node.components),
         }
     }
 
@@ -91,10 +92,16 @@ impl<C: Component> Element for ComponentElement<C> {
         node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
         context: &mut Context,
     ) -> bool {
-        let (head_component, node) = node.destruct_components();
-        let old_component = mem::replace(head_component, self.component);
-        if old_component.should_update(head_component) {
-            Component::render(head_component).rebuild(node, context)
+        let HCons(head, tail) = node.components;
+        let node = WidgetNodeScope {
+            id: node.id,
+            widget: node.widget,
+            children: node.children,
+            components: tail,
+        };
+        let old_component = mem::replace(&mut head.component, self.component);
+        if old_component.should_update(&head.component) {
+            head.render().rebuild(node, context)
         } else {
             false
         }

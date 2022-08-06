@@ -8,11 +8,7 @@ pub trait View: 'static + Sized {
 
     fn build(self, children: &Self::Children) -> Self::Widget;
 
-    fn rebuild(
-        self,
-        children: &Self::Children,
-        widget: &mut Self::Widget,
-    ) -> bool {
+    fn rebuild(self, children: &Self::Children, widget: &mut Self::Widget) -> bool {
         *widget = self.build(children);
         true
     }

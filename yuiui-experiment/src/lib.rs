@@ -96,7 +96,9 @@ impl Button {
 impl Component for Button {
     type Element = ViewElement<Block<hlist_type![ViewElement<Text>]>>;
 
-    fn render(&self) -> Self::Element {
+    type State = ();
+
+    fn render(&self, _state: &Self::State) -> Self::Element {
         view(
             Block::new(),
             hlist![view(Text::new(self.label.clone()), hlist![])],
