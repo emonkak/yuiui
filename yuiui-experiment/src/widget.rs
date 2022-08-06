@@ -49,7 +49,7 @@ where
         f.debug_struct("WidgetNode")
             .field("id", &self.id)
             .field("widget", &self.widget)
-            .field("pending_view", &self.widget)
+            .field("pending_view", &self.pending_view)
             .field("children", &self.children)
             .field("components", &self.components)
             .finish()

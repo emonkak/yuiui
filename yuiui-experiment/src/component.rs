@@ -1,4 +1,4 @@
-use crate::element::{component, ComponentElement, Element};
+use crate::element::{ComponentElement, Element};
 use crate::hlist::{HCons, HList, HNil};
 
 pub trait Component: Sized + 'static {
@@ -13,7 +13,7 @@ pub trait Component: Sized + 'static {
     }
 
     fn el(self) -> ComponentElement<Self> {
-        component(self)
+        ComponentElement::new(self)
     }
 }
 

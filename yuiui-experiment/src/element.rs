@@ -27,6 +27,12 @@ pub struct ViewElement<V: View> {
     children: V::Children,
 }
 
+impl<V: View> ViewElement<V> {
+    pub fn new(view: V, children: V::Children) -> Self {
+        ViewElement { view, children }
+    }
+}
+
 impl<V: View> Element for ViewElement<V> {
     type View = V;
 
@@ -60,6 +66,12 @@ impl<V: View> Element for ViewElement<V> {
 #[derive(Debug)]
 pub struct ComponentElement<C: Component> {
     component: C,
+}
+
+impl<C: Component> ComponentElement<C> {
+    pub fn new(component: C) -> ComponentElement<C> {
+        Self { component }
+    }
 }
 
 impl<C: Component> Element for ComponentElement<C> {
@@ -98,12 +110,4 @@ impl<C: Component> Element for ComponentElement<C> {
             false
         }
     }
-}
-
-pub fn view<V: View>(view: V, children: V::Children) -> ViewElement<V> {
-    ViewElement { view, children }
-}
-
-pub fn component<C: Component>(component: C) -> ComponentElement<C> {
-    ComponentElement { component }
 }

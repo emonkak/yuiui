@@ -9,7 +9,7 @@ mod view;
 mod widget;
 
 pub use component::Component;
-pub use element::{component, view, ComponentElement, Element, ViewElement};
+pub use element::{ComponentElement, Element, ViewElement};
 pub use sequence::{Either, ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use view::View;
@@ -99,9 +99,6 @@ impl Component for Button {
     type State = ();
 
     fn render(&self, _state: &Self::State) -> Self::Element {
-        view(
-            Block::new(),
-            hlist![view(Text::new(self.label.clone()), hlist![])],
-        )
+        Block::new().el_with(hlist![Text::new(self.label.clone()).el()])
     }
 }

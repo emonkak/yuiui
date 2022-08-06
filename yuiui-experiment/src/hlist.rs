@@ -30,7 +30,7 @@ impl HList for HNil {
 
 impl fmt::Debug for HNil {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("[]")
+        f.write_str("hlist![]")
     }
 }
 

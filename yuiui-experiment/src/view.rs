@@ -1,4 +1,4 @@
-use crate::element::{view, ViewElement};
+use crate::element::ViewElement;
 use crate::sequence::ElementSeq;
 use crate::widget::Widget;
 
@@ -22,10 +22,10 @@ pub trait View: 'static + Sized {
     where
         Self::Children: Default,
     {
-        view(self, Default::default())
+        ViewElement::new(self, Default::default())
     }
 
     fn el_with(self, children: Self::Children) -> ViewElement<Self> {
-        view(self, children)
+        ViewElement::new(self, children)
     }
 }
