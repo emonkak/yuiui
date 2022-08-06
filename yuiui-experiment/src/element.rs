@@ -5,18 +5,21 @@ use crate::context::Context;
 use crate::hlist::{HCons, HList, HNil};
 use crate::sequence::ElementSeq;
 use crate::view::View;
-use crate::view_node::{ViewNode, ViewNodeScope};
+use crate::widget::{WidgetNode, WidgetNodeScope};
 
 pub trait Element: 'static {
     type View: View;
 
     type Components: HList;
 
-    fn build(self, context: &mut Context) -> ViewNode<Self::View, Self::Components>;
+    fn build(
+        self,
+        context: &mut Context,
+    ) -> WidgetNode<<Self::View as View>::Widget, Self::Components>;
 
     fn rebuild(
         self,
-        node: ViewNodeScope<Self::View, Self::Components>,
+        node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
         context: &mut Context,
     ) -> bool;
 }
@@ -32,15 +35,18 @@ impl<V: View> Element for ViewElement<V> {
 
     type Components = HNil;
 
-    fn build(self, context: &mut Context) -> ViewNode<Self::View, Self::Components> {
+    fn build(
+        self,
+        context: &mut Context,
+    ) -> WidgetNode<<Self::View as View>::Widget, Self::Components> {
         let id = context.next_identity();
         context.push(id);
+        let widget = self.view.build(&self.children);
         let children = self.children.build(context);
         context.pop();
-        ViewNode {
+        WidgetNode {
             id,
-            widget: self.view.build(&children),
-            view: self.view,
+            widget,
             children,
             components: HNil,
         }
@@ -48,12 +54,11 @@ impl<V: View> Element for ViewElement<V> {
 
     fn rebuild(
         self,
-        node: ViewNodeScope<Self::View, Self::Components>,
+        node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
         context: &mut Context,
     ) -> bool {
+        *node.widget = self.view.build(&self.children);
         *node.children = self.children.build(context);
-        *node.widget = self.view.build(node.children);
-        *node.view = self.view;
         true
     }
 }
@@ -68,12 +73,14 @@ impl<C: Component> Element for ComponentElement<C> {
 
     type Components = HCons<C, <C::Element as Element>::Components>;
 
-    fn build(self, context: &mut Context) -> ViewNode<Self::View, Self::Components> {
+    fn build(
+        self,
+        context: &mut Context,
+    ) -> WidgetNode<<Self::View as View>::Widget, Self::Components> {
         let node = Component::render(&self.component).build(context);
-        ViewNode {
+        WidgetNode {
             id: node.id,
             widget: node.widget,
-            view: node.view,
             children: node.children,
             components: HCons(self.component, node.components),
         }
@@ -81,7 +88,7 @@ impl<C: Component> Element for ComponentElement<C> {
 
     fn rebuild(
         self,
-        node: ViewNodeScope<Self::View, Self::Components>,
+        node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
         context: &mut Context,
     ) -> bool {
         let (head_component, node) = node.destruct_components();

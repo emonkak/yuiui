@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use yuiui_experiment::*;
 
 fn app() -> impl Element<
-    View = impl View<Widget = impl Debug, Children = impl ElementSeq<Nodes = impl Debug>> + Debug,
+    View = impl View<Widget = impl Widget<Children = impl Debug> + Debug> + Debug,
     Components = impl hlist::HList + Debug,
 > {
     view(

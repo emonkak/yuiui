@@ -55,6 +55,7 @@ impl<H, T: HList> HList for HCons<H, T> {
 
 impl<H: fmt::Debug, T: HList + DebugList> fmt::Debug for HCons<H, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("hlist!")?;
         DebugList::fmt(self, &mut f.debug_list())
     }
 }

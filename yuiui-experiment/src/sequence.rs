@@ -5,17 +5,17 @@ use crate::context::Context;
 use crate::element::Element;
 use crate::hlist::{HCons, HList, HNil};
 use crate::view::View;
-use crate::view_node::ViewNode;
+use crate::widget::{Widget, WidgetNode};
 
-pub trait ElementSeq: 'static {
-    type Nodes: ViewNodeSeq;
+pub trait ElementSeq {
+    type Nodes: WidgetNodeSeq;
 
     fn build(self, context: &mut Context) -> Self::Nodes;
 
     fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool;
 }
 
-pub trait ViewNodeSeq {
+pub trait WidgetNodeSeq {
     fn commit(&mut self, context: &mut Context);
 }
 
@@ -31,7 +31,7 @@ impl ElementSeq for HNil {
     }
 }
 
-impl ViewNodeSeq for HNil {
+impl WidgetNodeSeq for HNil {
     fn commit(&mut self, _context: &mut Context) {}
 }
 
@@ -41,7 +41,7 @@ where
     T: ElementSeq + HList,
     T::Nodes: HList,
 {
-    type Nodes = HCons<ViewNode<H::View, H::Components>, T::Nodes>;
+    type Nodes = HCons<WidgetNode<<H::View as View>::Widget, H::Components>, T::Nodes>;
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         HCons(self.0.build(context), self.1.build(context))
@@ -55,11 +55,11 @@ where
     }
 }
 
-impl<V, CS, T> ViewNodeSeq for HCons<ViewNode<V, CS>, T>
+impl<W, CS, T> WidgetNodeSeq for HCons<WidgetNode<W, CS>, T>
 where
-    V: View,
+    W: Widget,
     CS: HList,
-    T: ViewNodeSeq + HList,
+    T: WidgetNodeSeq + HList,
 {
     fn commit(&mut self, context: &mut Context) {
         self.0.commit(context);
@@ -71,7 +71,7 @@ impl<T> ElementSeq for Vec<T>
 where
     T: Element,
 {
-    type Nodes = VecStore<ViewNode<T::View, T::Components>>;
+    type Nodes = VecStore<WidgetNode<<T::View as View>::Widget, T::Components>>;
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         VecStore::new(
@@ -112,7 +112,7 @@ where
     }
 }
 
-impl<V: View, CS: HList> ViewNodeSeq for VecStore<ViewNode<V, CS>> {
+impl<W: Widget, CS: HList> WidgetNodeSeq for VecStore<WidgetNode<W, CS>> {
     fn commit(&mut self, context: &mut Context) {
         if self.dirty {
             match self.new_len.cmp(&self.active.len()) {
@@ -171,7 +171,7 @@ impl<T> ElementSeq for Option<T>
 where
     T: Element,
 {
-    type Nodes = OptionStore<ViewNode<T::View, T::Components>>;
+    type Nodes = OptionStore<WidgetNode<<T::View as View>::Widget, T::Components>>;
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         OptionStore::new(self.map(|element| element.build(context)))
@@ -206,7 +206,7 @@ where
     }
 }
 
-impl<V: View, CS: HList> ViewNodeSeq for OptionStore<ViewNode<V, CS>> {
+impl<W: Widget, CS: HList> WidgetNodeSeq for OptionStore<WidgetNode<W, CS>> {
     fn commit(&mut self, context: &mut Context) {
         if self.swap {
             if let Some(node) = self.active.as_mut() {
@@ -270,7 +270,10 @@ where
     L: Element,
     R: Element,
 {
-    type Nodes = EitherStore<ViewNode<L::View, L::Components>, ViewNode<R::View, R::Components>>;
+    type Nodes = EitherStore<
+        WidgetNode<<L::View as View>::Widget, L::Components>,
+        WidgetNode<<R::View as View>::Widget, R::Components>,
+    >;
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         match self {
@@ -333,11 +336,11 @@ where
     }
 }
 
-impl<V1, CS1, V2, CS2> ViewNodeSeq for EitherStore<ViewNode<V1, CS1>, ViewNode<V2, CS2>>
+impl<W1, CS1, W2, CS2> WidgetNodeSeq for EitherStore<WidgetNode<W1, CS1>, WidgetNode<W2, CS2>>
 where
-    V1: View,
+    W1: Widget,
     CS1: HList,
-    V2: View,
+    W2: Widget,
     CS2: HList,
 {
     fn commit(&mut self, context: &mut Context) {

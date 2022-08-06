@@ -6,12 +6,11 @@ mod element;
 mod sequence;
 mod stage;
 mod view;
-mod view_node;
 mod widget;
 
 pub use component::Component;
 pub use element::{component, view, ComponentElement, Element, ViewElement};
-pub use sequence::{Either, ElementSeq, ViewNodeSeq};
+pub use sequence::{Either, ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use view::View;
 pub use widget::Widget;
@@ -38,8 +37,8 @@ impl View for Text {
 
     type Children = hlist::HNil;
 
-    fn build(&self, _children: &Self::Children) -> Self::Widget {
-        self.clone()
+    fn build(self, _children: &<Self::Widget as Widget>::Children) -> Self::Widget {
+        self
     }
 }
 
@@ -60,12 +59,12 @@ impl<Children> Block<Children> {
     }
 }
 
-impl<Children: ElementSeq> View for Block<Children> {
+impl<Children: 'static + ElementSeq> View for Block<Children> {
     type Widget = BlockWidget<<Children as ElementSeq>::Nodes>;
 
     type Children = Children;
 
-    fn build(&self, _children: &<Self::Children as ElementSeq>::Nodes) -> Self::Widget {
+    fn build(self, _children: &Self::Children) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
         }
@@ -77,7 +76,7 @@ pub struct BlockWidget<Children> {
     children: PhantomData<Children>,
 }
 
-impl<Children: 'static> Widget for BlockWidget<Children> {
+impl<Children: 'static + WidgetNodeSeq> Widget for BlockWidget<Children> {
     type Children = Children;
 }
 

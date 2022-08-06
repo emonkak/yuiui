@@ -1,10 +1,11 @@
 use crate::context::Context;
 use crate::element::Element;
-use crate::view_node::ViewNode;
+use crate::view::View;
+use crate::widget::WidgetNode;
 
 #[allow(dead_code)]
 pub struct Stage<E: Element> {
-    node: ViewNode<E::View, E::Components>,
+    node: WidgetNode<<E::View as View>::Widget, E::Components>,
     context: Context,
 }
 
@@ -15,7 +16,7 @@ impl<E: Element> Stage<E> {
         Self { node, context }
     }
 
-    pub fn node(&self) -> &ViewNode<E::View, E::Components> {
+    pub fn node(&self) -> &WidgetNode<<E::View as View>::Widget, E::Components> {
         &self.node
     }
 }
