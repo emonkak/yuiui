@@ -12,14 +12,11 @@ pub trait Element: 'static {
 
     type Components: ComponentStack;
 
-    fn build(
-        self,
-        context: &mut Context,
-    ) -> WidgetNode<<Self::View as View>::Widget, Self::Components>;
+    fn build(self, context: &mut Context) -> WidgetNode<Self::View, Self::Components>;
 
     fn rebuild(
         self,
-        node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
+        node: WidgetNodeScope<Self::View, Self::Components>,
         context: &mut Context,
     ) -> bool;
 }
@@ -35,18 +32,16 @@ impl<V: View> Element for ViewElement<V> {
 
     type Components = HNil;
 
-    fn build(
-        self,
-        context: &mut Context,
-    ) -> WidgetNode<<Self::View as View>::Widget, Self::Components> {
+    fn build(self, context: &mut Context) -> WidgetNode<Self::View, Self::Components> {
         let id = context.next_identity();
         context.push(id);
-        let widget = self.view.build(&self.children);
         let children = self.children.build(context);
+        let widget = self.view.build(&children);
         context.pop();
         WidgetNode {
             id,
             widget,
+            pending_view: None,
             children,
             components: HNil,
         }
@@ -54,12 +49,11 @@ impl<V: View> Element for ViewElement<V> {
 
     fn rebuild(
         self,
-        node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
+        node: WidgetNodeScope<Self::View, Self::Components>,
         context: &mut Context,
     ) -> bool {
-        *node.widget = self.view.build(&self.children);
-        *node.children = self.children.build(context);
-        true
+        *node.pending_view = Some(self.view);
+        self.children.rebuild(node.children, context)
     }
 }
 
@@ -73,15 +67,13 @@ impl<C: Component> Element for ComponentElement<C> {
 
     type Components = HCons<ComponentNode<C>, <C::Element as Element>::Components>;
 
-    fn build(
-        self,
-        context: &mut Context,
-    ) -> WidgetNode<<Self::View as View>::Widget, Self::Components> {
+    fn build(self, context: &mut Context) -> WidgetNode<Self::View, Self::Components> {
         let component_node = ComponentNode::new(self.component);
         let widget_node = component_node.render().build(context);
         WidgetNode {
             id: widget_node.id,
             widget: widget_node.widget,
+            pending_view: None,
             children: widget_node.children,
             components: HCons(component_node, widget_node.components),
         }
@@ -89,13 +81,13 @@ impl<C: Component> Element for ComponentElement<C> {
 
     fn rebuild(
         self,
-        node: WidgetNodeScope<<Self::View as View>::Widget, Self::Components>,
+        node: WidgetNodeScope<Self::View, Self::Components>,
         context: &mut Context,
     ) -> bool {
         let HCons(head, tail) = node.components;
         let node = WidgetNodeScope {
             id: node.id,
-            widget: node.widget,
+            pending_view: node.pending_view,
             children: node.children,
             components: tail,
         };

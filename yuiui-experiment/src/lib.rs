@@ -64,7 +64,7 @@ impl<Children: 'static + ElementSeq> View for Block<Children> {
 
     type Children = Children;
 
-    fn build(self, _children: &Self::Children) -> Self::Widget {
+    fn build(self, _children: &<Self::Widget as Widget>::Children) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
         }

@@ -11,7 +11,7 @@ pub trait HList: Sized + private::Sealed {
     fn destruct(self) -> Option<(Self::Head, Self::Tail)>;
 }
 
-#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct HNil;
 
 impl HList for HNil {

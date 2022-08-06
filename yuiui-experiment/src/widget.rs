@@ -2,23 +2,25 @@ use std::fmt;
 
 use crate::context::{Context, Id};
 use crate::sequence::WidgetNodeSeq;
+use crate::view::View;
 
 pub trait Widget: 'static {
     type Children: WidgetNodeSeq;
 }
 
-pub struct WidgetNode<W: Widget, CS> {
+pub struct WidgetNode<V: View, CS> {
     pub id: Id,
-    pub widget: W,
-    pub children: W::Children,
+    pub widget: V::Widget,
+    pub pending_view: Option<V>,
+    pub children: <V::Widget as Widget>::Children,
     pub components: CS,
 }
 
-impl<W: Widget, CS> WidgetNode<W, CS> {
-    pub fn scope(&mut self) -> WidgetNodeScope<W, CS> {
+impl<V: View, CS> WidgetNode<V, CS> {
+    pub fn scope(&mut self) -> WidgetNodeScope<V, CS> {
         WidgetNodeScope {
             id: self.id,
-            widget: &mut self.widget,
+            pending_view: &mut self.pending_view,
             children: &mut self.children,
             components: &mut self.components,
         }
@@ -26,6 +28,9 @@ impl<W: Widget, CS> WidgetNode<W, CS> {
 
     pub fn commit(&mut self, context: &mut Context) {
         context.push(self.id);
+        if let Some(view) = self.pending_view.take() {
+            view.rebuild(&self.children, &mut self.widget);
+        }
         self.children.commit(context);
         context.pop();
     }
@@ -33,25 +38,27 @@ impl<W: Widget, CS> WidgetNode<W, CS> {
     pub fn invalidate(&mut self, _context: &mut Context) {}
 }
 
-impl<W, CS> fmt::Debug for WidgetNode<W, CS>
+impl<V, CS> fmt::Debug for WidgetNode<V, CS>
 where
-    W: Widget + fmt::Debug,
-    W::Children: fmt::Debug,
+    V: View + fmt::Debug,
+    V::Widget: Widget + fmt::Debug,
+    <V::Widget as Widget>::Children: fmt::Debug,
     CS: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetNode")
             .field("id", &self.id)
             .field("widget", &self.widget)
+            .field("pending_view", &self.widget)
             .field("children", &self.children)
             .field("components", &self.components)
             .finish()
     }
 }
 
-pub struct WidgetNodeScope<'a, W: Widget, CS> {
+pub struct WidgetNodeScope<'a, V: View, CS> {
     pub id: Id,
-    pub widget: &'a mut W,
-    pub children: &'a mut W::Children,
+    pub pending_view: &'a mut Option<V>,
+    pub children: &'a mut <V::Widget as Widget>::Children,
     pub components: &'a mut CS,
 }

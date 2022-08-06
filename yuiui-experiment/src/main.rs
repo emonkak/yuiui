@@ -6,24 +6,12 @@ fn app() -> impl Element<
     View = impl View<Widget = impl Widget<Children = impl Debug> + Debug> + Debug,
     Components = impl hlist::HList + Debug,
 > {
-    view(
-        Block::new(),
-        hlist![
-            view(
-                Block::new(),
-                vec![
-                    view(Text::new("hello"), hlist![]),
-                    view(Text::new("world"), hlist![])
-                ],
-            ),
-            view(
-                Block::new(),
-                Some(view(Text::new("hello world!"), hlist![]))
-            ),
-            view(Text::new("!"), hlist![]),
-            component(Button::new("click me!")),
-        ],
-    )
+    Block::new().el_with(hlist![
+        Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
+        Block::new().el_with(Some(Text::new("hello world!").el())),
+        Text::new("!").el(),
+        Button::new("click me!").el(),
+    ])
 }
 
 fn main() {

@@ -1,7 +1,7 @@
-use crate::element::Element;
+use crate::element::{component, ComponentElement, Element};
 use crate::hlist::{HCons, HList, HNil};
 
-pub trait Component: 'static {
+pub trait Component: Sized + 'static {
     type Element: Element;
 
     type State: Default;
@@ -10,6 +10,10 @@ pub trait Component: 'static {
 
     fn should_update(&self, _other: &Self) -> bool {
         true
+    }
+
+    fn el(self) -> ComponentElement<Self> {
+        component(self)
     }
 }
 
