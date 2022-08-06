@@ -4,27 +4,26 @@ use yuiui_experiment::*;
 
 fn app() -> impl Element<
     View = impl View<
-        Widget = impl Widget<Children = impl Debug> + Debug,
-        Children = impl ElementSeq<VNodes = impl Debug>,
+        Widget = impl Debug,
+        Children = impl ElementSeq<Nodes = impl Debug>,
     > + Debug,
     Components = impl Debug,
 > {
     view(
         Block::new(),
-        (
+        hlist![
             view(
                 Block::new(),
-                vec![view(Text::new("hello"), ()), view(Text::new("world"), ())],
+                vec![view(Text::new("hello"), hlist![]), view(Text::new("world"), hlist![])],
             ),
-            view(Text::new("!"), ()),
+            view(Text::new("!"), hlist![]),
             component(Button::new("click me!")),
-        ),
+        ],
     )
 }
 
 fn main() {
     let root = app();
     let stage = Stage::new(root);
-    println!("{:#?}", stage.v_node());
-    println!("{:#?}", stage.ui_node());
+    println!("{:#?}", stage.node());
 }

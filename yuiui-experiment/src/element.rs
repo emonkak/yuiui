@@ -1,7 +1,7 @@
 use crate::component::Component;
 use crate::context::Context;
 use crate::element_seq::ElementSeq;
-use crate::node::VNode;
+use crate::node::{UINode, UIStatus};
 use crate::view::View;
 
 pub trait Element: 'static {
@@ -9,12 +9,12 @@ pub trait Element: 'static {
 
     type Components;
 
-    fn build(self, context: &mut Context) -> VNode<Self::View, Self::Components>;
+    fn build(self, context: &mut Context) -> UINode<Self::View, Self::Components>;
 
     fn rebuild(
         self,
         view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::VNodes,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::Nodes,
         components: &mut Self::Components,
         context: &mut Context,
     ) -> bool;
@@ -31,23 +31,25 @@ impl<V: View> Element for ViewElement<V> {
 
     type Components = ();
 
-    fn build(self, context: &mut Context) -> VNode<Self::View, Self::Components> {
+    fn build(self, context: &mut Context) -> UINode<Self::View, Self::Components> {
         let id = context.next_identity();
         context.push(id);
         let children = self.children.build(context);
         context.pop();
-        VNode {
+        UINode {
             id,
+            widget: self.view.build(&children),
             view: self.view,
             children,
             components: (),
+            status: UIStatus::Committed,
         }
     }
 
     fn rebuild(
         self,
         view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::VNodes,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::Nodes,
         _components: &mut Self::Components,
         context: &mut Context,
     ) -> bool {
@@ -67,20 +69,22 @@ impl<C: Component> Element for ComponentElement<C> {
 
     type Components = (C, <C::Element as Element>::Components);
 
-    fn build(self, context: &mut Context) -> VNode<Self::View, Self::Components> {
-        let v_node = Component::render(&self.component).build(context);
-        VNode {
-            id: v_node.id,
-            view: v_node.view,
-            children: v_node.children,
-            components: (self.component, v_node.components),
+    fn build(self, context: &mut Context) -> UINode<Self::View, Self::Components> {
+        let node = Component::render(&self.component).build(context);
+        UINode {
+            id: node.id,
+            widget: node.widget,
+            view: node.view,
+            children: node.children,
+            components: (self.component, node.components),
+            status: node.status,
         }
     }
 
     fn rebuild(
         self,
         view: &mut Self::View,
-        children: &mut <<Self::View as View>::Children as ElementSeq>::VNodes,
+        children: &mut <<Self::View as View>::Children as ElementSeq>::Nodes,
         components: &mut Self::Components,
         context: &mut Context,
     ) -> bool {

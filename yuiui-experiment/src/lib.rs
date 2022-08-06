@@ -1,3 +1,12 @@
+pub mod hlist;
+
+pub use component::Component;
+pub use element::{component, view, ComponentElement, Element, ViewElement};
+pub use element_seq::{Either, ElementSeq};
+pub use stage::Stage;
+pub use view::View;
+pub use widget::Widget;
+
 mod component;
 mod context;
 mod element;
@@ -9,13 +18,6 @@ mod widget;
 
 use std::borrow::Cow;
 use std::marker::PhantomData;
-
-pub use component::Component;
-pub use element::{component, view, ComponentElement, Element, ViewElement};
-pub use element_seq::{Either, ElementSeq};
-pub use stage::Stage;
-pub use view::View;
-pub use widget::Widget;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -34,7 +36,7 @@ impl Text {
 impl View for Text {
     type Widget = Text;
 
-    type Children = ();
+    type Children = hlist::HNil;
 
     fn build(&self, _children: &Self::Children) -> Self::Widget {
         self.clone()
@@ -42,7 +44,7 @@ impl View for Text {
 }
 
 impl Widget for Text {
-    type Children = ();
+    type Children = hlist::HNil;
 }
 
 #[derive(Debug, Clone)]
@@ -59,11 +61,11 @@ impl<Children> Block<Children> {
 }
 
 impl<Children: ElementSeq> View for Block<Children> {
-    type Widget = BlockWidget<<Children as ElementSeq>::UINodes>;
+    type Widget = BlockWidget<<Children as ElementSeq>::Nodes>;
 
     type Children = Children;
 
-    fn build(&self, _children: &<Self::Children as ElementSeq>::VNodes) -> Self::Widget {
+    fn build(&self, _children: &<Self::Children as ElementSeq>::Nodes) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
         }
@@ -93,9 +95,11 @@ impl Button {
 }
 
 impl Component for Button {
-    type Element = ViewElement<Block<(ViewElement<Text>,)>>;
+    type Element = ViewElement<Block<hlist_type![ViewElement<Text>]>>;
 
     fn render(&self) -> Self::Element {
-        view(Block::new(), (view(Text::new(self.label.clone()), ()),))
+        view(Block::new(), hlist![
+            view(Text::new(self.label.clone()), hlist![])
+        ])
     }
 }

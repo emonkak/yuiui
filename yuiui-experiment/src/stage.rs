@@ -1,31 +1,24 @@
 use crate::context::Context;
 use crate::element::Element;
-use crate::node::{UINode, VNode};
-use crate::view::View;
+use crate::node::UINode;
 
+#[allow(dead_code)]
 pub struct Stage<E: Element> {
-    v_node: VNode<E::View, E::Components>,
-    ui_node: UINode<<E::View as View>::Widget>,
+    node: UINode<E::View, E::Components>,
     context: Context,
 }
 
 impl<E: Element> Stage<E> {
     pub fn new(element: E) -> Self {
         let mut context = Context::new();
-        let v_node = element.build(&mut context);
-        let ui_node = v_node.build();
+        let node = element.build(&mut context);
         Self {
-            v_node,
-            ui_node,
+            node,
             context,
         }
     }
 
-    pub fn v_node(&self) -> &VNode<E::View, E::Components> {
-        &self.v_node
-    }
-
-    pub fn ui_node(&self) -> &UINode<<E::View as View>::Widget> {
-        &self.ui_node
+    pub fn node(&self) -> &UINode<E::View, E::Components> {
+        &self.node
     }
 }
