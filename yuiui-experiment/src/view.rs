@@ -6,10 +6,6 @@ pub trait View: 'static {
 
     type Children: ElementSeq<UINodes = <Self::Widget as Widget>::Children>;
 
-    fn depth() -> usize {
-        1 + Self::Children::depth()
-    }
-
     fn build(&self, children: &<Self::Children as ElementSeq>::VNodes) -> Self::Widget;
 
     fn rebuild(

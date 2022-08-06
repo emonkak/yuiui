@@ -11,11 +11,10 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(depth: usize) -> Self {
-        assert!(depth > 0);
+    pub fn new() -> Self {
         Self {
             arena: SlotVec::new(),
-            id_path: Vec::with_capacity(depth),
+            id_path: Vec::new(),
         }
     }
 

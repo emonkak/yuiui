@@ -8,8 +8,6 @@ pub trait ElementSeq: 'static {
 
     type UINodes;
 
-    fn depth() -> usize;
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes;
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool;
@@ -25,10 +23,6 @@ impl ElementSeq for () {
     type VNodes = ();
 
     type UINodes = ();
-
-    fn depth() -> usize {
-        0
-    }
 
     fn render(_v_nodes: &Self::VNodes) -> Self::UINodes {
         ()
@@ -57,20 +51,16 @@ where
 
     type UINodes = (UINode<<T1::View as View>::Widget>,);
 
-    fn depth() -> usize {
-        T1::View::depth()
-    }
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
-        (T1::render(&v_nodes.0),)
+        (v_nodes.0.build(),)
     }
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
-        T1::rerender(&v_nodes.0, &mut ui_nodes.0.widget, &mut ui_nodes.0.children)
+        v_nodes.0.rebuild(&mut ui_nodes.0.widget, &mut ui_nodes.0.children)
     }
 
     fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
-        T1::invalidate(&v_nodes.0, context);
+        v_nodes.0.invalidate(context);
     }
 
     fn build(self, context: &mut Context) -> Self::VNodes {
@@ -102,24 +92,20 @@ where
         UINode<<T2::View as View>::Widget>,
     );
 
-    fn depth() -> usize {
-        0.max(T1::View::depth()).max(T2::View::depth())
-    }
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
-        (T1::render(&v_nodes.0), T2::render(&v_nodes.1))
+        (v_nodes.0.build(), v_nodes.1.build())
     }
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
         let mut has_changed = false;
-        has_changed |= T1::rerender(&v_nodes.0, &mut ui_nodes.0.widget, &mut ui_nodes.0.children);
-        has_changed |= T2::rerender(&v_nodes.1, &mut ui_nodes.1.widget, &mut ui_nodes.1.children);
+        has_changed |= &v_nodes.0.rebuild(&mut ui_nodes.0.widget, &mut ui_nodes.0.children);
+        has_changed |= &v_nodes.1.rebuild(&mut ui_nodes.1.widget, &mut ui_nodes.1.children);
         has_changed
     }
 
     fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
-        T1::invalidate(&v_nodes.0, context);
-        T2::invalidate(&v_nodes.1, context);
+        v_nodes.0.invalidate(context);
+        v_nodes.1.invalidate(context);
     }
 
     fn build(self, context: &mut Context) -> Self::VNodes {
@@ -162,32 +148,26 @@ where
         UINode<<T3::View as View>::Widget>,
     );
 
-    fn depth() -> usize {
-        0.max(T1::View::depth())
-            .max(T2::View::depth())
-            .max(T3::View::depth())
-    }
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
         (
-            T1::render(&v_nodes.0),
-            T2::render(&v_nodes.1),
-            T3::render(&v_nodes.2),
+            v_nodes.0.build(),
+            v_nodes.1.build(),
+            v_nodes.2.build(),
         )
     }
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
         let mut has_changed = false;
-        has_changed |= T1::rerender(&v_nodes.0, &mut ui_nodes.0.widget, &mut ui_nodes.0.children);
-        has_changed |= T2::rerender(&v_nodes.1, &mut ui_nodes.1.widget, &mut ui_nodes.1.children);
-        has_changed |= T3::rerender(&v_nodes.2, &mut ui_nodes.2.widget, &mut ui_nodes.2.children);
+        has_changed |= &v_nodes.0.rebuild(&mut ui_nodes.0.widget, &mut ui_nodes.0.children);
+        has_changed |= &v_nodes.1.rebuild(&mut ui_nodes.1.widget, &mut ui_nodes.1.children);
+        has_changed |= &v_nodes.2.rebuild(&mut ui_nodes.2.widget, &mut ui_nodes.2.children);
         has_changed
     }
 
     fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
-        T1::invalidate(&v_nodes.0, context);
-        T2::invalidate(&v_nodes.1, context);
-        T3::invalidate(&v_nodes.2, context);
+        v_nodes.0.invalidate(context);
+        v_nodes.1.invalidate(context);
+        v_nodes.2.invalidate(context);
     }
 
     fn build(self, context: &mut Context) -> Self::VNodes {
@@ -230,21 +210,17 @@ where
 
     type UINodes = Option<UINode<<T::View as View>::Widget>>;
 
-    fn depth() -> usize {
-        T::View::depth()
-    }
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
-        v_nodes.as_ref().map(|v_node| T::render(v_node))
+        v_nodes.as_ref().map(VNode::build)
     }
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
         match (v_nodes, ui_nodes.as_mut()) {
             (Some(v_node), Some(ui_node)) => {
-                T::rerender(v_node, &mut ui_node.widget, &mut ui_node.children)
+                v_node.rebuild(&mut ui_node.widget, &mut ui_node.children)
             }
             (Some(v_node), None) => {
-                *ui_nodes = Some(T::render(v_node));
+                *ui_nodes = Some(v_node.build());
                 true
             }
             (None, Some(_)) => {
@@ -257,7 +233,7 @@ where
 
     fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
         if let Some(v_node) = v_nodes {
-            T::invalidate(v_node, context);
+            v_node.invalidate(context);
         }
     }
 
@@ -278,7 +254,7 @@ where
                 true
             }
             (None, Some(v_node)) => {
-                T::invalidate(v_node, context);
+                v_node.invalidate(context);
                 *v_nodes = None;
                 true
             }
@@ -295,12 +271,8 @@ where
 
     type UINodes = Vec<UINode<<T::View as View>::Widget>>;
 
-    fn depth() -> usize {
-        T::View::depth()
-    }
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
-        v_nodes.into_iter().map(T::render).collect()
+        v_nodes.into_iter().map(VNode::build).collect()
     }
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
@@ -316,11 +288,11 @@ where
         for (i, v_node) in v_nodes.into_iter().enumerate() {
             if i < reuse_len {
                 let ui_node = &mut ui_nodes[i];
-                if T::rerender(v_node, &mut ui_node.widget, &mut ui_node.children) {
+                if v_node.rebuild(&mut ui_node.widget, &mut ui_node.children) {
                     has_changed = true;
                 }
             } else {
-                let ui_node = T::render(v_node);
+                let ui_node = v_node.build();
                 ui_nodes.push(ui_node);
                 has_changed = true;
             }
@@ -331,7 +303,7 @@ where
 
     fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
         for v_node in v_nodes {
-            T::invalidate(v_node, context);
+            v_node.invalidate(context);
         }
     }
 
@@ -344,7 +316,7 @@ where
     fn rebuild(self, v_nodes: &mut Self::VNodes, context: &mut Context) -> bool {
         if self.len() < v_nodes.len() {
             for v_node in v_nodes.drain(v_nodes.len() - self.len() - 1..) {
-                T::invalidate(&v_node, context);
+                v_node.invalidate(context);
             }
         } else {
             v_nodes.reserve_exact(self.len());
@@ -406,31 +378,27 @@ where
 
     type UINodes = Either<UINode<<L::View as View>::Widget>, UINode<<R::View as View>::Widget>>;
 
-    fn depth() -> usize {
-        L::View::depth().max(R::View::depth())
-    }
-
     fn render(v_nodes: &Self::VNodes) -> Self::UINodes {
         match v_nodes {
-            Either::Left(v_node) => Either::Left(L::render(v_node)),
-            Either::Right(v_node) => Either::Right(R::render(v_node)),
+            Either::Left(v_node) => Either::Left(v_node.build()),
+            Either::Right(v_node) => Either::Right(v_node.build()),
         }
     }
 
     fn rerender(v_nodes: &Self::VNodes, ui_nodes: &mut Self::UINodes) -> bool {
         match (v_nodes, ui_nodes.as_mut()) {
             (Either::Left(v_node), Either::Left(ui_node)) => {
-                L::rerender(v_node, &mut ui_node.widget, &mut ui_node.children)
+                v_node.rebuild(&mut ui_node.widget, &mut ui_node.children)
             }
             (Either::Right(v_node), Either::Right(ui_node)) => {
-                R::rerender(v_node, &mut ui_node.widget, &mut ui_node.children)
+                v_node.rebuild(&mut ui_node.widget, &mut ui_node.children)
             }
             (Either::Left(v_node), Either::Right(_)) => {
-                *ui_nodes = Either::Left(L::render(v_node));
+                *ui_nodes = Either::Left(v_node.build());
                 true
             }
             (Either::Right(v_node), Either::Left(_)) => {
-                *ui_nodes = Either::Right(R::render(v_node));
+                *ui_nodes = Either::Right(v_node.build());
                 true
             }
         }
@@ -438,8 +406,8 @@ where
 
     fn invalidate(v_nodes: &Self::VNodes, context: &mut Context) {
         match v_nodes {
-            Either::Left(element) => L::invalidate(element, context),
-            Either::Right(element) => R::invalidate(element, context),
+            Either::Left(v_node) => v_node.invalidate(context),
+            Either::Right(v_node) => v_node.invalidate(context),
         }
     }
 
@@ -465,12 +433,12 @@ where
                 context,
             ),
             (Either::Left(element), Either::Right(v_node)) => {
-                R::invalidate(v_node, context);
+                v_node.invalidate(context);
                 *v_nodes = Either::Left(element.build(context));
                 true
             }
             (Either::Right(element), Either::Left(v_node)) => {
-                L::invalidate(v_node, context);
+                v_node.invalidate(context);
                 *v_nodes = Either::Right(element.build(context));
                 true
             }

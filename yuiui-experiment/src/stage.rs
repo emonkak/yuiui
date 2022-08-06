@@ -11,9 +11,9 @@ pub struct Stage<E: Element> {
 
 impl<E: Element> Stage<E> {
     pub fn new(element: E) -> Self {
-        let mut context = Context::new(E::depth());
+        let mut context = Context::new();
         let v_node = element.build(&mut context);
-        let ui_node = E::render(&v_node);
+        let ui_node = v_node.build();
         Self {
             v_node,
             ui_node,
