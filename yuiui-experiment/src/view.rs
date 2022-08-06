@@ -1,10 +1,10 @@
-use crate::element_seq::ElementSeq;
+use crate::sequence::ElementSeq;
 use crate::widget::Widget;
 
 pub trait View: 'static {
     type Widget: Widget;
 
-    type Children: ElementSeq<Nodes = <Self::Widget as Widget>::Children>;
+    type Children: ElementSeq;
 
     fn build(&self, children: &<Self::Children as ElementSeq>::Nodes) -> Self::Widget;
 

@@ -1,8 +1,8 @@
 use std::fmt;
 
 use crate::context::{Context, Id};
-use crate::element_seq::ElementSeq;
 use crate::hlist::{HCons, HList};
+use crate::sequence::{ElementSeq, ViewNodeSeq};
 use crate::view::View;
 
 pub struct ViewNode<V: View, CS: HList> {
@@ -26,7 +26,7 @@ impl<V: View, CS: HList> ViewNode<V, CS> {
 
     pub fn commit(&mut self, context: &mut Context) {
         context.push(self.id);
-        V::Children::commit(&mut self.children, context);
+        ViewNodeSeq::commit(&mut self.children, context);
         context.pop();
     }
 

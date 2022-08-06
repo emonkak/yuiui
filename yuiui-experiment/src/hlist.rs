@@ -12,47 +12,6 @@ pub trait HList: Sized + private::Sealed {
 }
 
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct HCons<H, T: HList>(pub H, pub T);
-
-impl HList for () {
-    type Head = Infallible;
-
-    type Tail = HNil;
-
-    fn construct<V>(self, value: V) -> HCons<V, Self> {
-        HCons(value, self)
-    }
-
-    fn destruct(self) -> Option<(Self::Head, Self::Tail)> {
-        None
-    }
-}
-
-impl<H, T: HList> HList for HCons<H, T> {
-    type Head = H;
-
-    type Tail = T;
-
-    fn construct<V>(self, value: V) -> HCons<V, Self> {
-        HCons(value, self)
-    }
-
-    fn destruct(self) -> Option<(Self::Head, Self::Tail)> {
-        Some((self.0, self.1))
-    }
-}
-
-impl private::Sealed for () {}
-
-impl<H: fmt::Debug, T: HList + DebugList> fmt::Debug for HCons<H, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        DebugList::fmt(self, &mut f.debug_list())
-    }
-}
-
-impl<H, T: HList> private::Sealed for HCons<H, T> {}
-
-#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct HNil;
 
 impl HList for HNil {
@@ -76,6 +35,31 @@ impl fmt::Debug for HNil {
 }
 
 impl private::Sealed for HNil {}
+
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct HCons<H, T: HList>(pub H, pub T);
+
+impl<H, T: HList> HList for HCons<H, T> {
+    type Head = H;
+
+    type Tail = T;
+
+    fn construct<V>(self, value: V) -> HCons<V, Self> {
+        HCons(value, self)
+    }
+
+    fn destruct(self) -> Option<(Self::Head, Self::Tail)> {
+        Some((self.0, self.1))
+    }
+}
+
+impl<H: fmt::Debug, T: HList + DebugList> fmt::Debug for HCons<H, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        DebugList::fmt(self, &mut f.debug_list())
+    }
+}
+
+impl<H, T: HList> private::Sealed for HCons<H, T> {}
 
 trait DebugList {
     fn fmt(&self, debug_list: &mut fmt::DebugList) -> fmt::Result;

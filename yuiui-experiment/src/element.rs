@@ -2,8 +2,8 @@ use std::mem;
 
 use crate::component::Component;
 use crate::context::Context;
-use crate::element_seq::ElementSeq;
 use crate::hlist::{HCons, HList, HNil};
+use crate::sequence::ElementSeq;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeScope};
 

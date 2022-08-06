@@ -4,16 +4,35 @@ use std::mem;
 use crate::context::Context;
 use crate::element::Element;
 use crate::hlist::{HCons, HList, HNil};
+use crate::view::View;
 use crate::view_node::ViewNode;
 
 pub trait ElementSeq: 'static {
-    type Nodes;
-
-    fn commit(nodes: &mut Self::Nodes, context: &mut Context);
+    type Nodes: ViewNodeSeq;
 
     fn build(self, context: &mut Context) -> Self::Nodes;
 
     fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool;
+}
+
+pub trait ViewNodeSeq {
+    fn commit(&mut self, context: &mut Context);
+}
+
+impl ElementSeq for HNil {
+    type Nodes = HNil;
+
+    fn build(self, _context: &mut Context) -> Self::Nodes {
+        HNil
+    }
+
+    fn rebuild(self, _nodes: &mut Self::Nodes, _context: &mut Context) -> bool {
+        false
+    }
+}
+
+impl ViewNodeSeq for HNil {
+    fn commit(&mut self, _context: &mut Context) {}
 }
 
 impl<H, T> ElementSeq for HCons<H, T>
@@ -23,11 +42,6 @@ where
     T::Nodes: HList,
 {
     type Nodes = HCons<ViewNode<H::View, H::Components>, T::Nodes>;
-
-    fn commit(nodes: &mut Self::Nodes, context: &mut Context) {
-        nodes.0.commit(context);
-        <T as ElementSeq>::commit(&mut nodes.1, context);
-    }
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         HCons(self.0.build(context), self.1.build(context))
@@ -41,17 +55,15 @@ where
     }
 }
 
-impl ElementSeq for HNil {
-    type Nodes = HNil;
-
-    fn commit(_nodes: &mut Self::Nodes, _context: &mut Context) {}
-
-    fn build(self, _context: &mut Context) -> Self::Nodes {
-        HNil
-    }
-
-    fn rebuild(self, _nodes: &mut Self::Nodes, _context: &mut Context) -> bool {
-        false
+impl<V, CS, T> ViewNodeSeq for HCons<ViewNode<V, CS>, T>
+where
+    V: View,
+    CS: HList,
+    T: ViewNodeSeq + HList,
+{
+    fn commit(&mut self, context: &mut Context) {
+        self.0.commit(context);
+        self.1.commit(context);
     }
 }
 
@@ -60,40 +72,6 @@ where
     T: Element,
 {
     type Nodes = VecStore<ViewNode<T::View, T::Components>>;
-
-    fn commit(nodes: &mut Self::Nodes, context: &mut Context) {
-        if nodes.dirty {
-            match nodes.new_len.cmp(&nodes.active.len()) {
-                Ordering::Equal => {
-                    for node in &mut nodes.active {
-                        node.commit(context);
-                    }
-                }
-                Ordering::Less => {
-                    // new_len < active_len
-                    for node in &mut nodes.active[..nodes.new_len] {
-                        node.commit(context);
-                    }
-                    for mut node in nodes.active.drain(nodes.new_len..) {
-                        node.invalidate(context);
-                        nodes.staging.push(node);
-                    }
-                }
-                Ordering::Greater => {
-                    // new_len > active_len
-                    for node in &mut nodes.active {
-                        node.commit(context);
-                    }
-                    for i in 0..nodes.active.len() - nodes.new_len {
-                        let mut node = nodes.staging.swap_remove(i);
-                        node.commit(context);
-                        nodes.active.push(node);
-                    }
-                }
-            }
-            nodes.dirty = false;
-        }
-    }
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         VecStore::new(
@@ -134,6 +112,42 @@ where
     }
 }
 
+impl<V: View, CS: HList> ViewNodeSeq for VecStore<ViewNode<V, CS>> {
+    fn commit(&mut self, context: &mut Context) {
+        if self.dirty {
+            match self.new_len.cmp(&self.active.len()) {
+                Ordering::Equal => {
+                    for node in &mut self.active {
+                        node.commit(context);
+                    }
+                }
+                Ordering::Less => {
+                    // new_len < active_len
+                    for node in &mut self.active[..self.new_len] {
+                        node.commit(context);
+                    }
+                    for mut node in self.active.drain(self.new_len..) {
+                        node.invalidate(context);
+                        self.staging.push(node);
+                    }
+                }
+                Ordering::Greater => {
+                    // new_len > active_len
+                    for node in &mut self.active {
+                        node.commit(context);
+                    }
+                    for i in 0..self.active.len() - self.new_len {
+                        let mut node = self.staging.swap_remove(i);
+                        node.commit(context);
+                        self.active.push(node);
+                    }
+                }
+            }
+            self.dirty = false;
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct VecStore<T> {
     active: Vec<T>,
@@ -158,22 +172,6 @@ where
     T: Element,
 {
     type Nodes = OptionStore<ViewNode<T::View, T::Components>>;
-
-    fn commit(nodes: &mut Self::Nodes, context: &mut Context) {
-        if nodes.swap {
-            if let Some(node) = nodes.active.as_mut() {
-                node.invalidate(context);
-            }
-            mem::swap(&mut nodes.active, &mut nodes.staging);
-            nodes.swap = false;
-        }
-        if nodes.dirty {
-            if let Some(node) = nodes.active.as_mut() {
-                node.commit(context);
-            }
-            nodes.dirty = false;
-        }
-    }
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         OptionStore::new(self.map(|element| element.build(context)))
@@ -204,6 +202,24 @@ where
                 true
             }
             (None, None) => false,
+        }
+    }
+}
+
+impl<V: View, CS: HList> ViewNodeSeq for OptionStore<ViewNode<V, CS>> {
+    fn commit(&mut self, context: &mut Context) {
+        if self.swap {
+            if let Some(node) = self.active.as_mut() {
+                node.invalidate(context);
+            }
+            mem::swap(&mut self.active, &mut self.staging);
+            self.swap = false;
+        }
+        if self.dirty {
+            if let Some(node) = self.active.as_mut() {
+                node.commit(context);
+            }
+            self.dirty = false;
         }
     }
 }
@@ -255,24 +271,6 @@ where
     R: Element,
 {
     type Nodes = EitherStore<ViewNode<L::View, L::Components>, ViewNode<R::View, R::Components>>;
-
-    fn commit(nodes: &mut Self::Nodes, context: &mut Context) {
-        if nodes.swap {
-            match nodes.active.as_mut() {
-                Either::Left(node) => node.invalidate(context),
-                Either::Right(node) => node.invalidate(context),
-            }
-            mem::swap(&mut nodes.active, nodes.staging.as_mut().unwrap());
-            nodes.swap = false;
-        }
-        if nodes.dirty {
-            match nodes.active.as_mut() {
-                Either::Left(node) => node.commit(context),
-                Either::Right(node) => node.commit(context),
-            }
-            nodes.dirty = false;
-        }
-    }
 
     fn build(self, context: &mut Context) -> Self::Nodes {
         match self {
@@ -331,6 +329,32 @@ where
                 nodes.dirty = true;
                 has_changed
             }
+        }
+    }
+}
+
+impl<V1, CS1, V2, CS2> ViewNodeSeq for EitherStore<ViewNode<V1, CS1>, ViewNode<V2, CS2>>
+where
+    V1: View,
+    CS1: HList,
+    V2: View,
+    CS2: HList,
+{
+    fn commit(&mut self, context: &mut Context) {
+        if self.swap {
+            match self.active.as_mut() {
+                Either::Left(node) => node.invalidate(context),
+                Either::Right(node) => node.invalidate(context),
+            }
+            mem::swap(&mut self.active, self.staging.as_mut().unwrap());
+            self.swap = false;
+        }
+        if self.dirty {
+            match self.active.as_mut() {
+                Either::Left(node) => node.commit(context),
+                Either::Right(node) => node.commit(context),
+            }
+            self.dirty = false;
         }
     }
 }

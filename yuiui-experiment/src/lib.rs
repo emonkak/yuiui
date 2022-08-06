@@ -1,20 +1,20 @@
 pub mod hlist;
 
-pub use component::Component;
-pub use element::{component, view, ComponentElement, Element, ViewElement};
-pub use element_seq::{Either, ElementSeq};
-pub use stage::Stage;
-pub use view::View;
-pub use widget::Widget;
-
 mod component;
 mod context;
 mod element;
-mod element_seq;
+mod sequence;
 mod stage;
 mod view;
 mod view_node;
 mod widget;
+
+pub use component::Component;
+pub use element::{component, view, ComponentElement, Element, ViewElement};
+pub use sequence::{Either, ElementSeq, ViewNodeSeq};
+pub use stage::Stage;
+pub use view::View;
+pub use widget::Widget;
 
 use std::borrow::Cow;
 use std::marker::PhantomData;
