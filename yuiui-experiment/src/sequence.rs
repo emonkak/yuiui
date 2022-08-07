@@ -178,13 +178,13 @@ where
     }
 
     fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool {
-        match (self, nodes.active.as_mut()) {
-            (Some(element), Some(node)) => {
+        match (nodes.active.as_mut(), self) {
+            (Some(node), Some(element)) => {
                 let has_changed = element.rebuild(node.scope(), context);
                 nodes.dirty |= has_changed;
                 has_changed
             }
-            (Some(element), None) => {
+            (None, Some(element)) => {
                 let has_changed = if let Some(node) = nodes.staging.as_mut() {
                     element.rebuild(node.scope(), context)
                 } else {
@@ -195,8 +195,8 @@ where
                 nodes.dirty |= has_changed;
                 has_changed
             }
-            (None, Some(_)) => {
-                nodes.staging = None;
+            (Some(_), None) => {
+                assert!(nodes.staging.is_none());
                 nodes.swap = true;
                 nodes.dirty = true;
                 true
@@ -281,18 +281,18 @@ where
     }
 
     fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool {
-        match (self, nodes.active.as_mut()) {
-            (Either::Left(element), Either::Left(node)) => {
+        match (nodes.active.as_mut(), self) {
+            (Either::Left(node), Either::Left(element)) => {
                 let has_changed = element.rebuild(node.scope(), context);
                 nodes.dirty |= has_changed;
                 has_changed
             }
-            (Either::Right(element), Either::Right(node)) => {
+            (Either::Right(node), Either::Right(element)) => {
                 let has_changed = element.rebuild(node.scope(), context);
                 nodes.dirty |= has_changed;
                 has_changed
             }
-            (Either::Left(element), Either::Right(_)) => {
+            (Either::Right(_), Either::Left(element)) => {
                 let has_changed = match nodes.staging.take() {
                     Some(Either::Left(mut node)) => {
                         let has_changed = element.rebuild(node.scope(), context);
@@ -311,7 +311,7 @@ where
                 nodes.dirty |= has_changed;
                 has_changed
             }
-            (Either::Right(element), Either::Left(_)) => {
+            (Either::Left(_), Either::Right(element)) => {
                 let has_changed = match nodes.staging.take() {
                     Some(Either::Right(mut node)) => {
                         let has_changed = element.rebuild(node.scope(), context);
