@@ -1,5 +1,5 @@
-use std::mem;
 use std::fmt;
+use std::mem;
 use std::ops::{Index, IndexMut};
 
 #[derive(Clone, Default)]
@@ -178,22 +178,22 @@ impl<T> SlotVec<T> {
 
     pub fn ordered(&self) -> impl Iterator<Item = (usize, &T)> {
         let entries = &self.entries;
-        self.slots
-            .iter()
-            .filter_map(|slot| slot.as_filled().map(|index| {
+        self.slots.iter().filter_map(|slot| {
+            slot.as_filled().map(|index| {
                 let (key, value) = &entries[index];
                 (*key, value)
-            }))
+            })
+        })
     }
 
     pub fn ordered_mut(&mut self) -> impl Iterator<Item = (usize, &mut T)> {
         let entries: *mut _ = &mut self.entries;
-        self.slots
-            .iter()
-            .filter_map(move |slot| slot.as_filled().map(|index| {
+        self.slots.iter().filter_map(move |slot| {
+            slot.as_filled().map(|index| {
                 let (key, value) = unsafe { &mut (*entries)[index] };
                 (*key, value)
-            }))
+            })
+        })
     }
 
     fn remove_entry(&mut self, index: usize) -> T {
