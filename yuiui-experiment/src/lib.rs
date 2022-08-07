@@ -60,7 +60,7 @@ impl<Children> Block<Children> {
 }
 
 impl<Children: 'static + ElementSeq> View for Block<Children> {
-    type Widget = BlockWidget<<Children as ElementSeq>::Nodes>;
+    type Widget = BlockWidget<<Children as ElementSeq>::Store>;
 
     type Children = Children;
 

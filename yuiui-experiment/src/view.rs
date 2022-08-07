@@ -5,7 +5,7 @@ use crate::widget::Widget;
 pub trait View: 'static + Sized {
     type Widget: Widget;
 
-    type Children: ElementSeq<Nodes = <Self::Widget as Widget>::Children>;
+    type Children: ElementSeq<Store = <Self::Widget as Widget>::Children>;
 
     fn build(self, children: &<Self::Widget as Widget>::Children) -> Self::Widget;
 
