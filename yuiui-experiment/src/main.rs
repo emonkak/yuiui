@@ -17,5 +17,5 @@ fn app() -> impl Element<
 fn main() {
     let root = app();
     let stage = Stage::new(root);
-    println!("{:#?}", stage.node());
+    println!("{:#?}", stage);
 }

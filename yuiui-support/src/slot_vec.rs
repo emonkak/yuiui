@@ -1,7 +1,8 @@
 use std::mem;
+use std::fmt;
 use std::ops::{Index, IndexMut};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct SlotVec<T> {
     entries: Vec<(usize, T)>,
     slots: Vec<Slot>,
@@ -179,22 +180,20 @@ impl<T> SlotVec<T> {
         let entries = &self.entries;
         self.slots
             .iter()
-            .filter_map(|slot| slot.as_filled())
-            .map(move |index| {
+            .filter_map(|slot| slot.as_filled().map(|index| {
                 let (key, value) = &entries[index];
                 (*key, value)
-            })
+            }))
     }
 
     pub fn ordered_mut(&mut self) -> impl Iterator<Item = (usize, &mut T)> {
         let entries: *mut _ = &mut self.entries;
         self.slots
             .iter()
-            .filter_map(|slot| slot.as_filled())
-            .map(move |index| {
+            .filter_map(move |slot| slot.as_filled().map(|index| {
                 let (key, value) = unsafe { &mut (*entries)[index] };
                 (*key, value)
-            })
+            }))
     }
 
     fn remove_entry(&mut self, index: usize) -> T {
@@ -246,6 +245,16 @@ impl<T> SlotVec<T> {
             self.slots[alt_key] = Slot::free(position);
             free_key
         }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for SlotVec<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut debug_map = f.debug_map();
+        for (key, value) in self.ordered() {
+            debug_map.entry(&key, value);
+        }
+        debug_map.finish()
     }
 }
 
