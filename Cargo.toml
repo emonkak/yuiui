@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "either",
+    "either-macro",
     "yuiui",
     "yuiui-experiment",
     "yuiui-support",

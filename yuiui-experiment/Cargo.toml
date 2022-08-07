@@ -9,8 +9,10 @@ homepage = "https://github.com/emonkak/yuiui"
 edition = "2021"
 resolver = "2"
 
-[dependencies.yuiui-support]
-path = "../yuiui-support"
+[dependencies]
+yuiui-support = { path = "../yuiui-support" }
+either = { path = "../either" }
+either-macro = { path = "../either-macro" }
 
 [[bin]]
 name = "main-experiment"

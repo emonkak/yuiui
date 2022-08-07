@@ -1,0 +1,16 @@
+[package]
+name = "either-macro"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+quote = "1.0"
+syn = { version = "1.0", features = ["full"] }
+
+[dev-dependencies]
+either = { path = "../either" }
+
+[lib]
+proc-macro = true

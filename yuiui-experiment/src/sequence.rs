@@ -1,8 +1,8 @@
+use either::Either;
 use std::cmp::Ordering;
 use std::mem;
 
 use crate::context::Context;
-use crate::either::Either;
 use crate::element::Element;
 use crate::hlist::{HCons, HList, HNil};
 use crate::view::View;

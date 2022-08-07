@@ -1,4 +1,3 @@
-pub mod either;
 pub mod hlist;
 
 mod component;
