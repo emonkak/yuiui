@@ -59,7 +59,8 @@ impl<V: View> Element for ViewElement<V> {
         context: &mut Context,
     ) -> bool {
         *node.pending_view = Some(self.view);
-        self.children.rebuild(node.children, context)
+        self.children.rebuild(node.children, context);
+        true
     }
 }
 

@@ -3,7 +3,7 @@ use std::fmt;
 use crate::context::Context;
 use crate::element::Element;
 use crate::view::View;
-use crate::widget::{Widget, WidgetNode};
+use crate::widget::{CommitMode, Widget, WidgetNode};
 
 pub struct Stage<E: Element> {
     node: WidgetNode<E::View, E::Components>,
@@ -18,7 +18,9 @@ impl<E: Element> Stage<E> {
     }
 
     pub fn update(&mut self, element: E) {
-        element.rebuild(self.node.scope(), &mut self.context);
+        if element.rebuild(self.node.scope(), &mut self.context) {
+            self.node.commit(CommitMode::Update, &mut self.context);
+        }
     }
 }
 

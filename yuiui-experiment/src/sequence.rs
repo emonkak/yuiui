@@ -20,21 +20,41 @@ pub trait WidgetNodeSeq {
     fn commit(&mut self, mode: CommitMode, context: &mut Context);
 }
 
-impl<E: Element> ElementSeq for E {
-    type Nodes = WidgetNode<E::View, E::Components>;
+#[derive(Debug)]
+pub struct WidgetNodeStore<W> {
+    node: W,
+    dirty: bool,
+}
 
-    fn build(self, context: &mut Context) -> Self::Nodes {
-        self.build(context)
-    }
-
-    fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool {
-        self.rebuild(nodes.scope(), context)
+impl<W> WidgetNodeStore<W> {
+    fn new(node: W) -> Self {
+        Self {
+            node,
+            dirty: false,
+        }
     }
 }
 
-impl<V: View, CS> WidgetNodeSeq for WidgetNode<V, CS> {
+impl<E: Element> ElementSeq for E {
+    type Nodes = WidgetNodeStore<WidgetNode<E::View, E::Components>>;
+
+    fn build(self, context: &mut Context) -> Self::Nodes {
+        WidgetNodeStore::new(self.build(context))
+    }
+
+    fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool {
+        let has_changed = self.rebuild(nodes.node.scope(), context);
+        nodes.dirty = has_changed;
+        has_changed
+    }
+}
+
+impl<V: View, CS> WidgetNodeSeq for WidgetNodeStore<WidgetNode<V, CS>> {
     fn commit(&mut self, mode: CommitMode, context: &mut Context) {
-        self.commit(mode, context)
+        if self.dirty || mode.is_propagatable() {
+            self.dirty = false;
+            self.node.commit(mode, context);
+        }
     }
 }
 
@@ -151,7 +171,7 @@ where
 
 impl<T: WidgetNodeSeq> WidgetNodeSeq for VecStore<T> {
     fn commit(&mut self, mode: CommitMode, context: &mut Context) {
-        if self.dirty {
+        if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
                     for node in &mut self.active {
@@ -173,10 +193,12 @@ impl<T: WidgetNodeSeq> WidgetNodeSeq for VecStore<T> {
                     for node in &mut self.active {
                         node.commit(mode, context);
                     }
-                    for i in 0..self.active.len() - self.new_len {
-                        let mut node = self.staging.swap_remove(i);
-                        node.commit(mode, context);
-                        self.active.push(node);
+                    if !mode.is_unmount() {
+                        for i in 0..self.active.len() - self.new_len {
+                            let mut node = self.staging.swap_remove(i);
+                            node.commit(CommitMode::Mount, context);
+                            self.active.push(node);
+                        }
                     }
                 }
             }
@@ -189,8 +211,7 @@ impl<T: WidgetNodeSeq> WidgetNodeSeq for VecStore<T> {
 pub struct OptionStore<T> {
     active: Option<T>,
     staging: Option<T>,
-    swap: bool,
-    dirty: bool,
+    status: CommitStatus,
 }
 
 impl<T> OptionStore<T> {
@@ -198,8 +219,7 @@ impl<T> OptionStore<T> {
         Self {
             active,
             staging: None,
-            swap: false,
-            dirty: false,
+            status: CommitStatus::Skipped,
         }
     }
 }
@@ -217,26 +237,25 @@ where
     fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool {
         match (nodes.active.as_mut(), self) {
             (Some(node), Some(element)) => {
-                let has_changed = element.rebuild(node, context);
-                nodes.swap = false;
-                nodes.dirty |= has_changed;
-                has_changed
+                if element.rebuild(node, context) {
+                    nodes.status = CommitStatus::Changed;
+                    true
+                } else {
+                    false
+                }
             }
             (None, Some(element)) => {
-                let has_changed = if let Some(node) = nodes.staging.as_mut() {
-                    element.rebuild(node, context)
+                if let Some(node) = nodes.staging.as_mut() {
+                    element.rebuild(node, context);
                 } else {
                     nodes.staging = Some(element.build(context));
-                    true
-                };
-                nodes.swap = true;
-                nodes.dirty |= has_changed;
-                has_changed
+                }
+                nodes.status = CommitStatus::Swapped;
+                true
             }
             (Some(_), None) => {
                 assert!(nodes.staging.is_none());
-                nodes.swap = true;
-                nodes.dirty = true;
+                nodes.status = CommitStatus::Swapped;
                 true
             }
             (None, None) => false,
@@ -246,18 +265,22 @@ where
 
 impl<T: WidgetNodeSeq> WidgetNodeSeq for OptionStore<T> {
     fn commit(&mut self, mode: CommitMode, context: &mut Context) {
-        if self.swap {
+        if self.status == CommitStatus::Swapped {
             if let Some(nodes) = self.active.as_mut() {
                 nodes.commit(CommitMode::Unmount, context);
             }
             mem::swap(&mut self.active, &mut self.staging);
-            self.swap = false;
-        }
-        if self.dirty {
+            if !mode.is_unmount() {
+                if let Some(nodes) = self.active.as_mut() {
+                    nodes.commit(CommitMode::Mount, context);
+                }
+            }
+            self.status = CommitStatus::Skipped;
+        } else if self.status == CommitStatus::Changed || mode.is_propagatable() {
             if let Some(nodes) = self.active.as_mut() {
                 nodes.commit(mode, context);
             }
-            self.dirty = false;
+            self.status = CommitStatus::Skipped;
         }
     }
 }
@@ -266,8 +289,7 @@ impl<T: WidgetNodeSeq> WidgetNodeSeq for OptionStore<T> {
 pub struct EitherStore<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
-    swap: bool,
-    dirty: bool,
+    status: CommitStatus,
 }
 
 impl<L, R> EitherStore<L, R> {
@@ -275,8 +297,7 @@ impl<L, R> EitherStore<L, R> {
         Self {
             active,
             staging: None,
-            swap: false,
-            dirty: false,
+            status: CommitStatus::Skipped,
         }
     }
 }
@@ -294,44 +315,46 @@ impl<L: ElementSeq, R: ElementSeq> ElementSeq for Either<L, R> {
     fn rebuild(self, nodes: &mut Self::Nodes, context: &mut Context) -> bool {
         match (nodes.active.as_mut(), self) {
             (Either::Left(node), Either::Left(element)) => {
-                let has_changed = element.rebuild(node, context);
-                nodes.dirty |= has_changed;
-                has_changed
+                if element.rebuild(node, context) {
+                    nodes.status = CommitStatus::Changed;
+                    true
+                } else {
+                    false
+                }
             }
             (Either::Right(node), Either::Right(element)) => {
-                let has_changed = element.rebuild(node, context);
-                nodes.dirty |= has_changed;
-                has_changed
+                if element.rebuild(node, context) {
+                    nodes.status = CommitStatus::Changed;
+                    true
+                } else {
+                    false
+                }
             }
             (Either::Left(_), Either::Right(element)) => {
-                let has_changed = match nodes.staging.as_mut() {
-                    Some(Either::Right(stagin_nodes)) => element.rebuild(stagin_nodes, context),
+                match nodes.staging.as_mut() {
+                    Some(Either::Right(stagin_nodes)) => {
+                        element.rebuild(stagin_nodes, context);
+                    }
                     None => {
                         nodes.staging = Some(Either::Right(element.build(context)));
-                        true
                     }
-                    _ => {
-                        unreachable!();
-                    }
+                    _ => unreachable!()
                 };
-                nodes.swap = true;
-                nodes.dirty |= has_changed;
-                has_changed
+                nodes.status = CommitStatus::Swapped;
+                true
             }
             (Either::Right(_), Either::Left(element)) => {
-                let has_changed = match nodes.staging.as_mut() {
-                    Some(Either::Left(node)) => element.rebuild(node, context),
+                match nodes.staging.as_mut() {
+                    Some(Either::Left(node)) => {
+                        element.rebuild(node, context);
+                    }
                     None => {
                         nodes.staging = Some(Either::Left(element.build(context)));
-                        true
                     }
-                    _ => {
-                        unreachable!();
-                    }
-                };
-                nodes.swap = true;
-                nodes.dirty |= has_changed;
-                has_changed
+                    _ => unreachable!()
+                }
+                nodes.status = CommitStatus::Swapped;
+                true
             }
         }
     }
@@ -343,20 +366,32 @@ where
     R: WidgetNodeSeq,
 {
     fn commit(&mut self, mode: CommitMode, context: &mut Context) {
-        if self.swap {
+        if self.status == CommitStatus::Swapped {
             match self.active.as_mut() {
                 Either::Left(nodes) => nodes.commit(CommitMode::Unmount, context),
                 Either::Right(nodes) => nodes.commit(CommitMode::Unmount, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
-            self.swap = false;
-        }
-        if self.dirty {
+            if !mode.is_unmount() {
+                match self.active.as_mut() {
+                    Either::Left(nodes) => nodes.commit(CommitMode::Mount, context),
+                    Either::Right(nodes) => nodes.commit(CommitMode::Mount, context),
+                }
+            }
+            self.status = CommitStatus::Skipped;
+        } else if self.status == CommitStatus::Changed || mode.is_propagatable() {
             match self.active.as_mut() {
                 Either::Left(nodes) => nodes.commit(mode, context),
                 Either::Right(nodes) => nodes.commit(mode, context),
             }
-            self.dirty = false;
+            self.status = CommitStatus::Skipped;
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CommitStatus {
+    Skipped,
+    Changed,
+    Swapped,
 }

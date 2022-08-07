@@ -65,4 +65,23 @@ pub struct WidgetNodeScope<'a, V: View, CS> {
 pub enum CommitMode {
     Mount,
     Unmount,
+    Update,
+}
+
+impl CommitMode {
+    pub fn is_propagatable(&self) -> bool {
+        match self {
+            Self::Mount => true,
+            Self::Unmount => true,
+            Self::Update => false,
+        }
+    }
+
+    pub fn is_unmount(&self) -> bool {
+        match self {
+            Self::Mount => false,
+            Self::Unmount => true,
+            Self::Update => false,
+        }
+    }
 }
