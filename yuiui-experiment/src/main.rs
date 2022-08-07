@@ -5,7 +5,7 @@ use yuiui_experiment::*;
 
 fn app() -> impl Element<
     View = impl View<Widget = impl Widget<Children = impl Debug> + Debug> + Debug,
-    Components = impl hlist::HList + Debug,
+    Components = impl Debug,
 > {
     Block::new().el_with(hlist![
         Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
