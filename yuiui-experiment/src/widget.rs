@@ -39,7 +39,7 @@ impl<V: View, CS> WidgetNode<V, CS> {
 impl<V, CS> fmt::Debug for WidgetNode<V, CS>
 where
     V: View + fmt::Debug,
-    V::Widget: Widget + fmt::Debug,
+    V::Widget: fmt::Debug,
     <V::Widget as Widget>::Children: fmt::Debug,
     CS: fmt::Debug,
 {

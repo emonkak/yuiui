@@ -1,12 +1,13 @@
 use either::Either;
 use std::cmp::Ordering;
+use std::fmt;
 use std::mem;
 
 use crate::context::Context;
 use crate::element::Element;
 use crate::hlist::{HCons, HList, HNil};
 use crate::view::View;
-use crate::widget::{CommitMode, WidgetNode};
+use crate::widget::{CommitMode, Widget, WidgetNode};
 
 pub trait ElementSeq {
     type Store: WidgetNodeSeq;
@@ -20,14 +21,13 @@ pub trait WidgetNodeSeq {
     fn commit(&mut self, mode: CommitMode, context: &mut Context);
 }
 
-#[derive(Debug)]
-pub struct WidgetNodeStore<W> {
-    node: W,
+pub struct WidgetNodeStore<V: View, CS> {
+    node: WidgetNode<V, CS>,
     dirty: bool,
 }
 
-impl<W> WidgetNodeStore<W> {
-    fn new(node: W) -> Self {
+impl<V: View, CS> WidgetNodeStore<V, CS> {
+    fn new(node: WidgetNode<V, CS>) -> Self {
         Self {
             node,
             dirty: false,
@@ -36,7 +36,7 @@ impl<W> WidgetNodeStore<W> {
 }
 
 impl<E: Element> ElementSeq for E {
-    type Store = WidgetNodeStore<WidgetNode<E::View, E::Components>>;
+    type Store = WidgetNodeStore<E::View, E::Components>;
 
     fn build(self, context: &mut Context) -> Self::Store {
         WidgetNodeStore::new(self.build(context))
@@ -49,12 +49,27 @@ impl<E: Element> ElementSeq for E {
     }
 }
 
-impl<V: View, CS> WidgetNodeSeq for WidgetNodeStore<WidgetNode<V, CS>> {
+impl<V: View, CS> WidgetNodeSeq for WidgetNodeStore<V, CS> {
     fn commit(&mut self, mode: CommitMode, context: &mut Context) {
         if self.dirty || mode.is_propagatable() {
             self.dirty = false;
             self.node.commit(mode, context);
         }
+    }
+}
+
+impl<V: View + fmt::Debug, CS> fmt::Debug for WidgetNodeStore<V, CS>
+where
+    V: View + fmt::Debug,
+    V::Widget: fmt::Debug,
+    <V::Widget as Widget>::Children: fmt::Debug,
+    CS: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WidgetNodeStore")
+            .field("node", &self.node)
+            .field("dirty", &self.dirty)
+            .finish()
     }
 }
 
