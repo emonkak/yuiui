@@ -26,16 +26,14 @@ impl<V: View, CS> WidgetNode<V, CS> {
         }
     }
 
-    pub fn commit(&mut self, context: &mut Context) {
+    pub fn commit(&mut self, mode: CommitMode, context: &mut Context) {
         context.push(self.id);
         if let Some(view) = self.pending_view.take() {
             view.rebuild(&self.children, &mut self.widget);
         }
-        self.children.commit(context);
+        self.children.commit(mode, context);
         context.pop();
     }
-
-    pub fn invalidate(&mut self, _context: &mut Context) {}
 }
 
 impl<V, CS> fmt::Debug for WidgetNode<V, CS>
@@ -61,4 +59,10 @@ pub struct WidgetNodeScope<'a, V: View, CS> {
     pub pending_view: &'a mut Option<V>,
     pub children: &'a mut <V::Widget as Widget>::Children,
     pub components: &'a mut CS,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum CommitMode {
+    Mount,
+    Unmount,
 }

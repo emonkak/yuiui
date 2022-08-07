@@ -81,7 +81,7 @@ impl<C: Component> Element for ComponentElement<C> {
 
     fn build(self, context: &mut Context) -> WidgetNode<Self::View, Self::Components> {
         let component_node = ComponentNode::new(self.component);
-        let widget_node = component_node.render().build(context);
+        let widget_node = Element::build(component_node.render(), context);
         WidgetNode {
             id: widget_node.id,
             widget: widget_node.widget,
@@ -105,7 +105,7 @@ impl<C: Component> Element for ComponentElement<C> {
         };
         let old_component = mem::replace(&mut head.component, self.component);
         if old_component.should_update(&head.component) {
-            head.render().rebuild(node, context)
+            Element::rebuild(head.render(), node, context)
         } else {
             false
         }
