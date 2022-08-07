@@ -181,6 +181,7 @@ where
         match (nodes.active.as_mut(), self) {
             (Some(node), Some(element)) => {
                 let has_changed = element.rebuild(node.scope(), context);
+                nodes.swap = false;
                 nodes.dirty |= has_changed;
                 has_changed
             }
@@ -284,11 +285,13 @@ where
         match (nodes.active.as_mut(), self) {
             (Either::Left(node), Either::Left(element)) => {
                 let has_changed = element.rebuild(node.scope(), context);
+                nodes.swap = false;
                 nodes.dirty |= has_changed;
                 has_changed
             }
             (Either::Right(node), Either::Right(element)) => {
                 let has_changed = element.rebuild(node.scope(), context);
+                nodes.swap = false;
                 nodes.dirty |= has_changed;
                 has_changed
             }
