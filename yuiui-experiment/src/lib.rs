@@ -1,3 +1,4 @@
+pub mod either;
 pub mod hlist;
 
 mod component;
@@ -10,7 +11,7 @@ mod widget;
 
 pub use component::Component;
 pub use element::{ComponentElement, Element, ViewElement};
-pub use sequence::{Either, ElementSeq, WidgetNodeSeq};
+pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use view::View;
 pub use widget::Widget;
