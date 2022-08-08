@@ -3,66 +3,78 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::mem;
 
+use crate::component::Component;
 use crate::context::Context;
-use crate::element::Element;
+use crate::element::{ComponentElement, Element, ViewElement};
 use crate::hlist::{HCons, HList, HNil};
 use crate::view::View;
-use crate::widget::{CommitMode, Widget, WidgetNode};
+use crate::widget::{Widget, WidgetNode};
 
-pub trait ElementSeq {
-    type Store: WidgetNodeSeq;
+pub trait ElementSeq<S> {
+    type Store: WidgetNodeSeq<S>;
 
-    fn build(self, context: &mut Context) -> Self::Store;
+    fn build(self, state: &S, context: &mut Context) -> Self::Store;
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool;
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool;
 }
 
-pub trait WidgetNodeSeq {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context);
+pub trait WidgetNodeSeq<S> {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context);
 }
 
-pub struct WidgetNodeStore<V: View, CS> {
-    node: WidgetNode<V, CS>,
+pub struct WidgetNodeStore<V: View<S>, CS, S> {
+    node: WidgetNode<V, CS, S>,
     dirty: bool,
 }
 
-impl<V: View, CS> WidgetNodeStore<V, CS> {
-    fn new(node: WidgetNode<V, CS>) -> Self {
-        Self {
-            node,
-            dirty: false,
-        }
+impl<V: View<S>, CS, S> WidgetNodeStore<V, CS, S> {
+    fn new(node: WidgetNode<V, CS, S>) -> Self {
+        Self { node, dirty: false }
     }
 }
 
-impl<E: Element> ElementSeq for E {
-    type Store = WidgetNodeStore<E::View, E::Components>;
+impl<V: View<S>, S> ElementSeq<S> for ViewElement<V, S> {
+    type Store = WidgetNodeStore<<Self as Element<S>>::View, <Self as Element<S>>::Components, S>;
 
-    fn build(self, context: &mut Context) -> Self::Store {
-        WidgetNodeStore::new(self.build(context))
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
+        WidgetNodeStore::new(Element::build(self, state, context))
     }
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool {
-        let has_changed = self.rebuild(store.node.scope(), context);
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
+        let has_changed = Element::rebuild(self, store.node.scope(), state, context);
         store.dirty = has_changed;
         has_changed
     }
 }
 
-impl<V: View, CS> WidgetNodeSeq for WidgetNodeStore<V, CS> {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context) {
+impl<C: Component<S>, S> ElementSeq<S> for ComponentElement<C, S> {
+    type Store = WidgetNodeStore<<Self as Element<S>>::View, <Self as Element<S>>::Components, S>;
+
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
+        WidgetNodeStore::new(Element::build(self, state, context))
+    }
+
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
+        let has_changed = Element::rebuild(self, store.node.scope(), state, context);
+        store.dirty = has_changed;
+        has_changed
+    }
+}
+
+impl<V: View<S>, CS, S> WidgetNodeSeq<S> for WidgetNodeStore<V, CS, S> {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         if self.dirty || mode.is_propagatable() {
             self.dirty = false;
-            self.node.commit(mode, context);
+            self.node.commit(mode, state, context);
         }
     }
 }
 
-impl<V: View + fmt::Debug, CS> fmt::Debug for WidgetNodeStore<V, CS>
+impl<V, CS, S> fmt::Debug for WidgetNodeStore<V, CS, S>
 where
-    V: View + fmt::Debug,
+    V: View<S> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Widget as Widget>::Children: fmt::Debug,
+    <V::Widget as Widget<S>>::Children: fmt::Debug,
     CS: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -73,50 +85,50 @@ where
     }
 }
 
-impl ElementSeq for HNil {
+impl<S> ElementSeq<S> for HNil {
     type Store = HNil;
 
-    fn build(self, _context: &mut Context) -> Self::Store {
+    fn build(self, _state: &S, _context: &mut Context) -> Self::Store {
         HNil
     }
 
-    fn rebuild(self, _nodes: &mut Self::Store, _context: &mut Context) -> bool {
+    fn rebuild(self, _nodes: &mut Self::Store, _state: &S, _context: &mut Context) -> bool {
         false
     }
 }
 
-impl WidgetNodeSeq for HNil {
-    fn commit(&mut self, _mode: CommitMode, _context: &mut Context) {}
+impl<S> WidgetNodeSeq<S> for HNil {
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut Context) {}
 }
 
-impl<H, T> ElementSeq for HCons<H, T>
+impl<H, T, S> ElementSeq<S> for HCons<H, T>
 where
-    H: ElementSeq,
-    T: ElementSeq + HList,
+    H: ElementSeq<S>,
+    T: ElementSeq<S> + HList,
     T::Store: HList,
 {
     type Store = HCons<H::Store, T::Store>;
 
-    fn build(self, context: &mut Context) -> Self::Store {
-        HCons(self.0.build(context), self.1.build(context))
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
+        HCons(self.0.build(state, context), self.1.build(state, context))
     }
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool {
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
         let mut has_changed = false;
-        has_changed |= self.0.rebuild(&mut store.0, context);
-        has_changed |= self.1.rebuild(&mut store.1, context);
+        has_changed |= self.0.rebuild(&mut store.0, state, context);
+        has_changed |= self.1.rebuild(&mut store.1, state, context);
         has_changed
     }
 }
 
-impl<H, T> WidgetNodeSeq for HCons<H, T>
+impl<H, T, S> WidgetNodeSeq<S> for HCons<H, T>
 where
-    H: WidgetNodeSeq,
-    T: WidgetNodeSeq + HList,
+    H: WidgetNodeSeq<S>,
+    T: WidgetNodeSeq<S> + HList,
 {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context) {
-        self.0.commit(mode, context);
-        self.1.commit(mode, context);
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+        self.0.commit(mode, state, context);
+        self.1.commit(mode, state, context);
     }
 }
 
@@ -139,21 +151,21 @@ impl<T> VecStore<T> {
     }
 }
 
-impl<T> ElementSeq for Vec<T>
+impl<T, S> ElementSeq<S> for Vec<T>
 where
-    T: ElementSeq,
+    T: ElementSeq<S>,
 {
     type Store = VecStore<T::Store>;
 
-    fn build(self, context: &mut Context) -> Self::Store {
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
         VecStore::new(
             self.into_iter()
-                .map(|element| element.build(context))
+                .map(|element| element.build(state, context))
                 .collect(),
         )
     }
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool {
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
         let mut has_changed = false;
 
         store
@@ -164,14 +176,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < store.active.len() {
                 let node = &mut store.active[i];
-                has_changed |= element.rebuild(node, context);
+                has_changed |= element.rebuild(node, state, context);
             } else {
                 let j = i - store.active.len();
                 if j < store.staging.len() {
                     let node = &mut store.staging[j];
-                    has_changed |= element.rebuild(node, context);
+                    has_changed |= element.rebuild(node, state, context);
                 } else {
-                    let node = element.build(context);
+                    let node = element.build(state, context);
                     store.staging.push(node);
                     has_changed = true;
                 }
@@ -184,34 +196,34 @@ where
     }
 }
 
-impl<T: WidgetNodeSeq> WidgetNodeSeq for VecStore<T> {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context) {
+impl<T: WidgetNodeSeq<S>, S> WidgetNodeSeq<S> for VecStore<T> {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
                     for node in &mut self.active {
-                        node.commit(mode, context);
+                        node.commit(mode, state, context);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        node.commit(mode, context);
+                        node.commit(mode, state, context);
                     }
                     for mut node in self.active.drain(self.new_len..) {
-                        node.commit(CommitMode::Unmount, context);
+                        node.commit(CommitMode::Unmount, state, context);
                         self.staging.push(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        node.commit(mode, context);
+                        node.commit(mode, state, context);
                     }
                     if !mode.is_unmount() {
                         for i in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.swap_remove(i);
-                            node.commit(CommitMode::Mount, context);
+                            node.commit(CommitMode::Mount, state, context);
                             self.active.push(node);
                         }
                     }
@@ -237,24 +249,22 @@ impl<T, const N: usize> ArrayStore<T, N> {
     }
 }
 
-impl<T, const N: usize> ElementSeq for [T; N]
+impl<T, const N: usize, S> ElementSeq<S> for [T; N]
 where
-    T: ElementSeq,
+    T: ElementSeq<S>,
 {
     type Store = ArrayStore<T::Store, N>;
 
-    fn build(self, context: &mut Context) -> Self::Store {
-        ArrayStore::new(
-            self.map(|element| element.build(context))
-        )
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
+        ArrayStore::new(self.map(|element| element.build(state, context)))
     }
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool {
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut store.nodes[i];
-            has_changed |= element.rebuild(node, context);
+            has_changed |= element.rebuild(node, state, context);
         }
 
         store.dirty |= has_changed;
@@ -263,11 +273,11 @@ where
     }
 }
 
-impl<T: WidgetNodeSeq, const N: usize> WidgetNodeSeq for ArrayStore<T, N> {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context) {
+impl<T: WidgetNodeSeq<S>, S, const N: usize> WidgetNodeSeq<S> for ArrayStore<T, N> {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                node.commit(mode, context);
+                node.commit(mode, state, context);
             }
             self.dirty = false;
         }
@@ -291,20 +301,20 @@ impl<T> OptionStore<T> {
     }
 }
 
-impl<T> ElementSeq for Option<T>
+impl<T, S> ElementSeq<S> for Option<T>
 where
-    T: ElementSeq,
+    T: ElementSeq<S>,
 {
     type Store = OptionStore<T::Store>;
 
-    fn build(self, context: &mut Context) -> Self::Store {
-        OptionStore::new(self.map(|element| element.build(context)))
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
+        OptionStore::new(self.map(|element| element.build(state, context)))
     }
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool {
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
         match (store.active.as_mut(), self) {
             (Some(node), Some(element)) => {
-                if element.rebuild(node, context) {
+                if element.rebuild(node, state, context) {
                     store.status = BuildStatus::Changed;
                     true
                 } else {
@@ -313,9 +323,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = store.staging.as_mut() {
-                    element.rebuild(node, context);
+                    element.rebuild(node, state, context);
                 } else {
-                    store.staging = Some(element.build(context));
+                    store.staging = Some(element.build(state, context));
                 }
                 store.status = BuildStatus::Swapped;
                 true
@@ -330,22 +340,22 @@ where
     }
 }
 
-impl<T: WidgetNodeSeq> WidgetNodeSeq for OptionStore<T> {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context) {
+impl<T: WidgetNodeSeq<S>, S> WidgetNodeSeq<S> for OptionStore<T> {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         if self.status == BuildStatus::Swapped {
             if let Some(nodes) = self.active.as_mut() {
-                nodes.commit(CommitMode::Unmount, context);
+                nodes.commit(CommitMode::Unmount, state, context);
             }
             mem::swap(&mut self.active, &mut self.staging);
             if !mode.is_unmount() {
                 if let Some(nodes) = self.active.as_mut() {
-                    nodes.commit(CommitMode::Mount, context);
+                    nodes.commit(CommitMode::Mount, state, context);
                 }
             }
             self.status = BuildStatus::Unchanged;
         } else if self.status == BuildStatus::Changed || mode.is_propagatable() {
             if let Some(nodes) = self.active.as_mut() {
-                nodes.commit(mode, context);
+                nodes.commit(mode, state, context);
             }
             self.status = BuildStatus::Unchanged;
         }
@@ -369,20 +379,22 @@ impl<L, R> EitherStore<L, R> {
     }
 }
 
-impl<L: ElementSeq, R: ElementSeq> ElementSeq for Either<L, R> {
+impl<L: ElementSeq<S>, R: ElementSeq<S>, S> ElementSeq<S> for Either<L, R> {
     type Store = EitherStore<L::Store, R::Store>;
 
-    fn build(self, context: &mut Context) -> Self::Store {
+    fn build(self, state: &S, context: &mut Context) -> Self::Store {
         match self {
-            Either::Left(element) => EitherStore::new(Either::Left(element.build(context))),
-            Either::Right(element) => EitherStore::new(Either::Right(element.build(context))),
+            Either::Left(element) => EitherStore::new(Either::Left(element.build(state, context))),
+            Either::Right(element) => {
+                EitherStore::new(Either::Right(element.build(state, context)))
+            }
         }
     }
 
-    fn rebuild(self, store: &mut Self::Store, context: &mut Context) -> bool {
+    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
         match (store.active.as_mut(), self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.rebuild(node, context) {
+                if element.rebuild(node, state, context) {
                     store.status = BuildStatus::Changed;
                     true
                 } else {
@@ -390,7 +402,7 @@ impl<L: ElementSeq, R: ElementSeq> ElementSeq for Either<L, R> {
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.rebuild(node, context) {
+                if element.rebuild(node, state, context) {
                     store.status = BuildStatus::Changed;
                     true
                 } else {
@@ -400,12 +412,12 @@ impl<L: ElementSeq, R: ElementSeq> ElementSeq for Either<L, R> {
             (Either::Left(_), Either::Right(element)) => {
                 match store.staging.as_mut() {
                     Some(Either::Right(stagin_nodes)) => {
-                        element.rebuild(stagin_nodes, context);
+                        element.rebuild(stagin_nodes, state, context);
                     }
                     None => {
-                        store.staging = Some(Either::Right(element.build(context)));
+                        store.staging = Some(Either::Right(element.build(state, context)));
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 store.status = BuildStatus::Swapped;
                 true
@@ -413,12 +425,12 @@ impl<L: ElementSeq, R: ElementSeq> ElementSeq for Either<L, R> {
             (Either::Right(_), Either::Left(element)) => {
                 match store.staging.as_mut() {
                     Some(Either::Left(node)) => {
-                        element.rebuild(node, context);
+                        element.rebuild(node, state, context);
                     }
                     None => {
-                        store.staging = Some(Either::Left(element.build(context)));
+                        store.staging = Some(Either::Left(element.build(state, context)));
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
                 store.status = BuildStatus::Swapped;
                 true
@@ -427,31 +439,56 @@ impl<L: ElementSeq, R: ElementSeq> ElementSeq for Either<L, R> {
     }
 }
 
-impl<L, R> WidgetNodeSeq for EitherStore<L, R>
+impl<L, R, S> WidgetNodeSeq<S> for EitherStore<L, R>
 where
-    L: WidgetNodeSeq,
-    R: WidgetNodeSeq,
+    L: WidgetNodeSeq<S>,
+    R: WidgetNodeSeq<S>,
 {
-    fn commit(&mut self, mode: CommitMode, context: &mut Context) {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         if self.status == BuildStatus::Swapped {
             match self.active.as_mut() {
-                Either::Left(nodes) => nodes.commit(CommitMode::Unmount, context),
-                Either::Right(nodes) => nodes.commit(CommitMode::Unmount, context),
+                Either::Left(nodes) => nodes.commit(CommitMode::Unmount, state, context),
+                Either::Right(nodes) => nodes.commit(CommitMode::Unmount, state, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if !mode.is_unmount() {
                 match self.active.as_mut() {
-                    Either::Left(nodes) => nodes.commit(CommitMode::Mount, context),
-                    Either::Right(nodes) => nodes.commit(CommitMode::Mount, context),
+                    Either::Left(nodes) => nodes.commit(CommitMode::Mount, state, context),
+                    Either::Right(nodes) => nodes.commit(CommitMode::Mount, state, context),
                 }
             }
             self.status = BuildStatus::Unchanged;
         } else if self.status == BuildStatus::Changed || mode.is_propagatable() {
             match self.active.as_mut() {
-                Either::Left(nodes) => nodes.commit(mode, context),
-                Either::Right(nodes) => nodes.commit(mode, context),
+                Either::Left(nodes) => nodes.commit(mode, state, context),
+                Either::Right(nodes) => nodes.commit(mode, state, context),
             }
             self.status = BuildStatus::Unchanged;
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CommitMode {
+    Mount,
+    Unmount,
+    Update,
+}
+
+impl CommitMode {
+    fn is_propagatable(&self) -> bool {
+        match self {
+            Self::Mount => true,
+            Self::Unmount => true,
+            Self::Update => false,
+        }
+    }
+
+    fn is_unmount(&self) -> bool {
+        match self {
+            Self::Mount => false,
+            Self::Unmount => true,
+            Self::Update => false,
         }
     }
 }

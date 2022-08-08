@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::Token;
 use syn::parse::{Parse, ParseStream};
+use syn::Token;
 
 #[proc_macro]
 pub fn either(input: TokenStream) -> TokenStream {
@@ -54,8 +54,8 @@ fn process_if(expr: &mut syn::ExprIf, iterations: usize) -> syn::Result<()> {
                 else_branch = quote!({ #else_branch });
                 expr.else_branch = Some((
                     *else_token,
-                    syn::parse(else_branch.into_token_stream().into())?)
-                );
+                    syn::parse(else_branch.into_token_stream().into())?,
+                ));
             }
             syn::Expr::If(next_if) => {
                 process_if(next_if, iterations + 1)?;

@@ -1,10 +1,12 @@
 pub mod hlist;
 
+mod adapt;
 mod component;
 mod context;
 mod element;
 mod sequence;
 mod stage;
+mod state;
 mod view;
 mod widget;
 
@@ -12,6 +14,7 @@ pub use component::Component;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
+pub use state::{Immediate, State};
 pub use view::View;
 pub use widget::Widget;
 
@@ -32,17 +35,17 @@ impl Text {
     }
 }
 
-impl View for Text {
+impl<S> View<S> for Text {
     type Widget = Text;
 
     type Children = hlist::HNil;
 
-    fn build(self, _children: &<Self::Widget as Widget>::Children) -> Self::Widget {
+    fn build(self, _children: &<Self::Widget as Widget<S>>::Children, _state: &S) -> Self::Widget {
         self
     }
 }
 
-impl Widget for Text {
+impl<S> Widget<S> for Text {
     type Children = hlist::HNil;
 }
 
@@ -59,12 +62,12 @@ impl<Children> Block<Children> {
     }
 }
 
-impl<Children: 'static + ElementSeq> View for Block<Children> {
-    type Widget = BlockWidget<<Children as ElementSeq>::Store>;
+impl<Children: ElementSeq<S>, S> View<S> for Block<Children> {
+    type Widget = BlockWidget<<Children as ElementSeq<S>>::Store>;
 
     type Children = Children;
 
-    fn build(self, _children: &<Self::Widget as Widget>::Children) -> Self::Widget {
+    fn build(self, _children: &<Self::Widget as Widget<S>>::Children, _state: &S) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
         }
@@ -76,7 +79,7 @@ pub struct BlockWidget<Children> {
     children: PhantomData<Children>,
 }
 
-impl<Children: 'static + WidgetNodeSeq> Widget for BlockWidget<Children> {
+impl<Children: WidgetNodeSeq<S>, S> Widget<S> for BlockWidget<Children> {
     type Children = Children;
 }
 
@@ -93,12 +96,22 @@ impl Button {
     }
 }
 
-impl Component for Button {
-    type Element = ViewElement<Block<hlist_type![ViewElement<Text>]>>;
+impl<S> Component<S> for Button {
+    type Element = ViewElement<Block<hlist_type![ViewElement<Text, S>]>, S>;
 
-    type State = ();
-
-    fn render(&self, _state: &Self::State) -> Self::Element {
+    fn render(&self, _state: &S) -> Self::Element {
         Block::new().el_with(hlist![Text::new(self.label.clone()).el()])
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Counter;
+
+impl Component<Immediate<i64>> for Counter {
+    type Element =
+        ViewElement<Block<hlist_type![ViewElement<Text, Immediate<i64>>]>, Immediate<i64>>;
+
+    fn render(&self, state: &Immediate<i64>) -> Self::Element {
+        Block::new().el_with(hlist![Text::new(format!("{}", state.value)).el()])
     }
 }
