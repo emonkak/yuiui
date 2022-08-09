@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::context::RenderContext;
+use crate::context::BuildContext;
 use crate::element::{ComponentElement, Element};
 use crate::sequence::CommitMode;
 use crate::state::State;
@@ -36,11 +36,13 @@ impl<C: Component<S>, S: State> ComponentNode<C, S> {
         }
     }
 
-    pub fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut RenderContext) {}
+    pub fn commit(&mut self, _mode: CommitMode, _state: &S, context: &mut BuildContext<S>) {
+        context.next_component();
+    }
 }
 
-pub trait ComponentStack<S> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut RenderContext);
+pub trait ComponentStack<S: State> {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>);
 }
 
 impl<C, CS, S> ComponentStack<S> for (ComponentNode<C, S>, CS)
@@ -49,12 +51,12 @@ where
     CS: ComponentStack<S>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut RenderContext) {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
         self.0.commit(mode, state, context);
         self.1.commit(mode, state, context);
     }
 }
 
-impl<S> ComponentStack<S> for () {
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut RenderContext) {}
+impl<S: State> ComponentStack<S> for () {
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut BuildContext<S>) {}
 }

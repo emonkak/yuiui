@@ -179,10 +179,26 @@ where
 impl<CS, F, S, SS> ComponentStack<S> for Adapt<CS, F, SS>
 where
     CS: ComponentStack<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut RenderContext) {
-        self.target.commit(mode, (self.selector_fn)(state), context);
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_context = context.sub_context();
+        self.target.commit(mode, sub_state, &mut sub_context);
+        for (id, sub_effect) in sub_context.effects {
+            let effect = match sub_effect {
+                Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(
+                    Some(message),
+                    self.selector_fn.clone(),
+                ))),
+                Effect::Mutation(mutation) => {
+                    Effect::Mutation(Box::new(Adapt::new(mutation, self.selector_fn.clone())))
+                }
+            };
+            context.effects.push((id, effect));
+        }
     }
 }
 

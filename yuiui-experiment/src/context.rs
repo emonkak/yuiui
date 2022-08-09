@@ -33,6 +33,7 @@ impl RenderContext {
 
 pub struct BuildContext<S: State> {
     id_path: Vec<Id>,
+    component_index: Option<usize>,
     pub effects: Vec<(Vec<Id>, Effect<S>)>,
 }
 
@@ -40,6 +41,7 @@ impl<S: State> BuildContext<S> {
     pub fn new() -> Self {
         Self {
             id_path: Vec::new(),
+            component_index: Some(0),
             effects: Vec::new(),
         }
     }
@@ -47,6 +49,7 @@ impl<S: State> BuildContext<S> {
     pub fn sub_context<SS: State>(&self) -> BuildContext<SS> {
         BuildContext {
             id_path: self.id_path.clone(),
+            component_index: self.component_index,
             effects: Vec::new(),
         }
     }
@@ -57,6 +60,18 @@ impl<S: State> BuildContext<S> {
 
     pub fn end(&mut self) -> Id {
         self.id_path.pop().unwrap()
+    }
+
+    pub fn begin_components(&mut self) {
+        self.component_index = Some(0);
+    }
+
+    pub fn end_components(&mut self) {
+        self.component_index = None;
+    }
+
+    pub fn next_component(&mut self) {
+        *self.component_index.as_mut().unwrap() += 1;
     }
 
     pub fn push_effect(&mut self, effect: impl Into<Effect<S>>) {

@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::component::ComponentStack;
 use crate::context::{BuildContext, Id};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
@@ -19,6 +20,7 @@ pub struct WidgetNode<V: View<S>, CS, S: State> {
 impl<V, CS, S> WidgetNode<V, CS, S>
 where
     V: View<S>,
+    CS: ComponentStack<S>,
     S: State,
 {
     pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S> {
@@ -32,6 +34,9 @@ where
 
     pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
         context.begin(self.id);
+        context.begin_components();
+        self.components.commit(mode, state, context);
+        context.end_components();
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget),
             WidgetStatus::Changed(mut widget, view) => {

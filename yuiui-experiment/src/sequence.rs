@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::mem;
 
-use crate::component::Component;
+use crate::component::{Component, ComponentStack};
 use crate::context::{BuildContext, RenderContext};
 use crate::element::{ComponentElement, Element, ViewElement};
 use crate::hlist::{HCons, HList, HNil};
@@ -77,6 +77,7 @@ where
 impl<V, CS, S> WidgetNodeSeq<S> for WidgetNodeStore<V, CS, S>
 where
     V: View<S>,
+    CS: ComponentStack<S>,
     S: State,
 {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
