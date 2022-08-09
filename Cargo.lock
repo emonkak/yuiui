@@ -1476,7 +1476,6 @@ version = "0.0.0"
 dependencies = [
  "either 0.0.0",
  "either-macro",
- "yuiui-support",
 ]
 
 [[package]]

@@ -10,7 +10,6 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-yuiui-support = { path = "../yuiui-support" }
 either = { path = "../either" }
 either-macro = { path = "../either-macro" }
 

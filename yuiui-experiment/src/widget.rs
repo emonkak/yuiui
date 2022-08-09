@@ -1,8 +1,8 @@
 use std::fmt;
 
-use crate::context::{Context, Id};
+use crate::context::{BuildContext, Id};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
-use crate::state::{Effect, State};
+use crate::state::State;
 use crate::view::View;
 
 pub trait Widget<S: State> {
@@ -30,14 +30,8 @@ where
         }
     }
 
-    pub fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        commands: &mut Vec<Effect<S>>,
-        context: &mut Context,
-    ) {
-        context.push(self.id);
+    pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+        context.begin(self.id);
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget),
             WidgetStatus::Changed(mut widget, view) => {
@@ -50,8 +44,8 @@ where
             }
         }
         .into();
-        self.children.commit(mode, state, commands, context);
-        context.pop();
+        self.children.commit(mode, state, context);
+        context.end();
     }
 }
 

@@ -3,7 +3,7 @@ use std::mem;
 
 use crate::adapt::Adapt;
 use crate::component::{Component, ComponentNode, ComponentStack};
-use crate::context::Context;
+use crate::context::RenderContext;
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
@@ -17,14 +17,14 @@ pub trait Element<S: State> {
     fn render(
         self,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S>;
 
     fn update(
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool;
 
     fn adapt<F, NS>(self, f: F) -> Adapt<Self, F, S>
@@ -64,13 +64,13 @@ where
     fn render(
         self,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let id = context.next_identity();
-        context.push(id);
+        context.begin(id);
         let children = self.children.render(state, context);
         let status = WidgetStatus::Uninitialized(self.view);
-        context.pop();
+        context.end();
         WidgetNode {
             id,
             status: Some(status),
@@ -83,7 +83,7 @@ where
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool {
         *scope.status = match scope.status.take().unwrap() {
             WidgetStatus::Prepared(widget) => WidgetStatus::Changed(widget, self.view),
@@ -123,7 +123,7 @@ where
     fn render(
         self,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.component.render(state);
@@ -140,7 +140,7 @@ where
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = scope.components;
         let scope = WidgetNodeScope {

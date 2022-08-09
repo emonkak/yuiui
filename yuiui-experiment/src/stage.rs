@@ -1,7 +1,7 @@
 use std::fmt;
 use std::mem;
 
-use crate::context::Context;
+use crate::context::{BuildContext, Id, RenderContext};
 use crate::element::Element;
 use crate::sequence::CommitMode;
 use crate::state::{Effect, State};
@@ -11,13 +11,13 @@ use crate::widget::{Widget, WidgetNode};
 pub struct Stage<E: Element<S>, S: State> {
     node: WidgetNode<E::View, E::Components, S>,
     state: S,
-    context: Context,
+    context: RenderContext,
     is_mounted: bool,
 }
 
 impl<E: Element<S>, S: State> Stage<E, S> {
     pub fn new(element: E, state: S) -> Self {
-        let mut context = Context::new();
+        let mut context = RenderContext::new();
         let node = element.render(&state, &mut context);
         Self {
             node,
@@ -29,15 +29,11 @@ impl<E: Element<S>, S: State> Stage<E, S> {
 
     pub fn update(&mut self, element: E) {
         if element.update(self.node.scope(), &self.state, &mut self.context) {
-            let mut effects = Vec::new();
-            self.node.commit(
-                CommitMode::Update,
-                &self.state,
-                &mut effects,
-                &mut self.context,
-            );
-            for effect in effects {
-                self.run_effect(effect);
+            let mut context = BuildContext::new();
+            self.node
+                .commit(CommitMode::Update, &self.state, &mut context);
+            for (id_path, effect) in context.effects {
+                self.run_effect(id_path, effect);
             }
         }
     }
@@ -48,15 +44,14 @@ impl<E: Element<S>, S: State> Stage<E, S> {
         } else {
             CommitMode::Mount
         };
-        let mut effects = Vec::new();
-        self.node
-            .commit(mode, &self.state, &mut effects, &mut self.context);
-        for effect in effects {
-            self.run_effect(effect);
+        let mut context = BuildContext::new();
+        self.node.commit(mode, &self.state, &mut context);
+        for (id_path, effect) in context.effects {
+            self.run_effect(id_path, effect);
         }
     }
 
-    fn run_effect(&mut self, effect: Effect<S>) -> bool {
+    fn run_effect(&mut self, _id_path: Vec<Id>, effect: Effect<S>) -> bool {
         match effect {
             Effect::Message(message) => self.state.reduce(message),
             Effect::Mutation(mut mutation) => mutation.apply(&mut self.state),

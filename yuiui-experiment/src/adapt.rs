@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::component::{Component, ComponentStack};
-use crate::context::Context;
+use crate::context::{BuildContext, RenderContext};
 use crate::element::Element;
 use crate::sequence::{CommitMode, ElementSeq, WidgetNodeSeq};
 use crate::state::{Effect, Mutation, State};
@@ -46,7 +46,7 @@ where
     fn render(
         self,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let selector_fn = self.selector_fn;
         let node = self.target.render((selector_fn)(state), context);
@@ -73,24 +73,24 @@ where
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool {
-        let mut new_status = scope.status.take().map(|status| match status {
+        let mut sub_status = scope.status.take().map(|status| match status {
             WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget.target),
             WidgetStatus::Changed(widget, view) => {
                 WidgetStatus::Changed(widget.target, view.target)
             }
             WidgetStatus::Uninitialized(view) => WidgetStatus::Uninitialized(view.target),
         });
-        let new_scope = WidgetNodeScope {
+        let sub_scope = WidgetNodeScope {
             id: scope.id,
-            status: &mut new_status,
+            status: &mut sub_status,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
         };
         let selector_fn = self.selector_fn;
-        let has_changed = self.target.update(new_scope, selector_fn(state), context);
-        *scope.status = new_status.map(|status| match status {
+        let has_changed = self.target.update(sub_scope, selector_fn(state), context);
+        *scope.status = sub_status.map(|status| match status {
             WidgetStatus::Prepared(widget) => {
                 WidgetStatus::Prepared(Adapt::new(widget, selector_fn.clone()))
             }
@@ -115,14 +115,14 @@ where
 {
     type Store = Adapt<ES::Store, F, SS>;
 
-    fn render(self, state: &S, context: &mut Context) -> Self::Store {
+    fn render(self, state: &S, context: &mut RenderContext) -> Self::Store {
         Adapt::new(
             self.target.render((self.selector_fn)(state), context),
             self.selector_fn.clone(),
         )
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool {
         self.target
             .update(&mut store.target, (self.selector_fn)(state), context)
     }
@@ -135,18 +135,11 @@ where
     S: State,
     SS: State + 'static,
 {
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        effects: &mut Vec<Effect<S>>,
-        context: &mut Context,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
         let sub_state = (self.selector_fn)(state);
-        let mut sub_effects = Vec::new();
-        self.target
-            .commit(mode, sub_state, &mut sub_effects, context);
-        for sub_effect in sub_effects {
+        let mut sub_context = context.sub_context();
+        self.target.commit(mode, sub_state, &mut sub_context);
+        for (id, sub_effect) in sub_context.effects {
             let effect = match sub_effect {
                 Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(
                     Some(message),
@@ -156,7 +149,7 @@ where
                     Effect::Mutation(Box::new(Adapt::new(mutation, self.selector_fn.clone())))
                 }
             };
-            effects.push(effect)
+            context.effects.push((id, effect));
         }
     }
 }
@@ -188,7 +181,7 @@ where
     CS: ComponentStack<SS>,
     F: Fn(&S) -> &SS,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut RenderContext) {
         self.target.commit(mode, (self.selector_fn)(state), context);
     }
 }
@@ -242,7 +235,7 @@ where
     F: Fn(&S) -> &SS,
 {
     fn apply(&mut self, state: &mut S) -> bool {
-        let state: &mut SS = unsafe { &mut *((self.selector_fn)(state) as *const _ as *mut _) };
-        self.target.apply(state)
+        let sub_state = unsafe { &mut *((self.selector_fn)(state) as *const _ as *mut _) };
+        self.target.apply(sub_state)
     }
 }
