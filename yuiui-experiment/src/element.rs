@@ -13,10 +13,13 @@ pub trait Element<S> {
 
     type Components: ComponentStack<S>;
 
-    fn build(self, state: &S, context: &mut Context)
-        -> WidgetNode<Self::View, Self::Components, S>;
+    fn render(
+        self,
+        state: &S,
+        context: &mut Context,
+    ) -> WidgetNode<Self::View, Self::Components, S>;
 
-    fn rebuild(
+    fn update(
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
@@ -49,14 +52,14 @@ impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
 
     type Components = ();
 
-    fn build(
+    fn render(
         self,
         state: &S,
         context: &mut Context,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let id = context.next_identity();
         context.push(id);
-        let children = self.children.build(state, context);
+        let children = self.children.render(state, context);
         let status = WidgetStatus::Uninitialized(self.view);
         context.pop();
         WidgetNode {
@@ -67,7 +70,7 @@ impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
         }
     }
 
-    fn rebuild(
+    fn update(
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
@@ -79,7 +82,7 @@ impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
             WidgetStatus::Uninitialized(_) => WidgetStatus::Uninitialized(self.view),
         }
         .into();
-        self.children.rebuild(scope.children, state, context);
+        self.children.update(scope.children, state, context);
         true
     }
 }
@@ -104,14 +107,14 @@ impl<C: Component<S>, S> Element<S> for ComponentElement<C, S> {
 
     type Components = (ComponentNode<C, S>, <C::Element as Element<S>>::Components);
 
-    fn build(
+    fn render(
         self,
         state: &S,
         context: &mut Context,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.component.render(state);
-        let widget_node = Element::build(element, state, context);
+        let widget_node = Element::render(element, state, context);
         WidgetNode {
             id: widget_node.id,
             status: widget_node.status,
@@ -120,7 +123,7 @@ impl<C: Component<S>, S> Element<S> for ComponentElement<C, S> {
         }
     }
 
-    fn rebuild(
+    fn update(
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
@@ -136,7 +139,7 @@ impl<C: Component<S>, S> Element<S> for ComponentElement<C, S> {
         let old_component = mem::replace(&mut head.component, self.component);
         if old_component.should_update(&head.component, state) {
             let element = head.component.render(state);
-            Element::rebuild(element, scope, state, context)
+            Element::update(element, scope, state, context)
         } else {
             false
         }

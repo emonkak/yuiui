@@ -9,44 +9,44 @@ use crate::sequence::{CommitMode, ElementSeq, WidgetNodeSeq};
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetStatus};
 
-pub struct Adapt<T, F, NS> {
+pub struct Adapt<T, F, SS> {
     target: T,
     selector_fn: Rc<F>,
-    new_state: PhantomData<NS>,
+    sub_state: PhantomData<SS>,
 }
 
-impl<T, F, NS> Adapt<T, F, NS> {
+impl<T, F, SS> Adapt<T, F, SS> {
     pub fn new(target: T, selector_fn: impl Into<Rc<F>>) -> Self {
         Self {
             target,
             selector_fn: selector_fn.into(),
-            new_state: PhantomData,
+            sub_state: PhantomData,
         }
     }
 }
 
-impl<T: fmt::Debug, F, NS> fmt::Debug for Adapt<T, F, NS> {
+impl<T: fmt::Debug, F, SS> fmt::Debug for Adapt<T, F, SS> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Adapt").field(&self.target).finish()
     }
 }
 
-impl<E, F, S, NS> Element<S> for Adapt<E, F, NS>
+impl<E, F, S, SS> Element<S> for Adapt<E, F, SS>
 where
-    E: Element<NS>,
-    F: Fn(&S) -> &NS,
+    E: Element<SS>,
+    F: Fn(&S) -> &SS,
 {
-    type View = Adapt<E::View, F, NS>;
+    type View = Adapt<E::View, F, SS>;
 
-    type Components = Adapt<E::Components, F, NS>;
+    type Components = Adapt<E::Components, F, SS>;
 
-    fn build(
+    fn render(
         self,
         state: &S,
         context: &mut Context,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let selector_fn = self.selector_fn;
-        let node = self.target.build((selector_fn)(state), context);
+        let node = self.target.render((selector_fn)(state), context);
         WidgetNode {
             id: node.id,
             status: node.status.map(|status| match status {
@@ -66,7 +66,7 @@ where
         }
     }
 
-    fn rebuild(
+    fn update(
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S>,
         state: &S,
@@ -86,7 +86,7 @@ where
             components: &mut scope.components.target,
         };
         let selector_fn = self.selector_fn;
-        let has_changed = self.target.rebuild(new_scope, selector_fn(state), context);
+        let has_changed = self.target.update(new_scope, selector_fn(state), context);
         *scope.status = new_status.map(|status| match status {
             WidgetStatus::Prepared(widget) => {
                 WidgetStatus::Prepared(Adapt::new(widget, selector_fn.clone()))
@@ -103,42 +103,42 @@ where
     }
 }
 
-impl<ES, F, S, NS> ElementSeq<S> for Adapt<ES, F, NS>
+impl<ES, F, S, SS> ElementSeq<S> for Adapt<ES, F, SS>
 where
-    ES: ElementSeq<NS>,
-    F: Fn(&S) -> &NS,
+    ES: ElementSeq<SS>,
+    F: Fn(&S) -> &SS,
 {
-    type Store = Adapt<ES::Store, F, NS>;
+    type Store = Adapt<ES::Store, F, SS>;
 
-    fn build(self, state: &S, context: &mut Context) -> Self::Store {
+    fn render(self, state: &S, context: &mut Context) -> Self::Store {
         Adapt::new(
-            self.target.build((self.selector_fn)(state), context),
+            self.target.render((self.selector_fn)(state), context),
             self.selector_fn.clone(),
         )
     }
 
-    fn rebuild(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool {
         self.target
-            .rebuild(&mut store.target, (self.selector_fn)(state), context)
+            .update(&mut store.target, (self.selector_fn)(state), context)
     }
 }
 
-impl<WS, F, S, NS> WidgetNodeSeq<S> for Adapt<WS, F, NS>
+impl<WS, F, S, SS> WidgetNodeSeq<S> for Adapt<WS, F, SS>
 where
-    WS: WidgetNodeSeq<NS>,
-    F: Fn(&S) -> &NS,
+    WS: WidgetNodeSeq<SS>,
+    F: Fn(&S) -> &SS,
 {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         self.target.commit(mode, (self.selector_fn)(state), context);
     }
 }
 
-impl<C, F, S, NS> Component<S> for Adapt<C, F, NS>
+impl<C, F, S, SS> Component<S> for Adapt<C, F, SS>
 where
-    C: Component<NS>,
-    F: Fn(&S) -> &NS,
+    C: Component<SS>,
+    F: Fn(&S) -> &SS,
 {
-    type Element = Adapt<C::Element, F, NS>;
+    type Element = Adapt<C::Element, F, SS>;
 
     fn render(&self, state: &S) -> Self::Element {
         Adapt::new(
@@ -153,24 +153,24 @@ where
     }
 }
 
-impl<CS, F, S, NS> ComponentStack<S> for Adapt<CS, F, NS>
+impl<CS, F, S, SS> ComponentStack<S> for Adapt<CS, F, SS>
 where
-    CS: ComponentStack<NS>,
-    F: Fn(&S) -> &NS,
+    CS: ComponentStack<SS>,
+    F: Fn(&S) -> &SS,
 {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         self.target.commit(mode, (self.selector_fn)(state), context);
     }
 }
 
-impl<V, F, S, NS> View<S> for Adapt<V, F, NS>
+impl<V, F, S, SS> View<S> for Adapt<V, F, SS>
 where
-    V: View<NS>,
-    F: Fn(&S) -> &NS,
+    V: View<SS>,
+    F: Fn(&S) -> &SS,
 {
-    type Widget = Adapt<V::Widget, F, NS>;
+    type Widget = Adapt<V::Widget, F, SS>;
 
-    type Children = Adapt<V::Children, F, NS>;
+    type Children = Adapt<V::Children, F, SS>;
 
     fn build(self, children: &<Self::Widget as Widget<S>>::Children, state: &S) -> Self::Widget {
         Adapt::new(
@@ -194,10 +194,10 @@ where
     }
 }
 
-impl<W, F, S, NS> Widget<S> for Adapt<W, F, NS>
+impl<W, F, S, SS> Widget<S> for Adapt<W, F, SS>
 where
-    W: Widget<NS>,
-    F: Fn(&S) -> &NS,
+    W: Widget<SS>,
+    F: Fn(&S) -> &SS,
 {
-    type Children = Adapt<W::Children, F, NS>;
+    type Children = Adapt<W::Children, F, SS>;
 }
