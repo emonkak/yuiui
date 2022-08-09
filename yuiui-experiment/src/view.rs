@@ -1,8 +1,9 @@
 use crate::element::ViewElement;
 use crate::sequence::ElementSeq;
+use crate::state::State;
 use crate::widget::Widget;
 
-pub trait View<S>: Sized {
+pub trait View<S: State>: Sized {
     type Widget: Widget<S>;
 
     type Children: ElementSeq<S, Store = <Self::Widget as Widget<S>>::Children>;

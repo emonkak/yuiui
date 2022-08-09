@@ -6,6 +6,7 @@ use crate::component::{Component, ComponentStack};
 use crate::context::Context;
 use crate::element::Element;
 use crate::sequence::{CommitMode, ElementSeq, WidgetNodeSeq};
+use crate::state::{Effect, Mutation, State};
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetStatus};
 
@@ -16,7 +17,7 @@ pub struct Adapt<T, F, SS> {
 }
 
 impl<T, F, SS> Adapt<T, F, SS> {
-    pub fn new(target: T, selector_fn: impl Into<Rc<F>>) -> Self {
+    pub fn new(target: T, selector_fn: Rc<F>) -> Self {
         Self {
             target,
             selector_fn: selector_fn.into(),
@@ -34,7 +35,9 @@ impl<T: fmt::Debug, F, SS> fmt::Debug for Adapt<T, F, SS> {
 impl<E, F, S, SS> Element<S> for Adapt<E, F, SS>
 where
     E: Element<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
     type View = Adapt<E::View, F, SS>;
 
@@ -106,7 +109,9 @@ where
 impl<ES, F, S, SS> ElementSeq<S> for Adapt<ES, F, SS>
 where
     ES: ElementSeq<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
     type Store = Adapt<ES::Store, F, SS>;
 
@@ -126,17 +131,42 @@ where
 impl<WS, F, S, SS> WidgetNodeSeq<S> for Adapt<WS, F, SS>
 where
     WS: WidgetNodeSeq<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
-        self.target.commit(mode, (self.selector_fn)(state), context);
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_effects = Vec::new();
+        self.target
+            .commit(mode, sub_state, &mut sub_effects, context);
+        for sub_effect in sub_effects {
+            let effect = match sub_effect {
+                Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(
+                    Some(message),
+                    self.selector_fn.clone(),
+                ))),
+                Effect::Mutation(mutation) => {
+                    Effect::Mutation(Box::new(Adapt::new(mutation, self.selector_fn.clone())))
+                }
+            };
+            effects.push(effect)
+        }
     }
 }
 
 impl<C, F, S, SS> Component<S> for Adapt<C, F, SS>
 where
     C: Component<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
     type Element = Adapt<C::Element, F, SS>;
 
@@ -166,7 +196,9 @@ where
 impl<V, F, S, SS> View<S> for Adapt<V, F, SS>
 where
     V: View<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
     type Widget = Adapt<V::Widget, F, SS>;
 
@@ -197,7 +229,20 @@ where
 impl<W, F, S, SS> Widget<S> for Adapt<W, F, SS>
 where
     W: Widget<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + 'static,
+    S: State,
+    SS: State + 'static,
 {
     type Children = Adapt<W::Children, F, SS>;
+}
+
+impl<M, F, S, SS> Mutation<S> for Adapt<M, F, SS>
+where
+    M: Mutation<SS>,
+    F: Fn(&S) -> &SS,
+{
+    fn apply(&mut self, state: &mut S) -> bool {
+        let state: &mut SS = unsafe { &mut *((self.selector_fn)(state) as *const _ as *mut _) };
+        self.target.apply(state)
+    }
 }

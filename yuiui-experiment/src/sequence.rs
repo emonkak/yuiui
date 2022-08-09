@@ -7,10 +7,11 @@ use crate::component::Component;
 use crate::context::Context;
 use crate::element::{ComponentElement, Element, ViewElement};
 use crate::hlist::{HCons, HList, HNil};
+use crate::state::{Effect, State};
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 
-pub trait ElementSeq<S> {
+pub trait ElementSeq<S: State> {
     type Store: WidgetNodeSeq<S>;
 
     fn render(self, state: &S, context: &mut Context) -> Self::Store;
@@ -18,22 +19,36 @@ pub trait ElementSeq<S> {
     fn update(self, store: &mut Self::Store, state: &S, context: &mut Context) -> bool;
 }
 
-pub trait WidgetNodeSeq<S> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context);
+pub trait WidgetNodeSeq<S: State> {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    );
 }
 
-pub struct WidgetNodeStore<V: View<S>, CS, S> {
+pub struct WidgetNodeStore<V: View<S>, CS, S: State> {
     node: WidgetNode<V, CS, S>,
     dirty: bool,
 }
 
-impl<V: View<S>, CS, S> WidgetNodeStore<V, CS, S> {
+impl<V, CS, S> WidgetNodeStore<V, CS, S>
+where
+    V: View<S>,
+    S: State,
+{
     fn new(node: WidgetNode<V, CS, S>) -> Self {
         Self { node, dirty: true }
     }
 }
 
-impl<V: View<S>, S> ElementSeq<S> for ViewElement<V, S> {
+impl<V, S> ElementSeq<S> for ViewElement<V, S>
+where
+    V: View<S>,
+    S: State,
+{
     type Store = WidgetNodeStore<<Self as Element<S>>::View, <Self as Element<S>>::Components, S>;
 
     fn render(self, state: &S, context: &mut Context) -> Self::Store {
@@ -47,7 +62,11 @@ impl<V: View<S>, S> ElementSeq<S> for ViewElement<V, S> {
     }
 }
 
-impl<C: Component<S>, S> ElementSeq<S> for ComponentElement<C, S> {
+impl<C, S> ElementSeq<S> for ComponentElement<C, S>
+where
+    C: Component<S>,
+    S: State,
+{
     type Store = WidgetNodeStore<<Self as Element<S>>::View, <Self as Element<S>>::Components, S>;
 
     fn render(self, state: &S, context: &mut Context) -> Self::Store {
@@ -61,11 +80,21 @@ impl<C: Component<S>, S> ElementSeq<S> for ComponentElement<C, S> {
     }
 }
 
-impl<V: View<S>, CS, S> WidgetNodeSeq<S> for WidgetNodeStore<V, CS, S> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+impl<V, CS, S> WidgetNodeSeq<S> for WidgetNodeStore<V, CS, S>
+where
+    V: View<S>,
+    S: State,
+{
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
         if self.dirty || mode.is_propagatable() {
             self.dirty = false;
-            self.node.commit(mode, state, context);
+            self.node.commit(mode, state, effects, context);
         }
     }
 }
@@ -76,6 +105,7 @@ where
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S>>::Children: fmt::Debug,
     CS: fmt::Debug,
+    S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("WidgetNodeStore")
@@ -85,7 +115,7 @@ where
     }
 }
 
-impl<S> ElementSeq<S> for HNil {
+impl<S: State> ElementSeq<S> for HNil {
     type Store = HNil;
 
     fn render(self, _state: &S, _context: &mut Context) -> Self::Store {
@@ -97,8 +127,15 @@ impl<S> ElementSeq<S> for HNil {
     }
 }
 
-impl<S> WidgetNodeSeq<S> for HNil {
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut Context) {}
+impl<S: State> WidgetNodeSeq<S> for HNil {
+    fn commit(
+        &mut self,
+        _mode: CommitMode,
+        _state: &S,
+        _effects: &mut Vec<Effect<S>>,
+        _context: &mut Context,
+    ) {
+    }
 }
 
 impl<H, T, S> ElementSeq<S> for HCons<H, T>
@@ -106,6 +143,7 @@ where
     H: ElementSeq<S>,
     T: ElementSeq<S> + HList,
     T::Store: HList,
+    S: State,
 {
     type Store = HCons<H::Store, T::Store>;
 
@@ -125,10 +163,17 @@ impl<H, T, S> WidgetNodeSeq<S> for HCons<H, T>
 where
     H: WidgetNodeSeq<S>,
     T: WidgetNodeSeq<S> + HList,
+    S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
-        self.0.commit(mode, state, context);
-        self.1.commit(mode, state, context);
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
+        self.0.commit(mode, state, effects, context);
+        self.1.commit(mode, state, effects, context);
     }
 }
 
@@ -154,6 +199,7 @@ impl<T> VecStore<T> {
 impl<T, S> ElementSeq<S> for Vec<T>
 where
     T: ElementSeq<S>,
+    S: State,
 {
     type Store = VecStore<T::Store>;
 
@@ -196,34 +242,44 @@ where
     }
 }
 
-impl<T: WidgetNodeSeq<S>, S> WidgetNodeSeq<S> for VecStore<T> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+impl<T, S> WidgetNodeSeq<S> for VecStore<T>
+where
+    T: WidgetNodeSeq<S>,
+    S: State,
+{
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
                     for node in &mut self.active {
-                        node.commit(mode, state, context);
+                        node.commit(mode, state, effects, context);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        node.commit(mode, state, context);
+                        node.commit(mode, state, effects, context);
                     }
                     for mut node in self.active.drain(self.new_len..) {
-                        node.commit(CommitMode::Unmount, state, context);
+                        node.commit(CommitMode::Unmount, state, effects, context);
                         self.staging.push(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        node.commit(mode, state, context);
+                        node.commit(mode, state, effects, context);
                     }
                     if !mode.is_unmount() {
                         for i in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.swap_remove(i);
-                            node.commit(CommitMode::Mount, state, context);
+                            node.commit(CommitMode::Mount, state, effects, context);
                             self.active.push(node);
                         }
                     }
@@ -246,9 +302,10 @@ impl<T, const N: usize> ArrayStore<T, N> {
     }
 }
 
-impl<T, const N: usize, S> ElementSeq<S> for [T; N]
+impl<T, S, const N: usize> ElementSeq<S> for [T; N]
 where
     T: ElementSeq<S>,
+    S: State,
 {
     type Store = ArrayStore<T::Store, N>;
 
@@ -270,11 +327,21 @@ where
     }
 }
 
-impl<T: WidgetNodeSeq<S>, S, const N: usize> WidgetNodeSeq<S> for ArrayStore<T, N> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+impl<T, S, const N: usize> WidgetNodeSeq<S> for ArrayStore<T, N>
+where
+    T: WidgetNodeSeq<S>,
+    S: State,
+{
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                node.commit(mode, state, context);
+                node.commit(mode, state, effects, context);
             }
             self.dirty = false;
         }
@@ -301,6 +368,7 @@ impl<T> OptionStore<T> {
 impl<T, S> ElementSeq<S> for Option<T>
 where
     T: ElementSeq<S>,
+    S: State,
 {
     type Store = OptionStore<T::Store>;
 
@@ -337,22 +405,32 @@ where
     }
 }
 
-impl<T: WidgetNodeSeq<S>, S> WidgetNodeSeq<S> for OptionStore<T> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+impl<T, S> WidgetNodeSeq<S> for OptionStore<T>
+where
+    T: WidgetNodeSeq<S>,
+    S: State,
+{
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
         if self.status == RenderStatus::Swapped {
             if let Some(nodes) = self.active.as_mut() {
-                nodes.commit(CommitMode::Unmount, state, context);
+                nodes.commit(CommitMode::Unmount, state, effects, context);
             }
             mem::swap(&mut self.active, &mut self.staging);
             if !mode.is_unmount() {
                 if let Some(nodes) = self.active.as_mut() {
-                    nodes.commit(CommitMode::Mount, state, context);
+                    nodes.commit(CommitMode::Mount, state, effects, context);
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
             if let Some(nodes) = self.active.as_mut() {
-                nodes.commit(mode, state, context);
+                nodes.commit(mode, state, effects, context);
             }
             self.status = RenderStatus::Unchanged;
         }
@@ -376,7 +454,12 @@ impl<L, R> EitherStore<L, R> {
     }
 }
 
-impl<L: ElementSeq<S>, R: ElementSeq<S>, S> ElementSeq<S> for Either<L, R> {
+impl<L, R, S> ElementSeq<S> for Either<L, R>
+where
+    L: ElementSeq<S>,
+    R: ElementSeq<S>,
+    S: State,
+{
     type Store = EitherStore<L::Store, R::Store>;
 
     fn render(self, state: &S, context: &mut Context) -> Self::Store {
@@ -440,25 +523,34 @@ impl<L, R, S> WidgetNodeSeq<S> for EitherStore<L, R>
 where
     L: WidgetNodeSeq<S>,
     R: WidgetNodeSeq<S>,
+    S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        effects: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
         if self.status == RenderStatus::Swapped {
             match self.active.as_mut() {
-                Either::Left(nodes) => nodes.commit(CommitMode::Unmount, state, context),
-                Either::Right(nodes) => nodes.commit(CommitMode::Unmount, state, context),
+                Either::Left(nodes) => nodes.commit(CommitMode::Unmount, state, effects, context),
+                Either::Right(nodes) => nodes.commit(CommitMode::Unmount, state, effects, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if !mode.is_unmount() {
                 match self.active.as_mut() {
-                    Either::Left(nodes) => nodes.commit(CommitMode::Mount, state, context),
-                    Either::Right(nodes) => nodes.commit(CommitMode::Mount, state, context),
+                    Either::Left(nodes) => nodes.commit(CommitMode::Mount, state, effects, context),
+                    Either::Right(nodes) => {
+                        nodes.commit(CommitMode::Mount, state, effects, context)
+                    }
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
             match self.active.as_mut() {
-                Either::Left(nodes) => nodes.commit(mode, state, context),
-                Either::Right(nodes) => nodes.commit(mode, state, context),
+                Either::Left(nodes) => nodes.commit(mode, state, effects, context),
+                Either::Right(nodes) => nodes.commit(mode, state, effects, context),
             }
             self.status = RenderStatus::Unchanged;
         }

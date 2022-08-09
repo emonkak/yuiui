@@ -5,10 +5,11 @@ use crate::adapt::Adapt;
 use crate::component::{Component, ComponentNode, ComponentStack};
 use crate::context::Context;
 use crate::sequence::ElementSeq;
+use crate::state::State;
 use crate::view::View;
 use crate::widget::{WidgetNode, WidgetNodeScope, WidgetStatus};
 
-pub trait Element<S> {
+pub trait Element<S: State> {
     type View: View<S>;
 
     type Components: ComponentStack<S>;
@@ -31,23 +32,31 @@ pub trait Element<S> {
         Self: Sized,
         F: Fn(&NS) -> &S,
     {
-        Adapt::new(self, f)
+        Adapt::new(self, f.into())
     }
 }
 
 #[derive(Debug)]
-pub struct ViewElement<V: View<S>, S> {
+pub struct ViewElement<V: View<S>, S: State> {
     view: V,
     children: V::Children,
 }
 
-impl<V: View<S>, S> ViewElement<V, S> {
+impl<V, S> ViewElement<V, S>
+where
+    V: View<S>,
+    S: State,
+{
     pub fn new(view: V, children: V::Children) -> Self {
         ViewElement { view, children }
     }
 }
 
-impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
+impl<V, S> Element<S> for ViewElement<V, S>
+where
+    V: View<S>,
+    S: State,
+{
     type View = V;
 
     type Components = ();
@@ -88,12 +97,12 @@ impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
 }
 
 #[derive(Debug)]
-pub struct ComponentElement<C: Component<S>, S> {
+pub struct ComponentElement<C: Component<S>, S: State> {
     component: C,
     state: PhantomData<S>,
 }
 
-impl<C: Component<S>, S> ComponentElement<C, S> {
+impl<C: Component<S>, S: State> ComponentElement<C, S> {
     pub fn new(component: C) -> ComponentElement<C, S> {
         Self {
             component,
@@ -102,7 +111,11 @@ impl<C: Component<S>, S> ComponentElement<C, S> {
     }
 }
 
-impl<C: Component<S>, S> Element<S> for ComponentElement<C, S> {
+impl<C, S> Element<S> for ComponentElement<C, S>
+where
+    C: Component<S>,
+    S: State,
+{
     type View = <C::Element as Element<S>>::View;
 
     type Components = (ComponentNode<C, S>, <C::Element as Element<S>>::Components);

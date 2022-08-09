@@ -2,20 +2,25 @@ use std::fmt;
 
 use crate::context::{Context, Id};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
+use crate::state::{Effect, State};
 use crate::view::View;
 
-pub trait Widget<S> {
+pub trait Widget<S: State> {
     type Children: WidgetNodeSeq<S>;
 }
 
-pub struct WidgetNode<V: View<S>, CS, S> {
+pub struct WidgetNode<V: View<S>, CS, S: State> {
     pub id: Id,
     pub status: Option<WidgetStatus<V, V::Widget>>,
     pub children: <V::Widget as Widget<S>>::Children,
     pub components: CS,
 }
 
-impl<V: View<S>, CS, S> WidgetNode<V, CS, S> {
+impl<V, CS, S> WidgetNode<V, CS, S>
+where
+    V: View<S>,
+    S: State,
+{
     pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S> {
         WidgetNodeScope {
             id: self.id,
@@ -25,7 +30,13 @@ impl<V: View<S>, CS, S> WidgetNode<V, CS, S> {
         }
     }
 
-    pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
+    pub fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        commands: &mut Vec<Effect<S>>,
+        context: &mut Context,
+    ) {
         context.push(self.id);
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget),
@@ -39,7 +50,7 @@ impl<V: View<S>, CS, S> WidgetNode<V, CS, S> {
             }
         }
         .into();
-        self.children.commit(mode, state, context);
+        self.children.commit(mode, state, commands, context);
         context.pop();
     }
 }
@@ -50,6 +61,7 @@ where
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S>>::Children: fmt::Debug,
     CS: fmt::Debug,
+    S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetNode")
@@ -61,7 +73,7 @@ where
     }
 }
 
-pub struct WidgetNodeScope<'a, V: View<S>, CS, S> {
+pub struct WidgetNodeScope<'a, V: View<S>, CS, S: State> {
     pub id: Id,
     pub status: &'a mut Option<WidgetStatus<V, V::Widget>>,
     pub children: &'a mut <V::Widget as Widget<S>>::Children,
