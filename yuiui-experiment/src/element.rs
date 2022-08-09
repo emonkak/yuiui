@@ -67,10 +67,10 @@ where
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let id = context.next_identity();
-        context.begin(id);
+        context.begin_widget(id);
         let children = self.children.render(state, context);
+        context.end_widget();
         let status = WidgetStatus::Uninitialized(self.view);
-        context.end();
         WidgetNode {
             id,
             status: Some(status),

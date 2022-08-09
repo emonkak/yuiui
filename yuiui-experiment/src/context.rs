@@ -16,11 +16,11 @@ impl RenderContext {
         }
     }
 
-    pub fn begin(&mut self, id: Id) {
+    pub fn begin_widget(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
-    pub fn end(&mut self) -> Id {
+    pub fn end_widget(&mut self) -> Id {
         self.id_path.pop().unwrap()
     }
 
@@ -54,11 +54,11 @@ impl<S: State> BuildContext<S> {
         }
     }
 
-    pub fn begin(&mut self, id: Id) {
+    pub fn begin_widget(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
-    pub fn end(&mut self) -> Id {
+    pub fn end_widget(&mut self) -> Id {
         self.id_path.pop().unwrap()
     }
 

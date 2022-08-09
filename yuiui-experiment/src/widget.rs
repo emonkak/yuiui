@@ -33,7 +33,7 @@ where
     }
 
     pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
-        context.begin(self.id);
+        context.begin_widget(self.id);
         context.begin_components();
         self.components.commit(mode, state, context);
         context.end_components();
@@ -50,7 +50,7 @@ where
         }
         .into();
         self.children.commit(mode, state, context);
-        context.end();
+        context.end_widget();
     }
 }
 
