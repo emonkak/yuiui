@@ -53,6 +53,9 @@ where
         WidgetNode {
             id: node.id,
             status: node.status.map(|status| match status {
+                WidgetStatus::Uninitialized(view) => {
+                    WidgetStatus::Uninitialized(Adapt::new(view, selector_fn.clone()))
+                }
                 WidgetStatus::Prepared(widget) => {
                     WidgetStatus::Prepared(Adapt::new(widget, selector_fn.clone()))
                 }
@@ -60,9 +63,6 @@ where
                     Adapt::new(widget, selector_fn.clone()),
                     Adapt::new(view, selector_fn.clone()),
                 ),
-                WidgetStatus::Uninitialized(view) => {
-                    WidgetStatus::Uninitialized(Adapt::new(view, selector_fn.clone()))
-                }
             }),
             children: Adapt::new(node.children, selector_fn.clone()),
             components: Adapt::new(node.components, selector_fn.clone()),
@@ -76,11 +76,11 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let mut sub_status = scope.status.take().map(|status| match status {
+            WidgetStatus::Uninitialized(view) => WidgetStatus::Uninitialized(view.target),
             WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget.target),
             WidgetStatus::Changed(widget, view) => {
                 WidgetStatus::Changed(widget.target, view.target)
             }
-            WidgetStatus::Uninitialized(view) => WidgetStatus::Uninitialized(view.target),
         });
         let sub_scope = WidgetNodeScope {
             id: scope.id,
@@ -91,6 +91,9 @@ where
         let selector_fn = self.selector_fn;
         let has_changed = self.target.update(sub_scope, selector_fn(state), context);
         *scope.status = sub_status.map(|status| match status {
+            WidgetStatus::Uninitialized(view) => {
+                WidgetStatus::Uninitialized(Adapt::new(view, selector_fn.clone()))
+            }
             WidgetStatus::Prepared(widget) => {
                 WidgetStatus::Prepared(Adapt::new(widget, selector_fn.clone()))
             }
@@ -98,9 +101,6 @@ where
                 Adapt::new(widget, selector_fn.clone()),
                 Adapt::new(view, selector_fn.clone()),
             ),
-            WidgetStatus::Uninitialized(view) => {
-                WidgetStatus::Uninitialized(Adapt::new(view, selector_fn.clone()))
-            }
         });
         has_changed
     }

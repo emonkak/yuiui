@@ -38,13 +38,13 @@ where
         self.components.commit(mode, state, context);
         context.end_components();
         self.status = match self.status.take().unwrap() {
+            WidgetStatus::Uninitialized(view) => {
+                let widget = view.build(&self.children, state);
+                WidgetStatus::Prepared(widget)
+            }
             WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget),
             WidgetStatus::Changed(mut widget, view) => {
                 view.rebuild(&self.children, &mut widget, state);
-                WidgetStatus::Prepared(widget)
-            }
-            WidgetStatus::Uninitialized(view) => {
-                let widget = view.build(&self.children, state);
                 WidgetStatus::Prepared(widget)
             }
         }
@@ -81,7 +81,7 @@ pub struct WidgetNodeScope<'a, V: View<S>, CS, S: State> {
 
 #[derive(Debug)]
 pub enum WidgetStatus<V, W> {
+    Uninitialized(V),
     Prepared(W),
     Changed(W, V),
-    Uninitialized(V),
 }

@@ -86,9 +86,9 @@ where
         context: &mut RenderContext,
     ) -> bool {
         *scope.status = match scope.status.take().unwrap() {
+            WidgetStatus::Uninitialized(_) => WidgetStatus::Uninitialized(self.view),
             WidgetStatus::Prepared(widget) => WidgetStatus::Changed(widget, self.view),
             WidgetStatus::Changed(widget, _) => WidgetStatus::Changed(widget, self.view),
-            WidgetStatus::Uninitialized(_) => WidgetStatus::Uninitialized(self.view),
         }
         .into();
         self.children.update(scope.children, state, context);
