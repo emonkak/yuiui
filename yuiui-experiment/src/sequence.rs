@@ -29,7 +29,7 @@ pub struct WidgetNodeStore<V: View<S>, CS, S> {
 
 impl<V: View<S>, CS, S> WidgetNodeStore<V, CS, S> {
     fn new(node: WidgetNode<V, CS, S>) -> Self {
-        Self { node, dirty: false }
+        Self { node, dirty: true }
     }
 }
 
@@ -146,7 +146,7 @@ impl<T> VecStore<T> {
             staging: Vec::with_capacity(active.len()),
             new_len: active.len(),
             active,
-            dirty: false,
+            dirty: true,
         }
     }
 }
@@ -242,10 +242,7 @@ pub struct ArrayStore<T, const N: usize> {
 
 impl<T, const N: usize> ArrayStore<T, N> {
     fn new(nodes: [T; N]) -> Self {
-        Self {
-            nodes,
-            dirty: false,
-        }
+        Self { nodes, dirty: true }
     }
 }
 

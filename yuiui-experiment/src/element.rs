@@ -6,7 +6,7 @@ use crate::component::{Component, ComponentNode, ComponentStack};
 use crate::context::Context;
 use crate::sequence::ElementSeq;
 use crate::view::View;
-use crate::widget::{WidgetNode, WidgetNodeScope};
+use crate::widget::{WidgetNode, WidgetNodeScope, WidgetStatus};
 
 pub trait Element<S> {
     type View: View<S>;
@@ -57,12 +57,11 @@ impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
         let id = context.next_identity();
         context.push(id);
         let children = self.children.build(state, context);
-        let widget = self.view.build(&children, state);
+        let status = WidgetStatus::Uninitialized(self.view);
         context.pop();
         WidgetNode {
             id,
-            widget,
-            pending_view: None,
+            status: Some(status),
             children,
             components: (),
         }
@@ -74,7 +73,12 @@ impl<V: View<S>, S> Element<S> for ViewElement<V, S> {
         state: &S,
         context: &mut Context,
     ) -> bool {
-        *scope.pending_view = Some(self.view);
+        *scope.status = match scope.status.take().unwrap() {
+            WidgetStatus::Prepared(widget) => WidgetStatus::Changed(widget, self.view),
+            WidgetStatus::Changed(widget, _) => WidgetStatus::Changed(widget, self.view),
+            WidgetStatus::Uninitialized(_) => WidgetStatus::Uninitialized(self.view),
+        }
+        .into();
         self.children.rebuild(scope.children, state, context);
         true
     }
@@ -110,8 +114,7 @@ impl<C: Component<S>, S> Element<S> for ComponentElement<C, S> {
         let widget_node = Element::build(element, state, context);
         WidgetNode {
             id: widget_node.id,
-            widget: widget_node.widget,
-            pending_view: None,
+            status: widget_node.status,
             children: widget_node.children,
             components: (component_node, widget_node.components),
         }
@@ -126,7 +129,7 @@ impl<C: Component<S>, S> Element<S> for ComponentElement<C, S> {
         let (head, tail) = scope.components;
         let scope = WidgetNodeScope {
             id: scope.id,
-            pending_view: scope.pending_view,
+            status: scope.status,
             children: scope.children,
             components: tail,
         };

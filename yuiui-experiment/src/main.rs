@@ -56,6 +56,7 @@ fn main() {
         count: Immediate::from(0),
     };
     let root = app(&state);
-    let stage = Stage::new(root, state);
+    let mut stage = Stage::new(root, state);
+    stage.commit();
     println!("{:#?}", stage);
 }

@@ -10,8 +10,7 @@ pub trait Widget<S> {
 
 pub struct WidgetNode<V: View<S>, CS, S> {
     pub id: Id,
-    pub widget: V::Widget,
-    pub pending_view: Option<V>,
+    pub status: Option<WidgetStatus<V, V::Widget>>,
     pub children: <V::Widget as Widget<S>>::Children,
     pub components: CS,
 }
@@ -20,7 +19,7 @@ impl<V: View<S>, CS, S> WidgetNode<V, CS, S> {
     pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S> {
         WidgetNodeScope {
             id: self.id,
-            pending_view: &mut self.pending_view,
+            status: &mut self.status,
             children: &mut self.children,
             components: &mut self.components,
         }
@@ -28,9 +27,18 @@ impl<V: View<S>, CS, S> WidgetNode<V, CS, S> {
 
     pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut Context) {
         context.push(self.id);
-        if let Some(view) = self.pending_view.take() {
-            view.rebuild(&self.children, &mut self.widget, state);
+        self.status = match self.status.take().unwrap() {
+            WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget),
+            WidgetStatus::Changed(mut widget, view) => {
+                view.rebuild(&self.children, &mut widget, state);
+                WidgetStatus::Prepared(widget)
+            }
+            WidgetStatus::Uninitialized(view) => {
+                let widget = view.build(&self.children, state);
+                WidgetStatus::Prepared(widget)
+            }
         }
+        .into();
         self.children.commit(mode, state, context);
         context.pop();
     }
@@ -46,8 +54,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetNode")
             .field("id", &self.id)
-            .field("widget", &self.widget)
-            .field("pending_view", &self.pending_view)
+            .field("status", &self.status)
             .field("children", &self.children)
             .field("components", &self.components)
             .finish()
@@ -56,7 +63,14 @@ where
 
 pub struct WidgetNodeScope<'a, V: View<S>, CS, S> {
     pub id: Id,
-    pub pending_view: &'a mut Option<V>,
+    pub status: &'a mut Option<WidgetStatus<V, V::Widget>>,
     pub children: &'a mut <V::Widget as Widget<S>>::Children,
     pub components: &'a mut CS,
+}
+
+#[derive(Debug)]
+pub enum WidgetStatus<V, W> {
+    Prepared(W),
+    Changed(W, V),
+    Uninitialized(V),
 }

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::mem;
 
 use crate::context::Context;
 use crate::element::Element;
@@ -11,6 +12,7 @@ pub struct Stage<E: Element<S>, S: State> {
     node: WidgetNode<E::View, E::Components, S>,
     state: S,
     context: Context,
+    is_mounted: bool,
 }
 
 impl<E: Element<S>, S: State> Stage<E, S> {
@@ -21,6 +23,7 @@ impl<E: Element<S>, S: State> Stage<E, S> {
             node,
             state,
             context,
+            is_mounted: false,
         }
     }
 
@@ -29,6 +32,15 @@ impl<E: Element<S>, S: State> Stage<E, S> {
             self.node
                 .commit(CommitMode::Update, &self.state, &mut self.context);
         }
+    }
+
+    pub fn commit(&mut self) {
+        let mode = if mem::replace(&mut self.is_mounted, true) {
+            CommitMode::Update
+        } else {
+            CommitMode::Mount
+        };
+        self.node.commit(mode, &self.state, &mut self.context);
     }
 }
 
