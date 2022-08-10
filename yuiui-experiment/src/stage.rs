@@ -71,8 +71,9 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Stage")
             .field("node", &self.node)
-            .field("context", &self.context)
             .field("state", &self.state)
+            .field("context", &self.context)
+            .field("is_mounted", &self.is_mounted)
             .finish()
     }
 }
