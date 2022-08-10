@@ -14,7 +14,7 @@ pub use component::Component;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
-pub use state::{Effect, State};
+pub use state::{Data, Effect, State};
 pub use view::View;
 pub use widget::Widget;
 
@@ -115,10 +115,10 @@ impl<S: State> Component<S> for Button {
 #[derive(Debug, Clone)]
 pub struct Counter;
 
-impl Component<i64> for Counter {
-    type Element = ViewElement<Block<hlist_type![ViewElement<Text, i64>]>, i64>;
+impl Component<Data<i64>> for Counter {
+    type Element = ViewElement<Block<hlist_type![ViewElement<Text, Data<i64>>]>, Data<i64>>;
 
-    fn render(&self, state: &i64) -> Self::Element {
-        Block::new().el_with(hlist![Text::new(format!("{}", state)).el()])
+    fn render(&self, state: &Data<i64>) -> Self::Element {
+        Block::new().el_with(hlist![Text::new(format!("{}", state.value)).el()])
     }
 }

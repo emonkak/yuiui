@@ -5,7 +5,7 @@ use yuiui_experiment::*;
 
 #[derive(Debug)]
 struct App {
-    count: i64,
+    count: Data<i64>,
 }
 
 #[allow(dead_code)]
@@ -20,8 +20,8 @@ impl State for App {
 
     fn reduce(&mut self, message: AppMessage) -> bool {
         match message {
-            AppMessage::Increment => self.count += 1,
-            AppMessage::Decrement => self.count -= 1,
+            AppMessage::Increment => self.count.value += 1,
+            AppMessage::Decrement => self.count.value -= 1,
         }
         true
     }
@@ -52,7 +52,9 @@ fn app(
 }
 
 fn main() {
-    let state = App { count: 0 };
+    let state = App {
+        count: Data::from(0),
+    };
     let root = app(&state);
     let mut stage = Stage::new(root, state);
     stage.commit();
