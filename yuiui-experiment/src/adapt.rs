@@ -20,7 +20,7 @@ impl<T, F, SS> Adapt<T, F, SS> {
     pub fn new(target: T, selector_fn: Rc<F>) -> Self {
         Self {
             target,
-            selector_fn: selector_fn.into(),
+            selector_fn,
             sub_state: PhantomData,
         }
     }
