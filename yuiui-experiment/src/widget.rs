@@ -37,6 +37,7 @@ where
         context.begin_components();
         self.components.commit(mode, state, context);
         context.end_components();
+        self.children.commit(mode, state, context);
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Uninitialized(view) => {
                 let widget = view.build(&self.children, state);
@@ -49,7 +50,6 @@ where
             }
         }
         .into();
-        self.children.commit(mode, state, context);
         context.end_widget();
     }
 }
