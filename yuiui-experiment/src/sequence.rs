@@ -23,21 +23,6 @@ pub trait WidgetNodeSeq<S: State> {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>);
 }
 
-pub struct WidgetNodeStore<V: View<S>, CS, S: State> {
-    node: WidgetNode<V, CS, S>,
-    dirty: bool,
-}
-
-impl<V, CS, S> WidgetNodeStore<V, CS, S>
-where
-    V: View<S>,
-    S: State,
-{
-    fn new(node: WidgetNode<V, CS, S>) -> Self {
-        Self { node, dirty: true }
-    }
-}
-
 impl<V, S> ElementSeq<S> for ViewElement<V, S>
 where
     V: View<S>,
@@ -71,6 +56,21 @@ where
         let has_changed = Element::update(self, store.node.scope(), state, context);
         store.dirty = has_changed;
         has_changed
+    }
+}
+
+pub struct WidgetNodeStore<V: View<S>, CS, S: State> {
+    node: WidgetNode<V, CS, S>,
+    dirty: bool,
+}
+
+impl<V, CS, S> WidgetNodeStore<V, CS, S>
+where
+    V: View<S>,
+    S: State,
+{
+    fn new(node: WidgetNode<V, CS, S>) -> Self {
+        Self { node, dirty: true }
     }
 }
 
