@@ -105,7 +105,7 @@ impl Button {
 }
 
 impl<S: State> Component<S> for Button {
-    type Element = ViewElement<Block<hlist_type![ViewElement<Text, S>]>, S>;
+    type Element = ViewElement<Block<HList![ViewElement<Text, S>]>, S>;
 
     fn render(&self, _state: &S) -> Self::Element {
         Block::new().el_with(hlist![Text::new(self.label.clone()).el()])
@@ -116,7 +116,7 @@ impl<S: State> Component<S> for Button {
 pub struct Counter;
 
 impl Component<Data<i64>> for Counter {
-    type Element = ViewElement<Block<hlist_type![ViewElement<Text, Data<i64>>]>, Data<i64>>;
+    type Element = ViewElement<Block<HList![ViewElement<Text, Data<i64>>]>, Data<i64>>;
 
     fn render(&self, state: &Data<i64>) -> Self::Element {
         Block::new().el_with(hlist![Text::new(format!("{}", state.value)).el()])

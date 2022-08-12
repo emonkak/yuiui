@@ -93,10 +93,10 @@ macro_rules! hlist {
 }
 
 #[macro_export]
-macro_rules! hlist_type {
+macro_rules! HList {
     () => { $crate::hlist::HNil };
-    ($head:ty) => { $crate::hlist_type![$head,] };
+    ($head:ty) => { $crate::HList![$head,] };
     ($head:ty, $($tail:tt)*) => {
-        $crate::hlist::HCons<$head, $crate::hlist_type![$($tail)*]>
+        $crate::hlist::HCons<$head, $crate::HList![$($tail)*]>
     };
 }
