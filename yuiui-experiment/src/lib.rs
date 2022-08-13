@@ -21,7 +21,7 @@ pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use state::{Data, State};
 pub use view::View;
-pub use widget::Widget;
+pub use widget::{Widget, WidgetLifeCycle};
 
 use std::borrow::Cow;
 use std::marker::PhantomData;

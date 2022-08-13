@@ -14,6 +14,8 @@ pub trait Widget<S: State> {
 
     type Event: 'static;
 
+    fn lifecycle(&self, _lifecycle: WidgetLifeCycle, _state: &S, _context: &mut EffectContext<S>) {}
+
     fn event(
         &self,
         _event: &Self::Event,
@@ -84,11 +86,24 @@ where
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Uninitialized(view) => {
                 let widget = view.build(&self.children, state);
+                widget.lifecycle(WidgetLifeCycle::Mounted, state, context);
                 WidgetStatus::Prepared(widget)
             }
-            WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget),
+            WidgetStatus::Prepared(widget) => {
+                match mode {
+                    CommitMode::Mount => {
+                        widget.lifecycle(WidgetLifeCycle::Mounted, state, context);
+                    }
+                    CommitMode::Unmount => {
+                        widget.lifecycle(WidgetLifeCycle::Unmounted, state, context);
+                    }
+                    CommitMode::Update => {}
+                }
+                WidgetStatus::Prepared(widget)
+            }
             WidgetStatus::Changed(mut widget, view) => {
                 view.rebuild(&self.children, &mut widget, state);
+                widget.lifecycle(WidgetLifeCycle::Updated, state, context);
                 WidgetStatus::Prepared(widget)
             }
         }
@@ -175,4 +190,11 @@ pub enum WidgetStatus<V, W> {
     Uninitialized(V),
     Prepared(W),
     Changed(W, V),
+}
+
+#[derive(Debug)]
+pub enum WidgetLifeCycle {
+    Mounted,
+    Updated,
+    Unmounted,
 }

@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::mem;
 
 use crate::adapt::Adapt;
 use crate::component::{Component, ComponentNode, ComponentStack};
@@ -139,10 +138,10 @@ where
             children: scope.children,
             components: tail,
         };
-        let old_component = mem::replace(&mut head.component, self.component);
-        if old_component.should_update(&head.component, state) {
-            let element = head.component.render(state);
-            Element::update(element, scope, state, context)
+        if head.component.should_update(&self.component, state) {
+            let element = self.component.render(state);
+            head.pending_component = Some(self.component);
+            element.update(scope, state, context)
         } else {
             false
         }
