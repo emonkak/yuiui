@@ -7,7 +7,7 @@ use std::mem;
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::{EventMask, InternalEvent};
+use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::hlist::{HCons, HList, HNil};
 use crate::state::State;
 use crate::view::View;
@@ -26,9 +26,19 @@ pub trait WidgetNodeSeq<S: State> {
 
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>);
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>);
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult;
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>);
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult;
 }
 
 impl<V, S> ElementSeq<S> for ViewElement<V, S>
@@ -101,11 +111,21 @@ where
         }
     }
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         self.node.event(event, state, context)
     }
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         self.node.internal_event(event, state, context)
     }
 }
@@ -145,9 +165,23 @@ impl<S: State> WidgetNodeSeq<S> for HNil {
 
     fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut EffectContext<S>) {}
 
-    fn event<E: 'static>(&self, _event: &E, _state: &S, _context: &mut EffectContext<S>) {}
+    fn event<E: 'static>(
+        &self,
+        _event: &E,
+        _state: &S,
+        _context: &mut EffectContext<S>,
+    ) -> EventResult {
+        EventResult::Ignored
+    }
 
-    fn internal_event(&self, _event: &InternalEvent, _state: &S, _context: &mut EffectContext<S>) {}
+    fn internal_event(
+        &self,
+        _event: &InternalEvent,
+        _state: &S,
+        _context: &mut EffectContext<S>,
+    ) -> EventResult {
+        EventResult::Ignored
+    }
 }
 
 impl<H, T, S> ElementSeq<S> for HCons<H, T>
@@ -186,14 +220,28 @@ where
         self.1.commit(mode, state, context);
     }
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
-        self.0.event(event, state, context);
-        self.1.event(event, state, context);
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
+        self.0
+            .event(event, state, context)
+            .merge(self.1.event(event, state, context))
     }
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
-        self.0.internal_event(event, state, context);
-        self.1.internal_event(event, state, context);
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
+        if self.0.internal_event(event, state, context) == EventResult::Captured {
+            EventResult::Captured
+        } else {
+            self.1.internal_event(event, state, context)
+        }
     }
 }
 
@@ -307,16 +355,31 @@ where
         }
     }
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
+        let mut result = EventResult::Ignored;
         for node in &self.active {
-            node.event(event, state, context);
+            result = result.merge(node.event(event, state, context));
         }
+        result
     }
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         for node in &self.active {
-            node.internal_event(event, state, context);
+            if node.internal_event(event, state, context) == EventResult::Captured {
+                return EventResult::Captured;
+            }
         }
+        EventResult::Ignored
     }
 }
 
@@ -375,16 +438,31 @@ where
         }
     }
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
+        let mut result = EventResult::Ignored;
         for node in &self.nodes {
-            node.event(event, state, context);
+            result = node.event(event, state, context);
         }
+        result
     }
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         for node in &self.nodes {
-            node.internal_event(event, state, context);
+            if node.internal_event(event, state, context) == EventResult::Captured {
+                return EventResult::Captured;
+            }
         }
+        EventResult::Ignored
     }
 }
 
@@ -474,15 +552,29 @@ where
         }
     }
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         if let Some(node) = self.active.as_ref() {
-            node.event(event, state, context);
+            node.event(event, state, context)
+        } else {
+            EventResult::Ignored
         }
     }
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         if let Some(node) = self.active.as_ref() {
-            node.internal_event(event, state, context);
+            node.internal_event(event, state, context)
+        } else {
+            EventResult::Ignored
         }
     }
 }
@@ -602,14 +694,24 @@ where
         }
     }
 
-    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+    fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         match self.active.as_ref() {
             Either::Left(node) => node.event(event, state, context),
             Either::Right(node) => node.event(event, state, context),
         }
     }
 
-    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+    fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         match self.active.as_ref() {
             Either::Left(node) => node.internal_event(event, state, context),
             Either::Right(node) => node.internal_event(event, state, context),

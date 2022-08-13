@@ -4,7 +4,7 @@ use std::mem;
 
 use crate::component::ComponentStack;
 use crate::context::{EffectContext, Id};
-use crate::event::{EventMask, InternalEvent};
+use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
@@ -14,7 +14,14 @@ pub trait Widget<S: State> {
 
     type Event: 'static;
 
-    fn event(&self, _event: &Self::Event, _state: &S, _context: &mut EffectContext<S>) {}
+    fn event(
+        &self,
+        _event: &Self::Event,
+        _state: &S,
+        _context: &mut EffectContext<S>,
+    ) -> EventResult {
+        EventResult::Ignored
+    }
 }
 
 pub struct WidgetNode<V: View<S>, CS, S: State> {
@@ -89,33 +96,50 @@ where
         context.end_widget();
     }
 
-    pub fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+    pub fn event<E: 'static>(
+        &self,
+        event: &E,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
+        let mut result = EventResult::Ignored;
         if let WidgetStatus::Prepared(widget) = self.status.as_ref().unwrap() {
             context.begin_widget(self.id);
             if self.event_mask.contains(&TypeId::of::<E>()) {
-                self.children.event(event, state, context);
+                result = result.merge(self.children.event(event, state, context));
             }
             if TypeId::of::<E>() == TypeId::of::<<V::Widget as Widget<S>>::Event>() {
                 let event = unsafe { mem::transmute(event) };
-                widget.event(event, state, context);
+                result = result.merge(widget.event(event, state, context));
             }
             context.end_widget();
         }
+        result
     }
 
-    pub fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+    pub fn internal_event(
+        &self,
+        event: &InternalEvent,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         if let WidgetStatus::Prepared(widget) = self.status.as_ref().unwrap() {
             context.begin_widget(self.id);
-            if self.id == event.id_path.id() {
+            let result = if self.id == event.id_path.id() {
                 let event = event
                     .payload
                     .downcast_ref()
                     .expect("cast internal event to widget event");
-                widget.event(event, state, context);
+                widget.event(event, state, context)
             } else if event.id_path.starts_with(context.id_path()) {
-                self.children.internal_event(event, state, context);
-            }
+                self.children.internal_event(event, state, context)
+            } else {
+                EventResult::Ignored
+            };
             context.end_widget();
+            result
+        } else {
+            EventResult::Ignored
         }
     }
 }

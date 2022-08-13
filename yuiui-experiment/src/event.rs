@@ -40,6 +40,21 @@ impl EventMask {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum EventResult {
+    Ignored,
+    Captured,
+}
+
+impl EventResult {
+    pub fn merge(self, other: Self) -> Self {
+        match self {
+            Self::Ignored => other,
+            Self::Captured => Self::Captured,
+        }
+    }
+}
+
 pub struct EventListener<F, E> {
     listener_fn: F,
     event_type: PhantomData<E>,
@@ -69,7 +84,8 @@ where
 
     type Event = E;
 
-    fn event(&self, event: &Self::Event, state: &S, context: &mut EffectContext<S>) {
-        (self.listener_fn)(event, state, context)
+    fn event(&self, event: &Self::Event, state: &S, context: &mut EffectContext<S>) -> EventResult {
+        (self.listener_fn)(event, state, context);
+        EventResult::Captured
     }
 }
