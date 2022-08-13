@@ -14,10 +14,16 @@ pub trait Widget<S: State> {
 
     type Event: 'static;
 
-    fn lifecycle(&self, _lifecycle: WidgetLifeCycle, _state: &S, _context: &mut EffectContext<S>) {}
+    fn lifecycle(
+        &mut self,
+        _lifecycle: WidgetLifeCycle,
+        _state: &S,
+        _context: &mut EffectContext<S>,
+    ) {
+    }
 
     fn event(
-        &self,
+        &mut self,
         _event: &Self::Event,
         _state: &S,
         _context: &mut EffectContext<S>,
@@ -85,11 +91,11 @@ where
         self.children.commit(mode, state, context);
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Uninitialized(view) => {
-                let widget = view.build(&self.children, state);
+                let mut widget = view.build(&self.children, state);
                 widget.lifecycle(WidgetLifeCycle::Mounted, state, context);
                 WidgetStatus::Prepared(widget)
             }
-            WidgetStatus::Prepared(widget) => {
+            WidgetStatus::Prepared(mut widget) => {
                 match mode {
                     CommitMode::Mount => {
                         widget.lifecycle(WidgetLifeCycle::Mounted, state, context);
@@ -112,13 +118,13 @@ where
     }
 
     pub fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
-        if let WidgetStatus::Prepared(widget) = self.status.as_ref().unwrap() {
+        if let WidgetStatus::Prepared(widget) = self.status.as_mut().unwrap() {
             context.begin_widget(self.id);
             if self.event_mask.contains(&TypeId::of::<E>()) {
                 result = result.merge(self.children.event(event, state, context));
@@ -133,12 +139,12 @@ where
     }
 
     pub fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let WidgetStatus::Prepared(widget) = self.status.as_ref().unwrap() {
+        if let WidgetStatus::Prepared(widget) = self.status.as_mut().unwrap() {
             context.begin_widget(self.id);
             let result = if self.id == event.id_path.id() {
                 let event = event

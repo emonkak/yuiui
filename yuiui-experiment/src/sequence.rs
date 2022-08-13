@@ -27,14 +27,14 @@ pub trait WidgetNodeSeq<S: State> {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>);
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult;
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
@@ -112,7 +112,7 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
@@ -121,7 +121,7 @@ where
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
@@ -166,7 +166,7 @@ impl<S: State> WidgetNodeSeq<S> for HNil {
     fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut EffectContext<S>) {}
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         _event: &E,
         _state: &S,
         _context: &mut EffectContext<S>,
@@ -175,7 +175,7 @@ impl<S: State> WidgetNodeSeq<S> for HNil {
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         _event: &InternalEvent,
         _state: &S,
         _context: &mut EffectContext<S>,
@@ -221,7 +221,7 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
@@ -232,7 +232,7 @@ where
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
@@ -356,25 +356,25 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
-        for node in &self.active {
+        for node in &mut self.active {
             result = result.merge(node.event(event, state, context));
         }
         result
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        for node in &self.active {
+        for node in &mut self.active {
             if node.internal_event(event, state, context) == EventResult::Captured {
                 return EventResult::Captured;
             }
@@ -439,25 +439,25 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
-        for node in &self.nodes {
+        for node in &mut self.nodes {
             result = node.event(event, state, context);
         }
         result
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        for node in &self.nodes {
+        for node in &mut self.nodes {
             if node.internal_event(event, state, context) == EventResult::Captured {
                 return EventResult::Captured;
             }
@@ -553,12 +553,12 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let Some(node) = self.active.as_ref() {
+        if let Some(node) = self.active.as_mut() {
             node.event(event, state, context)
         } else {
             EventResult::Ignored
@@ -566,12 +566,12 @@ where
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let Some(node) = self.active.as_ref() {
+        if let Some(node) = self.active.as_mut() {
             node.internal_event(event, state, context)
         } else {
             EventResult::Ignored
@@ -695,24 +695,24 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        match self.active.as_ref() {
+        match self.active.as_mut() {
             Either::Left(node) => node.event(event, state, context),
             Either::Right(node) => node.event(event, state, context),
         }
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        match self.active.as_ref() {
+        match self.active.as_mut() {
             Either::Left(node) => node.internal_event(event, state, context),
             Either::Right(node) => node.internal_event(event, state, context),
         }

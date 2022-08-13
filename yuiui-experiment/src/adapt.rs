@@ -153,7 +153,7 @@ where
     }
 
     fn event<E: 'static>(
-        &self,
+        &mut self,
         event: &E,
         state: &S,
         context: &mut EffectContext<S>,
@@ -169,7 +169,7 @@ where
     }
 
     fn internal_event(
-        &self,
+        &mut self,
         event: &InternalEvent,
         state: &S,
         context: &mut EffectContext<S>,
@@ -271,7 +271,12 @@ where
 
     type Event = T::Event;
 
-    fn event(&self, event: &Self::Event, state: &S, context: &mut EffectContext<S>) -> EventResult {
+    fn event(
+        &mut self,
+        event: &Self::Event,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let result = self.target.event(event, sub_state, &mut sub_context);

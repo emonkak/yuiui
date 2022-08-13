@@ -84,7 +84,12 @@ where
 
     type Event = E;
 
-    fn event(&self, event: &Self::Event, state: &S, context: &mut EffectContext<S>) -> EventResult {
+    fn event(
+        &mut self,
+        event: &Self::Event,
+        state: &S,
+        context: &mut EffectContext<S>,
+    ) -> EventResult {
         (self.listener_fn)(event, state, context);
         EventResult::Captured
     }
