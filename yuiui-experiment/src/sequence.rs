@@ -342,7 +342,7 @@ where
                     for node in &mut self.active {
                         node.commit(mode, state, context);
                     }
-                    if !mode.is_unmount() {
+                    if mode != CommitMode::Unmount {
                         for i in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.swap_remove(i);
                             node.commit(CommitMode::Mount, state, context);
@@ -538,7 +538,7 @@ where
                 node.commit(CommitMode::Unmount, state, context);
             }
             mem::swap(&mut self.active, &mut self.staging);
-            if !mode.is_unmount() {
+            if mode != CommitMode::Unmount {
                 if let Some(node) = self.active.as_mut() {
                     node.commit(CommitMode::Mount, state, context);
                 }
@@ -678,7 +678,7 @@ where
                 Either::Right(node) => node.commit(CommitMode::Unmount, state, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
-            if !mode.is_unmount() {
+            if mode != CommitMode::Unmount {
                 match self.active.as_mut() {
                     Either::Left(node) => node.commit(CommitMode::Mount, state, context),
                     Either::Right(node) => node.commit(CommitMode::Mount, state, context),
@@ -729,16 +729,7 @@ pub enum CommitMode {
 impl CommitMode {
     fn is_propagatable(&self) -> bool {
         match self {
-            Self::Mount => true,
-            Self::Unmount => true,
-            Self::Update => false,
-        }
-    }
-
-    fn is_unmount(&self) -> bool {
-        match self {
-            Self::Mount => false,
-            Self::Unmount => true,
+            Self::Mount | Self::Unmount => true,
             Self::Update => false,
         }
     }
