@@ -2,6 +2,8 @@ use crate::state::{Effect, State};
 
 pub type Id = usize;
 
+pub type ComponentIndex = usize;
+
 #[derive(Debug)]
 pub struct RenderContext {
     id_path: Vec<Id>,
@@ -31,25 +33,31 @@ impl RenderContext {
     }
 }
 
-pub struct BuildContext<S: State> {
+pub struct EffectContext<S: State> {
     id_path: Vec<Id>,
-    component_index: Option<usize>,
-    pub effects: Vec<(Vec<Id>, Effect<S>)>,
+    component_index: Option<ComponentIndex>,
+    state_id_path: Vec<Id>,
+    state_component_index: Option<ComponentIndex>,
+    pub(crate) effects: Vec<(Vec<Id>, Option<ComponentIndex>, Effect<S>)>,
 }
 
-impl<S: State> BuildContext<S> {
+impl<S: State> EffectContext<S> {
     pub fn new() -> Self {
         Self {
             id_path: Vec::new(),
-            component_index: Some(0),
+            component_index: None,
+            state_id_path: Vec::new(),
+            state_component_index: None,
             effects: Vec::new(),
         }
     }
 
-    pub fn sub_context<SS: State>(&self) -> BuildContext<SS> {
-        BuildContext {
+    pub fn new_sub_context<SS: State>(&self) -> EffectContext<SS> {
+        EffectContext {
             id_path: self.id_path.clone(),
             component_index: self.component_index,
+            state_id_path: self.id_path.clone(),
+            state_component_index: self.component_index,
             effects: Vec::new(),
         }
     }
@@ -74,7 +82,11 @@ impl<S: State> BuildContext<S> {
         *self.component_index.as_mut().unwrap() += 1;
     }
 
-    pub fn push_effect(&mut self, effect: impl Into<Effect<S>>) {
-        self.effects.push((self.id_path.clone(), effect.into()));
+    pub fn push(&mut self, effect: impl Into<Effect<S>>) {
+        self.effects.push((
+            self.state_id_path.clone(),
+            self.state_component_index,
+            effect.into(),
+        ));
     }
 }

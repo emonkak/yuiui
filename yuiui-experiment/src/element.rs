@@ -70,13 +70,7 @@ where
         context.begin_widget(id);
         let children = self.children.render(state, context);
         context.end_widget();
-        let status = WidgetStatus::Uninitialized(self.view);
-        WidgetNode {
-            id,
-            status: Some(status),
-            children,
-            components: (),
-        }
+        WidgetNode::new(id, self.view, children, ())
     }
 
     fn update(
@@ -125,15 +119,11 @@ where
         state: &S,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S> {
-        let component_node = ComponentNode::new(self.component);
-        let element = component_node.component.render(state);
-        let widget_node = Element::render(element, state, context);
-        WidgetNode {
-            id: widget_node.id,
-            status: widget_node.status,
-            children: widget_node.children,
-            components: (component_node, widget_node.components),
-        }
+        let head_component = ComponentNode::new(self.component);
+        let element = head_component.component.render(state);
+        element
+            .render(state, context)
+            .map_components(|components| (head_component, components))
     }
 
     fn update(

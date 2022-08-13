@@ -4,8 +4,9 @@ use std::fmt;
 use std::mem;
 
 use crate::component::{Component, ComponentStack};
-use crate::context::{BuildContext, RenderContext};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::{ComponentElement, Element, ViewElement};
+use crate::event::EventMask;
 use crate::hlist::{HCons, HList, HNil};
 use crate::state::State;
 use crate::view::View;
@@ -20,7 +21,11 @@ pub trait ElementSeq<S: State> {
 }
 
 pub trait WidgetNodeSeq<S: State> {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>);
+    fn event_mask() -> EventMask;
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>);
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>);
 }
 
 impl<V, S> ElementSeq<S> for ViewElement<V, S>
@@ -80,11 +85,21 @@ where
     CS: ComponentStack<S>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+    fn event_mask() -> EventMask {
+        let mut event_mask = <V::Widget as Widget<S>>::Children::event_mask();
+        event_mask.add::<<V::Widget as Widget<S>>::Event>();
+        event_mask
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             self.dirty = false;
             self.node.commit(mode, state, context);
         }
+    }
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+        self.node.event(event, state, context)
     }
 }
 
@@ -117,7 +132,13 @@ impl<S: State> ElementSeq<S> for HNil {
 }
 
 impl<S: State> WidgetNodeSeq<S> for HNil {
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut BuildContext<S>) {}
+    fn event_mask() -> EventMask {
+        EventMask::new()
+    }
+
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut EffectContext<S>) {}
+
+    fn event<E: 'static>(&self, _event: &E, _state: &S, _context: &mut EffectContext<S>) {}
 }
 
 impl<H, T, S> ElementSeq<S> for HCons<H, T>
@@ -147,9 +168,18 @@ where
     T: WidgetNodeSeq<S> + HList,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+    fn event_mask() -> EventMask {
+        H::event_mask().merge(T::event_mask())
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         self.0.commit(mode, state, context);
         self.1.commit(mode, state, context);
+    }
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+        self.0.event(event, state, context);
+        self.1.event(event, state, context);
     }
 }
 
@@ -223,7 +253,11 @@ where
     T: WidgetNodeSeq<S>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+    fn event_mask() -> EventMask {
+        T::event_mask()
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
@@ -256,6 +290,12 @@ where
                 }
             }
             self.dirty = false;
+        }
+    }
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+        for node in &self.active {
+            node.event(event, state, context);
         }
     }
 }
@@ -302,12 +342,22 @@ where
     T: WidgetNodeSeq<S>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+    fn event_mask() -> EventMask {
+        T::event_mask()
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
                 node.commit(mode, state, context);
             }
             self.dirty = false;
+        }
+    }
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+        for node in &self.nodes {
+            node.event(event, state, context);
         }
     }
 }
@@ -374,23 +424,33 @@ where
     T: WidgetNodeSeq<S>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+    fn event_mask() -> EventMask {
+        T::event_mask()
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
-            if let Some(nodes) = self.active.as_mut() {
-                nodes.commit(CommitMode::Unmount, state, context);
+            if let Some(node) = self.active.as_mut() {
+                node.commit(CommitMode::Unmount, state, context);
             }
             mem::swap(&mut self.active, &mut self.staging);
             if !mode.is_unmount() {
-                if let Some(nodes) = self.active.as_mut() {
-                    nodes.commit(CommitMode::Mount, state, context);
+                if let Some(node) = self.active.as_mut() {
+                    node.commit(CommitMode::Mount, state, context);
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
-            if let Some(nodes) = self.active.as_mut() {
-                nodes.commit(mode, state, context);
+            if let Some(node) = self.active.as_mut() {
+                node.commit(mode, state, context);
             }
             self.status = RenderStatus::Unchanged;
+        }
+    }
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+        if let Some(node) = self.active.as_ref() {
+            node.event(event, state, context);
         }
     }
 }
@@ -449,8 +509,8 @@ where
             }
             (Either::Left(_), Either::Right(element)) => {
                 match store.staging.as_mut() {
-                    Some(Either::Right(stagin_nodes)) => {
-                        element.update(stagin_nodes, state, context);
+                    Some(Either::Right(node)) => {
+                        element.update(node, state, context);
                     }
                     None => {
                         store.staging = Some(Either::Right(element.render(state, context)));
@@ -483,26 +543,37 @@ where
     R: WidgetNodeSeq<S>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut BuildContext<S>) {
+    fn event_mask() -> EventMask {
+        L::event_mask().merge(R::event_mask())
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
             match self.active.as_mut() {
-                Either::Left(nodes) => nodes.commit(CommitMode::Unmount, state, context),
-                Either::Right(nodes) => nodes.commit(CommitMode::Unmount, state, context),
+                Either::Left(node) => node.commit(CommitMode::Unmount, state, context),
+                Either::Right(node) => node.commit(CommitMode::Unmount, state, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if !mode.is_unmount() {
                 match self.active.as_mut() {
-                    Either::Left(nodes) => nodes.commit(CommitMode::Mount, state, context),
-                    Either::Right(nodes) => nodes.commit(CommitMode::Mount, state, context),
+                    Either::Left(node) => node.commit(CommitMode::Mount, state, context),
+                    Either::Right(node) => node.commit(CommitMode::Mount, state, context),
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
             match self.active.as_mut() {
-                Either::Left(nodes) => nodes.commit(mode, state, context),
-                Either::Right(nodes) => nodes.commit(mode, state, context),
+                Either::Left(node) => node.commit(mode, state, context),
+                Either::Right(node) => node.commit(mode, state, context),
             }
             self.status = RenderStatus::Unchanged;
+        }
+    }
+
+    fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
+        match self.active.as_ref() {
+            Either::Left(node) => node.event(event, state, context),
+            Either::Right(node) => node.event(event, state, context),
         }
     }
 }

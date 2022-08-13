@@ -1,7 +1,7 @@
 use std::fmt;
 use std::mem;
 
-use crate::context::{BuildContext, Id, RenderContext};
+use crate::context::{ComponentIndex, EffectContext, Id, RenderContext};
 use crate::element::Element;
 use crate::sequence::CommitMode;
 use crate::state::{Effect, State};
@@ -29,11 +29,11 @@ impl<E: Element<S>, S: State> Stage<E, S> {
 
     pub fn update(&mut self, element: E) {
         if element.update(self.node.scope(), &self.state, &mut self.context) {
-            let mut context = BuildContext::new();
+            let mut context = EffectContext::new();
             self.node
                 .commit(CommitMode::Update, &self.state, &mut context);
-            for (id_path, effect) in context.effects {
-                self.run_effect(id_path, effect);
+            for (id_path, component_index, effect) in context.effects {
+                self.run_effect(id_path, component_index, effect);
             }
         }
     }
@@ -44,14 +44,27 @@ impl<E: Element<S>, S: State> Stage<E, S> {
         } else {
             CommitMode::Mount
         };
-        let mut context = BuildContext::new();
+        let mut context = EffectContext::new();
         self.node.commit(mode, &self.state, &mut context);
-        for (id_path, effect) in context.effects {
-            self.run_effect(id_path, effect);
+        for (id_path, component_index, effect) in context.effects {
+            self.run_effect(id_path, component_index, effect);
         }
     }
 
-    fn run_effect(&mut self, _id_path: Vec<Id>, effect: Effect<S>) -> bool {
+    pub fn event<EV: 'static>(&mut self, event: &EV) {
+        let mut context = EffectContext::new();
+        self.node.event(event, &self.state, &mut context);
+        for (id_path, component_index, effect) in context.effects {
+            self.run_effect(id_path, component_index, effect);
+        }
+    }
+
+    fn run_effect(
+        &mut self,
+        _id_path: Vec<Id>,
+        _component_index: Option<ComponentIndex>,
+        effect: Effect<S>,
+    ) -> bool {
         match effect {
             Effect::Message(message) => self.state.reduce(message),
             Effect::Mutation(mut mutation) => mutation.apply(&mut self.state),

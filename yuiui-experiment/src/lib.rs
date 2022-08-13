@@ -4,6 +4,7 @@ mod adapt;
 mod component;
 mod context;
 mod element;
+mod event;
 mod sequence;
 mod stage;
 mod state;
@@ -12,6 +13,7 @@ mod widget;
 
 pub use component::Component;
 pub use element::{ComponentElement, Element, ViewElement};
+pub use event::EventListener;
 pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use state::{Data, Effect, State};
@@ -47,6 +49,8 @@ impl<S: State> View<S> for Text {
 
 impl<S: State> Widget<S> for Text {
     type Children = hlist::HNil;
+
+    type Event = ();
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +93,8 @@ where
     S: State,
 {
     type Children = C;
+
+    type Event = ();
 }
 
 #[derive(Debug, Clone)]
