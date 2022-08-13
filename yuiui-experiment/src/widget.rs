@@ -92,12 +92,12 @@ where
     pub fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
         if let WidgetStatus::Prepared(widget) = self.status.as_ref().unwrap() {
             context.begin_widget(self.id);
+            if self.event_mask.contains(&TypeId::of::<E>()) {
+                self.children.event(event, state, context);
+            }
             if TypeId::of::<E>() == TypeId::of::<<V::Widget as Widget<S>>::Event>() {
                 let event = unsafe { mem::transmute(event) };
                 widget.event(event, state, context);
-            }
-            if self.event_mask.contains(&TypeId::of::<E>()) {
-                self.children.event(event, state, context);
             }
             context.end_widget();
         }
