@@ -20,8 +20,8 @@ impl IdPath {
         self.0.last().copied().unwrap_or(Id::ROOT)
     }
 
-    pub fn head_id(&self) -> Option<Id> {
-        self.0.first().copied()
+    pub fn starts_with(&self, other: &Self) -> bool {
+        self.0.starts_with(&other.0)
     }
 
     fn push(&mut self, id: Id) {
@@ -113,8 +113,8 @@ impl<S: State> EffectContext<S> {
         self.component_index = None;
     }
 
-    pub fn id(&self) -> Id {
-        self.id_path.id()
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
     }
 
     pub fn push(&mut self, effect: impl Into<Effect<S>>) {

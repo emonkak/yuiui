@@ -112,7 +112,7 @@ where
                     .downcast_ref()
                     .expect("cast internal event to widget event");
                 widget.event(event, state, context);
-            } else if Some(self.id) == event.id_path.head_id() {
+            } else if event.id_path.starts_with(context.id_path()) {
                 self.children.internal_event(event, state, context);
             }
             context.end_widget();
