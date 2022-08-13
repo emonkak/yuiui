@@ -1,9 +1,35 @@
-use crate::state::{Effect, State};
+use crate::effect::Effect;
+use crate::state::State;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(usize);
 
 pub const ROOT: Id = Id(0);
+
+#[derive(Debug, Clone)]
+pub struct IdPath(Vec<Id>);
+
+impl IdPath {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn id(&self) -> Id {
+        self.0.last().copied().unwrap_or(ROOT)
+    }
+
+    pub fn head_id(&self) -> Option<Id> {
+        self.0.first().copied()
+    }
+
+    fn push(&mut self, id: Id) {
+        self.0.push(id);
+    }
+
+    fn pop(&mut self) -> Id {
+        self.0.pop().unwrap()
+    }
+}
 
 pub type ComponentIndex = usize;
 
@@ -95,30 +121,5 @@ impl<S: State> EffectContext<S> {
             self.state_component_index,
             effect.into(),
         ));
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct IdPath(Vec<Id>);
-
-impl IdPath {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn id(&self) -> Id {
-        self.0.last().copied().unwrap_or(ROOT)
-    }
-
-    pub fn head_id(&self) -> Option<Id> {
-        self.0.first().copied()
-    }
-
-    fn push(&mut self, id: Id) {
-        self.0.push(id);
-    }
-
-    fn pop(&mut self) -> Id {
-        self.0.pop().unwrap()
     }
 }

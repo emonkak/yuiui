@@ -2,10 +2,11 @@ use std::fmt;
 use std::mem;
 
 use crate::context::{ComponentIndex, EffectContext, IdPath, RenderContext};
+use crate::effect::Effect;
 use crate::element::Element;
 use crate::event::InternalEvent;
 use crate::sequence::CommitMode;
-use crate::state::{Effect, State};
+use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 

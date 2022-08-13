@@ -3,6 +3,7 @@ pub mod hlist;
 mod adapt;
 mod component;
 mod context;
+mod effect;
 mod element;
 mod event;
 mod sequence;
@@ -12,11 +13,12 @@ mod view;
 mod widget;
 
 pub use component::Component;
+pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::EventListener;
 pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use stage::Stage;
-pub use state::{Data, Effect, State};
+pub use state::{Data, State};
 pub use view::View;
 pub use widget::Widget;
 

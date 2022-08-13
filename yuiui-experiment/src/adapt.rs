@@ -4,10 +4,11 @@ use std::rc::Rc;
 
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::{Effect, Mutation};
 use crate::element::Element;
 use crate::event::{EventMask, InternalEvent};
 use crate::sequence::{CommitMode, ElementSeq, WidgetNodeSeq};
-use crate::state::{Effect, Mutation, State};
+use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetStatus};
 
