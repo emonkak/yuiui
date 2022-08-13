@@ -4,7 +4,9 @@ use crate::state::State;
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(usize);
 
-pub const ROOT: Id = Id(0);
+impl Id {
+    pub const ROOT: Self = Self(0);
+}
 
 #[derive(Debug, Clone)]
 pub struct IdPath(Vec<Id>);
@@ -15,7 +17,7 @@ impl IdPath {
     }
 
     pub fn id(&self) -> Id {
-        self.0.last().copied().unwrap_or(ROOT)
+        self.0.last().copied().unwrap_or(Id::ROOT)
     }
 
     pub fn head_id(&self) -> Option<Id> {
@@ -103,12 +105,12 @@ impl<S: State> EffectContext<S> {
         self.component_index = Some(0);
     }
 
-    pub(crate) fn end_components(&mut self) {
-        self.component_index = None;
-    }
-
     pub(crate) fn next_component(&mut self) {
         *self.component_index.as_mut().unwrap() += 1;
+    }
+
+    pub(crate) fn end_components(&mut self) {
+        self.component_index = None;
     }
 
     pub fn id(&self) -> Id {

@@ -13,6 +13,7 @@ mod view;
 mod widget;
 
 pub use component::Component;
+pub use context::{EffectContext, Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::EventListener;
