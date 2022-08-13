@@ -1,4 +1,5 @@
 use either::Either;
+use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt;
 use std::mem;
@@ -6,7 +7,7 @@ use std::mem;
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::EventMask;
+use crate::event::{EventMask, InternalEvent};
 use crate::hlist::{HCons, HList, HNil};
 use crate::state::State;
 use crate::view::View;
@@ -26,6 +27,8 @@ pub trait WidgetNodeSeq<S: State> {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>);
 
     fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>);
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>);
 }
 
 impl<V, S> ElementSeq<S> for ViewElement<V, S>
@@ -87,7 +90,7 @@ where
 {
     fn event_mask() -> EventMask {
         let mut event_mask = <V::Widget as Widget<S>>::Children::event_mask();
-        event_mask.add::<<V::Widget as Widget<S>>::Event>();
+        event_mask.add(TypeId::of::<<V::Widget as Widget<S>>::Event>());
         event_mask
     }
 
@@ -100,6 +103,10 @@ where
 
     fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
         self.node.event(event, state, context)
+    }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        self.node.internal_event(event, state, context)
     }
 }
 
@@ -139,6 +146,8 @@ impl<S: State> WidgetNodeSeq<S> for HNil {
     fn commit(&mut self, _mode: CommitMode, _state: &S, _context: &mut EffectContext<S>) {}
 
     fn event<E: 'static>(&self, _event: &E, _state: &S, _context: &mut EffectContext<S>) {}
+
+    fn internal_event(&self, _event: &InternalEvent, _state: &S, _context: &mut EffectContext<S>) {}
 }
 
 impl<H, T, S> ElementSeq<S> for HCons<H, T>
@@ -180,6 +189,11 @@ where
     fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
         self.0.event(event, state, context);
         self.1.event(event, state, context);
+    }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        self.0.internal_event(event, state, context);
+        self.1.internal_event(event, state, context);
     }
 }
 
@@ -298,6 +312,12 @@ where
             node.event(event, state, context);
         }
     }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        for node in &self.active {
+            node.internal_event(event, state, context);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -358,6 +378,12 @@ where
     fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
         for node in &self.nodes {
             node.event(event, state, context);
+        }
+    }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        for node in &self.nodes {
+            node.internal_event(event, state, context);
         }
     }
 }
@@ -451,6 +477,12 @@ where
     fn event<E: 'static>(&self, event: &E, state: &S, context: &mut EffectContext<S>) {
         if let Some(node) = self.active.as_ref() {
             node.event(event, state, context);
+        }
+    }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        if let Some(node) = self.active.as_ref() {
+            node.internal_event(event, state, context);
         }
     }
 }
@@ -574,6 +606,13 @@ where
         match self.active.as_ref() {
             Either::Left(node) => node.event(event, state, context),
             Either::Right(node) => node.event(event, state, context),
+        }
+    }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        match self.active.as_ref() {
+            Either::Left(node) => node.internal_event(event, state, context),
+            Either::Right(node) => node.internal_event(event, state, context),
         }
     }
 }

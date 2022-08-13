@@ -1,8 +1,9 @@
 use std::fmt;
 use std::mem;
 
-use crate::context::{ComponentIndex, EffectContext, Id, RenderContext};
+use crate::context::{ComponentIndex, EffectContext, IdPath, RenderContext};
 use crate::element::Element;
+use crate::event::InternalEvent;
 use crate::sequence::CommitMode;
 use crate::state::{Effect, State};
 use crate::view::View;
@@ -59,9 +60,17 @@ impl<E: Element<S>, S: State> Stage<E, S> {
         }
     }
 
+    pub fn internal_event(&mut self, event: &InternalEvent) {
+        let mut context = EffectContext::new();
+        self.node.internal_event(event, &self.state, &mut context);
+        for (id_path, component_index, effect) in context.effects {
+            self.run_effect(id_path, component_index, effect);
+        }
+    }
+
     fn run_effect(
         &mut self,
-        _id_path: Vec<Id>,
+        _id_path: IdPath,
         _component_index: Option<ComponentIndex>,
         effect: Effect<S>,
     ) -> bool {

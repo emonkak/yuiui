@@ -4,7 +4,7 @@ use std::mem;
 
 use crate::component::ComponentStack;
 use crate::context::{EffectContext, Id};
-use crate::event::EventMask;
+use crate::event::{EventMask, InternalEvent};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
@@ -96,8 +96,24 @@ where
                 let event = unsafe { mem::transmute(event) };
                 widget.event(event, state, context);
             }
-            if self.event_mask.contains::<E>() {
+            if self.event_mask.contains(&TypeId::of::<E>()) {
                 self.children.event(event, state, context);
+            }
+            context.end_widget();
+        }
+    }
+
+    pub fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        if let WidgetStatus::Prepared(widget) = self.status.as_ref().unwrap() {
+            context.begin_widget(self.id);
+            if self.id == event.id_path.id() {
+                let event = event
+                    .payload
+                    .downcast_ref()
+                    .expect("cast internal event to widget event");
+                widget.event(event, state, context);
+            } else if Some(self.id) == event.id_path.head_id() {
+                self.children.internal_event(event, state, context);
             }
             context.end_widget();
         }

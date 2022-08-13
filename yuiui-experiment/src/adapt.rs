@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
-use crate::event::EventMask;
+use crate::event::{EventMask, InternalEvent};
 use crate::sequence::{CommitMode, ElementSeq, WidgetNodeSeq};
 use crate::state::{Effect, Mutation, State};
 use crate::view::View;
@@ -155,6 +155,17 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.event(event, sub_state, &mut sub_context);
+        for (id, component_index, sub_effect) in sub_context.effects {
+            let effect = map_effect(sub_effect, self.selector_fn.clone());
+            context.effects.push((id, component_index, effect));
+        }
+    }
+
+    fn internal_event(&self, event: &InternalEvent, state: &S, context: &mut EffectContext<S>) {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_context = context.new_sub_context();
+        self.target
+            .internal_event(event, sub_state, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
             let effect = map_effect(sub_effect, self.selector_fn.clone());
             context.effects.push((id, component_index, effect));

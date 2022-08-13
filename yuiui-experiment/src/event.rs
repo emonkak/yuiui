@@ -1,11 +1,16 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
-use crate::context::EffectContext;
+use crate::context::{EffectContext, IdPath};
 use crate::hlist::HNil;
 use crate::state::State;
 use crate::widget::Widget;
+
+pub struct InternalEvent {
+    pub id_path: IdPath,
+    pub payload: Box<dyn Any>,
+}
 
 #[derive(Debug)]
 pub struct EventMask {
@@ -19,14 +24,13 @@ impl EventMask {
         }
     }
 
-    pub fn contains<T: 'static>(&self) -> bool {
-        self.masks.contains(&TypeId::of::<T>())
+    pub fn contains(&self, type_id: &TypeId) -> bool {
+        self.masks.contains(type_id)
     }
 
-    pub fn add<T: 'static>(&mut self) {
-        let id = TypeId::of::<T>();
-        if id != TypeId::of::<()>() {
-            self.masks.insert(id);
+    pub fn add(&mut self, type_id: TypeId) {
+        if type_id != TypeId::of::<()>() {
+            self.masks.insert(type_id);
         }
     }
 
