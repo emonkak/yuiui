@@ -1,4 +1,5 @@
 use crate::element::ViewElement;
+use crate::hlist::HNil;
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::widget::Widget;
@@ -22,9 +23,9 @@ pub trait View<S: State>: Sized {
 
     fn el(self) -> ViewElement<Self, S>
     where
-        Self::Children: Default,
+        Self: View<S, Children = HNil>,
     {
-        ViewElement::new(self, Default::default())
+        ViewElement::new(self, HNil)
     }
 
     fn el_with(self, children: Self::Children) -> ViewElement<Self, S> {

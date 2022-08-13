@@ -1,58 +1,25 @@
-use std::convert::Infallible;
 use std::fmt;
 
-pub trait HList: Sized + private::Sealed {
-    type Head;
-
-    type Tail: HList;
-
-    fn construct<V>(self, value: V) -> HCons<V, Self>;
-
-    fn destruct(self) -> Option<(Self::Head, Self::Tail)>;
-}
+pub trait HList: Sized + private::Sealed {}
 
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct HCons<H, T: HList>(pub H, pub T);
 
-impl<H, T: HList> HList for HCons<H, T> {
-    type Head = H;
+impl<H, T: HList> HList for HCons<H, T> {}
 
-    type Tail = T;
-
-    fn construct<V>(self, value: V) -> HCons<V, Self> {
-        HCons(value, self)
-    }
-
-    fn destruct(self) -> Option<(Self::Head, Self::Tail)> {
-        Some((self.0, self.1))
-    }
-}
-
-impl<H: fmt::Debug, T: HList + DebugList> fmt::Debug for HCons<H, T> {
+impl<H: fmt::Debug, T: HList + DebugHList> fmt::Debug for HCons<H, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("hlist!")?;
-        DebugList::fmt(self, &mut f.debug_list())
+        DebugHList::fmt(self, &mut f.debug_list())
     }
 }
 
 impl<H, T: HList> private::Sealed for HCons<H, T> {}
 
-#[derive(Clone, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct HNil;
 
-impl HList for HNil {
-    type Head = Infallible;
-
-    type Tail = HNil;
-
-    fn construct<V>(self, value: V) -> HCons<V, Self> {
-        HCons(value, self)
-    }
-
-    fn destruct(self) -> Option<(Self::Head, Self::Tail)> {
-        None
-    }
-}
+impl HList for HNil {}
 
 impl fmt::Debug for HNil {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -62,18 +29,18 @@ impl fmt::Debug for HNil {
 
 impl private::Sealed for HNil {}
 
-trait DebugList {
+trait DebugHList {
     fn fmt(&self, debug_list: &mut fmt::DebugList) -> fmt::Result;
 }
 
-impl<H: fmt::Debug, T: HList + DebugList> DebugList for HCons<H, T> {
+impl<H: fmt::Debug, T: HList + DebugHList> DebugHList for HCons<H, T> {
     fn fmt(&self, debug_list: &mut fmt::DebugList) -> fmt::Result {
         debug_list.entry(&self.0);
         self.1.fmt(debug_list)
     }
 }
 
-impl DebugList for HNil {
+impl DebugHList for HNil {
     fn fmt(&self, debug_list: &mut fmt::DebugList) -> fmt::Result {
         debug_list.finish()
     }
