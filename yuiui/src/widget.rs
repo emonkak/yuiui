@@ -115,8 +115,9 @@ where
                 WidgetStatus::Prepared(widget)
             }
             WidgetStatus::Changed(mut widget, view) => {
-                view.rebuild(&self.children, &mut widget, state);
-                widget.lifecycle(WidgetLifeCycle::Updated, &self.children, state, context);
+                if view.rebuild(&self.children, &mut widget, state) {
+                    widget.lifecycle(WidgetLifeCycle::Updated, &self.children, state, context);
+                }
                 WidgetStatus::Prepared(widget)
             }
         }
