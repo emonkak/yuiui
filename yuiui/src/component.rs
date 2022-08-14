@@ -49,9 +49,7 @@ impl<C: Component<S>, S: State> ComponentNode<C, S> {
 
     pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         let lifecycle = match mode {
-            CommitMode::Mount => {
-                ComponentLifecycle::Mounted
-            }
+            CommitMode::Mount => ComponentLifecycle::Mounted,
             CommitMode::Update => {
                 let old_component = mem::replace(
                     &mut self.component,
@@ -61,9 +59,7 @@ impl<C: Component<S>, S: State> ComponentNode<C, S> {
                 );
                 ComponentLifecycle::Updated(old_component)
             }
-            CommitMode::Unmount => {
-                ComponentLifecycle::Unmounted
-            }
+            CommitMode::Unmount => ComponentLifecycle::Unmounted,
         };
         self.component.lifecycle(lifecycle, state, context);
         context.next_component();
