@@ -3,7 +3,7 @@ members = [
     "either",
     "either-macro",
     "yuiui",
-    "yuiui-experiment",
+    "yuiui-legacy",
     "yuiui-support",
 ]
 resolver = "2"

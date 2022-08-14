@@ -1453,6 +1453,14 @@ checksum = "a67300977d3dc3f8034dae89778f502b6ba20b269527b3223ba59c0cf393bb8a"
 name = "yuiui"
 version = "0.0.0"
 dependencies = [
+ "either 0.0.0",
+ "either-macro",
+]
+
+[[package]]
+name = "yuiui-legacy"
+version = "0.0.0"
+dependencies = [
  "anyhow",
  "bytemuck",
  "env_logger",
@@ -1468,14 +1476,6 @@ dependencies = [
  "wgpu_glyph",
  "x11rb",
  "yuiui-support",
-]
-
-[[package]]
-name = "yuiui-experiment"
-version = "0.0.0"
-dependencies = [
- "either 0.0.0",
- "either-macro",
 ]
 
 [[package]]

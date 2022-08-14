@@ -1,27 +1,17 @@
 [package]
 name = "yuiui"
 version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+license = "MIT"
+description = ""
+readme = "README.md"
+homepage = "https://github.com/emonkak/yuiui"
 edition = "2021"
 resolver = "2"
 
 [dependencies]
-anyhow = "1.0"
-bytemuck = { version = "1.7", features = ["derive"] }
-env_logger = "0.9"
-futures = "0.3"
-glam = "0.17"
-glyph_brush = "0.7"
-log = "0.4"
-mio = { version = "0.7", features = ["os-ext"] }
-raw-window-handle = "0.3"
-servo-fontconfig = "0.5"
-tokio = { version = "1.11.0", features = ["macros", "net", "rt", "sync", "time"] }
-wgpu = "0.10"
-wgpu_glyph = "0.14"
-x11rb = { version = "0.9", features = ["allow-unsafe-code", "randr"] }
-
-[dependencies.yuiui-support]
-path = "../yuiui-support"
+either = { path = "../either" }
+either-macro = { path = "../either-macro" }
 
 [[bin]]
 name = "main"
