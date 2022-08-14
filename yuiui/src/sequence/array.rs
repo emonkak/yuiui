@@ -1,8 +1,10 @@
+use std::ops::ControlFlow;
+
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
-use super::{CommitMode, ElementSeq, WidgetNodeSeq};
+use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -84,5 +86,19 @@ where
             }
         }
         EventResult::Ignored
+    }
+}
+
+impl<T, C, const N: usize> TraversableSeq<C> for ArrayStore<T, N>
+where
+    T: TraversableSeq<C>,
+{
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+        for node in &self.nodes {
+            if let ControlFlow::Break(_) = node.for_each(callback) {
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
     }
 }

@@ -17,6 +17,7 @@ pub trait Widget<S: State> {
     fn lifecycle(
         &mut self,
         _lifecycle: WidgetLifeCycle,
+        _children: &Self::Children,
         _state: &S,
         _context: &mut EffectContext<S>,
     ) {
@@ -25,6 +26,7 @@ pub trait Widget<S: State> {
     fn event(
         &mut self,
         _event: &Self::Event,
+        _children: &Self::Children,
         _state: &S,
         _context: &mut EffectContext<S>,
     ) -> EventResult {
@@ -92,16 +94,21 @@ where
         self.status = match self.status.take().unwrap() {
             WidgetStatus::Uninitialized(view) => {
                 let mut widget = view.build(&self.children, state);
-                widget.lifecycle(WidgetLifeCycle::Mounted, state, context);
+                widget.lifecycle(WidgetLifeCycle::Mounted, &self.children, state, context);
                 WidgetStatus::Prepared(widget)
             }
             WidgetStatus::Prepared(mut widget) => {
                 match mode {
                     CommitMode::Mount => {
-                        widget.lifecycle(WidgetLifeCycle::Mounted, state, context);
+                        widget.lifecycle(WidgetLifeCycle::Mounted, &self.children, state, context);
                     }
                     CommitMode::Unmount => {
-                        widget.lifecycle(WidgetLifeCycle::Unmounted, state, context);
+                        widget.lifecycle(
+                            WidgetLifeCycle::Unmounted,
+                            &self.children,
+                            state,
+                            context,
+                        );
                     }
                     CommitMode::Update => {}
                 }
@@ -109,7 +116,7 @@ where
             }
             WidgetStatus::Changed(mut widget, view) => {
                 view.rebuild(&self.children, &mut widget, state);
-                widget.lifecycle(WidgetLifeCycle::Updated, state, context);
+                widget.lifecycle(WidgetLifeCycle::Updated, &self.children, state, context);
                 WidgetStatus::Prepared(widget)
             }
         }
@@ -131,7 +138,7 @@ where
             }
             if TypeId::of::<E>() == TypeId::of::<<V::Widget as Widget<S>>::Event>() {
                 let event = unsafe { mem::transmute(event) };
-                result = result.merge(widget.event(event, state, context));
+                result = result.merge(widget.event(event, &self.children, state, context));
             }
             context.end_widget();
         }
@@ -151,7 +158,7 @@ where
                     .payload
                     .downcast_ref()
                     .expect("cast internal event to widget event");
-                widget.event(event, state, context)
+                widget.event(event, &self.children, state, context)
             } else if event.id_path.starts_with(context.id_path()) {
                 self.children.internal_event(event, state, context)
             } else {

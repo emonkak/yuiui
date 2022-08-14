@@ -17,11 +17,11 @@ pub use context::{EffectContext, Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::EventListener;
-pub use sequence::{ElementSeq, WidgetNodeSeq};
+pub use sequence::{ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use state::{Data, State};
 pub use view::View;
-pub use widget::{Widget, WidgetLifeCycle};
+pub use widget::{Widget, WidgetLifeCycle, WidgetNode};
 
 use std::borrow::Cow;
 use std::marker::PhantomData;

@@ -1,10 +1,11 @@
 use std::mem;
+use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
-use super::{CommitMode, ElementSeq, RenderStatus, WidgetNodeSeq};
+use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
@@ -116,5 +117,19 @@ where
         } else {
             EventResult::Ignored
         }
+    }
+}
+
+impl<T, C> TraversableSeq<C> for OptionStore<T>
+where
+    T: TraversableSeq<C>,
+{
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+        if let Some(node) = self.active.as_ref() {
+            if let ControlFlow::Break(_) = node.for_each(callback) {
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
     }
 }

@@ -1,5 +1,6 @@
 use std::any::TypeId;
 use std::fmt;
+use std::ops::ControlFlow;
 
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
@@ -9,7 +10,7 @@ use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 
-use super::{CommitMode, ElementSeq, WidgetNodeSeq};
+use super::{CommitMode, ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 
 impl<V, S> ElementSeq<S> for ViewElement<V, S>
 where
@@ -62,6 +63,22 @@ where
     }
 }
 
+impl<V, CS, S> fmt::Debug for WidgetNodeStore<V, CS, S>
+where
+    V: View<S> + fmt::Debug,
+    V::Widget: fmt::Debug,
+    <V::Widget as Widget<S>>::Children: fmt::Debug,
+    CS: fmt::Debug,
+    S: State,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WidgetNodeStore")
+            .field("node", &self.node)
+            .field("dirty", &self.dirty)
+            .finish()
+    }
+}
+
 impl<V, CS, S> WidgetNodeSeq<S> for WidgetNodeStore<V, CS, S>
 where
     V: View<S>,
@@ -100,18 +117,14 @@ where
     }
 }
 
-impl<V, CS, S> fmt::Debug for WidgetNodeStore<V, CS, S>
+impl<V, CS, S, C> TraversableSeq<C> for WidgetNodeStore<V, CS, S>
 where
-    V: View<S> + fmt::Debug,
-    V::Widget: fmt::Debug,
-    <V::Widget as Widget<S>>::Children: fmt::Debug,
-    CS: fmt::Debug,
+    V: View<S>,
+    CS: ComponentStack<S>,
     S: State,
+    C: SeqCallback<WidgetNode<V, CS, S>>,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WidgetNodeStore")
-            .field("node", &self.node)
-            .field("dirty", &self.dirty)
-            .finish()
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+        callback.call(&self.node)
     }
 }

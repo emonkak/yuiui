@@ -5,6 +5,8 @@ mod option;
 mod vec;
 mod widget_node;
 
+use std::ops::ControlFlow;
+
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
@@ -35,6 +37,14 @@ pub trait WidgetNodeSeq<S: State> {
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult;
+}
+
+pub trait TraversableSeq<C> {
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()>;
+}
+
+pub trait SeqCallback<T> {
+    fn call(&mut self, value: &T) -> ControlFlow<()>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

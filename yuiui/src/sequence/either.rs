@@ -1,11 +1,12 @@
 use either::Either;
 use std::mem;
+use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
-use super::{CommitMode, ElementSeq, RenderStatus, WidgetNodeSeq};
+use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct EitherStore<L, R> {
@@ -143,6 +144,19 @@ where
         match self.active.as_mut() {
             Either::Left(node) => node.internal_event(event, state, context),
             Either::Right(node) => node.internal_event(event, state, context),
+        }
+    }
+}
+
+impl<L, R, C> TraversableSeq<C> for EitherStore<L, R>
+where
+    L: TraversableSeq<C>,
+    R: TraversableSeq<C>,
+{
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+        match self.active.as_ref() {
+            Either::Left(node) => node.for_each(callback),
+            Either::Right(node) => node.for_each(callback),
         }
     }
 }

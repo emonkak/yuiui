@@ -1,5 +1,6 @@
 use std::fmt;
 use std::marker::PhantomData;
+use std::ops::ControlFlow;
 use std::rc::Rc;
 
 use crate::component::{Component, ComponentStack};
@@ -7,7 +8,7 @@ use crate::context::{EffectContext, RenderContext};
 use crate::effect::{Effect, Mutation};
 use crate::element::Element;
 use crate::event::{EventMask, EventResult, InternalEvent};
-use crate::sequence::{CommitMode, ElementSeq, WidgetNodeSeq};
+use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetStatus};
@@ -28,7 +29,10 @@ impl<T, F, SS> Adapt<T, F, SS> {
     }
 }
 
-impl<T: fmt::Debug, F, SS> fmt::Debug for Adapt<T, F, SS> {
+impl<T, F, SS> fmt::Debug for Adapt<T, F, SS>
+where
+    T: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Adapt").field(&self.target).finish()
     }
@@ -187,6 +191,15 @@ where
     }
 }
 
+impl<C, T, F, SS> TraversableSeq<C> for Adapt<T, F, SS>
+where
+    T: TraversableSeq<C>,
+{
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+        self.target.for_each(callback)
+    }
+}
+
 impl<T, F, S, SS> Component<S> for Adapt<T, F, SS>
 where
     T: Component<SS>,
@@ -274,12 +287,15 @@ where
     fn event(
         &mut self,
         event: &Self::Event,
+        children: &Self::Children,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let result = self.target.event(event, sub_state, &mut sub_context);
+        let result = self
+            .target
+            .event(event, &children.target, sub_state, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
             let effect = map_effect(sub_effect, self.selector_fn.clone());
             context.effects.push((id, component_index, effect));

@@ -1,9 +1,11 @@
+use std::ops::ControlFlow;
+
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::hlist::{HCons, HList, HNil};
 use crate::state::State;
 
-use super::{CommitMode, ElementSeq, WidgetNodeSeq};
+use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
 impl<S: State> ElementSeq<S> for HNil {
     type Store = HNil;
@@ -40,6 +42,12 @@ impl<S: State> WidgetNodeSeq<S> for HNil {
         _context: &mut EffectContext<S>,
     ) -> EventResult {
         EventResult::Ignored
+    }
+}
+
+impl<C> TraversableSeq<C> for HNil {
+    fn for_each(&self, _callback: &mut C) -> ControlFlow<()> {
+        ControlFlow::Continue(())
     }
 }
 
@@ -100,6 +108,20 @@ where
             EventResult::Captured
         } else {
             self.1.internal_event(event, state, context)
+        }
+    }
+}
+
+impl<H, T, C> TraversableSeq<C> for HCons<H, T>
+where
+    H: TraversableSeq<C>,
+    T: TraversableSeq<C> + HList,
+{
+    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+        if let ControlFlow::Break(_) = self.0.for_each(callback) {
+            ControlFlow::Break(())
+        } else {
+            self.1.for_each(callback)
         }
     }
 }

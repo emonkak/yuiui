@@ -87,6 +87,7 @@ where
     fn event(
         &mut self,
         event: &Self::Event,
+        _children: &Self::Children,
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
