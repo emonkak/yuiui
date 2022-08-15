@@ -11,7 +11,7 @@ use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetStatus};
+use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetState};
 
 pub struct Adapt<T, F, SS> {
     target: T,
@@ -58,14 +58,14 @@ where
         let node = self.target.render((selector_fn)(state), context);
         WidgetNode {
             id: node.id,
-            status: node.status.map(|status| match status {
-                WidgetStatus::Uninitialized(view) => {
-                    WidgetStatus::Uninitialized(Adapt::new(view, selector_fn.clone()))
+            state: node.state.map(|state| match state {
+                WidgetState::Uninitialized(view) => {
+                    WidgetState::Uninitialized(Adapt::new(view, selector_fn.clone()))
                 }
-                WidgetStatus::Prepared(widget) => {
-                    WidgetStatus::Prepared(Adapt::new(widget, selector_fn.clone()))
+                WidgetState::Prepared(widget) => {
+                    WidgetState::Prepared(Adapt::new(widget, selector_fn.clone()))
                 }
-                WidgetStatus::Changed(widget, view) => WidgetStatus::Changed(
+                WidgetState::Changed(widget, view) => WidgetState::Changed(
                     Adapt::new(widget, selector_fn.clone()),
                     Adapt::new(view, selector_fn.clone()),
                 ),
@@ -82,29 +82,29 @@ where
         state: &S,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_status = scope.status.take().map(|status| match status {
-            WidgetStatus::Uninitialized(view) => WidgetStatus::Uninitialized(view.target),
-            WidgetStatus::Prepared(widget) => WidgetStatus::Prepared(widget.target),
-            WidgetStatus::Changed(widget, view) => {
-                WidgetStatus::Changed(widget.target, view.target)
+        let mut sub_status = scope.state.take().map(|state| match state {
+            WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
+            WidgetState::Prepared(widget) => WidgetState::Prepared(widget.target),
+            WidgetState::Changed(widget, view) => {
+                WidgetState::Changed(widget.target, view.target)
             }
         });
         let sub_scope = WidgetNodeScope {
             id: scope.id,
-            status: &mut sub_status,
+            state: &mut sub_status,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
         };
         let selector_fn = self.selector_fn;
         let has_changed = self.target.update(sub_scope, selector_fn(state), context);
-        *scope.status = sub_status.map(|status| match status {
-            WidgetStatus::Uninitialized(view) => {
-                WidgetStatus::Uninitialized(Adapt::new(view, selector_fn.clone()))
+        *scope.state = sub_status.map(|state| match state {
+            WidgetState::Uninitialized(view) => {
+                WidgetState::Uninitialized(Adapt::new(view, selector_fn.clone()))
             }
-            WidgetStatus::Prepared(widget) => {
-                WidgetStatus::Prepared(Adapt::new(widget, selector_fn.clone()))
+            WidgetState::Prepared(widget) => {
+                WidgetState::Prepared(Adapt::new(widget, selector_fn.clone()))
             }
-            WidgetStatus::Changed(widget, view) => WidgetStatus::Changed(
+            WidgetState::Changed(widget, view) => WidgetState::Changed(
                 Adapt::new(widget, selector_fn.clone()),
                 Adapt::new(view, selector_fn.clone()),
             ),

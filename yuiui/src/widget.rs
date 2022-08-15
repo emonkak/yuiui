@@ -36,7 +36,7 @@ pub trait Widget<S: State> {
 
 pub struct WidgetNode<V: View<S>, CS, S: State> {
     pub id: Id,
-    pub status: Option<WidgetStatus<V, V::Widget>>,
+    pub state: Option<WidgetState<V, V::Widget>>,
     pub children: <V::Widget as Widget<S>>::Children,
     pub components: CS,
     pub event_mask: EventMask,
@@ -56,30 +56,17 @@ where
     ) -> Self {
         Self {
             id,
-            status: Some(WidgetStatus::Uninitialized(view)),
+            state: Some(WidgetState::Uninitialized(view)),
             children,
             components,
             event_mask: <V::Widget as Widget<S>>::Children::event_mask(),
         }
     }
 
-    pub fn map_components<F, NCS>(self, f: F) -> WidgetNode<V, NCS, S>
-    where
-        F: FnOnce(CS) -> NCS,
-    {
-        WidgetNode {
-            id: self.id,
-            status: self.status,
-            children: self.children,
-            components: f(self.components),
-            event_mask: self.event_mask,
-        }
-    }
-
     pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S> {
         WidgetNodeScope {
             id: self.id,
-            status: &mut self.status,
+            state: &mut self.state,
             children: &mut self.children,
             components: &mut self.components,
         }
@@ -91,13 +78,13 @@ where
         self.components.commit(mode, state, context);
         context.end_components();
         self.children.commit(mode, state, context);
-        self.status = match self.status.take().unwrap() {
-            WidgetStatus::Uninitialized(view) => {
+        self.state = match self.state.take().unwrap() {
+            WidgetState::Uninitialized(view) => {
                 let mut widget = view.build(&self.children, state);
                 widget.lifecycle(WidgetLifeCycle::Mounted, &self.children, state, context);
-                WidgetStatus::Prepared(widget)
+                WidgetState::Prepared(widget)
             }
-            WidgetStatus::Prepared(mut widget) => {
+            WidgetState::Prepared(mut widget) => {
                 match mode {
                     CommitMode::Mount => {
                         widget.lifecycle(WidgetLifeCycle::Mounted, &self.children, state, context);
@@ -112,13 +99,13 @@ where
                     }
                     CommitMode::Update => {}
                 }
-                WidgetStatus::Prepared(widget)
+                WidgetState::Prepared(widget)
             }
-            WidgetStatus::Changed(mut widget, view) => {
+            WidgetState::Changed(mut widget, view) => {
                 if view.rebuild(&self.children, &mut widget, state) {
                     widget.lifecycle(WidgetLifeCycle::Updated, &self.children, state, context);
                 }
-                WidgetStatus::Prepared(widget)
+                WidgetState::Prepared(widget)
             }
         }
         .into();
@@ -132,7 +119,7 @@ where
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
-        if let WidgetStatus::Prepared(widget) = self.status.as_mut().unwrap() {
+        if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
             context.begin_widget(self.id);
             if self.event_mask.contains(&TypeId::of::<E>()) {
                 result = result.merge(self.children.event(event, state, context));
@@ -152,7 +139,7 @@ where
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let WidgetStatus::Prepared(widget) = self.status.as_mut().unwrap() {
+        if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
             context.begin_widget(self.id);
             let result = if self.id == event.id_path.id() {
                 let event = event
@@ -184,7 +171,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetNode")
             .field("id", &self.id)
-            .field("status", &self.status)
+            .field("state", &self.state)
             .field("children", &self.children)
             .field("components", &self.components)
             .field("event_mask", &self.event_mask)
@@ -194,13 +181,13 @@ where
 
 pub struct WidgetNodeScope<'a, V: View<S>, CS, S: State> {
     pub id: Id,
-    pub status: &'a mut Option<WidgetStatus<V, V::Widget>>,
+    pub state: &'a mut Option<WidgetState<V, V::Widget>>,
     pub children: &'a mut <V::Widget as Widget<S>>::Children,
     pub components: &'a mut CS,
 }
 
 #[derive(Debug)]
-pub enum WidgetStatus<V, W> {
+pub enum WidgetState<V, W> {
     Uninitialized(V),
     Prepared(W),
     Changed(W, V),

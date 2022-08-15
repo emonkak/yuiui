@@ -6,7 +6,7 @@ use crate::context::RenderContext;
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{WidgetNode, WidgetNodeScope, WidgetStatus};
+use crate::widget::{WidgetNode, WidgetNodeScope, WidgetState};
 
 pub trait Element<S: State> {
     type View: View<S>;
@@ -78,10 +78,10 @@ where
         state: &S,
         context: &mut RenderContext,
     ) -> bool {
-        *scope.status = match scope.status.take().unwrap() {
-            WidgetStatus::Uninitialized(_) => WidgetStatus::Uninitialized(self.view),
-            WidgetStatus::Prepared(widget) => WidgetStatus::Changed(widget, self.view),
-            WidgetStatus::Changed(widget, _) => WidgetStatus::Changed(widget, self.view),
+        *scope.state = match scope.state.take().unwrap() {
+            WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
+            WidgetState::Prepared(widget) => WidgetState::Changed(widget, self.view),
+            WidgetState::Changed(widget, _) => WidgetState::Changed(widget, self.view),
         }
         .into();
         self.children.update(scope.children, state, context);
@@ -120,9 +120,14 @@ where
     ) -> WidgetNode<Self::View, Self::Components, S> {
         let head_component = ComponentNode::new(self.component);
         let element = head_component.component.render(state);
-        element
-            .render(state, context)
-            .map_components(|components| (head_component, components))
+        let widget_node = element.render(state, context);
+        WidgetNode {
+            id: widget_node.id,
+            state: widget_node.state,
+            children: widget_node.children,
+            components: (head_component, widget_node.components),
+            event_mask: widget_node.event_mask,
+        }
     }
 
     fn update(
@@ -134,7 +139,7 @@ where
         let (head, tail) = scope.components;
         let scope = WidgetNodeScope {
             id: scope.id,
-            status: scope.status,
+            state: scope.state,
             children: scope.children,
             components: tail,
         };
