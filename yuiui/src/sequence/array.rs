@@ -69,7 +69,7 @@ where
     ) -> EventResult {
         let mut result = EventResult::Ignored;
         for node in &mut self.nodes {
-            result = node.event(event, state, context);
+            result = result.merge(node.event(event, state, context));
         }
         result
     }
