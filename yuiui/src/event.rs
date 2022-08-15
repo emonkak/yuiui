@@ -1,9 +1,9 @@
+use hlist::HNil;
 use std::any::{Any, TypeId};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use crate::context::{EffectContext, IdPath};
-use crate::hlist::HNil;
 use crate::state::State;
 use crate::widget::Widget;
 

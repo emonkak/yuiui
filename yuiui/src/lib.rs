@@ -1,5 +1,3 @@
-pub mod hlist;
-
 mod adapt;
 mod component;
 mod context;
@@ -23,6 +21,7 @@ pub use state::{Data, State};
 pub use view::View;
 pub use widget::{Widget, WidgetLifeCycle, WidgetNode};
 
+use hlist::{hlist, HList};
 use std::borrow::Cow;
 use std::marker::PhantomData;
 

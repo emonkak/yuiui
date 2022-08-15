@@ -2,6 +2,7 @@
 members = [
     "either",
     "either-macro",
+    "hlist",
     "yuiui",
     "yuiui-legacy",
     "yuiui-support",

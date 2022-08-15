@@ -1,8 +1,8 @@
+use hlist::{HCons, HList, HNil};
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, InternalEvent};
-use crate::hlist::{HCons, HList, HNil};
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
@@ -61,13 +61,16 @@ where
     type Store = HCons<H::Store, T::Store>;
 
     fn render(self, state: &S, context: &mut RenderContext) -> Self::Store {
-        HCons(self.0.render(state, context), self.1.render(state, context))
+        HCons {
+            head: self.head.render(state, context),
+            tail: self.tail.render(state, context),
+        }
     }
 
     fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool {
         let mut has_changed = false;
-        has_changed |= self.0.update(&mut store.0, state, context);
-        has_changed |= self.1.update(&mut store.1, state, context);
+        has_changed |= self.head.update(&mut store.head, state, context);
+        has_changed |= self.tail.update(&mut store.tail, state, context);
         has_changed
     }
 }
@@ -83,8 +86,8 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
-        self.0.commit(mode, state, context);
-        self.1.commit(mode, state, context);
+        self.head.commit(mode, state, context);
+        self.tail.commit(mode, state, context);
     }
 
     fn event<E: 'static>(
@@ -93,9 +96,9 @@ where
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        self.0
+        self.head
             .event(event, state, context)
-            .merge(self.1.event(event, state, context))
+            .merge(self.tail.event(event, state, context))
     }
 
     fn internal_event(
@@ -104,10 +107,10 @@ where
         state: &S,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if self.0.internal_event(event, state, context) == EventResult::Captured {
+        if self.head.internal_event(event, state, context) == EventResult::Captured {
             EventResult::Captured
         } else {
-            self.1.internal_event(event, state, context)
+            self.tail.internal_event(event, state, context)
         }
     }
 }
@@ -118,10 +121,10 @@ where
     T: TraversableSeq<C> + HList,
 {
     fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
-        if let ControlFlow::Break(_) = self.0.for_each(callback) {
+        if let ControlFlow::Break(_) = self.head.for_each(callback) {
             ControlFlow::Break(())
         } else {
-            self.1.for_each(callback)
+            self.tail.for_each(callback)
         }
     }
 }

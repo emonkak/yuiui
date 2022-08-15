@@ -12,6 +12,7 @@ resolver = "2"
 [dependencies]
 either = { path = "../either" }
 either-macro = { path = "../either-macro" }
+hlist = { path = "../hlist" }
 
 [[bin]]
 name = "main"
