@@ -3,6 +3,7 @@ mod component;
 mod context;
 mod effect;
 mod element;
+mod env;
 mod event;
 mod sequence;
 mod stage;
@@ -14,6 +15,7 @@ pub use component::Component;
 pub use context::{EffectContext, Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
+pub use env::Env;
 pub use event::EventListener;
 pub use sequence::{ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 pub use stage::Stage;
@@ -39,17 +41,30 @@ impl Text {
     }
 }
 
-impl<S: State> View<S> for Text {
+impl<S, E> View<S, E> for Text
+where
+    S: State,
+    E: for<'a> Env<'a>,
+{
     type Widget = Text;
 
     type Children = hlist::HNil;
 
-    fn build(self, _children: &<Self::Widget as Widget<S>>::Children, _state: &S) -> Self::Widget {
+    fn build(
+        self,
+        _children: &<Self::Widget as Widget<S, E>>::Children,
+        _state: &S,
+        _env: &<E as Env>::Output,
+    ) -> Self::Widget {
         self
     }
 }
 
-impl<S: State> Widget<S> for Text {
+impl<S, E> Widget<S, E> for Text
+where
+    S: State,
+    E: for<'a> Env<'a>,
+{
     type Children = hlist::HNil;
 
     type Event = ();
@@ -68,16 +83,22 @@ impl<C> Block<C> {
     }
 }
 
-impl<C, S> View<S> for Block<C>
+impl<C, S, E> View<S, E> for Block<C>
 where
-    C: ElementSeq<S>,
+    C: ElementSeq<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
-    type Widget = BlockWidget<<C as ElementSeq<S>>::Store>;
+    type Widget = BlockWidget<<C as ElementSeq<S, E>>::Store>;
 
     type Children = C;
 
-    fn build(self, _children: &<Self::Widget as Widget<S>>::Children, _state: &S) -> Self::Widget {
+    fn build(
+        self,
+        _children: &<Self::Widget as Widget<S, E>>::Children,
+        _state: &S,
+        _env: &<E as Env>::Output,
+    ) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
         }
@@ -89,10 +110,11 @@ pub struct BlockWidget<C> {
     children: PhantomData<C>,
 }
 
-impl<C, S> Widget<S> for BlockWidget<C>
+impl<C, S, E> Widget<S, E> for BlockWidget<C>
 where
-    C: WidgetNodeSeq<S>,
+    C: WidgetNodeSeq<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     type Children = C;
 
@@ -112,10 +134,14 @@ impl Button {
     }
 }
 
-impl<S: State> Component<S> for Button {
-    type Element = ViewElement<Block<HList![ViewElement<Text, S>]>, S>;
+impl<S, E> Component<S, E> for Button
+where
+    S: State,
+    E: for<'a> Env<'a>,
+{
+    type Element = ViewElement<Block<HList![ViewElement<Text, S, E>]>, S, E>;
 
-    fn render(&self, _state: &S) -> Self::Element {
+    fn render(&self, _state: &S, _env: &<E as Env>::Output) -> Self::Element {
         Block::new().el_with(hlist![Text::new(self.label.clone()).el()])
     }
 }
@@ -123,10 +149,13 @@ impl<S: State> Component<S> for Button {
 #[derive(Debug, Clone)]
 pub struct Counter;
 
-impl Component<Data<i64>> for Counter {
-    type Element = ViewElement<Block<HList![ViewElement<Text, Data<i64>>]>, Data<i64>>;
+impl<E> Component<Data<i64>, E> for Counter
+where
+    E: for<'a> Env<'a>,
+{
+    type Element = ViewElement<Block<HList![ViewElement<Text, Data<i64>, E>]>, Data<i64>, E>;
 
-    fn render(&self, state: &Data<i64>) -> Self::Element {
+    fn render(&self, state: &Data<i64>, _env: &<E as Env>::Output) -> Self::Element {
         Block::new().el_with(hlist![Text::new(format!("{}", state.value)).el()])
     }
 }

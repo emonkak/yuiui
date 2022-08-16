@@ -3,6 +3,7 @@ use std::mem;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
+use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
@@ -25,27 +26,41 @@ impl<L, R> EitherStore<L, R> {
     }
 }
 
-impl<L, R, S> ElementSeq<S> for Either<L, R>
+impl<L, R, S, E> ElementSeq<S, E> for Either<L, R>
 where
-    L: ElementSeq<S>,
-    R: ElementSeq<S>,
+    L: ElementSeq<S, E>,
+    R: ElementSeq<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     type Store = EitherStore<L::Store, R::Store>;
 
-    fn render(self, state: &S, context: &mut RenderContext) -> Self::Store {
+    fn render(
+        self,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> Self::Store {
         match self {
-            Either::Left(element) => EitherStore::new(Either::Left(element.render(state, context))),
+            Either::Left(element) => {
+                EitherStore::new(Either::Left(element.render(state, env, context)))
+            }
             Either::Right(element) => {
-                EitherStore::new(Either::Right(element.render(state, context)))
+                EitherStore::new(Either::Right(element.render(state, env, context)))
             }
         }
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool {
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> bool {
         match (store.active.as_mut(), self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update(node, state, context) {
+                if element.update(node, state, env, context) {
                     store.status = RenderStatus::Changed;
                     true
                 } else {
@@ -53,7 +68,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update(node, state, context) {
+                if element.update(node, state, env, context) {
                     store.status = RenderStatus::Changed;
                     true
                 } else {
@@ -63,10 +78,10 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match store.staging.as_mut() {
                     Some(Either::Right(node)) => {
-                        element.update(node, state, context);
+                        element.update(node, state, env, context);
                     }
                     None => {
-                        store.staging = Some(Either::Right(element.render(state, context)));
+                        store.staging = Some(Either::Right(element.render(state, env, context)));
                     }
                     _ => unreachable!(),
                 };
@@ -76,10 +91,10 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match store.staging.as_mut() {
                     Some(Either::Left(node)) => {
-                        element.update(node, state, context);
+                        element.update(node, state, env, context);
                     }
                     None => {
-                        store.staging = Some(Either::Left(element.render(state, context)));
+                        store.staging = Some(Either::Left(element.render(state, env, context)));
                     }
                     _ => unreachable!(),
                 }
@@ -90,48 +105,56 @@ where
     }
 }
 
-impl<L, R, S> WidgetNodeSeq<S> for EitherStore<L, R>
+impl<L, R, S, E> WidgetNodeSeq<S, E> for EitherStore<L, R>
 where
-    L: WidgetNodeSeq<S>,
-    R: WidgetNodeSeq<S>,
+    L: WidgetNodeSeq<S, E>,
+    R: WidgetNodeSeq<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         L::event_mask().merge(R::event_mask())
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut EffectContext<S>,
+    ) {
         if self.status == RenderStatus::Swapped {
             match self.active.as_mut() {
-                Either::Left(node) => node.commit(CommitMode::Unmount, state, context),
-                Either::Right(node) => node.commit(CommitMode::Unmount, state, context),
+                Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
+                Either::Right(node) => node.commit(CommitMode::Unmount, state, env, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 match self.active.as_mut() {
-                    Either::Left(node) => node.commit(CommitMode::Mount, state, context),
-                    Either::Right(node) => node.commit(CommitMode::Mount, state, context),
+                    Either::Left(node) => node.commit(CommitMode::Mount, state, env, context),
+                    Either::Right(node) => node.commit(CommitMode::Mount, state, env, context),
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
             match self.active.as_mut() {
-                Either::Left(node) => node.commit(mode, state, context),
-                Either::Right(node) => node.commit(mode, state, context),
+                Either::Left(node) => node.commit(mode, state, env, context),
+                Either::Right(node) => node.commit(mode, state, env, context),
             }
             self.status = RenderStatus::Unchanged;
         }
     }
 
-    fn event<E: 'static>(
+    fn event<Event: 'static>(
         &mut self,
-        event: &E,
+        event: &Event,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         match self.active.as_mut() {
-            Either::Left(node) => node.event(event, state, context),
-            Either::Right(node) => node.event(event, state, context),
+            Either::Left(node) => node.event(event, state, env, context),
+            Either::Right(node) => node.event(event, state, env, context),
         }
     }
 
@@ -139,11 +162,12 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         match self.active.as_mut() {
-            Either::Left(node) => node.internal_event(event, state, context),
-            Either::Right(node) => node.internal_event(event, state, context),
+            Either::Left(node) => node.internal_event(event, state, env, context),
+            Either::Right(node) => node.internal_event(event, state, env, context),
         }
     }
 }

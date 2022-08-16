@@ -5,6 +5,7 @@ use std::ops::ControlFlow;
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::element::{ComponentElement, Element, ViewElement};
+use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 use crate::view::View;
@@ -12,64 +13,92 @@ use crate::widget::{Widget, WidgetNode};
 
 use super::{CommitMode, ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 
-impl<V, S> ElementSeq<S> for ViewElement<V, S>
+impl<V, S, E> ElementSeq<S, E> for ViewElement<V, S, E>
 where
-    V: View<S>,
+    V: View<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
-    type Store = WidgetNodeStore<<Self as Element<S>>::View, <Self as Element<S>>::Components, S>;
+    type Store =
+        WidgetNodeStore<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
-    fn render(self, state: &S, context: &mut RenderContext) -> Self::Store {
-        WidgetNodeStore::new(Element::render(self, state, context))
+    fn render(
+        self,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> Self::Store {
+        WidgetNodeStore::new(Element::render(self, state, env, context))
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool {
-        let has_changed = Element::update(self, store.node.scope(), state, context);
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> bool {
+        let has_changed = Element::update(self, store.node.scope(), state, env, context);
         store.dirty = has_changed;
         has_changed
     }
 }
 
-impl<C, S> ElementSeq<S> for ComponentElement<C, S>
+impl<C, S, E> ElementSeq<S, E> for ComponentElement<C, S, E>
 where
-    C: Component<S>,
+    C: Component<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
-    type Store = WidgetNodeStore<<Self as Element<S>>::View, <Self as Element<S>>::Components, S>;
+    type Store =
+        WidgetNodeStore<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
-    fn render(self, state: &S, context: &mut RenderContext) -> Self::Store {
-        WidgetNodeStore::new(Element::render(self, state, context))
+    fn render(
+        self,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> Self::Store {
+        WidgetNodeStore::new(Element::render(self, state, env, context))
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool {
-        let has_changed = Element::update(self, store.node.scope(), state, context);
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> bool {
+        let has_changed = Element::update(self, store.node.scope(), state, env, context);
         store.dirty = has_changed;
         has_changed
     }
 }
 
-pub struct WidgetNodeStore<V: View<S>, CS, S: State> {
-    node: WidgetNode<V, CS, S>,
+pub struct WidgetNodeStore<V: View<S, E>, CS, S: State, E: for<'a> Env<'a>> {
+    node: WidgetNode<V, CS, S, E>,
     dirty: bool,
 }
 
-impl<V, CS, S> WidgetNodeStore<V, CS, S>
+impl<V, CS, S, E> WidgetNodeStore<V, CS, S, E>
 where
-    V: View<S>,
+    V: View<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
-    fn new(node: WidgetNode<V, CS, S>) -> Self {
+    fn new(node: WidgetNode<V, CS, S, E>) -> Self {
         Self { node, dirty: true }
     }
 }
 
-impl<V, CS, S> fmt::Debug for WidgetNodeStore<V, CS, S>
+impl<V, CS, S, E> fmt::Debug for WidgetNodeStore<V, CS, S, E>
 where
-    V: View<S> + fmt::Debug,
+    V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Widget as Widget<S>>::Children: fmt::Debug,
+    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
     CS: fmt::Debug,
     S: State,
+    E: for<'a> Env<'a>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("WidgetNodeStore")
@@ -79,50 +108,60 @@ where
     }
 }
 
-impl<V, CS, S> WidgetNodeSeq<S> for WidgetNodeStore<V, CS, S>
+impl<V, CS, S, E> WidgetNodeSeq<S, E> for WidgetNodeStore<V, CS, S, E>
 where
-    V: View<S>,
-    CS: ComponentStack<S>,
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
-        let mut event_mask = <V::Widget as Widget<S>>::Children::event_mask();
-        event_mask.add(TypeId::of::<<V::Widget as Widget<S>>::Event>());
+        let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
+        event_mask.add(TypeId::of::<<V::Widget as Widget<S, E>>::Event>());
         event_mask
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut EffectContext<S>,
+    ) {
         if self.dirty || mode.is_propagatable() {
             self.dirty = false;
-            self.node.commit(mode, state, context);
+            self.node.commit(mode, state, env, context);
         }
     }
 
-    fn event<E: 'static>(
+    fn event<Event: 'static>(
         &mut self,
-        event: &E,
+        event: &Event,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        self.node.event(event, state, context)
+        self.node.event(event, state, env, context)
     }
 
     fn internal_event(
         &mut self,
         event: &InternalEvent,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        self.node.internal_event(event, state, context)
+        self.node.internal_event(event, state, env, context)
     }
 }
 
-impl<V, CS, S, C> TraversableSeq<C> for WidgetNodeStore<V, CS, S>
+impl<V, CS, S, E, C> TraversableSeq<C> for WidgetNodeStore<V, CS, S, E>
 where
-    V: View<S>,
-    CS: ComponentStack<S>,
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
     S: State,
-    C: SeqCallback<WidgetNode<V, CS, S>>,
+    E: for<'a> Env<'a>,
+    C: SeqCallback<WidgetNode<V, CS, S, E>>,
 {
     fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
         callback.call(&self.node)

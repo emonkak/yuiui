@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use crate::context::{EffectContext, IdPath};
+use crate::env::Env;
 use crate::state::State;
 use crate::widget::Widget;
 
@@ -60,11 +61,11 @@ pub struct EventListener<F, E> {
     event_type: PhantomData<E>,
 }
 
-impl<F, E> EventListener<F, E> {
-    pub fn new<S>(listener_fn: F) -> Self
+impl<F, Event> EventListener<F, Event> {
+    pub fn new<S, E>(listener_fn: F) -> Self
     where
+        F: Fn(&Event, &S, &E, &mut EffectContext<S>),
         S: State,
-        F: Fn(&E, &S, &mut EffectContext<S>),
         E: 'static,
     {
         Self {
@@ -74,24 +75,26 @@ impl<F, E> EventListener<F, E> {
     }
 }
 
-impl<S, F, E> Widget<S> for EventListener<F, E>
+impl<F, Event, S, E> Widget<S, E> for EventListener<F, Event>
 where
+    F: Fn(&Event, &S, &<E as Env>::Output, &mut EffectContext<S>),
+    Event: 'static,
     S: State,
-    F: Fn(&E, &S, &mut EffectContext<S>),
-    E: 'static,
+    E: for<'a> Env<'a>,
 {
     type Children = HNil;
 
-    type Event = E;
+    type Event = Event;
 
     fn event(
         &mut self,
         event: &Self::Event,
         _children: &Self::Children,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        (self.listener_fn)(event, state, context);
+        (self.listener_fn)(event, state, env, context);
         EventResult::Captured
     }
 }

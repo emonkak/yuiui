@@ -1,13 +1,16 @@
 use either_macro::either;
-use hlist::hlist;
+use hlist::{hlist, HList};
 use std::fmt::Debug;
 
 use yuiui::*;
 
 #[derive(Debug)]
-struct App {
+struct AppState {
     count: Data<i64>,
 }
+
+#[derive(Debug)]
+struct AppEnv {}
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -16,7 +19,7 @@ enum AppMessage {
     Decrement,
 }
 
-impl State for App {
+impl State for AppState {
     type Message = AppMessage;
 
     fn reduce(&mut self, message: AppMessage) -> bool {
@@ -29,10 +32,15 @@ impl State for App {
 }
 
 fn app(
-    _state: &App,
+    _state: &AppState,
 ) -> impl Element<
-    App,
-    View = impl View<App, Widget = impl Widget<App, Children = impl Debug> + Debug> + Debug,
+    AppState,
+    HList![AppEnv],
+    View = impl View<
+        AppState,
+        HList![AppEnv],
+        Widget = impl Widget<AppState, HList![AppEnv], Children = impl Debug> + Debug,
+    > + Debug,
     Components = impl Debug,
 > {
     Block::new().el_with(hlist![
@@ -48,16 +56,17 @@ fn app(
         }),
         Text::new("!").el(),
         Button::new("click me!").el(),
-        Counter.el().adapt(|state: &App| &state.count),
+        Counter.el().adapt(|state: &AppState| &state.count),
     ])
 }
 
 fn main() {
-    let state = App {
+    let state = AppState {
         count: Data::from(0),
     };
+    let env = hlist![AppEnv {}];
     let root = app(&state);
-    let mut stage = Stage::new(root, state);
+    let mut stage = Stage::new(root, state, env);
     stage.commit();
     println!("{:#?}", stage);
 }

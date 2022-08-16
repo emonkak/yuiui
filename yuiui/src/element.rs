@@ -3,58 +3,71 @@ use std::marker::PhantomData;
 use crate::adapt::Adapt;
 use crate::component::{Component, ComponentNode, ComponentStack};
 use crate::context::RenderContext;
+use crate::env::{Env, WithEnv};
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{WidgetNode, WidgetNodeScope, WidgetState};
 
-pub trait Element<S: State> {
-    type View: View<S>;
+pub trait Element<S: State, E: for<'a> Env<'a>> {
+    type View: View<S, E>;
 
-    type Components: ComponentStack<S>;
+    type Components: ComponentStack<S, E>;
 
     fn render(
         self,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S>;
+    ) -> WidgetNode<Self::View, Self::Components, S, E>;
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S>,
+        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut RenderContext,
     ) -> bool;
 
-    fn adapt<F, NS>(self, f: F) -> Adapt<Self, F, S>
+    fn adapt<F, PS>(self, f: F) -> Adapt<Self, F, S>
     where
         Self: Sized,
-        F: Fn(&NS) -> &S,
+        F: Fn(&PS) -> &S,
     {
         Adapt::new(self, f.into())
+    }
+
+    fn with_env<SE>(self, sub_env: SE) -> WithEnv<Self, SE>
+    where
+        Self: Sized,
+        SE: for<'a> Env<'a>,
+    {
+        WithEnv::new(self, sub_env.into())
     }
 }
 
 #[derive(Debug)]
-pub struct ViewElement<V: View<S>, S: State> {
+pub struct ViewElement<V: View<S, E>, S: State, E: for<'a> Env<'a>> {
     view: V,
     children: V::Children,
 }
 
-impl<V, S> ViewElement<V, S>
+impl<V, S, E> ViewElement<V, S, E>
 where
-    V: View<S>,
+    V: View<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     pub fn new(view: V, children: V::Children) -> Self {
         ViewElement { view, children }
     }
 }
 
-impl<V, S> Element<S> for ViewElement<V, S>
+impl<V, S, E> Element<S, E> for ViewElement<V, S, E>
 where
-    V: View<S>,
+    V: View<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     type View = V;
 
@@ -63,19 +76,21 @@ where
     fn render(
         self,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S> {
+    ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let id = context.next_identity();
         context.begin_widget(id);
-        let children = self.children.render(state, context);
+        let children = self.children.render(state, env, context);
         context.end_widget();
         WidgetNode::new(id, self.view, children, ())
     }
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S>,
+        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut RenderContext,
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
@@ -84,43 +99,55 @@ where
             WidgetState::Changed(widget, _) => WidgetState::Changed(widget, self.view),
         }
         .into();
-        self.children.update(scope.children, state, context);
+        self.children.update(scope.children, state, env, context);
         true
     }
 }
 
 #[derive(Debug)]
-pub struct ComponentElement<C: Component<S>, S: State> {
+pub struct ComponentElement<C: Component<S, E>, S: State, E: for<'a> Env<'a>> {
     component: C,
     state: PhantomData<S>,
+    env: PhantomData<E>,
 }
 
-impl<C: Component<S>, S: State> ComponentElement<C, S> {
-    pub fn new(component: C) -> ComponentElement<C, S> {
+impl<C, S, E> ComponentElement<C, S, E>
+where
+    C: Component<S, E>,
+    S: State,
+    E: for<'a> Env<'a>,
+{
+    pub fn new(component: C) -> ComponentElement<C, S, E> {
         Self {
             component,
             state: PhantomData,
+            env: PhantomData,
         }
     }
 }
 
-impl<C, S> Element<S> for ComponentElement<C, S>
+impl<C, S, E> Element<S, E> for ComponentElement<C, S, E>
 where
-    C: Component<S>,
+    C: Component<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
-    type View = <C::Element as Element<S>>::View;
+    type View = <C::Element as Element<S, E>>::View;
 
-    type Components = (ComponentNode<C, S>, <C::Element as Element<S>>::Components);
+    type Components = (
+        ComponentNode<C, S, E>,
+        <C::Element as Element<S, E>>::Components,
+    );
 
     fn render(
         self,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S> {
+    ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let head_component = ComponentNode::new(self.component);
-        let element = head_component.component.render(state);
-        let widget_node = element.render(state, context);
+        let element = head_component.component.render(state, env);
+        let widget_node = element.render(state, env, context);
         WidgetNode {
             id: widget_node.id,
             state: widget_node.state,
@@ -132,8 +159,9 @@ where
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S>,
+        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = scope.components;
@@ -143,10 +171,10 @@ where
             children: scope.children,
             components: tail,
         };
-        if head.component.should_update(&self.component, state) {
-            let element = self.component.render(state);
+        if head.component.should_update(&self.component, state, env) {
+            let element = self.component.render(state, env);
             head.pending_component = Some(self.component);
-            element.update(scope, state, context)
+            element.update(scope, state, env, context)
         } else {
             false
         }

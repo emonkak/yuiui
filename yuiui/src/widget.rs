@@ -4,13 +4,14 @@ use std::mem;
 
 use crate::component::ComponentStack;
 use crate::context::{EffectContext, Id};
+use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 
-pub trait Widget<S: State> {
-    type Children: WidgetNodeSeq<S>;
+pub trait Widget<S: State, E: for<'a> Env<'a>> {
+    type Children: WidgetNodeSeq<S, E>;
 
     type Event: 'static;
 
@@ -19,6 +20,7 @@ pub trait Widget<S: State> {
         _lifecycle: WidgetLifeCycle,
         _children: &Self::Children,
         _state: &S,
+        _env: &<E as Env>::Output,
         _context: &mut EffectContext<S>,
     ) {
     }
@@ -28,30 +30,32 @@ pub trait Widget<S: State> {
         _event: &Self::Event,
         _children: &Self::Children,
         _state: &S,
+        _env: &<E as Env>::Output,
         _context: &mut EffectContext<S>,
     ) -> EventResult {
         EventResult::Ignored
     }
 }
 
-pub struct WidgetNode<V: View<S>, CS, S: State> {
+pub struct WidgetNode<V: View<S, E>, CS, S: State, E: for<'a> Env<'a>> {
     pub id: Id,
     pub state: Option<WidgetState<V, V::Widget>>,
-    pub children: <V::Widget as Widget<S>>::Children,
+    pub children: <V::Widget as Widget<S, E>>::Children,
     pub components: CS,
     pub event_mask: EventMask,
 }
 
-impl<V, CS, S> WidgetNode<V, CS, S>
+impl<V, CS, S, E> WidgetNode<V, CS, S, E>
 where
-    V: View<S>,
-    CS: ComponentStack<S>,
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
     S: State,
+    E: for<'a> Env<'a>,
 {
     pub fn new(
         id: Id,
         view: V,
-        children: <V::Widget as Widget<S>>::Children,
+        children: <V::Widget as Widget<S, E>>::Children,
         components: CS,
     ) -> Self {
         Self {
@@ -59,11 +63,11 @@ where
             state: Some(WidgetState::Uninitialized(view)),
             children,
             components,
-            event_mask: <V::Widget as Widget<S>>::Children::event_mask(),
+            event_mask: <V::Widget as Widget<S, E>>::Children::event_mask(),
         }
     }
 
-    pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S> {
+    pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S, E> {
         WidgetNodeScope {
             id: self.id,
             state: &mut self.state,
@@ -72,28 +76,47 @@ where
         }
     }
 
-    pub fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
+    pub fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut EffectContext<S>,
+    ) {
         context.begin_widget(self.id);
         context.begin_components();
-        self.components.commit(mode, state, context);
+        self.components.commit(mode, state, env, context);
         context.end_components();
-        self.children.commit(mode, state, context);
+        self.children.commit(mode, state, env, context);
         self.state = match self.state.take().unwrap() {
             WidgetState::Uninitialized(view) => {
-                let mut widget = view.build(&self.children, state);
-                widget.lifecycle(WidgetLifeCycle::Mounted, &self.children, state, context);
+                let mut widget = view.build(&self.children, state, env);
+                widget.lifecycle(
+                    WidgetLifeCycle::Mounted,
+                    &self.children,
+                    state,
+                    env,
+                    context,
+                );
                 WidgetState::Prepared(widget)
             }
             WidgetState::Prepared(mut widget) => {
                 match mode {
                     CommitMode::Mount => {
-                        widget.lifecycle(WidgetLifeCycle::Mounted, &self.children, state, context);
+                        widget.lifecycle(
+                            WidgetLifeCycle::Mounted,
+                            &self.children,
+                            state,
+                            env,
+                            context,
+                        );
                     }
                     CommitMode::Unmount => {
                         widget.lifecycle(
                             WidgetLifeCycle::Unmounted,
                             &self.children,
                             state,
+                            env,
                             context,
                         );
                     }
@@ -102,8 +125,14 @@ where
                 WidgetState::Prepared(widget)
             }
             WidgetState::Changed(mut widget, view) => {
-                if view.rebuild(&self.children, &mut widget, state) {
-                    widget.lifecycle(WidgetLifeCycle::Updated, &self.children, state, context);
+                if view.rebuild(&self.children, &mut widget, state, env) {
+                    widget.lifecycle(
+                        WidgetLifeCycle::Updated,
+                        &self.children,
+                        state,
+                        env,
+                        context,
+                    );
                 }
                 WidgetState::Prepared(widget)
             }
@@ -112,21 +141,22 @@ where
         context.end_widget();
     }
 
-    pub fn event<E: 'static>(
+    pub fn event<Event: 'static>(
         &mut self,
-        event: &E,
+        event: &Event,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
         if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
             context.begin_widget(self.id);
-            if self.event_mask.contains(&TypeId::of::<E>()) {
-                result = result.merge(self.children.event(event, state, context));
+            if self.event_mask.contains(&TypeId::of::<Event>()) {
+                result = result.merge(self.children.event(event, state, env, context));
             }
-            if TypeId::of::<E>() == TypeId::of::<<V::Widget as Widget<S>>::Event>() {
+            if TypeId::of::<Event>() == TypeId::of::<<V::Widget as Widget<S, E>>::Event>() {
                 let event = unsafe { mem::transmute(event) };
-                result = result.merge(widget.event(event, &self.children, state, context));
+                result = result.merge(widget.event(event, &self.children, state, env, context));
             }
             context.end_widget();
         }
@@ -137,6 +167,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
@@ -146,9 +177,9 @@ where
                     .payload
                     .downcast_ref()
                     .expect("cast internal event to widget event");
-                widget.event(event, &self.children, state, context)
+                widget.event(event, &self.children, state, env, context)
             } else if event.id_path.starts_with(context.id_path()) {
-                self.children.internal_event(event, state, context)
+                self.children.internal_event(event, state, env, context)
             } else {
                 EventResult::Ignored
             };
@@ -160,13 +191,14 @@ where
     }
 }
 
-impl<V, CS, S> fmt::Debug for WidgetNode<V, CS, S>
+impl<V, CS, S, E> fmt::Debug for WidgetNode<V, CS, S, E>
 where
-    V: View<S> + fmt::Debug,
+    V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Widget as Widget<S>>::Children: fmt::Debug,
+    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
     CS: fmt::Debug,
     S: State,
+    E: for<'a> Env<'a>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetNode")
@@ -179,10 +211,10 @@ where
     }
 }
 
-pub struct WidgetNodeScope<'a, V: View<S>, CS, S: State> {
+pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E: for<'b> Env<'b>> {
     pub id: Id,
     pub state: &'a mut Option<WidgetState<V, V::Widget>>,
-    pub children: &'a mut <V::Widget as Widget<S>>::Children,
+    pub children: &'a mut <V::Widget as Widget<S, E>>::Children,
     pub components: &'a mut CS,
 }
 

@@ -8,26 +8,45 @@ mod widget_node;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
+use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
-pub trait ElementSeq<S: State> {
-    type Store: WidgetNodeSeq<S>;
+pub trait ElementSeq<S: State, E: for<'a> Env<'a>> {
+    type Store: WidgetNodeSeq<S, E>;
 
-    fn render(self, state: &S, context: &mut RenderContext) -> Self::Store;
+    fn render(
+        self,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> Self::Store;
 
-    fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool;
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &<E as Env>::Output,
+        context: &mut RenderContext,
+    ) -> bool;
 }
 
-pub trait WidgetNodeSeq<S: State> {
+pub trait WidgetNodeSeq<S: State, E: for<'a> Env<'a>> {
     fn event_mask() -> EventMask;
 
-    fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>);
-
-    fn event<E: 'static>(
+    fn commit(
         &mut self,
-        event: &E,
+        mode: CommitMode,
         state: &S,
+        env: &<E as Env>::Output,
+        context: &mut EffectContext<S>,
+    );
+
+    fn event<Event: 'static>(
+        &mut self,
+        event: &Event,
+        state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult;
 
@@ -35,6 +54,7 @@ pub trait WidgetNodeSeq<S: State> {
         &mut self,
         event: &InternalEvent,
         state: &S,
+        env: &<E as Env>::Output,
         context: &mut EffectContext<S>,
     ) -> EventResult;
 }
