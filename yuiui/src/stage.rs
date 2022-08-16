@@ -4,14 +4,13 @@ use std::mem;
 use crate::context::{ComponentIndex, EffectContext, IdPath, RenderContext};
 use crate::effect::Effect;
 use crate::element::Element;
-use crate::env::Env;
 use crate::event::InternalEvent;
 use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 
-pub struct Stage<EL: Element<S, E>, S: State, E: for<'a> Env<'a>> {
+pub struct Stage<EL: Element<S, E>, S: State, E> {
     node: WidgetNode<EL::View, EL::Components, S, E>,
     state: S,
     env: E,
@@ -23,11 +22,10 @@ impl<EL: Element<S, E>, S: State, E> Stage<EL, S, E>
 where
     EL: Element<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     pub fn new(element: EL, state: S, env: E) -> Self {
         let mut context = RenderContext::new();
-        let node = element.render(&state, &env.as_refs(), &mut context);
+        let node = element.render(&state, &env, &mut context);
         Self {
             node,
             state,
@@ -38,19 +36,10 @@ where
     }
 
     pub fn update(&mut self, element: EL) {
-        if element.update(
-            self.node.scope(),
-            &self.state,
-            &self.env.as_refs(),
-            &mut self.context,
-        ) {
+        if element.update(self.node.scope(), &self.state, &self.env, &mut self.context) {
             let mut context = EffectContext::new();
-            self.node.commit(
-                CommitMode::Update,
-                &self.state,
-                &self.env.as_refs(),
-                &mut context,
-            );
+            self.node
+                .commit(CommitMode::Update, &self.state, &self.env, &mut context);
             for (id_path, component_index, effect) in context.effects {
                 self.run_effect(id_path, component_index, effect);
             }
@@ -64,8 +53,7 @@ where
             CommitMode::Mount
         };
         let mut context = EffectContext::new();
-        self.node
-            .commit(mode, &self.state, &self.env.as_refs(), &mut context);
+        self.node.commit(mode, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
@@ -73,8 +61,7 @@ where
 
     pub fn event<EV: 'static>(&mut self, event: &EV) {
         let mut context = EffectContext::new();
-        self.node
-            .event(event, &self.state, &self.env.as_refs(), &mut context);
+        self.node.event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
@@ -83,7 +70,7 @@ where
     pub fn internal_event(&mut self, event: &InternalEvent) {
         let mut context = EffectContext::new();
         self.node
-            .internal_event(event, &self.state, &self.env.as_refs(), &mut context);
+            .internal_event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
@@ -110,7 +97,6 @@ where
     <<EL::View as View<S, E>>::Widget as Widget<S, E>>::Children: fmt::Debug,
     EL::Components: fmt::Debug,
     S: State + fmt::Debug,
-    E: for<'a> Env<'a>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Stage")

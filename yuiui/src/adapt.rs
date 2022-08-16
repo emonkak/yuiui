@@ -7,7 +7,6 @@ use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::{Effect, Mutation};
 use crate::element::Element;
-use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
@@ -45,7 +44,6 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type View = Adapt<T::View, F, SS>;
 
@@ -54,7 +52,7 @@ where
     fn render(
         self,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let sub_state = (self.selector_fn)(state);
@@ -83,7 +81,7 @@ where
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let mut sub_widget_state = scope.state.take().map(|state| match state {
@@ -121,16 +119,10 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Store = Adapt<T::Store, F, SS>;
 
-    fn render(
-        self,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut RenderContext,
-    ) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
             self.target.render(sub_state, env, context),
@@ -142,7 +134,7 @@ where
         self,
         store: &mut Self::Store,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
@@ -157,19 +149,12 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
@@ -183,7 +168,7 @@ where
         &mut self,
         event: &Event,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let sub_state = (self.selector_fn)(state);
@@ -200,7 +185,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let sub_state = (self.selector_fn)(state);
@@ -231,18 +216,17 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Element = Adapt<T::Element, F, SS>;
 
-    fn render(&self, state: &S, env: &<E as Env>::Output) -> Self::Element {
+    fn render(&self, state: &S, env: &E) -> Self::Element {
         Adapt::new(
             self.target.render((self.selector_fn)(state), env),
             self.selector_fn.clone(),
         )
     }
 
-    fn should_update(&self, other: &Self, state: &S, env: &<E as Env>::Output) -> bool {
+    fn should_update(&self, other: &Self, state: &S, env: &E) -> bool {
         self.target
             .should_update(&other.target, (self.selector_fn)(state), env)
     }
@@ -254,15 +238,8 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
@@ -279,7 +256,6 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Widget = Adapt<T::Widget, F, SS>;
 
@@ -289,7 +265,7 @@ where
         self,
         children: &<Self::Widget as Widget<S, E>>::Children,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
     ) -> Self::Widget {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
@@ -303,7 +279,7 @@ where
         children: &<Self::Widget as Widget<S, E>>::Children,
         widget: &mut Self::Widget,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
@@ -317,7 +293,6 @@ where
     F: Fn(&S) -> &SS + 'static,
     SS: State + 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Children = Adapt<T::Children, F, SS>;
 
@@ -328,7 +303,7 @@ where
         event: &Self::Event,
         children: &Self::Children,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let sub_state = (self.selector_fn)(state);

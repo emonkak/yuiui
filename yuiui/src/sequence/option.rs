@@ -2,7 +2,6 @@ use std::mem;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
@@ -29,16 +28,10 @@ impl<T, S, E> ElementSeq<S, E> for Option<T>
 where
     T: ElementSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Store = OptionStore<T::Store>;
 
-    fn render(
-        self,
-        state: &S,
-        env: &<E as Env<'_>>::Output,
-        context: &mut RenderContext,
-    ) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         OptionStore::new(self.map(|element| element.render(state, env, context)))
     }
 
@@ -46,7 +39,7 @@ where
         self,
         store: &mut Self::Store,
         state: &S,
-        env: &<E as Env<'_>>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         match (store.active.as_mut(), self) {
@@ -81,19 +74,12 @@ impl<T, S, E> WidgetNodeSeq<S, E> for OptionStore<T>
 where
     T: WidgetNodeSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env<'_>>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
             if let Some(node) = self.active.as_mut() {
                 node.commit(CommitMode::Unmount, state, env, context);
@@ -117,7 +103,7 @@ where
         &mut self,
         event: &Event,
         state: &S,
-        env: &<E as Env<'_>>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         if let Some(node) = self.active.as_mut() {
@@ -131,7 +117,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
-        env: &<E as Env<'_>>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         if let Some(node) = self.active.as_mut() {

@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
@@ -31,16 +30,10 @@ impl<T, S, E> ElementSeq<S, E> for Vec<T>
 where
     T: ElementSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Store = VecStore<T::Store>;
 
-    fn render(
-        self,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut RenderContext,
-    ) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         VecStore::new(
             self.into_iter()
                 .map(|element| element.render(state, env, context))
@@ -52,7 +45,7 @@ where
         self,
         store: &mut Self::Store,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
@@ -89,19 +82,12 @@ impl<T, S, E> WidgetNodeSeq<S, E> for VecStore<T>
 where
     T: WidgetNodeSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
@@ -141,7 +127,7 @@ where
         &mut self,
         event: &Event,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
@@ -155,7 +141,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         for node in &mut self.active {

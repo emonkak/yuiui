@@ -1,5 +1,5 @@
 use either_macro::either;
-use hlist::{hlist, HList};
+use hlist::hlist;
 use std::fmt::Debug;
 
 use yuiui::*;
@@ -35,11 +35,11 @@ fn app(
     _state: &AppState,
 ) -> impl Element<
     AppState,
-    HList![AppEnv],
+    AppEnv,
     View = impl View<
         AppState,
-        HList![AppEnv],
-        Widget = impl Widget<AppState, HList![AppEnv], Children = impl Debug> + Debug,
+        AppEnv,
+        Widget = impl Widget<AppState, AppEnv, Children = impl Debug> + Debug,
     > + Debug,
     Components = impl Debug,
 > {
@@ -64,7 +64,7 @@ fn main() {
     let state = AppState {
         count: Data::from(0),
     };
-    let env = hlist![AppEnv {}];
+    let env = AppEnv {};
     let root = app(&state);
     let mut stage = Stage::new(root, state, env);
     stage.commit();

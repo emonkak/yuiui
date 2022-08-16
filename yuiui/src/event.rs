@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use crate::context::{EffectContext, IdPath};
-use crate::env::Env;
 use crate::state::State;
 use crate::widget::Widget;
 
@@ -77,10 +76,9 @@ impl<F, Event> EventListener<F, Event> {
 
 impl<F, Event, S, E> Widget<S, E> for EventListener<F, Event>
 where
-    F: Fn(&Event, &S, &<E as Env>::Output, &mut EffectContext<S>),
+    F: Fn(&Event, &S, &E, &mut EffectContext<S>),
     Event: 'static,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Children = HNil;
 
@@ -91,7 +89,7 @@ where
         event: &Self::Event,
         _children: &Self::Children,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         (self.listener_fn)(event, state, env, context);

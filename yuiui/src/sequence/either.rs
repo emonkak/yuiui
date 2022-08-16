@@ -3,7 +3,6 @@ use std::mem;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
@@ -31,16 +30,10 @@ where
     L: ElementSeq<S, E>,
     R: ElementSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Store = EitherStore<L::Store, R::Store>;
 
-    fn render(
-        self,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut RenderContext,
-    ) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         match self {
             Either::Left(element) => {
                 EitherStore::new(Either::Left(element.render(state, env, context)))
@@ -55,7 +48,7 @@ where
         self,
         store: &mut Self::Store,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         match (store.active.as_mut(), self) {
@@ -110,19 +103,12 @@ where
     L: WidgetNodeSeq<S, E>,
     R: WidgetNodeSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         L::event_mask().merge(R::event_mask())
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
             match self.active.as_mut() {
                 Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
@@ -149,7 +135,7 @@ where
         &mut self,
         event: &Event,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         match self.active.as_mut() {
@@ -162,7 +148,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         match self.active.as_mut() {

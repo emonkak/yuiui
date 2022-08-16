@@ -1,12 +1,11 @@
 use hlist::HNil;
 
 use crate::element::ViewElement;
-use crate::env::Env;
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::widget::Widget;
 
-pub trait View<S: State, E: for<'a> Env<'a>>: Sized {
+pub trait View<S: State, E>: Sized {
     type Widget: Widget<S, E>;
 
     type Children: ElementSeq<S, E, Store = <Self::Widget as Widget<S, E>>::Children>;
@@ -15,7 +14,7 @@ pub trait View<S: State, E: for<'a> Env<'a>>: Sized {
         self,
         children: &<Self::Widget as Widget<S, E>>::Children,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
     ) -> Self::Widget;
 
     fn rebuild(
@@ -23,7 +22,7 @@ pub trait View<S: State, E: for<'a> Env<'a>>: Sized {
         children: &<Self::Widget as Widget<S, E>>::Children,
         widget: &mut Self::Widget,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
     ) -> bool {
         *widget = self.build(children, state, env);
         true

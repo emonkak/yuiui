@@ -4,13 +4,12 @@ use std::mem;
 
 use crate::component::ComponentStack;
 use crate::context::{EffectContext, Id};
-use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 
-pub trait Widget<S: State, E: for<'a> Env<'a>> {
+pub trait Widget<S: State, E> {
     type Children: WidgetNodeSeq<S, E>;
 
     type Event: 'static;
@@ -20,7 +19,7 @@ pub trait Widget<S: State, E: for<'a> Env<'a>> {
         _lifecycle: WidgetLifeCycle,
         _children: &Self::Children,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
         _context: &mut EffectContext<S>,
     ) {
     }
@@ -30,14 +29,14 @@ pub trait Widget<S: State, E: for<'a> Env<'a>> {
         _event: &Self::Event,
         _children: &Self::Children,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
         _context: &mut EffectContext<S>,
     ) -> EventResult {
         EventResult::Ignored
     }
 }
 
-pub struct WidgetNode<V: View<S, E>, CS, S: State, E: for<'a> Env<'a>> {
+pub struct WidgetNode<V: View<S, E>, CS, S: State, E> {
     pub id: Id,
     pub state: Option<WidgetState<V, V::Widget>>,
     pub children: <V::Widget as Widget<S, E>>::Children,
@@ -50,7 +49,6 @@ where
     V: View<S, E>,
     CS: ComponentStack<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     pub fn new(
         id: Id,
@@ -76,13 +74,7 @@ where
         }
     }
 
-    pub fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         context.begin_widget(self.id);
         context.begin_components();
         self.components.commit(mode, state, env, context);
@@ -145,7 +137,7 @@ where
         &mut self,
         event: &Event,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
@@ -167,7 +159,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
@@ -198,7 +190,6 @@ where
     <V::Widget as Widget<S, E>>::Children: fmt::Debug,
     CS: fmt::Debug,
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetNode")
@@ -211,7 +202,7 @@ where
     }
 }
 
-pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E: for<'b> Env<'b>> {
+pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E> {
     pub id: Id,
     pub state: &'a mut Option<WidgetState<V, V::Widget>>,
     pub children: &'a mut <V::Widget as Widget<S, E>>::Children,

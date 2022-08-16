@@ -2,7 +2,6 @@ use hlist::{HCons, HList, HNil};
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::env::Env;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
 
@@ -11,16 +10,10 @@ use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 impl<S, E> ElementSeq<S, E> for HNil
 where
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Store = HNil;
 
-    fn render(
-        self,
-        _state: &S,
-        _env: &<E as Env>::Output,
-        _context: &mut RenderContext,
-    ) -> Self::Store {
+    fn render(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Store {
         HNil
     }
 
@@ -28,7 +21,7 @@ where
         self,
         _nodes: &mut Self::Store,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
         _context: &mut RenderContext,
     ) -> bool {
         false
@@ -38,26 +31,19 @@ where
 impl<S, E> WidgetNodeSeq<S, E> for HNil
 where
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         EventMask::new()
     }
 
-    fn commit(
-        &mut self,
-        _mode: CommitMode,
-        _state: &S,
-        _env: &<E as Env>::Output,
-        _context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
 
     fn event<Event: 'static>(
         &mut self,
         _event: &Event,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
         _context: &mut EffectContext<S>,
     ) -> EventResult {
         EventResult::Ignored
@@ -67,7 +53,7 @@ where
         &mut self,
         _event: &InternalEvent,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
         _context: &mut EffectContext<S>,
     ) -> EventResult {
         EventResult::Ignored
@@ -86,16 +72,10 @@ where
     T: ElementSeq<S, E> + HList,
     T::Store: HList,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Store = HCons<H::Store, T::Store>;
 
-    fn render(
-        self,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut RenderContext,
-    ) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         HCons {
             head: self.head.render(state, env, context),
             tail: self.tail.render(state, env, context),
@@ -106,7 +86,7 @@ where
         self,
         store: &mut Self::Store,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
@@ -121,19 +101,12 @@ where
     H: WidgetNodeSeq<S, E>,
     T: WidgetNodeSeq<S, E> + HList,
     S: State,
-    E: for<'a> Env<'a>,
 {
     fn event_mask() -> EventMask {
         H::event_mask().merge(T::event_mask())
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &<E as Env>::Output,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         self.head.commit(mode, state, env, context);
         self.tail.commit(mode, state, env, context);
     }
@@ -142,7 +115,7 @@ where
         &mut self,
         event: &Event,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         self.head
@@ -154,7 +127,7 @@ where
         &mut self,
         event: &InternalEvent,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
         if self.head.internal_event(event, state, env, context) == EventResult::Captured {

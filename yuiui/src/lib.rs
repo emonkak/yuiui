@@ -3,7 +3,6 @@ mod component;
 mod context;
 mod effect;
 mod element;
-mod env;
 mod event;
 mod sequence;
 mod stage;
@@ -15,7 +14,6 @@ pub use component::Component;
 pub use context::{EffectContext, Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
-pub use env::Env;
 pub use event::EventListener;
 pub use sequence::{ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 pub use stage::Stage;
@@ -44,7 +42,6 @@ impl Text {
 impl<S, E> View<S, E> for Text
 where
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Widget = Text;
 
@@ -54,7 +51,7 @@ where
         self,
         _children: &<Self::Widget as Widget<S, E>>::Children,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
     ) -> Self::Widget {
         self
     }
@@ -63,7 +60,6 @@ where
 impl<S, E> Widget<S, E> for Text
 where
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Children = hlist::HNil;
 
@@ -87,7 +83,6 @@ impl<C, S, E> View<S, E> for Block<C>
 where
     C: ElementSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Widget = BlockWidget<<C as ElementSeq<S, E>>::Store>;
 
@@ -97,7 +92,7 @@ where
         self,
         _children: &<Self::Widget as Widget<S, E>>::Children,
         _state: &S,
-        _env: &<E as Env>::Output,
+        _env: &E,
     ) -> Self::Widget {
         BlockWidget {
             children: PhantomData,
@@ -114,7 +109,6 @@ impl<C, S, E> Widget<S, E> for BlockWidget<C>
 where
     C: WidgetNodeSeq<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Children = C;
 
@@ -137,11 +131,10 @@ impl Button {
 impl<S, E> Component<S, E> for Button
 where
     S: State,
-    E: for<'a> Env<'a>,
 {
     type Element = ViewElement<Block<HList![ViewElement<Text, S, E>]>, S, E>;
 
-    fn render(&self, _state: &S, _env: &<E as Env>::Output) -> Self::Element {
+    fn render(&self, _state: &S, _env: &E) -> Self::Element {
         Block::new().el_with(hlist![Text::new(self.label.clone()).el()])
     }
 }
@@ -149,13 +142,10 @@ where
 #[derive(Debug, Clone)]
 pub struct Counter;
 
-impl<E> Component<Data<i64>, E> for Counter
-where
-    E: for<'a> Env<'a>,
-{
+impl<E> Component<Data<i64>, E> for Counter {
     type Element = ViewElement<Block<HList![ViewElement<Text, Data<i64>, E>]>, Data<i64>, E>;
 
-    fn render(&self, state: &Data<i64>, _env: &<E as Env>::Output) -> Self::Element {
+    fn render(&self, state: &Data<i64>, _env: &E) -> Self::Element {
         Block::new().el_with(hlist![Text::new(format!("{}", state.value)).el()])
     }
 }

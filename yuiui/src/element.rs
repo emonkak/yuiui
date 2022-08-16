@@ -3,13 +3,12 @@ use std::marker::PhantomData;
 use crate::adapt::Adapt;
 use crate::component::{Component, ComponentNode, ComponentStack};
 use crate::context::RenderContext;
-use crate::env::{Env, WithEnv};
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{WidgetNode, WidgetNodeScope, WidgetState};
 
-pub trait Element<S: State, E: for<'a> Env<'a>> {
+pub trait Element<S: State, E> {
     type View: View<S, E>;
 
     type Components: ComponentStack<S, E>;
@@ -17,7 +16,7 @@ pub trait Element<S: State, E: for<'a> Env<'a>> {
     fn render(
         self,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E>;
 
@@ -25,7 +24,7 @@ pub trait Element<S: State, E: for<'a> Env<'a>> {
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool;
 
@@ -36,18 +35,10 @@ pub trait Element<S: State, E: for<'a> Env<'a>> {
     {
         Adapt::new(self, f.into())
     }
-
-    fn with_env<SE>(self, sub_env: SE) -> WithEnv<Self, SE>
-    where
-        Self: Sized,
-        SE: for<'a> Env<'a>,
-    {
-        WithEnv::new(self, sub_env.into())
-    }
 }
 
 #[derive(Debug)]
-pub struct ViewElement<V: View<S, E>, S: State, E: for<'a> Env<'a>> {
+pub struct ViewElement<V: View<S, E>, S: State, E> {
     view: V,
     children: V::Children,
 }
@@ -56,7 +47,6 @@ impl<V, S, E> ViewElement<V, S, E>
 where
     V: View<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     pub fn new(view: V, children: V::Children) -> Self {
         ViewElement { view, children }
@@ -67,7 +57,6 @@ impl<V, S, E> Element<S, E> for ViewElement<V, S, E>
 where
     V: View<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type View = V;
 
@@ -76,7 +65,7 @@ where
     fn render(
         self,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let id = context.next_identity();
@@ -90,7 +79,7 @@ where
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
@@ -105,7 +94,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct ComponentElement<C: Component<S, E>, S: State, E: for<'a> Env<'a>> {
+pub struct ComponentElement<C: Component<S, E>, S: State, E> {
     component: C,
     state: PhantomData<S>,
     env: PhantomData<E>,
@@ -115,7 +104,6 @@ impl<C, S, E> ComponentElement<C, S, E>
 where
     C: Component<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     pub fn new(component: C) -> ComponentElement<C, S, E> {
         Self {
@@ -130,7 +118,6 @@ impl<C, S, E> Element<S, E> for ComponentElement<C, S, E>
 where
     C: Component<S, E>,
     S: State,
-    E: for<'a> Env<'a>,
 {
     type View = <C::Element as Element<S, E>>::View;
 
@@ -142,7 +129,7 @@ where
     fn render(
         self,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let head_component = ComponentNode::new(self.component);
@@ -161,7 +148,7 @@ where
         self,
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
-        env: &<E as Env>::Output,
+        env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = scope.components;
