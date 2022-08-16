@@ -153,12 +153,26 @@ where
     }
 }
 
-impl<T, C> TraversableSeq<C> for VecStore<T>
+impl<'a, T, C> TraversableSeq<C> for &'a VecStore<T>
 where
-    T: TraversableSeq<C>,
+    &'a T: TraversableSeq<C>,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         for node in &self.active {
+            if let ControlFlow::Break(_) = node.for_each(callback) {
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
+    }
+}
+
+impl<'a, T, C> TraversableSeq<C> for &'a mut VecStore<T>
+where
+    &'a mut T: TraversableSeq<C>,
+{
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+        for node in &mut self.active {
             if let ControlFlow::Break(_) = node.for_each(callback) {
                 return ControlFlow::Break(());
             }

@@ -97,12 +97,26 @@ where
     }
 }
 
-impl<T, C, const N: usize> TraversableSeq<C> for ArrayStore<T, N>
+impl<'a, T, C, const N: usize> TraversableSeq<C> for &'a ArrayStore<T, N>
 where
-    T: TraversableSeq<C>,
+    &'a T: TraversableSeq<C>,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         for node in &self.nodes {
+            if let ControlFlow::Break(_) = node.for_each(callback) {
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
+    }
+}
+
+impl<'a, T, C, const N: usize> TraversableSeq<C> for &'a mut ArrayStore<T, N>
+where
+    &'a mut T: TraversableSeq<C>,
+{
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+        for node in &mut self.nodes {
             if let ControlFlow::Break(_) = node.for_each(callback) {
                 return ControlFlow::Break(());
             }

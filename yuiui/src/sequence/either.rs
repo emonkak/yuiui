@@ -158,13 +158,26 @@ where
     }
 }
 
-impl<L, R, C> TraversableSeq<C> for EitherStore<L, R>
+impl<'a, L, R, C> TraversableSeq<C> for &'a EitherStore<L, R>
 where
-    L: TraversableSeq<C>,
-    R: TraversableSeq<C>,
+    &'a L: TraversableSeq<C>,
+    &'a R: TraversableSeq<C>,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         match self.active.as_ref() {
+            Either::Left(node) => node.for_each(callback),
+            Either::Right(node) => node.for_each(callback),
+        }
+    }
+}
+
+impl<'a, L, R, C> TraversableSeq<C> for &'a mut EitherStore<L, R>
+where
+    &'a mut L: TraversableSeq<C>,
+    &'a mut R: TraversableSeq<C>,
+{
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+        match self.active.as_mut() {
             Either::Left(node) => node.for_each(callback),
             Either::Right(node) => node.for_each(callback),
         }

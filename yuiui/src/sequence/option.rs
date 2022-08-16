@@ -128,12 +128,26 @@ where
     }
 }
 
-impl<T, C> TraversableSeq<C> for OptionStore<T>
+impl<'a, T, C> TraversableSeq<C> for &'a OptionStore<T>
 where
-    T: TraversableSeq<C>,
+    &'a T: TraversableSeq<C>,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         if let Some(node) = self.active.as_ref() {
+            if let ControlFlow::Break(_) = node.for_each(callback) {
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
+    }
+}
+
+impl<'a, T, C> TraversableSeq<C> for &'a mut OptionStore<T>
+where
+    &'a mut T: TraversableSeq<C>,
+{
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+        if let Some(node) = self.active.as_mut() {
             if let ControlFlow::Break(_) = node.for_each(callback) {
                 return ControlFlow::Break(());
             }

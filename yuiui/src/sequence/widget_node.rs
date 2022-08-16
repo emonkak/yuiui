@@ -133,14 +133,26 @@ where
     }
 }
 
-impl<V, CS, S, E, C> TraversableSeq<C> for WidgetNodeStore<V, CS, S, E>
+impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a WidgetNodeStore<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E>,
     S: State,
-    C: SeqCallback<WidgetNode<V, CS, S, E>>,
+    C: SeqCallback<&'a WidgetNode<V, CS, S, E>>,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         callback.call(&self.node)
+    }
+}
+
+impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a mut WidgetNodeStore<V, CS, S, E>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
+    S: State,
+    C: SeqCallback<&'a mut WidgetNode<V, CS, S, E>>,
+{
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+        callback.call(&mut self.node)
     }
 }

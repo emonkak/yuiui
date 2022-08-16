@@ -48,11 +48,11 @@ pub trait WidgetNodeSeq<S: State, E> {
 }
 
 pub trait TraversableSeq<C> {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()>;
+    fn for_each(self, callback: &mut C) -> ControlFlow<()>;
 }
 
 pub trait SeqCallback<T> {
-    fn call(&mut self, value: &T) -> ControlFlow<()>;
+    fn call(&mut self, value: T) -> ControlFlow<()>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

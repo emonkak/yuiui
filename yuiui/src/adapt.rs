@@ -201,11 +201,11 @@ where
     }
 }
 
-impl<T, F, SS, C> TraversableSeq<C> for Adapt<T, F, SS>
+impl<T, F, SS, C> TraversableSeq<C> for &Adapt<T, F, SS>
 where
-    T: TraversableSeq<C>,
+    for<'a> &'a T: TraversableSeq<C>,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         self.target.for_each(callback)
     }
 }

@@ -60,8 +60,14 @@ where
     }
 }
 
-impl<C> TraversableSeq<C> for HNil {
-    fn for_each(&self, _callback: &mut C) -> ControlFlow<()> {
+impl<'a, C> TraversableSeq<C> for &'a HNil {
+    fn for_each(self, _callback: &mut C) -> ControlFlow<()> {
+        ControlFlow::Continue(())
+    }
+}
+
+impl<'a, C> TraversableSeq<C> for &'a mut HNil {
+    fn for_each(self, _callback: &mut C) -> ControlFlow<()> {
         ControlFlow::Continue(())
     }
 }
@@ -138,12 +144,28 @@ where
     }
 }
 
-impl<H, T, C> TraversableSeq<C> for HCons<H, T>
+impl<'a, H, T, C> TraversableSeq<C> for &'a HCons<H, T>
 where
-    H: TraversableSeq<C>,
-    T: TraversableSeq<C> + HList,
+    &'a H: TraversableSeq<C>,
+    &'a T: TraversableSeq<C> + HList,
+    T: HList,
 {
-    fn for_each(&self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+        if let ControlFlow::Break(_) = self.head.for_each(callback) {
+            ControlFlow::Break(())
+        } else {
+            self.tail.for_each(callback)
+        }
+    }
+}
+
+impl<'a, H, T, C> TraversableSeq<C> for &'a mut HCons<H, T>
+where
+    &'a mut H: TraversableSeq<C>,
+    &'a mut T: TraversableSeq<C> + HList,
+    T: HList,
+{
+    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         if let ControlFlow::Break(_) = self.head.for_each(callback) {
             ControlFlow::Break(())
         } else {
