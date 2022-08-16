@@ -38,12 +38,12 @@ where
     }
 }
 
-impl<T, F, S, SS> Element<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> Element<S> for Adapt<T, F, SS>
 where
     T: Element<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     type View = Adapt<T::View, F, SS>;
 
@@ -54,25 +54,25 @@ where
         state: &S,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S> {
-        let selector_fn = self.selector_fn;
-        let node = self.target.render((selector_fn)(state), context);
+        let sub_state = (self.selector_fn)(state);
+        let sub_node = self.target.render(sub_state, context);
         WidgetNode {
-            id: node.id,
-            state: node.state.map(|state| match state {
+            id: sub_node.id,
+            state: sub_node.state.map(|state| match state {
                 WidgetState::Uninitialized(view) => {
-                    WidgetState::Uninitialized(Adapt::new(view, selector_fn.clone()))
+                    WidgetState::Uninitialized(Adapt::new(view, self.selector_fn.clone()))
                 }
                 WidgetState::Prepared(widget) => {
-                    WidgetState::Prepared(Adapt::new(widget, selector_fn.clone()))
+                    WidgetState::Prepared(Adapt::new(widget, self.selector_fn.clone()))
                 }
                 WidgetState::Changed(widget, view) => WidgetState::Changed(
-                    Adapt::new(widget, selector_fn.clone()),
-                    Adapt::new(view, selector_fn.clone()),
+                    Adapt::new(widget, self.selector_fn.clone()),
+                    Adapt::new(view, self.selector_fn.clone()),
                 ),
             }),
-            children: Adapt::new(node.children, selector_fn.clone()),
-            components: Adapt::new(node.components, selector_fn.clone()),
-            event_mask: node.event_mask,
+            children: Adapt::new(sub_node.children, self.selector_fn.clone()),
+            components: Adapt::new(sub_node.components, self.selector_fn),
+            event_mask: sub_node.event_mask,
         }
     }
 
@@ -82,7 +82,7 @@ where
         state: &S,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_status = scope.state.take().map(|state| match state {
+        let mut sub_widget_state = scope.state.take().map(|state| match state {
             WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
             WidgetState::Prepared(widget) => WidgetState::Prepared(widget.target),
             WidgetState::Changed(widget, view) => {
@@ -91,56 +91,58 @@ where
         });
         let sub_scope = WidgetNodeScope {
             id: scope.id,
-            state: &mut sub_status,
+            state: &mut sub_widget_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
         };
-        let selector_fn = self.selector_fn;
-        let has_changed = self.target.update(sub_scope, selector_fn(state), context);
-        *scope.state = sub_status.map(|state| match state {
+        let sub_state = (self.selector_fn)(state);
+        let has_changed = self.target.update(sub_scope, sub_state, context);
+        *scope.state = sub_widget_state.map(|state| match state {
             WidgetState::Uninitialized(view) => {
-                WidgetState::Uninitialized(Adapt::new(view, selector_fn.clone()))
+                WidgetState::Uninitialized(Adapt::new(view, self.selector_fn))
             }
             WidgetState::Prepared(widget) => {
-                WidgetState::Prepared(Adapt::new(widget, selector_fn.clone()))
+                WidgetState::Prepared(Adapt::new(widget, self.selector_fn))
             }
             WidgetState::Changed(widget, view) => WidgetState::Changed(
-                Adapt::new(widget, selector_fn.clone()),
-                Adapt::new(view, selector_fn.clone()),
+                Adapt::new(widget, self.selector_fn.clone()),
+                Adapt::new(view, self.selector_fn),
             ),
         });
         has_changed
     }
 }
 
-impl<T, F, S, SS> ElementSeq<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> ElementSeq<S> for Adapt<T, F, SS>
 where
     T: ElementSeq<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     type Store = Adapt<T::Store, F, SS>;
 
     fn render(self, state: &S, context: &mut RenderContext) -> Self::Store {
+        let sub_state = (self.selector_fn)(state);
         Adapt::new(
-            self.target.render((self.selector_fn)(state), context),
-            self.selector_fn.clone(),
+            self.target.render(sub_state, context),
+            self.selector_fn
         )
     }
 
     fn update(self, store: &mut Self::Store, state: &S, context: &mut RenderContext) -> bool {
+        let sub_state = (self.selector_fn)(state);
         self.target
-            .update(&mut store.target, (self.selector_fn)(state), context)
+            .update(&mut store.target, sub_state, context)
     }
 }
 
-impl<T, F, S, SS> WidgetNodeSeq<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> WidgetNodeSeq<S> for Adapt<T, F, SS>
 where
     T: WidgetNodeSeq<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
@@ -191,7 +193,7 @@ where
     }
 }
 
-impl<C, T, F, SS> TraversableSeq<C> for Adapt<T, F, SS>
+impl<T, F, SS, C> TraversableSeq<C> for Adapt<T, F, SS>
 where
     T: TraversableSeq<C>,
 {
@@ -200,12 +202,12 @@ where
     }
 }
 
-impl<T, F, S, SS> Component<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> Component<S> for Adapt<T, F, SS>
 where
     T: Component<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     type Element = Adapt<T::Element, F, SS>;
 
@@ -222,12 +224,12 @@ where
     }
 }
 
-impl<T, F, S, SS> ComponentStack<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> ComponentStack<S> for Adapt<T, F, SS>
 where
     T: ComponentStack<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     fn commit(&mut self, mode: CommitMode, state: &S, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
@@ -240,22 +242,23 @@ where
     }
 }
 
-impl<T, F, S, SS> View<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> View<S> for Adapt<T, F, SS>
 where
     T: View<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     type Widget = Adapt<T::Widget, F, SS>;
 
     type Children = Adapt<T::Children, F, SS>;
 
     fn build(self, children: &<Self::Widget as Widget<S>>::Children, state: &S) -> Self::Widget {
+        let sub_state = (self.selector_fn)(state);
         Adapt::new(
             self.target
-                .build(&children.target, (self.selector_fn)(state)),
-            self.selector_fn.clone(),
+                .build(&children.target, sub_state),
+            self.selector_fn,
         )
     }
 
@@ -273,12 +276,12 @@ where
     }
 }
 
-impl<T, F, S, SS> Widget<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> Widget<S> for Adapt<T, F, SS>
 where
     T: Widget<SS>,
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     type Children = Adapt<T::Children, F, SS>;
 
@@ -304,7 +307,7 @@ where
     }
 }
 
-impl<T, F, S, SS> Mutation<S> for Adapt<T, F, SS>
+impl<T, F, SS, S> Mutation<S> for Adapt<T, F, SS>
 where
     T: Mutation<SS>,
     F: Fn(&S) -> &SS,
@@ -315,11 +318,11 @@ where
     }
 }
 
-fn map_effect<F, S, SS>(effect: Effect<SS>, f: Rc<F>) -> Effect<S>
+fn map_effect<F, SS, S>(effect: Effect<SS>, f: Rc<F>) -> Effect<S>
 where
     F: Fn(&S) -> &SS + 'static,
-    S: State,
     SS: State + 'static,
+    S: State,
 {
     match effect {
         Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(Some(message), f))),
