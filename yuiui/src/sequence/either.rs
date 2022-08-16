@@ -51,7 +51,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        match (store.active.as_mut(), self) {
+        match (&mut store.active, self) {
             (Either::Left(node), Either::Left(element)) => {
                 if element.update(node, state, env, context) {
                     store.status = RenderStatus::Changed;
@@ -69,7 +69,7 @@ where
                 }
             }
             (Either::Left(_), Either::Right(element)) => {
-                match store.staging.as_mut() {
+                match &mut store.staging {
                     Some(Either::Right(node)) => {
                         element.update(node, state, env, context);
                     }
@@ -82,7 +82,7 @@ where
                 true
             }
             (Either::Right(_), Either::Left(element)) => {
-                match store.staging.as_mut() {
+                match &mut store.staging {
                     Some(Either::Left(node)) => {
                         element.update(node, state, env, context);
                     }
@@ -110,20 +110,20 @@ where
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
-            match self.active.as_mut() {
+            match &mut self.active {
                 Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
                 Either::Right(node) => node.commit(CommitMode::Unmount, state, env, context),
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
-                match self.active.as_mut() {
+                match &mut self.active {
                     Either::Left(node) => node.commit(CommitMode::Mount, state, env, context),
                     Either::Right(node) => node.commit(CommitMode::Mount, state, env, context),
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
-            match self.active.as_mut() {
+            match &mut self.active {
                 Either::Left(node) => node.commit(mode, state, env, context),
                 Either::Right(node) => node.commit(mode, state, env, context),
             }
@@ -138,7 +138,7 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        match self.active.as_mut() {
+        match &mut self.active {
             Either::Left(node) => node.event(event, state, env, context),
             Either::Right(node) => node.event(event, state, env, context),
         }
@@ -151,7 +151,7 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        match self.active.as_mut() {
+        match &mut self.active {
             Either::Left(node) => node.internal_event(event, state, env, context),
             Either::Right(node) => node.internal_event(event, state, env, context),
         }
@@ -164,7 +164,7 @@ where
     &'a R: TraversableSeq<C>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        match self.active.as_ref() {
+        match &self.active {
             Either::Left(node) => node.for_each(callback),
             Either::Right(node) => node.for_each(callback),
         }
@@ -177,7 +177,7 @@ where
     &'a mut R: TraversableSeq<C>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        match self.active.as_mut() {
+        match &mut self.active {
             Either::Left(node) => node.for_each(callback),
             Either::Right(node) => node.for_each(callback),
         }

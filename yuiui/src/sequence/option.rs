@@ -42,7 +42,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        match (store.active.as_mut(), self) {
+        match (&mut store.active, self) {
             (Some(node), Some(element)) => {
                 if element.update(node, state, env, context) {
                     store.status = RenderStatus::Changed;
@@ -52,7 +52,7 @@ where
                 }
             }
             (None, Some(element)) => {
-                if let Some(node) = store.staging.as_mut() {
+                if let Some(node) = &mut store.staging {
                     element.update(node, state, env, context);
                 } else {
                     store.staging = Some(element.render(state, env, context));
@@ -81,18 +81,18 @@ where
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
-            if let Some(node) = self.active.as_mut() {
+            if let Some(node) = &mut self.active {
                 node.commit(CommitMode::Unmount, state, env, context);
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
-                if let Some(node) = self.active.as_mut() {
+                if let Some(node) = &mut self.active {
                     node.commit(CommitMode::Mount, state, env, context);
                 }
             }
             self.status = RenderStatus::Unchanged;
         } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
-            if let Some(node) = self.active.as_mut() {
+            if let Some(node) = &mut self.active {
                 node.commit(mode, state, env, context);
             }
             self.status = RenderStatus::Unchanged;
@@ -106,7 +106,7 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let Some(node) = self.active.as_mut() {
+        if let Some(node) = &mut self.active {
             node.event(event, state, env, context)
         } else {
             EventResult::Ignored
@@ -120,7 +120,7 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let Some(node) = self.active.as_mut() {
+        if let Some(node) = &mut self.active {
             node.internal_event(event, state, env, context)
         } else {
             EventResult::Ignored
@@ -133,7 +133,7 @@ where
     &'a T: TraversableSeq<C>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        if let Some(node) = self.active.as_ref() {
+        if let Some(node) = &self.active {
             if let ControlFlow::Break(_) = node.for_each(callback) {
                 return ControlFlow::Break(());
             }
@@ -147,7 +147,7 @@ where
     &'a mut T: TraversableSeq<C>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        if let Some(node) = self.active.as_mut() {
+        if let Some(node) = &mut self.active {
             if let ControlFlow::Break(_) = node.for_each(callback) {
                 return ControlFlow::Break(());
             }
