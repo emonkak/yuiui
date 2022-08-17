@@ -55,9 +55,9 @@ impl EventResult {
     }
 }
 
-pub struct EventListener<F, E> {
+pub struct EventListener<F, Event> {
     listener_fn: F,
-    event_type: PhantomData<E>,
+    event_type: PhantomData<Event>,
 }
 
 impl<F, Event> EventListener<F, Event> {
