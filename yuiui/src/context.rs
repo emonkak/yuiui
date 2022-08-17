@@ -20,8 +20,8 @@ impl IdPath {
         self.0.last().copied().unwrap_or(Id::ROOT)
     }
 
-    pub fn starts_with(&self, other: &Self) -> bool {
-        self.0.starts_with(&other.0)
+    pub fn top_id(&self) -> Id {
+        self.0.first().copied().unwrap_or(Id::ROOT)
     }
 
     fn push(&mut self, id: Id) {

@@ -141,16 +141,19 @@ where
         context: &mut EffectContext<S>,
     ) -> EventResult {
         let mut result = EventResult::Ignored;
-        if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
-            context.begin_widget(self.id);
-            if self.event_mask.contains(&TypeId::of::<Event>()) {
-                result = result.merge(self.children.event(event, state, env, context));
+        match self.state.as_mut().unwrap() {
+            WidgetState::Prepared(widget) | WidgetState::Changed(widget, _) => {
+                context.begin_widget(self.id);
+                if self.event_mask.contains(&TypeId::of::<Event>()) {
+                    result = result.merge(self.children.event(event, state, env, context));
+                }
+                if TypeId::of::<Event>() == TypeId::of::<<V::Widget as Widget<S, E>>::Event>() {
+                    let event = unsafe { mem::transmute(event) };
+                    result = result.merge(widget.event(event, &self.children, state, env, context));
+                }
+                context.end_widget();
             }
-            if TypeId::of::<Event>() == TypeId::of::<<V::Widget as Widget<S, E>>::Event>() {
-                let event = unsafe { mem::transmute(event) };
-                result = result.merge(widget.event(event, &self.children, state, env, context));
-            }
-            context.end_widget();
+            _ => {}
         }
         result
     }
@@ -162,23 +165,22 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        if let WidgetState::Prepared(widget) = self.state.as_mut().unwrap() {
-            context.begin_widget(self.id);
-            let result = if self.id == event.id_path.id() {
-                let event = event
-                    .payload
-                    .downcast_ref()
-                    .expect("cast internal event to widget event");
-                widget.event(event, &self.children, state, env, context)
-            } else if event.id_path.starts_with(context.id_path()) {
-                self.children.internal_event(event, state, env, context)
-            } else {
-                EventResult::Ignored
-            };
-            context.end_widget();
-            result
-        } else {
-            EventResult::Ignored
+        match self.state.as_mut().unwrap() {
+            WidgetState::Prepared(widget) | WidgetState::Changed(widget, _) => {
+                context.begin_widget(self.id);
+                let result = if self.id == event.id_path.id() {
+                    let event = event
+                        .payload
+                        .downcast_ref()
+                        .expect("cast internal event to widget event");
+                    widget.event(event, &self.children, state, env, context)
+                } else {
+                    self.children.internal_event(event, state, env, context)
+                };
+                context.end_widget();
+                result
+            }
+            WidgetState::Uninitialized(_) => EventResult::Ignored,
         }
     }
 }

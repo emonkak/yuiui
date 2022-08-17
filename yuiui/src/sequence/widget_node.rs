@@ -12,6 +12,11 @@ use crate::widget::{Widget, WidgetNode};
 
 use super::{CommitMode, ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 
+pub struct WidgetNodeStore<V: View<S, E>, CS, S: State, E> {
+    node: WidgetNode<V, CS, S, E>,
+    dirty: bool,
+}
+
 impl<V, S, E> ElementSeq<S, E> for ViewElement<V, S, E>
 where
     V: View<S, E>,
@@ -62,11 +67,6 @@ where
     }
 }
 
-pub struct WidgetNodeStore<V: View<S, E>, CS, S: State, E> {
-    node: WidgetNode<V, CS, S, E>,
-    dirty: bool,
-}
-
 impl<V, CS, S, E> WidgetNodeStore<V, CS, S, E>
 where
     V: View<S, E>,
@@ -74,22 +74,6 @@ where
 {
     fn new(node: WidgetNode<V, CS, S, E>) -> Self {
         Self { node, dirty: true }
-    }
-}
-
-impl<V, CS, S, E> fmt::Debug for WidgetNodeStore<V, CS, S, E>
-where
-    V: View<S, E> + fmt::Debug,
-    V::Widget: fmt::Debug,
-    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: fmt::Debug,
-    S: State,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WidgetNodeStore")
-            .field("node", &self.node)
-            .field("dirty", &self.dirty)
-            .finish()
     }
 }
 
@@ -129,7 +113,27 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        self.node.internal_event(event, state, env, context)
+        if event.id_path.top_id() == self.node.id {
+            self.node.internal_event(event, state, env, context)
+        } else {
+            EventResult::Ignored
+        }
+    }
+}
+
+impl<V, CS, S, E> fmt::Debug for WidgetNodeStore<V, CS, S, E>
+where
+    V: View<S, E> + fmt::Debug,
+    V::Widget: fmt::Debug,
+    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
+    CS: fmt::Debug,
+    S: State,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WidgetNodeStore")
+            .field("node", &self.node)
+            .field("dirty", &self.dirty)
+            .finish()
     }
 }
 

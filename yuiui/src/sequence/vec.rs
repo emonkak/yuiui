@@ -1,24 +1,34 @@
+use std::any::TypeId;
 use std::cmp::Ordering;
+use std::collections::VecDeque;
+use std::fmt;
 use std::ops::ControlFlow;
 
+use crate::component::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
+use crate::element::Element;
 use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::state::State;
+use crate::view::View;
+use crate::widget::{Widget, WidgetNode};
 
-use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{CommitMode, ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
 
-#[derive(Debug)]
-pub struct VecStore<T> {
-    active: Vec<T>,
-    staging: Vec<T>,
+pub struct VecStore<V: View<S, E>, CS, S: State, E> {
+    active: Vec<WidgetNode<V, CS, S, E>>,
+    staging: VecDeque<WidgetNode<V, CS, S, E>>,
     new_len: usize,
     dirty: bool,
 }
 
-impl<T> VecStore<T> {
-    fn new(active: Vec<T>) -> Self {
+impl<V, CS, S, E> VecStore<V, CS, S, E>
+where
+    V: View<S, E>,
+    S: State,
+{
+    fn new(active: Vec<WidgetNode<V, CS, S, E>>) -> Self {
         Self {
-            staging: Vec::with_capacity(active.len()),
+            staging: VecDeque::with_capacity(active.len()),
             new_len: active.len(),
             active,
             dirty: true,
@@ -26,12 +36,30 @@ impl<T> VecStore<T> {
     }
 }
 
-impl<T, S, E> ElementSeq<S, E> for Vec<T>
+impl<V, CS, S, E> fmt::Debug for VecStore<V, CS, S, E>
 where
-    T: ElementSeq<S, E>,
+    V: View<S, E> + fmt::Debug,
+    V::Widget: fmt::Debug,
+    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
+    CS: fmt::Debug,
     S: State,
 {
-    type Store = VecStore<T::Store>;
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("VecStore")
+            .field("active", &self.active)
+            .field("staging", &self.staging)
+            .field("new_len", &self.new_len)
+            .field("dirty", &self.dirty)
+            .finish()
+    }
+}
+
+impl<EL, S, E> ElementSeq<S, E> for Vec<EL>
+where
+    EL: Element<S, E>,
+    S: State,
+{
+    type Store = VecStore<EL::View, EL::Components, S, E>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         VecStore::new(
@@ -58,15 +86,15 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < store.active.len() {
                 let node = &mut store.active[i];
-                has_changed |= element.update(node, state, env, context);
+                has_changed |= element.update(node.scope(), state, env, context);
             } else {
                 let j = i - store.active.len();
                 if j < store.staging.len() {
                     let node = &mut store.staging[j];
-                    has_changed |= element.update(node, state, env, context);
+                    has_changed |= element.update(node.scope(), state, env, context);
                 } else {
                     let node = element.render(state, env, context);
-                    store.staging.push(node);
+                    store.staging.push_back(node);
                     has_changed = true;
                 }
             }
@@ -78,19 +106,23 @@ where
     }
 }
 
-impl<T, S, E> WidgetNodeSeq<S, E> for VecStore<T>
+impl<V, CS, S, E> WidgetNodeSeq<S, E> for VecStore<V, CS, S, E>
 where
-    T: WidgetNodeSeq<S, E>,
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
     S: State,
 {
     fn event_mask() -> EventMask {
-        T::event_mask()
+        let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
+        event_mask.add(TypeId::of::<<V::Widget as Widget<S, E>>::Event>());
+        event_mask
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
+                    // new_len == active_len
                     for node in &mut self.active {
                         node.commit(mode, state, env, context);
                     }
@@ -102,7 +134,7 @@ where
                     }
                     for mut node in self.active.drain(self.new_len..) {
                         node.commit(CommitMode::Unmount, state, env, context);
-                        self.staging.push(node);
+                        self.staging.push_back(node);
                     }
                 }
                 Ordering::Greater => {
@@ -111,8 +143,8 @@ where
                         node.commit(mode, state, env, context);
                     }
                     if mode != CommitMode::Unmount {
-                        for i in 0..self.active.len() - self.new_len {
-                            let mut node = self.staging.swap_remove(i);
+                        for _ in 0..self.active.len() - self.new_len {
+                            let mut node = self.staging.pop_front().unwrap();
                             node.commit(CommitMode::Mount, state, env, context);
                             self.active.push(node);
                         }
@@ -144,22 +176,28 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> EventResult {
-        for node in &mut self.active {
-            if node.internal_event(event, state, env, context) == EventResult::Captured {
-                return EventResult::Captured;
-            }
+        if let Ok(index) = self
+            .active
+            .binary_search_by_key(&event.id_path.top_id(), |node| node.id)
+        {
+            let node = &mut self.active[index];
+            node.internal_event(event, state, env, context)
+        } else {
+            EventResult::Ignored
         }
-        EventResult::Ignored
     }
 }
 
-impl<'a, T, C> TraversableSeq<C> for &'a VecStore<T>
+impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a VecStore<V, CS, S, E>
 where
-    &'a T: TraversableSeq<C>,
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
+    S: State,
+    C: SeqCallback<&'a WidgetNode<V, CS, S, E>>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         for node in &self.active {
-            if let ControlFlow::Break(_) = node.for_each(callback) {
+            if let ControlFlow::Break(_) = callback.call(node) {
                 return ControlFlow::Break(());
             }
         }
@@ -167,13 +205,16 @@ where
     }
 }
 
-impl<'a, T, C> TraversableSeq<C> for &'a mut VecStore<T>
+impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a mut VecStore<V, CS, S, E>
 where
-    &'a mut T: TraversableSeq<C>,
+    V: View<S, E>,
+    CS: ComponentStack<S, E>,
+    S: State,
+    C: SeqCallback<&'a mut WidgetNode<V, CS, S, E>>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         for node in &mut self.active {
-            if let ControlFlow::Break(_) = node.for_each(callback) {
+            if let ControlFlow::Break(_) = callback.call(node) {
                 return ControlFlow::Break(());
             }
         }
