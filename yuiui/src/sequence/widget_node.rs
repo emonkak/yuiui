@@ -10,7 +10,7 @@ use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 
-use super::{CommitMode, ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
+use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
 pub struct WidgetNodeStore<V: View<S, E>, CS, S: State, E> {
     node: WidgetNode<V, CS, S, E>,
@@ -142,7 +142,7 @@ where
     V: View<S, E>,
     CS: ComponentStack<S, E>,
     S: State,
-    C: SeqCallback<&'a WidgetNode<V, CS, S, E>>,
+    C: CallbackMut<&'a WidgetNode<V, CS, S, E>>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         callback.call(&self.node)
@@ -154,7 +154,7 @@ where
     V: View<S, E>,
     CS: ComponentStack<S, E>,
     S: State,
-    C: SeqCallback<&'a mut WidgetNode<V, CS, S, E>>,
+    C: CallbackMut<&'a mut WidgetNode<V, CS, S, E>>,
 {
     fn for_each(self, callback: &mut C) -> ControlFlow<()> {
         callback.call(&mut self.node)

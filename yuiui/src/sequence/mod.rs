@@ -51,7 +51,7 @@ pub trait TraversableSeq<C> {
     fn for_each(self, callback: &mut C) -> ControlFlow<()>;
 }
 
-pub trait SeqCallback<T> {
+pub trait CallbackMut<T> {
     fn call(&mut self, value: T) -> ControlFlow<()>;
 }
 

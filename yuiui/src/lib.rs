@@ -15,7 +15,7 @@ pub use context::{EffectContext, Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::EventListener;
-pub use sequence::{ElementSeq, SeqCallback, TraversableSeq, WidgetNodeSeq};
+pub use sequence::{CallbackMut, ElementSeq, TraversableSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use state::{Data, State};
 pub use view::View;
