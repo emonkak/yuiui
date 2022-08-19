@@ -132,9 +132,9 @@ where
                     for node in &mut self.active[..self.new_len] {
                         node.commit(mode, state, env, context);
                     }
-                    for mut node in self.active.drain(self.new_len..) {
+                    for mut node in self.active.drain(self.new_len..).rev() {
                         node.commit(CommitMode::Unmount, state, env, context);
-                        self.staging.push_back(node);
+                        self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
