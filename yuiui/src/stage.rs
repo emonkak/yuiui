@@ -11,7 +11,7 @@ use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 
 pub struct Stage<EL: Element<S, E>, S: State, E> {
-    node: WidgetNode<EL::View, EL::Components, S, E>,
+    root: WidgetNode<EL::View, EL::Components, S, E>,
     state: S,
     env: E,
     context: RenderContext,
@@ -25,9 +25,9 @@ where
 {
     pub fn new(element: EL, state: S, env: E) -> Self {
         let mut context = RenderContext::new();
-        let node = element.render(&state, &env, &mut context);
+        let root = element.render(&state, &env, &mut context);
         Self {
-            node,
+            root,
             state,
             env,
             context,
@@ -36,9 +36,9 @@ where
     }
 
     pub fn update(&mut self, element: EL) {
-        if element.update(self.node.scope(), &self.state, &self.env, &mut self.context) {
+        if element.update(self.root.scope(), &self.state, &self.env, &mut self.context) {
             let mut context = EffectContext::new();
-            self.node
+            self.root
                 .commit(CommitMode::Update, &self.state, &self.env, &mut context);
             for (id_path, component_index, effect) in context.effects {
                 self.run_effect(id_path, component_index, effect);
@@ -53,7 +53,7 @@ where
             CommitMode::Mount
         };
         let mut context = EffectContext::new();
-        self.node.commit(mode, &self.state, &self.env, &mut context);
+        self.root.commit(mode, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
@@ -61,7 +61,7 @@ where
 
     pub fn event<EV: 'static>(&mut self, event: &EV) {
         let mut context = EffectContext::new();
-        self.node.event(event, &self.state, &self.env, &mut context);
+        self.root.event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
@@ -69,7 +69,7 @@ where
 
     pub fn internal_event(&mut self, event: &InternalEvent) {
         let mut context = EffectContext::new();
-        self.node
+        self.root
             .internal_event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
@@ -100,7 +100,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Stage")
-            .field("node", &self.node)
+            .field("root", &self.root)
             .field("state", &self.state)
             .field("context", &self.context)
             .field("is_mounted", &self.is_mounted)
