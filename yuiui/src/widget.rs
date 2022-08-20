@@ -37,11 +37,11 @@ pub trait Widget<S: State, E> {
 }
 
 pub struct WidgetNode<V: View<S, E>, CS, S: State, E> {
-    pub id: Id,
-    pub state: Option<WidgetState<V, V::Widget>>,
-    pub children: <V::Widget as Widget<S, E>>::Children,
-    pub components: CS,
-    pub event_mask: EventMask,
+    pub(crate) id: Id,
+    pub(crate) state: Option<WidgetState<V, V::Widget>>,
+    pub(crate) children: <V::Widget as Widget<S, E>>::Children,
+    pub(crate) components: CS,
+    pub(crate) event_mask: EventMask,
 }
 
 impl<V, CS, S, E> WidgetNode<V, CS, S, E>
@@ -50,7 +50,7 @@ where
     CS: ComponentStack<S, E>,
     S: State,
 {
-    pub fn new(
+    pub(crate) fn new(
         id: Id,
         view: V,
         children: <V::Widget as Widget<S, E>>::Children,
@@ -65,13 +65,33 @@ where
         }
     }
 
-    pub fn scope(&mut self) -> WidgetNodeScope<V, CS, S, E> {
+    pub(crate) fn scope(&mut self) -> WidgetNodeScope<V, CS, S, E> {
         WidgetNodeScope {
             id: self.id,
             state: &mut self.state,
             children: &mut self.children,
             components: &mut self.components,
         }
+    }
+
+    pub fn id(&self) -> Id {
+        self.id
+    }
+
+    pub fn state(&self) -> &WidgetState<V, <V as View<S, E>>::Widget> {
+        self.state.as_ref().unwrap()
+    }
+
+    pub fn children(&self) -> &<V::Widget as Widget<S, E>>::Children {
+        &self.children
+    }
+
+    pub fn components(&self) -> &CS {
+        &self.components
+    }
+
+    pub fn event_mask(&self) -> &EventMask {
+        &self.event_mask
     }
 
     pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
