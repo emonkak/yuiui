@@ -27,23 +27,6 @@ impl<T, F, SS> Adapt<T, F, SS> {
             sub_state: PhantomData,
         }
     }
-
-    fn lift_effect<S>(&self, effect: Effect<SS>) -> Effect<S>
-    where
-        F: Fn(&S) -> &SS + 'static,
-        SS: State + 'static,
-        S: State,
-    {
-        match effect {
-            Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(
-                Some(message),
-                self.selector_fn.clone(),
-            ))),
-            Effect::Mutation(mutation) => {
-                Effect::Mutation(Box::new(Adapt::new(mutation, self.selector_fn.clone())))
-            }
-        }
-    }
 }
 
 impl<T, F, SS> fmt::Debug for Adapt<T, F, SS>
@@ -76,18 +59,9 @@ where
         let sub_node = self.target.render(sub_state, env, context);
         WidgetNode {
             id: sub_node.id,
-            state: sub_node.state.map(|state| match state {
-                WidgetState::Uninitialized(view) => {
-                    WidgetState::Uninitialized(Adapt::new(view, self.selector_fn.clone()))
-                }
-                WidgetState::Prepared(widget) => {
-                    WidgetState::Prepared(Adapt::new(widget, self.selector_fn.clone()))
-                }
-                WidgetState::Changed(widget, view) => WidgetState::Changed(
-                    Adapt::new(widget, self.selector_fn.clone()),
-                    Adapt::new(view, self.selector_fn.clone()),
-                ),
-            }),
+            state: sub_node
+                .state
+                .map(|state| lift_widget_state(state, &self.selector_fn)),
             children: Adapt::new(sub_node.children, self.selector_fn.clone()),
             components: Adapt::new(sub_node.components, self.selector_fn),
             event_mask: sub_node.event_mask,
@@ -103,8 +77,12 @@ where
     ) -> bool {
         let mut sub_widget_state = scope.state.take().map(|state| match state {
             WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
-            WidgetState::Prepared(widget) => WidgetState::Prepared(widget.target),
-            WidgetState::Changed(widget, view) => WidgetState::Changed(widget.target, view.target),
+            WidgetState::Prepared(widget, view) => {
+                WidgetState::Prepared(widget.target, view.target)
+            }
+            WidgetState::Changed(widget, view, old_view) => {
+                WidgetState::Changed(widget.target, view.target, old_view.target)
+            }
         });
         let sub_scope = WidgetNodeScope {
             id: scope.id,
@@ -114,18 +92,7 @@ where
         };
         let sub_state = (self.selector_fn)(state);
         let has_changed = self.target.update(sub_scope, sub_state, env, context);
-        *scope.state = sub_widget_state.map(|state| match state {
-            WidgetState::Uninitialized(view) => {
-                WidgetState::Uninitialized(Adapt::new(view, self.selector_fn.clone()))
-            }
-            WidgetState::Prepared(widget) => {
-                WidgetState::Prepared(Adapt::new(widget, self.selector_fn.clone()))
-            }
-            WidgetState::Changed(widget, view) => WidgetState::Changed(
-                Adapt::new(widget, self.selector_fn.clone()),
-                Adapt::new(view, self.selector_fn.clone()),
-            ),
-        });
+        *scope.state = sub_widget_state.map(|state| lift_widget_state(state, &self.selector_fn));
         has_changed
     }
 }
@@ -176,7 +143,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = self.lift_effect(sub_effect);
+            let effect = lift_effect(sub_effect, &self.selector_fn);
             context.effects.push((id, component_index, effect));
         }
     }
@@ -192,7 +159,7 @@ where
         let mut sub_context = context.new_sub_context();
         let capture_state = self.target.event(event, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = self.lift_effect(sub_effect);
+            let effect = lift_effect(sub_effect, &self.selector_fn);
             context.effects.push((id, component_index, effect));
         }
         capture_state
@@ -211,7 +178,7 @@ where
             .target
             .internal_event(event, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = self.lift_effect(sub_effect);
+            let effect = lift_effect(sub_effect, &self.selector_fn);
             context.effects.push((id, component_index, effect));
         }
         capture_state
@@ -241,7 +208,7 @@ where
         let sub_state = (self.selector_fn)(state);
         self.target
             .lifecycle(sub_lifecycle, sub_state, env)
-            .map_effect(|effect| self.lift_effect(effect))
+            .map_effect(|effect| lift_effect(effect, &self.selector_fn))
     }
 
     fn render(&self, state: &S, env: &E) -> Self::Element {
@@ -269,7 +236,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = self.lift_effect(sub_effect);
+            let effect = lift_effect(sub_effect, &self.selector_fn);
             context.effects.push((id, component_index, effect));
         }
     }
@@ -287,7 +254,7 @@ where
     type Children = Adapt<T::Children, F, SS>;
 
     fn build(
-        self,
+        &self,
         children: &<Self::Widget as Widget<S, E>>::Children,
         state: &S,
         env: &E,
@@ -300,15 +267,21 @@ where
     }
 
     fn rebuild(
-        self,
+        &self,
         children: &<Self::Widget as Widget<S, E>>::Children,
+        old_view: &Self,
         widget: &mut Self::Widget,
         state: &S,
         env: &E,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
-        self.target
-            .rebuild(&children.target, &mut widget.target, sub_state, env)
+        self.target.rebuild(
+            &children.target,
+            &old_view.target,
+            &mut widget.target,
+            sub_state,
+            env,
+        )
     }
 }
 
@@ -333,7 +306,7 @@ where
         let sub_state = (self.selector_fn)(state);
         self.target
             .lifecycle(lifecycle, &children.target, sub_state, env)
-            .map_effect(|effect| self.lift_effect(effect))
+            .map_effect(|effect| lift_effect(effect, &self.selector_fn))
     }
 
     fn event(
@@ -346,7 +319,7 @@ where
         let sub_state = (self.selector_fn)(state);
         self.target
             .event(event, &children.target, sub_state, env)
-            .map_effect(|effect| self.lift_effect(effect))
+            .map_effect(|effect| lift_effect(effect, &self.selector_fn))
     }
 }
 
@@ -358,5 +331,42 @@ where
     fn apply(&mut self, state: &mut S) -> bool {
         let sub_state = unsafe { &mut *((self.selector_fn)(state) as *const _ as *mut _) };
         self.target.apply(sub_state)
+    }
+}
+
+fn lift_effect<F, SS, S>(effect: Effect<SS>, f: &Rc<F>) -> Effect<S>
+where
+    F: Fn(&S) -> &SS + 'static,
+    SS: State + 'static,
+    S: State,
+{
+    match effect {
+        Effect::Message(message) => {
+            Effect::Mutation(Box::new(Adapt::new(Some(message), f.clone())))
+        }
+        Effect::Mutation(mutation) => Effect::Mutation(Box::new(Adapt::new(mutation, f.clone()))),
+    }
+}
+
+fn lift_widget_state<V, F, SS, S, E>(
+    state: WidgetState<V, V::Widget>,
+    f: &Rc<F>,
+) -> WidgetState<Adapt<V, F, SS>, Adapt<V::Widget, F, SS>>
+where
+    V: View<SS, E>,
+    F: Fn(&S) -> &SS + 'static,
+    SS: State + 'static,
+    S: State,
+{
+    match state {
+        WidgetState::Uninitialized(view) => WidgetState::Uninitialized(Adapt::new(view, f.clone())),
+        WidgetState::Prepared(widget, view) => {
+            WidgetState::Prepared(Adapt::new(widget, f.clone()), Adapt::new(view, f.clone()))
+        }
+        WidgetState::Changed(widget, view, old_view) => WidgetState::Changed(
+            Adapt::new(widget, f.clone()),
+            Adapt::new(view, f.clone()),
+            Adapt::new(old_view, f.clone()),
+        ),
     }
 }

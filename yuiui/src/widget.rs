@@ -108,9 +108,9 @@ where
                     state,
                     env,
                 ));
-                WidgetState::Prepared(widget)
+                WidgetState::Prepared(widget, view)
             }
-            WidgetState::Prepared(mut widget) => {
+            WidgetState::Prepared(mut widget, view) => {
                 match mode {
                     CommitMode::Mount => {
                         context.process(widget.lifecycle(
@@ -130,10 +130,10 @@ where
                     }
                     CommitMode::Update => {}
                 }
-                WidgetState::Prepared(widget)
+                WidgetState::Prepared(widget, view)
             }
-            WidgetState::Changed(mut widget, view) => {
-                if view.rebuild(&self.children, &mut widget, state, env) {
+            WidgetState::Changed(mut widget, view, old_view) => {
+                if view.rebuild(&self.children, &old_view, &mut widget, state, env) {
                     context.process(widget.lifecycle(
                         WidgetLifeCycle::Updated,
                         &self.children,
@@ -141,7 +141,7 @@ where
                         env,
                     ));
                 }
-                WidgetState::Prepared(widget)
+                WidgetState::Prepared(widget, view)
             }
         }
         .into();
@@ -157,7 +157,7 @@ where
     ) -> CaptureState {
         let mut capture_state = CaptureState::Ignored;
         match self.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget) | WidgetState::Changed(widget, _) => {
+            WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
                 context.begin_widget(self.id);
                 if self.event_mask.contains(&TypeId::of::<Event>()) {
                     self.children.event(event, state, env, context);
@@ -183,7 +183,7 @@ where
         context: &mut EffectContext<S>,
     ) -> CaptureState {
         match self.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget) | WidgetState::Changed(widget, _) => {
+            WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
                 context.begin_widget(self.id);
                 if self.id == event.id_path.id() {
                     let event = event
@@ -231,8 +231,8 @@ pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E> {
 #[derive(Debug)]
 pub enum WidgetState<V, W> {
     Uninitialized(V),
-    Prepared(W),
-    Changed(W, V),
+    Prepared(W, V),
+    Changed(W, V, V),
 }
 
 #[derive(Debug)]

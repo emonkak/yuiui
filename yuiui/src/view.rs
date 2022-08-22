@@ -11,15 +11,16 @@ pub trait View<S: State, E>: Sized {
     type Children: ElementSeq<S, E, Store = <Self::Widget as Widget<S, E>>::Children>;
 
     fn build(
-        self,
+        &self,
         children: &<Self::Widget as Widget<S, E>>::Children,
         state: &S,
         env: &E,
     ) -> Self::Widget;
 
     fn rebuild(
-        self,
+        &self,
         children: &<Self::Widget as Widget<S, E>>::Children,
+        _old_view: &Self,
         widget: &mut Self::Widget,
         state: &S,
         env: &E,

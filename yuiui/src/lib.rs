@@ -48,12 +48,12 @@ where
     type Children = hlist::HNil;
 
     fn build(
-        self,
+        &self,
         _children: &<Self::Widget as Widget<S, E>>::Children,
         _state: &S,
         _env: &E,
     ) -> Self::Widget {
-        self
+        self.clone()
     }
 }
 
@@ -89,7 +89,7 @@ where
     type Children = C;
 
     fn build(
-        self,
+        &self,
         _children: &<Self::Widget as Widget<S, E>>::Children,
         _state: &S,
         _env: &E,

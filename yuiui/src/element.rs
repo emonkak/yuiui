@@ -84,8 +84,10 @@ where
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
             WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
-            WidgetState::Prepared(widget) => WidgetState::Changed(widget, self.view),
-            WidgetState::Changed(widget, _) => WidgetState::Changed(widget, self.view),
+            WidgetState::Prepared(widget, view) => WidgetState::Changed(widget, self.view, view),
+            WidgetState::Changed(widget, _, old_view) => {
+                WidgetState::Changed(widget, self.view, old_view)
+            }
         }
         .into();
         self.children.update(scope.children, state, env, context);
