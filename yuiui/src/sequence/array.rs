@@ -1,7 +1,7 @@
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
@@ -73,12 +73,12 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
-        let mut result = EventResult::Ignored;
+    ) -> CaptureState {
+        let mut capture_state = CaptureState::Ignored;
         for node in &mut self.nodes {
-            result = result.merge(node.event(event, state, env, context));
+            capture_state = capture_state.merge(node.event(event, state, env, context));
         }
-        result
+        capture_state
     }
 
     fn internal_event(
@@ -87,13 +87,13 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         for node in &mut self.nodes {
-            if node.internal_event(event, state, env, context) == EventResult::Captured {
-                return EventResult::Captured;
+            if node.internal_event(event, state, env, context) == CaptureState::Captured {
+                return CaptureState::Captured;
             }
         }
-        EventResult::Ignored
+        CaptureState::Ignored
     }
 }
 

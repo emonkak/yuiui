@@ -3,15 +3,15 @@ use std::marker::PhantomData;
 use std::ops::ControlFlow;
 use std::rc::Rc;
 
-use crate::component::{Component, ComponentStack};
+use crate::component::{Component, ComponentLifecycle, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::{Effect, Mutation};
 use crate::element::Element;
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget::{Widget, WidgetLifeCycle, WidgetNode, WidgetNodeScope, WidgetState};
 
 pub struct Adapt<T, F, SS> {
     target: T,
@@ -25,6 +25,23 @@ impl<T, F, SS> Adapt<T, F, SS> {
             target,
             selector_fn,
             sub_state: PhantomData,
+        }
+    }
+
+    fn lift_effect<S>(&self, effect: Effect<SS>) -> Effect<S>
+    where
+        F: Fn(&S) -> &SS + 'static,
+        SS: State + 'static,
+        S: State,
+    {
+        match effect {
+            Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(
+                Some(message),
+                self.selector_fn.clone(),
+            ))),
+            Effect::Mutation(mutation) => {
+                Effect::Mutation(Box::new(Adapt::new(mutation, self.selector_fn.clone())))
+            }
         }
     }
 }
@@ -159,7 +176,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = map_effect(sub_effect, self.selector_fn.clone());
+            let effect = self.lift_effect(sub_effect);
             context.effects.push((id, component_index, effect));
         }
     }
@@ -170,15 +187,15 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let result = self.target.event(event, sub_state, env, &mut sub_context);
+        let capture_state = self.target.event(event, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = map_effect(sub_effect, self.selector_fn.clone());
+            let effect = self.lift_effect(sub_effect);
             context.effects.push((id, component_index, effect));
         }
-        result
+        capture_state
     }
 
     fn internal_event(
@@ -187,17 +204,17 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let result = self
+        let capture_state = self
             .target
             .internal_event(event, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = map_effect(sub_effect, self.selector_fn.clone());
+            let effect = self.lift_effect(sub_effect);
             context.effects.push((id, component_index, effect));
         }
-        result
+        capture_state
     }
 }
 
@@ -218,6 +235,14 @@ where
     S: State,
 {
     type Element = Adapt<T::Element, F, SS>;
+
+    fn lifecycle(&self, lifecycle: ComponentLifecycle<Self>, state: &S, env: &E) -> EventResult<S> {
+        let sub_lifecycle = lifecycle.map_component(|component| component.target);
+        let sub_state = (self.selector_fn)(state);
+        self.target
+            .lifecycle(sub_lifecycle, sub_state, env)
+            .map_effect(|effect| self.lift_effect(effect))
+    }
 
     fn render(&self, state: &S, env: &E) -> Self::Element {
         Adapt::new(
@@ -244,7 +269,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
         for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = map_effect(sub_effect, self.selector_fn.clone());
+            let effect = self.lift_effect(sub_effect);
             context.effects.push((id, component_index, effect));
         }
     }
@@ -298,24 +323,30 @@ where
 
     type Event = T::Event;
 
+    fn lifecycle(
+        &mut self,
+        lifecycle: WidgetLifeCycle,
+        children: &Self::Children,
+        state: &S,
+        env: &E,
+    ) -> EventResult<S> {
+        let sub_state = (self.selector_fn)(state);
+        self.target
+            .lifecycle(lifecycle, &children.target, sub_state, env)
+            .map_effect(|effect| self.lift_effect(effect))
+    }
+
     fn event(
         &mut self,
         event: &Self::Event,
         children: &Self::Children,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
-        let mut sub_context = context.new_sub_context();
-        let result = self
-            .target
-            .event(event, &children.target, sub_state, env, &mut sub_context);
-        for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = map_effect(sub_effect, self.selector_fn.clone());
-            context.effects.push((id, component_index, effect));
-        }
-        result
+        self.target
+            .event(event, &children.target, sub_state, env)
+            .map_effect(|effect| self.lift_effect(effect))
     }
 }
 
@@ -327,17 +358,5 @@ where
     fn apply(&mut self, state: &mut S) -> bool {
         let sub_state = unsafe { &mut *((self.selector_fn)(state) as *const _ as *mut _) };
         self.target.apply(sub_state)
-    }
-}
-
-fn map_effect<F, SS, S>(effect: Effect<SS>, f: Rc<F>) -> Effect<S>
-where
-    F: Fn(&S) -> &SS + 'static,
-    SS: State + 'static,
-    S: State,
-{
-    match effect {
-        Effect::Message(message) => Effect::Mutation(Box::new(Adapt::new(Some(message), f))),
-        Effect::Mutation(mutation) => Effect::Mutation(Box::new(Adapt::new(mutation, f))),
     }
 }

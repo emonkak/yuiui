@@ -4,7 +4,7 @@ use std::mem;
 use crate::context::{ComponentIndex, EffectContext, IdPath, RenderContext};
 use crate::effect::Effect;
 use crate::element::Element;
-use crate::event::InternalEvent;
+use crate::event::{CaptureState, InternalEvent};
 use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
@@ -59,21 +59,24 @@ where
         }
     }
 
-    pub fn event<EV: 'static>(&mut self, event: &EV) {
+    pub fn event<EV: 'static>(&mut self, event: &EV) -> CaptureState {
         let mut context = EffectContext::new();
-        self.root.event(event, &self.state, &self.env, &mut context);
+        let capture_state = self.root.event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
+        capture_state
     }
 
-    pub fn internal_event(&mut self, event: &InternalEvent) {
+    pub fn internal_event(&mut self, event: &InternalEvent) -> CaptureState {
         let mut context = EffectContext::new();
-        self.root
+        let capture_state = self
+            .root
             .internal_event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
+        capture_state
     }
 
     fn run_effect(

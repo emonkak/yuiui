@@ -2,7 +2,7 @@ use hlist::{HCons, HList, HNil};
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
@@ -36,8 +36,7 @@ where
         EventMask::new()
     }
 
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
-    }
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {}
 
     fn event<Event: 'static>(
         &mut self,
@@ -45,8 +44,8 @@ where
         _state: &S,
         _env: &E,
         _context: &mut EffectContext<S>,
-    ) -> EventResult {
-        EventResult::Ignored
+    ) -> CaptureState {
+        CaptureState::Ignored
     }
 
     fn internal_event(
@@ -55,8 +54,8 @@ where
         _state: &S,
         _env: &E,
         _context: &mut EffectContext<S>,
-    ) -> EventResult {
-        EventResult::Ignored
+    ) -> CaptureState {
+        CaptureState::Ignored
     }
 }
 
@@ -123,7 +122,7 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         self.head
             .event(event, state, env, context)
             .merge(self.tail.event(event, state, env, context))
@@ -135,9 +134,9 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
-        if self.head.internal_event(event, state, env, context) == EventResult::Captured {
-            EventResult::Captured
+    ) -> CaptureState {
+        if self.head.internal_event(event, state, env, context) == CaptureState::Captured {
+            CaptureState::Captured
         } else {
             self.tail.internal_event(event, state, env, context)
         }

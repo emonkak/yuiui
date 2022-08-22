@@ -1,4 +1,5 @@
 use crate::effect::Effect;
+use crate::event::EventResult;
 use crate::state::State;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -73,7 +74,7 @@ pub struct EffectContext<S: State> {
 }
 
 impl<S: State> EffectContext<S> {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             id_path: IdPath::new(),
             component_index: None,
@@ -83,7 +84,7 @@ impl<S: State> EffectContext<S> {
         }
     }
 
-    pub(crate) fn new_sub_context<SS: State>(&self) -> EffectContext<SS> {
+    pub fn new_sub_context<SS: State>(&self) -> EffectContext<SS> {
         EffectContext {
             id_path: self.id_path.clone(),
             component_index: self.component_index,
@@ -93,35 +94,36 @@ impl<S: State> EffectContext<S> {
         }
     }
 
-    pub(crate) fn begin_widget(&mut self, id: Id) {
+    pub fn begin_widget(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
-    pub(crate) fn end_widget(&mut self) -> Id {
+    pub fn end_widget(&mut self) -> Id {
         self.id_path.pop()
     }
 
-    pub(crate) fn begin_components(&mut self) {
+    pub fn begin_components(&mut self) {
         self.component_index = Some(0);
     }
 
-    pub(crate) fn next_component(&mut self) {
+    pub fn next_component(&mut self) {
         *self.component_index.as_mut().unwrap() += 1;
     }
 
-    pub(crate) fn end_components(&mut self) {
+    pub fn end_components(&mut self) {
         self.component_index = None;
     }
 
-    pub fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
-
-    pub fn push(&mut self, effect: impl Into<Effect<S>>) {
-        self.effects.push((
-            self.state_id_path.clone(),
-            self.state_component_index,
-            effect.into(),
-        ));
+    pub fn process(&mut self, result: EventResult<S>) {
+        match result {
+            EventResult::Nop => {}
+            EventResult::Effect(effect) => {
+                self.effects.push((
+                    self.state_id_path.clone(),
+                    self.state_component_index,
+                    effect,
+                ));
+            }
+        }
     }
 }

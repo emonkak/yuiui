@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use crate::context::{EffectContext, IdPath};
+use crate::effect::Effect;
 use crate::state::State;
 use crate::widget::Widget;
 
@@ -40,13 +41,32 @@ impl EventMask {
     }
 }
 
+#[must_use]
+pub enum EventResult<S: State> {
+    Nop,
+    Effect(Effect<S>),
+}
+
+impl<S: State> EventResult<S> {
+    pub fn map_effect<F, T>(self, f: F) -> EventResult<T>
+    where
+        F: FnOnce(Effect<S>) -> Effect<T>,
+        T: State,
+    {
+        match self {
+            Self::Nop => EventResult::Nop,
+            Self::Effect(e) => EventResult::Effect(f(e)),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
-pub enum EventResult {
+pub enum CaptureState {
     Ignored,
     Captured,
 }
 
-impl EventResult {
+impl CaptureState {
     pub fn merge(self, other: Self) -> Self {
         match self {
             Self::Ignored => other,
@@ -76,7 +96,7 @@ impl<F, Event> EventListener<F, Event> {
 
 impl<F, Event, S, E> Widget<S, E> for EventListener<F, Event>
 where
-    F: Fn(&Event, &S, &E, &mut EffectContext<S>),
+    F: Fn(&Event, &S, &E) -> EventResult<S>,
     Event: 'static,
     S: State,
 {
@@ -90,9 +110,7 @@ where
         _children: &Self::Children,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
-    ) -> EventResult {
-        (self.listener_fn)(event, state, env, context);
-        EventResult::Captured
+    ) -> EventResult<S> {
+        (self.listener_fn)(event, state, env)
     }
 }

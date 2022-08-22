@@ -4,7 +4,7 @@ use std::mem;
 
 use crate::component::ComponentStack;
 use crate::context::{EffectContext, Id};
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
@@ -20,8 +20,8 @@ pub trait Widget<S: State, E> {
         _children: &Self::Children,
         _state: &S,
         _env: &E,
-        _context: &mut EffectContext<S>,
-    ) {
+    ) -> EventResult<S> {
+        EventResult::Nop
     }
 
     fn event(
@@ -30,9 +30,8 @@ pub trait Widget<S: State, E> {
         _children: &Self::Children,
         _state: &S,
         _env: &E,
-        _context: &mut EffectContext<S>,
-    ) -> EventResult {
-        EventResult::Ignored
+    ) -> EventResult<S> {
+        EventResult::Nop
     }
 }
 
@@ -103,34 +102,31 @@ where
         self.state = match self.state.take().unwrap() {
             WidgetState::Uninitialized(view) => {
                 let mut widget = view.build(&self.children, state, env);
-                widget.lifecycle(
+                context.process(widget.lifecycle(
                     WidgetLifeCycle::Mounted,
                     &self.children,
                     state,
                     env,
-                    context,
-                );
+                ));
                 WidgetState::Prepared(widget)
             }
             WidgetState::Prepared(mut widget) => {
                 match mode {
                     CommitMode::Mount => {
-                        widget.lifecycle(
+                        context.process(widget.lifecycle(
                             WidgetLifeCycle::Mounted,
                             &self.children,
                             state,
                             env,
-                            context,
-                        );
+                        ));
                     }
                     CommitMode::Unmount => {
-                        widget.lifecycle(
+                        context.process(widget.lifecycle(
                             WidgetLifeCycle::Unmounted,
                             &self.children,
                             state,
                             env,
-                            context,
-                        );
+                        ));
                     }
                     CommitMode::Update => {}
                 }
@@ -138,13 +134,12 @@ where
             }
             WidgetState::Changed(mut widget, view) => {
                 if view.rebuild(&self.children, &mut widget, state, env) {
-                    widget.lifecycle(
+                    context.process(widget.lifecycle(
                         WidgetLifeCycle::Updated,
                         &self.children,
                         state,
                         env,
-                        context,
-                    );
+                    ));
                 }
                 WidgetState::Prepared(widget)
             }
@@ -159,23 +154,25 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
-        let mut result = EventResult::Ignored;
+    ) -> CaptureState {
+        let mut capture_state = CaptureState::Ignored;
         match self.state.as_mut().unwrap() {
             WidgetState::Prepared(widget) | WidgetState::Changed(widget, _) => {
                 context.begin_widget(self.id);
                 if self.event_mask.contains(&TypeId::of::<Event>()) {
-                    result = result.merge(self.children.event(event, state, env, context));
+                    self.children.event(event, state, env, context);
+                    capture_state = CaptureState::Captured;
                 }
                 if TypeId::of::<Event>() == TypeId::of::<<V::Widget as Widget<S, E>>::Event>() {
                     let event = unsafe { mem::transmute(event) };
-                    result = result.merge(widget.event(event, &self.children, state, env, context));
+                    context.process(widget.event(event, &self.children, state, env));
+                    capture_state = CaptureState::Captured;
                 }
                 context.end_widget();
             }
             _ => {}
         }
-        result
+        capture_state
     }
 
     pub fn internal_event(
@@ -184,23 +181,23 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         match self.state.as_mut().unwrap() {
             WidgetState::Prepared(widget) | WidgetState::Changed(widget, _) => {
                 context.begin_widget(self.id);
-                let result = if self.id == event.id_path.id() {
+                if self.id == event.id_path.id() {
                     let event = event
                         .payload
                         .downcast_ref()
                         .expect("cast internal event to widget event");
-                    widget.event(event, &self.children, state, env, context)
+                    context.process(widget.event(event, &self.children, state, env));
                 } else {
-                    self.children.internal_event(event, state, env, context)
-                };
+                    self.children.internal_event(event, state, env, context);
+                }
                 context.end_widget();
-                result
+                CaptureState::Captured
             }
-            WidgetState::Uninitialized(_) => EventResult::Ignored,
+            WidgetState::Uninitialized(_) => CaptureState::Ignored,
         }
     }
 }

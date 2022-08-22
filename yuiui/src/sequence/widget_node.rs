@@ -5,7 +5,7 @@ use std::ops::ControlFlow;
 use crate::component::{Component, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
@@ -102,8 +102,9 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
-        self.node.event(event, state, env, context)
+    ) -> CaptureState {
+        self.node.event(event, state, env, context);
+        CaptureState::Captured
     }
 
     fn internal_event(
@@ -112,11 +113,11 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         if event.id_path.top_id() == self.node.id {
             self.node.internal_event(event, state, env, context)
         } else {
-            EventResult::Ignored
+            CaptureState::Ignored
         }
     }
 }

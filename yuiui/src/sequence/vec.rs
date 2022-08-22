@@ -7,7 +7,7 @@ use std::ops::ControlFlow;
 use crate::component::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
@@ -161,12 +161,12 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
-        let mut result = EventResult::Ignored;
+    ) -> CaptureState {
+        let mut capture_state = CaptureState::Ignored;
         for node in &mut self.active {
-            result = result.merge(node.event(event, state, env, context));
+            capture_state = capture_state.merge(node.event(event, state, env, context));
         }
-        result
+        capture_state
     }
 
     fn internal_event(
@@ -175,7 +175,7 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         if let Ok(index) = self
             .active
             .binary_search_by_key(&event.id_path.top_id(), |node| node.id)
@@ -183,7 +183,7 @@ where
             let node = &mut self.active[index];
             node.internal_event(event, state, env, context)
         } else {
-            EventResult::Ignored
+            CaptureState::Ignored
         }
     }
 }

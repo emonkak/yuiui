@@ -3,7 +3,7 @@ use std::mem;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
@@ -137,7 +137,7 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         match &mut self.active {
             Either::Left(node) => node.event(event, state, env, context),
             Either::Right(node) => node.event(event, state, env, context),
@@ -150,7 +150,7 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult {
+    ) -> CaptureState {
         match &mut self.active {
             Either::Left(node) => node.internal_event(event, state, env, context),
             Either::Right(node) => node.internal_event(event, state, env, context),

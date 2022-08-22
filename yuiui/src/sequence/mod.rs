@@ -8,7 +8,7 @@ mod widget_node;
 use std::ops::ControlFlow;
 
 use crate::context::{EffectContext, RenderContext};
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::state::State;
 
 pub trait ElementSeq<S: State, E> {
@@ -36,7 +36,7 @@ pub trait WidgetNodeSeq<S: State, E> {
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult;
+    ) -> CaptureState;
 
     fn internal_event(
         &mut self,
@@ -44,7 +44,7 @@ pub trait WidgetNodeSeq<S: State, E> {
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> EventResult;
+    ) -> CaptureState;
 }
 
 pub trait TraversableSeq<C> {

@@ -3,6 +3,7 @@ use std::mem;
 
 use crate::context::EffectContext;
 use crate::element::{ComponentElement, Element};
+use crate::event::EventResult;
 use crate::sequence::CommitMode;
 use crate::state::State;
 
@@ -14,8 +15,8 @@ pub trait Component<S: State, E>: Sized {
         _lifecycle: ComponentLifecycle<Self>,
         _state: &S,
         _env: &E,
-        _context: &mut EffectContext<S>,
-    ) {
+    ) -> EventResult<S> {
+        EventResult::Nop
     }
 
     fn render(&self, state: &S, env: &E) -> Self::Element;
@@ -68,7 +69,7 @@ where
             }
             CommitMode::Unmount => ComponentLifecycle::Unmounted,
         };
-        self.component.lifecycle(lifecycle, state, env, context);
+        context.process(self.component.lifecycle(lifecycle, state, env));
         context.next_component();
     }
 }
@@ -90,8 +91,7 @@ where
 }
 
 impl<S: State, E> ComponentStack<S, E> for () {
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
-    }
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {}
 }
 
 #[derive(Debug)]
@@ -99,4 +99,17 @@ pub enum ComponentLifecycle<C> {
     Mounted,
     Updated(C),
     Unmounted,
+}
+
+impl<C> ComponentLifecycle<C> {
+    pub fn map_component<F, D>(self, f: F) -> ComponentLifecycle<D>
+    where
+        F: FnOnce(C) -> D,
+    {
+        match self {
+            Self::Mounted => ComponentLifecycle::Mounted,
+            Self::Updated(component) => ComponentLifecycle::Updated(f(component)),
+            Self::Unmounted => ComponentLifecycle::Unmounted,
+        }
+    }
 }
