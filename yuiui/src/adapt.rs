@@ -1,7 +1,10 @@
 use std::fmt;
+use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
+use std::pin::Pin;
 use std::rc::Rc;
+use std::task::{Context, Poll};
 
 use crate::component::{Component, ComponentLifecycle, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
@@ -13,23 +16,25 @@ use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetLifeCycle, WidgetNode, WidgetNodeScope, WidgetState};
 
-pub struct Adapt<T, F, SS> {
+pub struct Adapt<T, F, S, SS> {
     target: T,
     selector_fn: Rc<F>,
+    state: PhantomData<S>,
     sub_state: PhantomData<SS>,
 }
 
-impl<T, F, SS> Adapt<T, F, SS> {
+impl<T, F, S, SS> Adapt<T, F, S, SS> {
     pub fn new(target: T, selector_fn: Rc<F>) -> Self {
         Self {
             target,
             selector_fn,
+            state: PhantomData,
             sub_state: PhantomData,
         }
     }
 }
 
-impl<T, F, SS> fmt::Debug for Adapt<T, F, SS>
+impl<T, F, S, SS> fmt::Debug for Adapt<T, F, S, SS>
 where
     T: fmt::Debug,
 {
@@ -38,16 +43,16 @@ where
     }
 }
 
-impl<T, F, SS, S, E> Element<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> Element<S, E> for Adapt<T, F, S, SS>
 where
     T: Element<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
-    type View = Adapt<T::View, F, SS>;
+    type View = Adapt<T::View, F, S, SS>;
 
-    type Components = Adapt<T::Components, F, SS>;
+    type Components = Adapt<T::Components, F, S, SS>;
 
     fn render(
         self,
@@ -97,14 +102,14 @@ where
     }
 }
 
-impl<T, F, SS, S, E> ElementSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> ElementSeq<S, E> for Adapt<T, F, S, SS>
 where
     T: ElementSeq<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
-    type Store = Adapt<T::Store, F, SS>;
+    type Store = Adapt<T::Store, F, S, SS>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         let sub_state = (self.selector_fn)(state);
@@ -127,12 +132,12 @@ where
     }
 }
 
-impl<T, F, SS, S, E> WidgetNodeSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> WidgetNodeSeq<S, E> for Adapt<T, F, S, SS>
 where
     T: WidgetNodeSeq<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
@@ -185,7 +190,7 @@ where
     }
 }
 
-impl<T, F, SS, C> TraversableSeq<C> for &Adapt<T, F, SS>
+impl<T, F, S, SS, C> TraversableSeq<C> for &Adapt<T, F, S, SS>
 where
     for<'a> &'a T: TraversableSeq<C>,
 {
@@ -194,14 +199,14 @@ where
     }
 }
 
-impl<T, F, SS, S, E> Component<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> Component<S, E> for Adapt<T, F, S, SS>
 where
     T: Component<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
-    type Element = Adapt<T::Element, F, SS>;
+    type Element = Adapt<T::Element, F, S, SS>;
 
     fn lifecycle(&self, lifecycle: ComponentLifecycle<Self>, state: &S, env: &E) -> EventResult<S> {
         let sub_lifecycle = lifecycle.map_component(|component| component.target);
@@ -224,12 +229,12 @@ where
     }
 }
 
-impl<T, F, SS, S, E> ComponentStack<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> ComponentStack<S, E> for Adapt<T, F, S, SS>
 where
     T: ComponentStack<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
@@ -242,16 +247,16 @@ where
     }
 }
 
-impl<T, F, SS, S, E> View<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> View<S, E> for Adapt<T, F, S, SS>
 where
     T: View<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
-    type Widget = Adapt<T::Widget, F, SS>;
+    type Widget = Adapt<T::Widget, F, S, SS>;
 
-    type Children = Adapt<T::Children, F, SS>;
+    type Children = Adapt<T::Children, F, S, SS>;
 
     fn build(
         &self,
@@ -285,14 +290,14 @@ where
     }
 }
 
-impl<T, F, SS, S, E> Widget<S, E> for Adapt<T, F, SS>
+impl<T, F, S, SS, E> Widget<S, E> for Adapt<T, F, S, SS>
 where
     T: Widget<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
-    type Children = Adapt<T::Children, F, SS>;
+    type Children = Adapt<T::Children, F, S, SS>;
 
     type Event = T::Event;
 
@@ -323,7 +328,7 @@ where
     }
 }
 
-impl<T, F, SS, S> Mutation<S> for Adapt<T, F, SS>
+impl<T, F, S, SS> Mutation<S> for Adapt<T, F, S, SS>
 where
     T: Mutation<SS>,
     F: Fn(&S) -> &SS,
@@ -334,29 +339,54 @@ where
     }
 }
 
-fn lift_effect<F, SS, S>(effect: Effect<SS>, f: &Rc<F>) -> Effect<S>
+impl<T, F, S, SS> Future for Adapt<T, F, S, SS>
+where
+    T: Future<Output = Effect<SS>>,
+    F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
+    SS: State + 'static,
+{
+    type Output = Effect<S>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let (future, selector_fn) = unsafe {
+            let project = self.get_unchecked_mut();
+            (
+                Pin::new_unchecked(&mut project.target),
+                &project.selector_fn,
+            )
+        };
+        match future.poll(cx) {
+            Poll::Ready(effect) => Poll::Ready(lift_effect(effect, selector_fn)),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+fn lift_effect<F, S, SS>(effect: Effect<SS>, f: &Rc<F>) -> Effect<S>
 where
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
     match effect {
         Effect::Message(message) => {
             Effect::Mutation(Box::new(Adapt::new(Some(message), f.clone())))
         }
         Effect::Mutation(mutation) => Effect::Mutation(Box::new(Adapt::new(mutation, f.clone()))),
+        Effect::Command(command) => Effect::Command(Box::pin(Adapt::new(command, f.clone()))),
     }
 }
 
-fn lift_widget_state<V, F, SS, S, E>(
+fn lift_widget_state<V, F, S, SS, E>(
     state: WidgetState<V, V::Widget>,
     f: &Rc<F>,
-) -> WidgetState<Adapt<V, F, SS>, Adapt<V::Widget, F, SS>>
+) -> WidgetState<Adapt<V, F, S, SS>, Adapt<V::Widget, F, S, SS>>
 where
     V: View<SS, E>,
     F: Fn(&S) -> &SS + 'static,
+    S: State + 'static,
     SS: State + 'static,
-    S: State,
 {
     match state {
         WidgetState::Uninitialized(view) => WidgetState::Uninitialized(Adapt::new(view, f.clone())),

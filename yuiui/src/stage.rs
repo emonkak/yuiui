@@ -88,6 +88,7 @@ where
         match effect {
             Effect::Message(message) => self.state.reduce(message),
             Effect::Mutation(mut mutation) => mutation.apply(&mut self.state),
+            Effect::Command(_) => todo!(),
         }
     }
 }

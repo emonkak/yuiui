@@ -1,8 +1,14 @@
+use std::future::Future;
+use std::pin::Pin;
+
 use crate::state::State;
+
+pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn Mutation<S>>),
+    Command(BoxFuture<Effect<S>>),
 }
 
 pub trait Mutation<S> {
