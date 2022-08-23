@@ -3,6 +3,7 @@ members = [
     "either",
     "either-macro",
     "hlist",
+    "observable",
     "yuiui",
     "yuiui-legacy",
     "yuiui-support",

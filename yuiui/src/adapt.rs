@@ -1,10 +1,8 @@
+use futures::stream::StreamExt as _;
 use std::fmt;
-use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
-use std::pin::Pin;
 use std::rc::Rc;
-use std::task::{Context, Poll};
 
 use crate::component::{Component, ComponentLifecycle, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
@@ -339,30 +337,6 @@ where
     }
 }
 
-impl<T, F, S, SS> Future for Adapt<T, F, S, SS>
-where
-    T: Future<Output = Effect<SS>>,
-    F: Fn(&S) -> &SS + 'static,
-    S: State + 'static,
-    SS: State + 'static,
-{
-    type Output = Effect<S>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let (future, selector_fn) = unsafe {
-            let project = self.get_unchecked_mut();
-            (
-                Pin::new_unchecked(&mut project.target),
-                &project.selector_fn,
-            )
-        };
-        match future.poll(cx) {
-            Poll::Ready(effect) => Poll::Ready(lift_effect(effect, selector_fn)),
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
-
 fn lift_effect<F, S, SS>(effect: Effect<SS>, f: &Rc<F>) -> Effect<S>
 where
     F: Fn(&S) -> &SS + 'static,
@@ -374,7 +348,11 @@ where
             Effect::Mutation(Box::new(Adapt::new(Some(message), f.clone())))
         }
         Effect::Mutation(mutation) => Effect::Mutation(Box::new(Adapt::new(mutation, f.clone()))),
-        Effect::Command(command) => Effect::Command(Box::pin(Adapt::new(command, f.clone()))),
+        Effect::Command(command) => {
+            let f = f.clone();
+            let command = command.map(move |effect| lift_effect(effect, &f));
+            Effect::Command(Box::pin(command))
+        }
     }
 }
 

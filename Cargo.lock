@@ -821,6 +821,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "observable"
+version = "0.0.0"
+dependencies = [
+ "futures",
+]
+
+[[package]]
 name = "ordered-float"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1459,6 +1466,7 @@ version = "0.0.0"
 dependencies = [
  "either 0.0.0",
  "either-macro",
+ "futures",
  "hlist",
 ]
 
