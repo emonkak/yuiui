@@ -10,7 +10,7 @@ mod state;
 mod view;
 mod widget;
 
-pub use component::Component;
+pub use component::{Component, ComponentStack, FunctionComponent};
 pub use context::{Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
@@ -21,8 +21,8 @@ pub use state::{Data, State};
 pub use view::View;
 pub use widget::{Widget, WidgetLifeCycle, WidgetNode};
 
-use hlist::{hlist, HList};
 use std::borrow::Cow;
+use std::fmt;
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
@@ -100,7 +100,7 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BlockWidget<C> {
     children: PhantomData<C>,
 }
@@ -115,37 +115,43 @@ where
     type Event = ();
 }
 
-#[derive(Debug, Clone)]
-pub struct Button {
-    label: Cow<'static, str>,
-}
-
-impl Button {
-    pub fn new(label: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            label: label.into(),
-        }
+impl<C> fmt::Debug for BlockWidget<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("BlockWidget")
     }
 }
 
-impl<S, E> Component<S, E> for Button
-where
-    S: State,
-{
-    type Element = ViewElement<Block<HList![ViewElement<Text, S, E>]>, S, E>;
+#[derive(Debug)]
+pub struct ButtonProps {
+    pub label: Cow<'static, str>,
+}
 
-    fn render(&self, _state: &S, _env: &E) -> Self::Element {
-        Block::new().el_with(hlist![Text::new(self.label.clone()).el()])
+#[allow(non_snake_case)]
+pub fn Button<S: State, E>(
+    props: ButtonProps,
+) -> FunctionComponent<ButtonProps, Element![S, E], S, E> {
+    fn render<S: State, E>(props: &ButtonProps, _state: &S, _env: &E) -> Element![S, E] {
+        Block::new().el_with(Text::new(props.label.clone()).el())
+    }
+
+    FunctionComponent {
+        props,
+        render,
+        should_update: None,
+        lifecycle: None,
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Counter;
+#[allow(non_snake_case)]
+pub fn Counter<E>() -> FunctionComponent<(), Element![Data<i64>, E], Data<i64>, E> {
+    fn render<E>(_props: &(), state: &Data<i64>, _env: &E) -> Element![Data<i64>, E] {
+        Block::new().el_with(Text::new(format!("{}", state.value)).el())
+    }
 
-impl<E> Component<Data<i64>, E> for Counter {
-    type Element = ViewElement<Block<HList![ViewElement<Text, Data<i64>, E>]>, Data<i64>, E>;
-
-    fn render(&self, state: &Data<i64>, _env: &E) -> Self::Element {
-        Block::new().el_with(hlist![Text::new(format!("{}", state.value)).el()])
+    FunctionComponent {
+        props: (),
+        render,
+        should_update: None,
+        lifecycle: None,
     }
 }

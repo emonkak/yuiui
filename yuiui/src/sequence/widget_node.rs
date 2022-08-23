@@ -12,7 +12,7 @@ use crate::widget::{Widget, WidgetNode};
 
 use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
-pub struct WidgetNodeStore<V: View<S, E>, CS, S: State, E> {
+pub struct WidgetNodeStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     node: WidgetNode<V, CS, S, E>,
     dirty: bool,
 }
@@ -70,6 +70,7 @@ where
 impl<V, CS, S, E> WidgetNodeStore<V, CS, S, E>
 where
     V: View<S, E>,
+    CS: ComponentStack<S, E>,
     S: State,
 {
     fn new(node: WidgetNode<V, CS, S, E>) -> Self {
@@ -127,7 +128,7 @@ where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: fmt::Debug,
+    CS: ComponentStack<S, E> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -35,7 +35,7 @@ pub trait Widget<S: State, E> {
     }
 }
 
-pub struct WidgetNode<V: View<S, E>, CS, S: State, E> {
+pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     pub(crate) id: Id,
     pub(crate) state: Option<WidgetState<V, V::Widget>>,
     pub(crate) children: <V::Widget as Widget<S, E>>::Children,
@@ -208,7 +208,7 @@ where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: fmt::Debug,
+    CS: ComponentStack<S, E> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

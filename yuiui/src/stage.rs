@@ -10,20 +10,20 @@ use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
 
-pub struct Stage<EL: Element<S, E>, S: State, E> {
-    root: WidgetNode<EL::View, EL::Components, S, E>,
+pub struct Stage<El: Element<S, E>, S: State, E> {
+    root: WidgetNode<El::View, El::Components, S, E>,
     state: S,
     env: E,
     context: RenderContext,
     is_mounted: bool,
 }
 
-impl<EL: Element<S, E>, S: State, E> Stage<EL, S, E>
+impl<El: Element<S, E>, S: State, E> Stage<El, S, E>
 where
-    EL: Element<S, E>,
+    El: Element<S, E>,
     S: State,
 {
-    pub fn new(element: EL, state: S, env: E) -> Self {
+    pub fn new(element: El, state: S, env: E) -> Self {
         let mut context = RenderContext::new();
         let root = element.render(&state, &env, &mut context);
         Self {
@@ -35,7 +35,7 @@ where
         }
     }
 
-    pub fn update(&mut self, element: EL) {
+    pub fn update(&mut self, element: El) {
         if element.update(self.root.scope(), &self.state, &self.env, &mut self.context) {
             let mut context = EffectContext::new();
             self.root
@@ -97,13 +97,13 @@ where
     }
 }
 
-impl<EL, S, E> fmt::Debug for Stage<EL, S, E>
+impl<El, S, E> fmt::Debug for Stage<El, S, E>
 where
-    EL: Element<S, E>,
-    EL::View: View<S, E> + fmt::Debug,
-    <EL::View as View<S, E>>::Widget: Widget<S, E> + fmt::Debug,
-    <<EL::View as View<S, E>>::Widget as Widget<S, E>>::Children: fmt::Debug,
-    EL::Components: fmt::Debug,
+    El: Element<S, E>,
+    El::View: View<S, E> + fmt::Debug,
+    <El::View as View<S, E>>::Widget: Widget<S, E> + fmt::Debug,
+    <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children: fmt::Debug,
+    El::Components: fmt::Debug,
     S: State + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -31,18 +31,7 @@ impl State for AppState {
     }
 }
 
-fn app(
-    _state: &AppState,
-) -> impl Element<
-    AppState,
-    AppEnv,
-    View = impl View<
-        AppState,
-        AppEnv,
-        Widget = impl Widget<AppState, AppEnv, Children = impl Debug> + Debug,
-    > + Debug,
-    Components = impl Debug,
-> {
+fn app(_state: &AppState) -> Element![AppState, AppEnv] {
     Block::new().el_with(hlist![
         Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
         Block::new().el_with(Text::new("hello world!").el()),
@@ -55,8 +44,11 @@ fn app(
             }
         }),
         Text::new("!").el(),
-        Button::new("click me!").el(),
-        Counter.el().adapt(|state: &AppState| &state.count),
+        Button(ButtonProps {
+            label: "click me!".into(),
+        })
+        .el(),
+        Counter().el().adapt(|state: &AppState| &state.count),
     ])
 }
 

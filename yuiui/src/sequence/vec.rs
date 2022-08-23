@@ -14,7 +14,7 @@ use crate::widget::{Widget, WidgetNode};
 
 use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
-pub struct VecStore<V: View<S, E>, CS, S: State, E> {
+pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,
     staging: VecDeque<WidgetNode<V, CS, S, E>>,
     new_len: usize,
@@ -24,6 +24,7 @@ pub struct VecStore<V: View<S, E>, CS, S: State, E> {
 impl<V, CS, S, E> VecStore<V, CS, S, E>
 where
     V: View<S, E>,
+    CS: ComponentStack<S, E>,
     S: State,
 {
     fn new(active: Vec<WidgetNode<V, CS, S, E>>) -> Self {
@@ -41,7 +42,7 @@ where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: fmt::Debug,
+    CS: ComponentStack<S, E> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -54,12 +55,12 @@ where
     }
 }
 
-impl<EL, S, E> ElementSeq<S, E> for Vec<EL>
+impl<El, S, E> ElementSeq<S, E> for Vec<El>
 where
-    EL: Element<S, E>,
+    El: Element<S, E>,
     S: State,
 {
-    type Store = VecStore<EL::View, EL::Components, S, E>;
+    type Store = VecStore<El::View, El::Components, S, E>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         VecStore::new(

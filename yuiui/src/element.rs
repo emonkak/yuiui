@@ -1,3 +1,4 @@
+use std::fmt;
 use std::marker::PhantomData;
 
 use crate::adapt::Adapt;
@@ -37,7 +38,6 @@ pub trait Element<S: State, E> {
     }
 }
 
-#[derive(Debug)]
 pub struct ViewElement<V: View<S, E>, S: State, E> {
     view: V,
     children: V::Children,
@@ -95,7 +95,20 @@ where
     }
 }
 
-#[derive(Debug)]
+impl<V, S, E> fmt::Debug for ViewElement<V, S, E>
+where
+    V: View<S, E> + fmt::Debug,
+    V::Children: fmt::Debug,
+    S: State,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ViewElement")
+            .field("view", &self.view)
+            .field("children", &self.children)
+            .finish()
+    }
+}
+
 pub struct ComponentElement<C: Component<S, E>, S: State, E> {
     component: C,
     state: PhantomData<S>,
@@ -167,5 +180,33 @@ where
         } else {
             false
         }
+    }
+}
+
+impl<C, S, E> fmt::Debug for ComponentElement<C, S, E>
+where
+    C: Component<S, E> + fmt::Debug,
+    S: State,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ComponentElement")
+            .field("component", &self.component)
+            .finish()
+    }
+}
+
+#[macro_export]
+macro_rules! Element {
+    ($S:ty, $E:ty) => {
+        impl Element<
+            $S,
+            $E,
+            View = impl View<
+                $S,
+                $E,
+                Widget = impl Widget<$S, $E, Children = impl ::std::fmt::Debug> + ::std::fmt::Debug,
+            > + ::std::fmt::Debug,
+            Components = impl ComponentStack<$S, $E> + ::std::fmt::Debug
+        > + ::std::fmt::Debug
     }
 }
