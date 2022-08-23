@@ -145,7 +145,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge_sub_context(sub_context, |sub_effect| {
+        context.merge_unit_of_work(sub_context.into_unit_of_work(), |sub_effect| {
             lift_effect(sub_effect, &self.selector_fn)
         });
     }
@@ -160,7 +160,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let capture_state = self.target.event(event, sub_state, env, &mut sub_context);
-        context.merge_sub_context(sub_context, |sub_effect| {
+        context.merge_unit_of_work(sub_context.into_unit_of_work(), |sub_effect| {
             lift_effect(sub_effect, &self.selector_fn)
         });
         capture_state
@@ -178,7 +178,7 @@ where
         let capture_state = self
             .target
             .internal_event(event, sub_state, env, &mut sub_context);
-        context.merge_sub_context(sub_context, |sub_effect| {
+        context.merge_unit_of_work(sub_context.into_unit_of_work(), |sub_effect| {
             lift_effect(sub_effect, &self.selector_fn)
         });
         capture_state
@@ -235,7 +235,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge_sub_context(sub_context, |sub_effect| {
+        context.merge_unit_of_work(sub_context.into_unit_of_work(), |sub_effect| {
             lift_effect(sub_effect, &self.selector_fn)
         });
     }
