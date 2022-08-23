@@ -1,4 +1,4 @@
-use hlist::{hlist, First, Last};
+use hlist::*;
 
 #[test]
 fn test_first() {

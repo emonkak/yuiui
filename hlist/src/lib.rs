@@ -1,13 +1,14 @@
+pub mod nat;
+
 mod debug;
 mod first;
 mod last;
-mod nat;
-
-use std::fmt;
 
 pub use first::First;
 pub use last::Last;
-pub use nat::{Nat, Succ, Zero};
+
+use nat::{Nat, Succ, Zero};
+use std::fmt;
 
 use debug::DebugHList;
 
