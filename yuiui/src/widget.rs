@@ -121,6 +121,7 @@ where
                         ));
                     }
                     CommitMode::Unmount => {
+                        context.mark_unmounted();
                         context.process(widget.lifecycle(
                             WidgetLifeCycle::Unmounted,
                             &self.children,
@@ -185,7 +186,7 @@ where
         match self.state.as_mut().unwrap() {
             WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
                 context.begin_widget(self.id);
-                if self.id == event.id_path.id() {
+                if self.id == event.id_path.bottom_id() {
                     let event = event
                         .payload
                         .downcast_ref()

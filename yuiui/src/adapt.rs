@@ -2,7 +2,7 @@ use futures::stream::StreamExt as _;
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::ControlFlow;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle, ComponentStack};
 use crate::context::{EffectContext, RenderContext};
@@ -16,13 +16,13 @@ use crate::widget::{Widget, WidgetLifeCycle, WidgetNode, WidgetNodeScope, Widget
 
 pub struct Adapt<T, F, S, SS> {
     target: T,
-    selector_fn: Rc<F>,
+    selector_fn: Arc<F>,
     state: PhantomData<S>,
     sub_state: PhantomData<SS>,
 }
 
 impl<T, F, S, SS> Adapt<T, F, S, SS> {
-    pub fn new(target: T, selector_fn: Rc<F>) -> Self {
+    pub fn new(target: T, selector_fn: Arc<F>) -> Self {
         Self {
             target,
             selector_fn,
@@ -44,7 +44,7 @@ where
 impl<T, F, S, SS, E> Element<S, E> for Adapt<T, F, S, SS>
 where
     T: Element<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -103,7 +103,7 @@ where
 impl<T, F, S, SS, E> ElementSeq<S, E> for Adapt<T, F, S, SS>
 where
     T: ElementSeq<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -133,7 +133,7 @@ where
 impl<T, F, S, SS, E> WidgetNodeSeq<S, E> for Adapt<T, F, S, SS>
 where
     T: WidgetNodeSeq<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -145,10 +145,9 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = lift_effect(sub_effect, &self.selector_fn);
-            context.effects.push((id, component_index, effect));
-        }
+        context.merge_sub_context(sub_context, |sub_effect| {
+            lift_effect(sub_effect, &self.selector_fn)
+        });
     }
 
     fn event<Event: 'static>(
@@ -161,10 +160,9 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let capture_state = self.target.event(event, sub_state, env, &mut sub_context);
-        for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = lift_effect(sub_effect, &self.selector_fn);
-            context.effects.push((id, component_index, effect));
-        }
+        context.merge_sub_context(sub_context, |sub_effect| {
+            lift_effect(sub_effect, &self.selector_fn)
+        });
         capture_state
     }
 
@@ -180,10 +178,9 @@ where
         let capture_state = self
             .target
             .internal_event(event, sub_state, env, &mut sub_context);
-        for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = lift_effect(sub_effect, &self.selector_fn);
-            context.effects.push((id, component_index, effect));
-        }
+        context.merge_sub_context(sub_context, |sub_effect| {
+            lift_effect(sub_effect, &self.selector_fn)
+        });
         capture_state
     }
 }
@@ -200,7 +197,7 @@ where
 impl<T, F, S, SS, E> Component<S, E> for Adapt<T, F, S, SS>
 where
     T: Component<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -230,7 +227,7 @@ where
 impl<T, F, S, SS, E> ComponentStack<S, E> for Adapt<T, F, S, SS>
 where
     T: ComponentStack<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -238,17 +235,16 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        for (id, component_index, sub_effect) in sub_context.effects {
-            let effect = lift_effect(sub_effect, &self.selector_fn);
-            context.effects.push((id, component_index, effect));
-        }
+        context.merge_sub_context(sub_context, |sub_effect| {
+            lift_effect(sub_effect, &self.selector_fn)
+        });
     }
 }
 
 impl<T, F, S, SS, E> View<S, E> for Adapt<T, F, S, SS>
 where
     T: View<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -291,7 +287,7 @@ where
 impl<T, F, S, SS, E> Widget<S, E> for Adapt<T, F, S, SS>
 where
     T: Widget<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -329,7 +325,7 @@ where
 impl<T, F, S, SS> Mutation<S> for Adapt<T, F, S, SS>
 where
     T: Mutation<SS>,
-    F: Fn(&S) -> &SS,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
 {
     fn apply(&mut self, state: &mut S) -> bool {
         let sub_state = unsafe { &mut *((self.selector_fn)(state) as *const _ as *mut _) };
@@ -337,9 +333,9 @@ where
     }
 }
 
-fn lift_effect<F, S, SS>(effect: Effect<SS>, f: &Rc<F>) -> Effect<S>
+fn lift_effect<F, S, SS>(effect: Effect<SS>, f: &Arc<F>) -> Effect<S>
 where
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
@@ -358,11 +354,11 @@ where
 
 fn lift_widget_state<V, F, S, SS, E>(
     state: WidgetState<V, V::Widget>,
-    f: &Rc<F>,
+    f: &Arc<F>,
 ) -> WidgetState<Adapt<V, F, S, SS>, Adapt<V::Widget, F, S, SS>>
 where
     V: View<SS, E>,
-    F: Fn(&S) -> &SS + 'static,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {

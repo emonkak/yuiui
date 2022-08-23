@@ -1,14 +1,11 @@
-use futures::stream::Stream;
-use std::pin::Pin;
+use futures::stream::BoxStream;
 
 use crate::state::State;
-
-pub type BoxStream<T> = Pin<Box<dyn Stream<Item = T>>>;
 
 pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn Mutation<S>>),
-    Command(BoxStream<Effect<S>>),
+    Command(BoxStream<'static, Effect<S>>),
 }
 
 pub trait Mutation<S> {

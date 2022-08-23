@@ -35,10 +35,10 @@ pub trait Component<S: State, E>: Sized {
 
 #[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
-    pub component: C,
-    pub pending_component: Option<C>,
-    pub state: PhantomData<S>,
-    pub env: PhantomData<E>,
+    pub(crate) component: C,
+    pub(crate) pending_component: Option<C>,
+    pub(crate) state: PhantomData<S>,
+    pub(crate) env: PhantomData<E>,
 }
 
 impl<C, S, E> ComponentNode<C, S, E>
@@ -46,7 +46,7 @@ where
     C: Component<S, E>,
     S: State,
 {
-    pub fn new(component: C) -> Self {
+    pub(crate) fn new(component: C) -> Self {
         Self {
             component,
             pending_component: None,
@@ -55,7 +55,13 @@ where
         }
     }
 
-    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    pub(crate) fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
         let lifecycle = match mode {
             CommitMode::Mount => ComponentLifecycle::Mounted,
             CommitMode::Update => {
@@ -67,7 +73,10 @@ where
                 );
                 ComponentLifecycle::Updated(old_component)
             }
-            CommitMode::Unmount => ComponentLifecycle::Unmounted,
+            CommitMode::Unmount => {
+                context.mark_unmounted();
+                ComponentLifecycle::Unmounted
+            }
         };
         context.process(self.component.lifecycle(lifecycle, state, env));
         context.next_component();

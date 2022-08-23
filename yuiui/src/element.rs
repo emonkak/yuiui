@@ -28,10 +28,10 @@ pub trait Element<S: State, E> {
         context: &mut RenderContext,
     ) -> bool;
 
-    fn adapt<F, OS>(self, f: F) -> Adapt<Self, F, OS, S>
+    fn adapt<F, OriginState>(self, f: F) -> Adapt<Self, F, OriginState, S>
     where
         Self: Sized,
-        F: Fn(&OS) -> &S,
+        F: Fn(&OriginState) -> &S + Sync + Send + 'static,
     {
         Adapt::new(self, f.into())
     }
