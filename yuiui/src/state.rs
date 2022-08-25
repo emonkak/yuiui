@@ -1,5 +1,5 @@
-pub trait State {
-    type Message;
+pub trait State: Send {
+    type Message: Send;
 
     fn reduce(&mut self, message: Self::Message) -> bool;
 }
@@ -15,7 +15,7 @@ impl<T> From<T> for Data<T> {
     }
 }
 
-impl<T: PartialEq> State for Data<T> {
+impl<T: Send + PartialEq> State for Data<T> {
     type Message = T;
 
     fn reduce(&mut self, message: Self::Message) -> bool {

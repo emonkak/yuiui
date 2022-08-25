@@ -7,22 +7,17 @@ mod widget_node;
 
 use std::ops::ControlFlow;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::id::IdContext;
 use crate::state::State;
 
 pub trait ElementSeq<S: State, E> {
     type Store: WidgetNodeSeq<S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store;
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store;
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool;
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool;
 }
 
 pub trait WidgetNodeSeq<S: State, E> {

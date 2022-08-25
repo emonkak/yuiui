@@ -1,7 +1,8 @@
 use std::ops::ControlFlow;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::id::IdContext;
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
@@ -25,17 +26,11 @@ where
 {
     type Store = ArrayStore<T::Store, N>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         ArrayStore::new(self.map(|element| element.render(state, env, context)))
     }
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {

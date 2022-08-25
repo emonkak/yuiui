@@ -2,8 +2,9 @@ use either::Either;
 use std::mem;
 use std::ops::ControlFlow;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::id::IdContext;
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
@@ -33,7 +34,7 @@ where
 {
     type Store = EitherStore<L::Store, R::Store>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         match self {
             Either::Left(element) => {
                 EitherStore::new(Either::Left(element.render(state, env, context)))
@@ -44,13 +45,7 @@ where
         }
     }
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
         match (&mut store.active, self) {
             (Either::Left(node), Either::Left(element)) => {
                 if element.update(node, state, env, context) {

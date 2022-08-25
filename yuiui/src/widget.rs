@@ -3,8 +3,9 @@ use std::fmt;
 use std::mem;
 
 use crate::component::ComponentStack;
-use crate::context::{EffectContext, Id};
+use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
+use crate::id::Id;
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;

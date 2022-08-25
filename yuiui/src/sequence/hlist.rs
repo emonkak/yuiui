@@ -1,8 +1,9 @@
 use hlist::{HCons, HList, HNil};
 use std::ops::ControlFlow;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::id::IdContext;
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
@@ -13,7 +14,7 @@ where
 {
     type Store = HNil;
 
-    fn render(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Store {
+    fn render(self, _state: &S, _env: &E, _context: &mut IdContext) -> Self::Store {
         HNil
     }
 
@@ -22,7 +23,7 @@ where
         _nodes: &mut Self::Store,
         _state: &S,
         _env: &E,
-        _context: &mut RenderContext,
+        _context: &mut IdContext,
     ) -> bool {
         false
     }
@@ -81,20 +82,14 @@ where
 {
     type Store = HCons<H::Store, T::Store>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         HCons {
             head: self.head.render(state, env, context),
             tail: self.tail.render(state, env, context),
         }
     }
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
         let mut has_changed = false;
         has_changed |= self.head.update(&mut store.head, state, env, context);
         has_changed |= self.tail.update(&mut store.tail, state, env, context);

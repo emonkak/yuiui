@@ -5,10 +5,10 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle, ComponentStack};
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::{Effect, Mutation};
+use crate::effect::{Effect, EffectContext, Mutation};
 use crate::element::Element;
 use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
+use crate::id::IdContext;
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
@@ -56,7 +56,7 @@ where
         self,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let sub_state = (self.selector_fn)(state);
         let sub_node = self.target.render(sub_state, env, context);
@@ -76,7 +76,7 @@ where
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> bool {
         let mut sub_widget_state = scope.state.take().map(|state| match state {
             WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
@@ -109,7 +109,7 @@ where
 {
     type Store = Adapt<T::Store, F, S, SS>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
             self.target.render(sub_state, env, context),
@@ -117,13 +117,7 @@ where
         )
     }
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
             .update(&mut store.target, sub_state, env, context)

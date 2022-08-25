@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::adapt::Adapt;
 use crate::component::{Component, ComponentNode, ComponentStack};
-use crate::context::RenderContext;
+use crate::id::IdContext;
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
@@ -18,7 +18,7 @@ pub trait Element<S: State, E> {
         self,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E>;
 
     fn update(
@@ -26,7 +26,7 @@ pub trait Element<S: State, E> {
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> bool;
 
     fn adapt<F, OriginState>(self, f: F) -> Adapt<Self, F, OriginState, S>
@@ -66,7 +66,7 @@ where
         self,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let id = context.next_identity();
         context.begin_widget(id);
@@ -80,7 +80,7 @@ where
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
             WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
@@ -145,7 +145,7 @@ where
         self,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let head_component = ComponentNode::new(self.component);
         let element = head_component.component.render(state, env);
@@ -164,7 +164,7 @@ where
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut IdContext,
     ) -> bool {
         let (head, tail) = scope.components;
         let scope = WidgetNodeScope {

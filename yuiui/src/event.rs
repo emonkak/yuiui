@@ -3,8 +3,8 @@ use std::any::{Any, TypeId};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
-use crate::context::{EffectContext, IdPath};
-use crate::effect::Effect;
+use crate::effect::{Effect, EffectContext};
+use crate::id::IdPath;
 use crate::state::State;
 use crate::widget::Widget;
 

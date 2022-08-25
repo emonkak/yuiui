@@ -1,9 +1,9 @@
 mod adapt;
 mod component;
-mod context;
 mod effect;
 mod element;
 mod event;
+mod id;
 mod sequence;
 mod stage;
 mod state;
@@ -11,10 +11,10 @@ mod view;
 mod widget;
 
 pub use component::{Component, ComponentStack, FunctionComponent};
-pub use context::{Id, IdPath};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::EventListener;
+pub use id::{Id, IdPath};
 pub use sequence::{CallbackMut, ElementSeq, TraversableSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use state::{Data, State};

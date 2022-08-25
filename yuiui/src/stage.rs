@@ -1,10 +1,10 @@
 use std::fmt;
 use std::mem;
 
-use crate::context::{ComponentIndex, EffectContext, IdPath, RenderContext};
-use crate::effect::Effect;
+use crate::effect::{Effect, EffectContext};
 use crate::element::Element;
 use crate::event::{CaptureState, InternalEvent};
+use crate::id::{ComponentIndex, IdContext, IdPath};
 use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
@@ -14,7 +14,7 @@ pub struct Stage<El: Element<S, E>, S: State, E> {
     root: WidgetNode<El::View, El::Components, S, E>,
     state: S,
     env: E,
-    context: RenderContext,
+    context: IdContext,
     is_mounted: bool,
 }
 
@@ -24,7 +24,7 @@ where
     S: State,
 {
     pub fn new(element: El, state: S, env: E) -> Self {
-        let mut context = RenderContext::new();
+        let mut context = IdContext::new();
         let root = element.render(&state, &env, &mut context);
         Self {
             root,

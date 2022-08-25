@@ -5,9 +5,10 @@ use std::fmt;
 use std::ops::ControlFlow;
 
 use crate::component::ComponentStack;
-use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetNode};
@@ -62,7 +63,7 @@ where
 {
     type Store = VecStore<El::View, El::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         VecStore::new(
             self.into_iter()
                 .map(|element| element.render(state, env, context))
@@ -70,13 +71,7 @@ where
         )
     }
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
         let mut has_changed = false;
 
         store

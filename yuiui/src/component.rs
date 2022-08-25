@@ -2,7 +2,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::mem;
 
-use crate::context::EffectContext;
+use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element};
 use crate::event::EventResult;
 use crate::sequence::CommitMode;

@@ -1,8 +1,9 @@
 use std::mem;
 use std::ops::ControlFlow;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::id::IdContext;
 use crate::state::State;
 
 use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
@@ -31,17 +32,11 @@ where
 {
     type Store = OptionStore<T::Store>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         OptionStore::new(self.map(|element| element.render(state, env, context)))
     }
 
-    fn update(
-        self,
-        store: &mut Self::Store,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
+    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
         match (&mut store.active, self) {
             (Some(node), Some(element)) => {
                 if element.update(node, state, env, context) {
