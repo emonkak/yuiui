@@ -36,8 +36,7 @@ where
         EventMask::new()
     }
 
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EventContext<S>) {
-    }
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EventContext<S>) {}
 
     fn event<Event: 'static>(
         &mut self,

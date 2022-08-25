@@ -1,10 +1,10 @@
 use std::fmt;
 use std::mem;
 
-use crate::effect::Effect;
 use crate::element::Element;
 use crate::event::{CaptureState, EventContext, InternalEvent};
 use crate::id::{ComponentIndex, IdContext, IdPath};
+use crate::message::Message;
 use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
@@ -83,11 +83,11 @@ where
         &mut self,
         _id_path: IdPath,
         _component_index: Option<ComponentIndex>,
-        effect: Effect<S>,
+        effect: Message<S>,
     ) -> bool {
         match effect {
-            Effect::Message(message) => self.state.reduce(message),
-            Effect::Mutation(mut mutation) => mutation.apply(&mut self.state),
+            Message::Pure(message) => self.state.reduce(message),
+            Message::Mutation(mutation) => mutation(&mut self.state),
         }
     }
 }

@@ -91,8 +91,7 @@ where
         env: &E,
         context: &mut EventContext<S>,
     ) -> CaptureState {
-        self.node.event(event, state, env, context);
-        CaptureState::Captured
+        self.node.event(event, state, env, context)
     }
 
     fn internal_event(

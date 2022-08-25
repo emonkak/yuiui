@@ -1,9 +1,10 @@
 use std::any::{Any, TypeId};
 use std::collections::HashSet;
+use std::sync::Arc;
 
-use crate::effect::Effect;
 use crate::command::Command;
 use crate::id::{ComponentIndex, Id, IdPath};
+use crate::message::Message;
 use crate::state::State;
 
 pub trait Event<'event> {
@@ -92,11 +93,30 @@ impl Extend<TypeId> for EventMask {
 #[must_use]
 pub enum EventResult<S: State> {
     Nop,
-    Effect(Effect<S>),
+    Message(Message<S>),
     Command(Command<S>),
 }
 
+impl<S: State> EventResult<S> {
+    pub(crate) fn lift<F, PS>(self, f: Arc<F>) -> EventResult<PS>
+    where
+        S: 'static,
+        F: Fn(&PS) -> &S + Sync + Send + 'static,
+        PS: State,
+    {
+        match self {
+            Self::Nop => EventResult::Nop,
+            Self::Message(message) => EventResult::Message(message.lift(f)),
+            Self::Command(command) => {
+                let command = command.map(move |message| message.lift(f.clone()));
+                EventResult::Command(command)
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
+#[must_use]
 pub enum CaptureState {
     Ignored,
     Captured,
@@ -116,7 +136,7 @@ pub struct EventContext<S: State> {
     component_index: Option<ComponentIndex>,
     state_id_path: IdPath,
     state_component_index: Option<ComponentIndex>,
-    pub effects: Vec<(IdPath, Option<ComponentIndex>, Effect<S>)>,
+    pub effects: Vec<(IdPath, Option<ComponentIndex>, Message<S>)>,
     pub commands: Vec<(IdPath, Option<ComponentIndex>, Command<S>)>,
     pub disposed_nodes: Vec<(IdPath, Option<ComponentIndex>)>,
 }
@@ -153,7 +173,7 @@ impl<S: State> EventContext<S> {
     pub fn merge<SS, F>(&mut self, other: EventContext<SS>, f: F)
     where
         SS: State,
-        F: Fn(Effect<SS>) -> Effect<S>,
+        F: Fn(Message<SS>) -> Message<S>,
     {
         assert!(other.id_path.starts_with(&self.id_path));
         let effects = other
@@ -192,7 +212,7 @@ impl<S: State> EventContext<S> {
     pub fn process_result(&mut self, result: EventResult<S>) {
         match result {
             EventResult::Nop => {}
-            EventResult::Effect(effect) => {
+            EventResult::Message(effect) => {
                 self.effects.push((
                     self.state_id_path.clone(),
                     self.state_component_index,

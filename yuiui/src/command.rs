@@ -1,27 +1,25 @@
-use futures::stream::{Stream, BoxStream, StreamExt};
+use futures::stream::{BoxStream, Stream, StreamExt};
 
-use crate::effect::Effect;
+use crate::message::Message;
 use crate::state::State;
 
 pub struct Command<S: State> {
-    stream: BoxStream<'static, Effect<S>>,
+    stream: BoxStream<'static, Message<S>>,
 }
 
 impl<S: State> Command<S> {
-    pub fn new(stream: BoxStream<'static, Effect<S>>) -> Command<S> {
-        Self {
-            stream
-        }
+    pub fn new(stream: BoxStream<'static, Message<S>>) -> Command<S> {
+        Self { stream }
     }
 
-    pub fn into_stream(self) -> BoxStream<'static, Effect<S>> {
+    pub fn into_stream(self) -> BoxStream<'static, Message<S>> {
         self.stream
     }
 }
 
 impl<Stream, S> From<Stream> for Command<S>
 where
-    Stream: self::Stream<Item = Effect<S>> + Send + 'static,
+    Stream: self::Stream<Item = Message<S>> + Send + 'static,
     S: State,
 {
     fn from(stream: Stream) -> Self {
@@ -30,14 +28,14 @@ where
 }
 
 impl<S: State> Command<S> {
-    pub fn map<F, NS>(self, f: F) -> Command<NS>
+    pub fn map<F, PS>(self, f: F) -> Command<PS>
     where
-        F: Fn(Effect<S>) -> Effect<NS> + Send + 'static,
+        F: Fn(Message<S>) -> Message<PS> + Send + 'static,
         S: 'static,
-        NS: State,
+        PS: State,
     {
         Command {
-            stream: Box::pin(self.stream.map(f))
+            stream: Box::pin(self.stream.map(f)),
         }
     }
 }

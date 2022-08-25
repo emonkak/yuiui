@@ -172,17 +172,11 @@ where
             WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
                 context.begin_widget(self.id);
                 if self.event_mask.contains(&TypeId::of::<Event>()) {
-                    self.children.event(event, state, env, context);
-                    capture_state = CaptureState::Captured;
+                    capture_state = self.children.event(event, state, env, context);
                 }
                 if let Some(event) = <V::Widget as WidgetEvent>::Event::from_static(event) {
-                    context.process_result(widget.event(
-                        event,
-                        &self.children,
-                        context.id_path(),
-                        state,
-                        env,
-                    ));
+                    let result = widget.event(event, &self.children, context.id_path(), state, env);
+                    context.process_result(result);
                     capture_state = CaptureState::Captured;
                 }
                 context.end_widget();
