@@ -1,4 +1,5 @@
 mod adapt;
+mod command;
 mod component;
 mod effect;
 mod element;
@@ -12,6 +13,7 @@ mod widget;
 
 pub use component::{Component, ComponentStack, FunctionComponent};
 pub use effect::Effect;
+pub use command::{Command, CommandHandler};
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::Event;
 pub use id::{Id, IdPath};

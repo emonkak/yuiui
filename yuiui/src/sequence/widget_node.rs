@@ -2,9 +2,8 @@ use std::fmt;
 use std::ops::ControlFlow;
 
 use crate::component::{Component, ComponentStack};
-use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::{CaptureState, Event, EventMask, InternalEvent};
+use crate::event::{CaptureState, Event, EventContext, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
@@ -78,7 +77,7 @@ where
         event_mask
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
         if self.dirty || mode.is_propagatable() {
             self.dirty = false;
             self.node.commit(mode, state, env, context);
@@ -90,7 +89,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         self.node.event(event, state, env, context);
         CaptureState::Captured
@@ -101,7 +100,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         self.node.internal_event(event, state, env, context)
     }

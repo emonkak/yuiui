@@ -1,7 +1,6 @@
 use std::ops::ControlFlow;
 
-use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::{CaptureState, EventContext, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 
@@ -53,7 +52,7 @@ where
         T::event_mask()
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
                 node.commit(mode, state, env, context);
@@ -67,7 +66,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         let mut capture_state = CaptureState::Ignored;
         for node in &mut self.nodes {
@@ -81,7 +80,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         for node in &mut self.nodes {
             if node.internal_event(event, state, env, context) == CaptureState::Captured {

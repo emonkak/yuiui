@@ -2,9 +2,8 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::mem;
 
-use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element};
-use crate::event::EventResult;
+use crate::event::{EventContext, EventResult};
 use crate::sequence::CommitMode;
 use crate::state::State;
 
@@ -109,7 +108,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) {
         let lifecycle = match mode {
             CommitMode::Mount => ComponentLifecycle::Mounted,
@@ -123,17 +122,17 @@ where
                 ComponentLifecycle::Updated(old_component)
             }
             CommitMode::Unmount => {
-                context.mark_unmounted();
+                context.dispose_node();
                 ComponentLifecycle::Unmounted
             }
         };
-        context.process(self.component.lifecycle(lifecycle, state, env));
+        context.process_result(self.component.lifecycle(lifecycle, state, env));
         context.next_component();
     }
 }
 
 pub trait ComponentStack<S: State, E> {
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>);
 }
 
 impl<C, CS, S, E> ComponentStack<S, E> for (ComponentNode<C, S, E>, CS)
@@ -142,14 +141,14 @@ where
     CS: ComponentStack<S, E>,
     S: State,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
         self.0.commit(mode, state, env, context);
         self.1.commit(mode, state, env, context);
     }
 }
 
 impl<S: State, E> ComponentStack<S, E> for () {
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EventContext<S>) {
     }
 }
 

@@ -4,9 +4,8 @@ use std::fmt;
 use std::ops::ControlFlow;
 
 use crate::component::ComponentStack;
-use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{CaptureState, Event, EventMask, InternalEvent};
+use crate::event::{CaptureState, Event, EventContext, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
@@ -113,7 +112,7 @@ where
         event_mask
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
@@ -155,7 +154,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         let mut capture_state = CaptureState::Ignored;
         for node in &mut self.active {
@@ -169,7 +168,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         if let Ok(index) = self
             .active

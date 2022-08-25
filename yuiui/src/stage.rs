@@ -1,9 +1,9 @@
 use std::fmt;
 use std::mem;
 
-use crate::effect::{Effect, EffectContext};
+use crate::effect::Effect;
 use crate::element::Element;
-use crate::event::{CaptureState, InternalEvent};
+use crate::event::{CaptureState, EventContext, InternalEvent};
 use crate::id::{ComponentIndex, IdContext, IdPath};
 use crate::sequence::CommitMode;
 use crate::state::State;
@@ -37,7 +37,7 @@ where
 
     pub fn update(&mut self, element: El) {
         if element.update(self.root.scope(), &self.state, &self.env, &mut self.context) {
-            let mut context = EffectContext::new();
+            let mut context = EventContext::new();
             self.root
                 .commit(CommitMode::Update, &self.state, &self.env, &mut context);
             for (id_path, component_index, effect) in context.effects {
@@ -52,7 +52,7 @@ where
         } else {
             CommitMode::Mount
         };
-        let mut context = EffectContext::new();
+        let mut context = EventContext::new();
         self.root.commit(mode, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
@@ -60,7 +60,7 @@ where
     }
 
     pub fn event<EV: 'static>(&mut self, event: &EV) -> CaptureState {
-        let mut context = EffectContext::new();
+        let mut context = EventContext::new();
         let capture_state = self.root.event(event, &self.state, &self.env, &mut context);
         for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
@@ -69,7 +69,7 @@ where
     }
 
     pub fn internal_event(&mut self, event: &InternalEvent) -> CaptureState {
-        let mut context = EffectContext::new();
+        let mut context = EventContext::new();
         let capture_state = self
             .root
             .internal_event(event, &self.state, &self.env, &mut context);
@@ -88,7 +88,6 @@ where
         match effect {
             Effect::Message(message) => self.state.reduce(message),
             Effect::Mutation(mut mutation) => mutation.apply(&mut self.state),
-            Effect::Command(_) => todo!(),
         }
     }
 }

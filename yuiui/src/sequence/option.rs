@@ -1,8 +1,7 @@
 use std::mem;
 use std::ops::ControlFlow;
 
-use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::{CaptureState, EventContext, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 
@@ -74,7 +73,7 @@ where
         T::event_mask()
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
         if self.status == RenderStatus::Swapped {
             if let Some(node) = &mut self.active {
                 node.commit(CommitMode::Unmount, state, env, context);
@@ -99,7 +98,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         if let Some(node) = &mut self.active {
             node.event(event, state, env, context)
@@ -113,7 +112,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         if let Some(node) = &mut self.active {
             node.internal_event(event, state, env, context)

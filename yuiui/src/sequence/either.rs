@@ -2,8 +2,7 @@ use either::Either;
 use std::mem;
 use std::ops::ControlFlow;
 
-use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::{CaptureState, EventContext, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 
@@ -103,7 +102,7 @@ where
         L::event_mask().merge(R::event_mask())
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
         if self.status == RenderStatus::Swapped {
             match &mut self.active {
                 Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
@@ -131,7 +130,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         match &mut self.active {
             Either::Left(node) => node.event(event, state, env, context),
@@ -144,7 +143,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut EventContext<S>,
     ) -> CaptureState {
         match &mut self.active {
             Either::Left(node) => node.internal_event(event, state, env, context),
