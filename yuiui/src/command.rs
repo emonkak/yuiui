@@ -1,49 +1,162 @@
-use futures::stream::{BoxStream, Stream, StreamExt};
+use futures::future::{BoxFuture, FutureExt as _};
+use futures::stream::{BoxStream, Stream, StreamExt as _};
+use std::collections::{hash_map, HashMap};
+use std::future::Future;
+use std::mem;
 
-use crate::message::Message;
+use crate::effect::Effect;
+use crate::id::{ComponentIndex, Id};
 use crate::state::State;
 
-pub struct Command<S: State> {
-    stream: BoxStream<'static, Message<S>>,
+pub type CommandId = usize;
+
+pub enum Command<S: State> {
+    Future(BoxFuture<'static, Effect<S>>),
+    Stream(BoxStream<'static, Effect<S>>),
 }
 
 impl<S: State> Command<S> {
-    pub fn new(stream: BoxStream<'static, Message<S>>) -> Command<S> {
-        Self { stream }
+    pub fn from_future<Future>(future: Future) -> Self
+    where
+        Future: self::Future<Output = Effect<S>> + Send + 'static,
+    {
+        Command::Future(Box::pin(future))
     }
 
-    pub fn into_stream(self) -> BoxStream<'static, Message<S>> {
-        self.stream
+    pub fn from_stream<Stream>(stream: Stream) -> Self
+    where
+        Stream: self::Stream<Item = Effect<S>> + Send + 'static,
+    {
+        Command::Stream(Box::pin(stream))
     }
-}
 
-impl<Stream, S> From<Stream> for Command<S>
-where
-    Stream: self::Stream<Item = Message<S>> + Send + 'static,
-    S: State,
-{
-    fn from(stream: Stream) -> Self {
-        Command::new(Box::pin(stream))
-    }
-}
-
-impl<S: State> Command<S> {
     pub fn map<F, PS>(self, f: F) -> Command<PS>
     where
-        F: Fn(Message<S>) -> Message<PS> + Send + 'static,
         S: 'static,
+        F: Fn(Effect<S>) -> Effect<PS> + Send + 'static,
         PS: State,
     {
-        Command {
-            stream: Box::pin(self.stream.map(f)),
+        match self {
+            Command::Future(future) => Command::Future(Box::pin(future.map(f))),
+            Command::Stream(stream) => Command::Stream(Box::pin(stream.map(f))),
         }
     }
 }
 
-pub trait CommandHandler<S: State> {
+pub trait CommandRuntime {
     type Token;
 
-    fn run(&mut self, command: Command<S>) -> Self::Token;
+    fn run<S: State>(&mut self, command: Command<S>) -> Self::Token;
 
-    fn cancel(&mut self, token: Self::Token);
+    fn abort(&mut self, token: Self::Token);
+}
+
+pub struct CommandHandler<R: CommandRuntime> {
+    runtime: R,
+    running_commands: HashMap<(Id, Option<ComponentIndex>), TokenMap<R::Token>>,
+}
+
+impl<R: CommandRuntime> CommandHandler<R> {
+    pub fn new(runtime: R) -> Self {
+        Self {
+            runtime,
+            running_commands: HashMap::new(),
+        }
+    }
+
+    pub fn run<S: State>(
+        &mut self,
+        id: Id,
+        component_index: Option<ComponentIndex>,
+        command: Command<S>,
+        command_id: Option<CommandId>,
+    ) {
+        let token = self.runtime.run(command);
+        match self.running_commands.entry((id, component_index)) {
+            hash_map::Entry::Occupied(mut entry) => {
+                if let Some(token) = entry.get_mut().add(token, command_id) {
+                    self.runtime.abort(token);
+                }
+            }
+            hash_map::Entry::Vacant(entry) => {
+                let mut token_map = TokenMap::new();
+                token_map.add(token, command_id);
+                entry.insert(token_map);
+            }
+        }
+    }
+
+    pub fn abort(
+        &mut self,
+        id: Id,
+        component_index: Option<ComponentIndex>,
+        command_id: CommandId,
+    ) -> bool {
+        if let Some(token_map) = self.running_commands.get_mut(&(id, component_index)) {
+            if let Some(token) = token_map.remove(command_id) {
+                self.runtime.abort(token);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn abort_all(&mut self, id: Id, component_index: Option<ComponentIndex>) {
+        if let Some(token_map) = self.running_commands.remove(&(id, component_index)) {
+            for token in token_map.tokens {
+                self.runtime.abort(token);
+            }
+            for (token, _) in token_map.identified_tokens {
+                self.runtime.abort(token);
+            }
+        }
+    }
+}
+
+struct TokenMap<T> {
+    tokens: Vec<T>,
+    identified_tokens: Vec<(T, CommandId)>,
+}
+
+impl<T> TokenMap<T> {
+    fn new() -> Self {
+        Self {
+            tokens: Vec::new(),
+            identified_tokens: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, new_token: T, new_command_id: Option<CommandId>) -> Option<T> {
+        match new_command_id {
+            Some(new_command_id) => {
+                if let Some((token, _)) = self
+                    .identified_tokens
+                    .iter_mut()
+                    .find(|(_, command_id)| *command_id == new_command_id)
+                {
+                    Some(mem::replace(token, new_token))
+                } else {
+                    self.identified_tokens.push((new_token, new_command_id));
+                    None
+                }
+            }
+            None => {
+                self.tokens.push(new_token);
+                None
+            }
+        }
+    }
+
+    fn remove(&mut self, command_id: CommandId) -> Option<T> {
+        if let Some(index) = self
+            .identified_tokens
+            .iter()
+            .position(|(_, id)| *id == command_id)
+        {
+            let (token, _) = self.identified_tokens.swap_remove(index);
+            Some(token)
+        } else {
+            None
+        }
+    }
 }

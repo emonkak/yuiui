@@ -4,8 +4,9 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle, ComponentStack};
+use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{CaptureState, EventContext, EventMask, EventResult, InternalEvent};
+use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
 use crate::id::{IdContext, IdPath};
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
@@ -135,13 +136,11 @@ where
         T::event_mask()
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge(sub_context, |sub_message| {
-            sub_message.lift(self.selector_fn.clone())
-        });
+        context.merge(sub_context, self.selector_fn.clone());
     }
 
     fn event<Event: 'static>(
@@ -149,14 +148,12 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let capture_state = self.target.event(event, sub_state, env, &mut sub_context);
-        context.merge(sub_context, |sub_message| {
-            sub_message.lift(self.selector_fn.clone())
-        });
+        context.merge(sub_context, self.selector_fn.clone());
         capture_state
     }
 
@@ -165,16 +162,14 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let capture_state = self
             .target
             .internal_event(event, sub_state, env, &mut sub_context);
-        context.merge(sub_context, |sub_message| {
-            sub_message.lift(self.selector_fn.clone())
-        });
+        context.merge(sub_context, self.selector_fn.clone());
         capture_state
     }
 }
@@ -225,13 +220,11 @@ where
     S: State + 'static,
     SS: State + 'static,
 {
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge(sub_context, |sub_message| {
-            sub_message.lift(self.selector_fn.clone())
-        });
+        context.merge(sub_context, self.selector_fn.clone());
     }
 }
 

@@ -1,7 +1,8 @@
 use hlist::{HCons, HList, HNil};
 use std::ops::ControlFlow;
 
-use crate::event::{CaptureState, EventContext, EventMask, InternalEvent};
+use crate::effect::EffectContext;
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 
@@ -36,14 +37,15 @@ where
         EventMask::new()
     }
 
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EventContext<S>) {}
+    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
+    }
 
     fn event<Event: 'static>(
         &mut self,
         _event: &Event,
         _state: &S,
         _env: &E,
-        _context: &mut EventContext<S>,
+        _context: &mut EffectContext<S>,
     ) -> CaptureState {
         CaptureState::Ignored
     }
@@ -53,7 +55,7 @@ where
         _event: &InternalEvent,
         _state: &S,
         _env: &E,
-        _context: &mut EventContext<S>,
+        _context: &mut EffectContext<S>,
     ) -> CaptureState {
         CaptureState::Ignored
     }
@@ -105,7 +107,7 @@ where
         H::event_mask().merge(T::event_mask())
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         self.head.commit(mode, state, env, context);
         self.tail.commit(mode, state, env, context);
     }
@@ -115,7 +117,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState {
         self.head
             .event(event, state, env, context)
@@ -127,7 +129,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState {
         if self.head.internal_event(event, state, env, context) == CaptureState::Captured {
             CaptureState::Captured

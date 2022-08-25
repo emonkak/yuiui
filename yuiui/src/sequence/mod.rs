@@ -7,7 +7,8 @@ mod widget_node;
 
 use std::ops::ControlFlow;
 
-use crate::event::{CaptureState, EventContext, EventMask, InternalEvent};
+use crate::effect::EffectContext;
+use crate::event::{CaptureState, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 
@@ -22,14 +23,14 @@ pub trait ElementSeq<S: State, E> {
 pub trait WidgetNodeSeq<S: State, E> {
     fn event_mask() -> EventMask;
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>);
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 
     fn event<Event: 'static>(
         &mut self,
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState;
 
     fn internal_event(
@@ -37,7 +38,7 @@ pub trait WidgetNodeSeq<S: State, E> {
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState;
 }
 

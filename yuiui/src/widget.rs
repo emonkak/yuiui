@@ -2,7 +2,8 @@ use std::any::TypeId;
 use std::fmt;
 
 use crate::component::ComponentStack;
-use crate::event::{CaptureState, Event, EventContext, EventMask, EventResult, InternalEvent};
+use crate::effect::EffectContext;
+use crate::event::{CaptureState, Event, EventMask, EventResult, InternalEvent};
 use crate::id::{Id, IdPath};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
@@ -19,7 +20,7 @@ pub trait Widget<S: State, E>: for<'event> WidgetEvent<'event> {
         _state: &S,
         _env: &E,
     ) -> EventResult<S> {
-        EventResult::Nop
+        EventResult::nop()
     }
 
     fn event(
@@ -30,7 +31,7 @@ pub trait Widget<S: State, E>: for<'event> WidgetEvent<'event> {
         _state: &S,
         _env: &E,
     ) -> EventResult<S> {
-        EventResult::Nop
+        EventResult::nop()
     }
 }
 
@@ -96,7 +97,7 @@ where
         &self.event_mask
     }
 
-    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EventContext<S>) {
+    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         context.begin_widget(self.id);
         context.begin_components();
         self.components.commit(mode, state, env, context);
@@ -128,7 +129,6 @@ where
                         context.process_result(result);
                     }
                     CommitMode::Unmount => {
-                        context.dispose_node();
                         let result = widget.lifecycle(
                             WidgetLifeCycle::Unmounted,
                             &self.children,
@@ -165,7 +165,7 @@ where
         event: &Event,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState {
         let mut capture_state = CaptureState::Ignored;
         match self.state.as_mut().unwrap() {
@@ -191,7 +191,7 @@ where
         event: &InternalEvent,
         state: &S,
         env: &E,
-        context: &mut EventContext<S>,
+        context: &mut EffectContext<S>,
     ) -> CaptureState {
         match self.state.as_mut().unwrap() {
             WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {

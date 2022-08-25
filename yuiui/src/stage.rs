@@ -1,10 +1,10 @@
 use std::fmt;
 use std::mem;
 
+use crate::effect::{EffectContext, PendingEffects};
 use crate::element::Element;
-use crate::event::{CaptureState, EventContext, InternalEvent};
-use crate::id::{ComponentIndex, IdContext, IdPath};
-use crate::message::Message;
+use crate::event::InternalEvent;
+use crate::id::IdContext;
 use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
@@ -35,60 +35,40 @@ where
         }
     }
 
-    pub fn update(&mut self, element: El) {
+    pub fn update(&mut self, element: El) -> PendingEffects<S> {
+        let mut context = EffectContext::new();
         if element.update(self.root.scope(), &self.state, &self.env, &mut self.context) {
-            let mut context = EventContext::new();
             self.root
                 .commit(CommitMode::Update, &self.state, &self.env, &mut context);
-            for (id_path, component_index, effect) in context.effects {
-                self.run_effect(id_path, component_index, effect);
-            }
+            context.into_effects()
+        } else {
+            PendingEffects::default()
         }
     }
 
-    pub fn commit(&mut self) {
+    pub fn commit(&mut self) -> PendingEffects<S> {
         let mode = if mem::replace(&mut self.is_mounted, true) {
             CommitMode::Update
         } else {
             CommitMode::Mount
         };
-        let mut context = EventContext::new();
+        let mut context = EffectContext::new();
         self.root.commit(mode, &self.state, &self.env, &mut context);
-        for (id_path, component_index, effect) in context.effects {
-            self.run_effect(id_path, component_index, effect);
-        }
+        context.into_effects()
     }
 
-    pub fn event<EV: 'static>(&mut self, event: &EV) -> CaptureState {
-        let mut context = EventContext::new();
-        let capture_state = self.root.event(event, &self.state, &self.env, &mut context);
-        for (id_path, component_index, effect) in context.effects {
-            self.run_effect(id_path, component_index, effect);
-        }
-        capture_state
+    pub fn event<Event: 'static>(&mut self, event: &Event) -> PendingEffects<S> {
+        let mut context = EffectContext::new();
+        let _ = self.root.event(event, &self.state, &self.env, &mut context);
+        context.into_effects()
     }
 
-    pub fn internal_event(&mut self, event: &InternalEvent) -> CaptureState {
-        let mut context = EventContext::new();
-        let capture_state = self
+    pub fn internal_event(&mut self, event: &InternalEvent) -> PendingEffects<S> {
+        let mut context = EffectContext::new();
+        let _ = self
             .root
             .internal_event(event, &self.state, &self.env, &mut context);
-        for (id_path, component_index, effect) in context.effects {
-            self.run_effect(id_path, component_index, effect);
-        }
-        capture_state
-    }
-
-    fn run_effect(
-        &mut self,
-        _id_path: IdPath,
-        _component_index: Option<ComponentIndex>,
-        effect: Message<S>,
-    ) -> bool {
-        match effect {
-            Message::Pure(message) => self.state.reduce(message),
-            Message::Mutation(mutation) => mutation(&mut self.state),
-        }
+        context.into_effects()
     }
 }
 
