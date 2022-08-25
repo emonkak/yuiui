@@ -40,8 +40,7 @@ where
             let mut context = EffectContext::new();
             self.root
                 .commit(CommitMode::Update, &self.state, &self.env, &mut context);
-            let unit_of_work = context.into_unit_of_work();
-            for (id_path, component_index, effect) in unit_of_work.effects {
+            for (id_path, component_index, effect) in context.effects {
                 self.run_effect(id_path, component_index, effect);
             }
         }
@@ -55,8 +54,7 @@ where
         };
         let mut context = EffectContext::new();
         self.root.commit(mode, &self.state, &self.env, &mut context);
-        let unit_of_work = context.into_unit_of_work();
-        for (id_path, component_index, effect) in unit_of_work.effects {
+        for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
     }
@@ -64,8 +62,7 @@ where
     pub fn event<EV: 'static>(&mut self, event: &EV) -> CaptureState {
         let mut context = EffectContext::new();
         let capture_state = self.root.event(event, &self.state, &self.env, &mut context);
-        let unit_of_work = context.into_unit_of_work();
-        for (id_path, component_index, effect) in unit_of_work.effects {
+        for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
         capture_state
@@ -76,8 +73,7 @@ where
         let capture_state = self
             .root
             .internal_event(event, &self.state, &self.env, &mut context);
-        let unit_of_work = context.into_unit_of_work();
-        for (id_path, component_index, effect) in unit_of_work.effects {
+        for (id_path, component_index, effect) in context.effects {
             self.run_effect(id_path, component_index, effect);
         }
         capture_state

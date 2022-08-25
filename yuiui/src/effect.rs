@@ -31,7 +31,8 @@ pub struct EffectContext<S: State> {
     component_index: Option<ComponentIndex>,
     state_id_path: IdPath,
     state_component_index: Option<ComponentIndex>,
-    unit_of_work: UnitOfWork<S>,
+    pub effects: Vec<(IdPath, Option<ComponentIndex>, Effect<S>)>,
+    pub unmounted_nodes: Vec<(IdPath, Option<ComponentIndex>)>,
 }
 
 impl<S: State> EffectContext<S> {
@@ -41,7 +42,8 @@ impl<S: State> EffectContext<S> {
             component_index: None,
             state_id_path: IdPath::new(),
             state_component_index: None,
-            unit_of_work: UnitOfWork::new(),
+            effects: Vec::new(),
+            unmounted_nodes: Vec::new(),
         }
     }
 
@@ -51,7 +53,8 @@ impl<S: State> EffectContext<S> {
             component_index: self.component_index,
             state_id_path: self.id_path.clone(),
             state_component_index: self.component_index,
-            unit_of_work: UnitOfWork::new(),
+            effects: Vec::new(),
+            unmounted_nodes: Vec::new(),
         }
     }
 
@@ -59,16 +62,17 @@ impl<S: State> EffectContext<S> {
         &self.id_path
     }
 
-    pub fn merge_unit_of_work<SS, F>(&mut self, unit_of_work: UnitOfWork<SS>, f: F)
+    pub fn merge<SS, F>(&mut self, other: EffectContext<SS>, f: F)
     where
         SS: State,
         F: Fn(Effect<SS>) -> Effect<S>,
     {
-        self.unit_of_work.merge(unit_of_work, f);
-    }
-
-    pub fn into_unit_of_work(self) -> UnitOfWork<S> {
-        self.unit_of_work
+        let effects = other
+            .effects
+            .into_iter()
+            .map(move |(id_path, component_index, effect)| (id_path, component_index, f(effect)));
+        self.effects.extend(effects);
+        self.unmounted_nodes.extend(other.unmounted_nodes);
     }
 
     pub fn begin_widget(&mut self, id: Id) {
@@ -92,8 +96,7 @@ impl<S: State> EffectContext<S> {
     }
 
     pub fn mark_unmounted(&mut self) {
-        self.unit_of_work
-            .unmounted_nodes
+        self.unmounted_nodes
             .push((self.id_path.clone(), self.component_index));
     }
 
@@ -101,39 +104,12 @@ impl<S: State> EffectContext<S> {
         match result {
             EventResult::Nop => {}
             EventResult::Effect(effect) => {
-                self.unit_of_work.effects.push((
+                self.effects.push((
                     self.state_id_path.clone(),
                     self.state_component_index,
                     effect,
                 ));
             }
         }
-    }
-}
-
-pub struct UnitOfWork<S: State> {
-    pub effects: Vec<(IdPath, Option<ComponentIndex>, Effect<S>)>,
-    pub unmounted_nodes: Vec<(IdPath, Option<ComponentIndex>)>,
-}
-
-impl<S: State> UnitOfWork<S> {
-    pub fn new() -> Self {
-        Self {
-            effects: Vec::new(),
-            unmounted_nodes: Vec::new(),
-        }
-    }
-
-    pub fn merge<SS, F>(&mut self, other: UnitOfWork<SS>, f: F)
-    where
-        SS: State,
-        F: Fn(Effect<SS>) -> Effect<S>,
-    {
-        let effects = other
-            .effects
-            .into_iter()
-            .map(move |(id_path, component_index, effect)| (id_path, component_index, f(effect)));
-        self.effects.extend(effects);
-        self.unmounted_nodes.extend(other.unmounted_nodes);
     }
 }
