@@ -1,24 +1,22 @@
 use std::any::TypeId;
 use std::fmt;
-use std::mem;
 
 use crate::component::ComponentStack;
 use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
-use crate::id::Id;
+use crate::event::{CaptureState, Event, EventMask, EventResult, InternalEvent};
+use crate::id::{Id, IdPath};
 use crate::sequence::{CommitMode, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 
-pub trait Widget<S: State, E> {
+pub trait Widget<S: State, E>: for<'event> WidgetEvent<'event> {
     type Children: WidgetNodeSeq<S, E>;
-
-    type Event: 'static;
 
     fn lifecycle(
         &mut self,
         _lifecycle: WidgetLifeCycle,
         _children: &Self::Children,
+        _id_path: &IdPath,
         _state: &S,
         _env: &E,
     ) -> EventResult<S> {
@@ -27,13 +25,18 @@ pub trait Widget<S: State, E> {
 
     fn event(
         &mut self,
-        _event: &Self::Event,
+        _event: <Self as WidgetEvent>::Event,
         _children: &Self::Children,
+        _id_path: &IdPath,
         _state: &S,
         _env: &E,
     ) -> EventResult<S> {
         EventResult::Nop
     }
+}
+
+pub trait WidgetEvent<'event> {
+    type Event: Event<'event>;
 }
 
 pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
@@ -106,6 +109,7 @@ where
                 context.process(widget.lifecycle(
                     WidgetLifeCycle::Mounted,
                     &self.children,
+                    context.id_path(),
                     state,
                     env,
                 ));
@@ -117,6 +121,7 @@ where
                         context.process(widget.lifecycle(
                             WidgetLifeCycle::Mounted,
                             &self.children,
+                            context.id_path(),
                             state,
                             env,
                         ));
@@ -126,6 +131,7 @@ where
                         context.process(widget.lifecycle(
                             WidgetLifeCycle::Unmounted,
                             &self.children,
+                            context.id_path(),
                             state,
                             env,
                         ));
@@ -139,6 +145,7 @@ where
                     context.process(widget.lifecycle(
                         WidgetLifeCycle::Updated,
                         &self.children,
+                        context.id_path(),
                         state,
                         env,
                     ));
@@ -165,9 +172,14 @@ where
                     self.children.event(event, state, env, context);
                     capture_state = CaptureState::Captured;
                 }
-                if TypeId::of::<Event>() == TypeId::of::<<V::Widget as Widget<S, E>>::Event>() {
-                    let event = unsafe { mem::transmute(event) };
-                    context.process(widget.event(event, &self.children, state, env));
+                if let Some(event) = <V::Widget as WidgetEvent>::Event::from_static(event) {
+                    context.process(widget.event(
+                        event,
+                        &self.children,
+                        context.id_path(),
+                        state,
+                        env,
+                    ));
                     capture_state = CaptureState::Captured;
                 }
                 context.end_widget();
@@ -187,17 +199,24 @@ where
         match self.state.as_mut().unwrap() {
             WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
                 context.begin_widget(self.id);
-                if self.id == event.id_path.bottom_id() {
-                    let event = event
-                        .payload
-                        .downcast_ref()
+                let capture_state = if self.id == event.id_path.bottom_id() {
+                    let event = <V::Widget as WidgetEvent>::Event::from_any(event.payload.as_ref())
                         .expect("cast internal event to widget event");
-                    context.process(widget.event(event, &self.children, state, env));
+                    context.process(widget.event(
+                        event,
+                        &self.children,
+                        context.id_path(),
+                        state,
+                        env,
+                    ));
+                    CaptureState::Captured
+                } else if event.id_path.starts_with(context.id_path()) {
+                    self.children.internal_event(event, state, env, context)
                 } else {
-                    self.children.internal_event(event, state, env, context);
-                }
+                    CaptureState::Ignored
+                };
                 context.end_widget();
-                CaptureState::Captured
+                capture_state
             }
             WidgetState::Uninitialized(_) => CaptureState::Ignored,
         }

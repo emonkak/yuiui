@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::fmt;
@@ -7,11 +6,11 @@ use std::ops::ControlFlow;
 use crate::component::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::{CaptureState, Event, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetNode};
+use crate::widget::{Widget, WidgetEvent, WidgetNode};
 
 use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
@@ -110,7 +109,7 @@ where
 {
     fn event_mask() -> EventMask {
         let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
-        event_mask.add(TypeId::of::<<V::Widget as Widget<S, E>>::Event>());
+        event_mask.extend(<V::Widget as WidgetEvent>::Event::allowed_types());
         event_mask
     }
 

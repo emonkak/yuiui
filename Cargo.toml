@@ -5,6 +5,7 @@ members = [
     "hlist",
     "observable",
     "yuiui",
+    "yuiui-derive",
     "yuiui-legacy",
     "yuiui-support",
 ]

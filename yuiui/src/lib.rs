@@ -13,13 +13,13 @@ mod widget;
 pub use component::{Component, ComponentStack, FunctionComponent};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
-pub use event::EventListener;
+pub use event::Event;
 pub use id::{Id, IdPath};
 pub use sequence::{CallbackMut, ElementSeq, TraversableSeq, WidgetNodeSeq};
 pub use stage::Stage;
 pub use state::{Data, State};
 pub use view::View;
-pub use widget::{Widget, WidgetLifeCycle, WidgetNode};
+pub use widget::{Widget, WidgetEvent, WidgetLifeCycle, WidgetNode};
 
 use std::borrow::Cow;
 use std::fmt;
@@ -62,7 +62,9 @@ where
     S: State,
 {
     type Children = hlist::HNil;
+}
 
+impl<'event> WidgetEvent<'event> for Text {
     type Event = ();
 }
 
@@ -111,7 +113,9 @@ where
     S: State,
 {
     type Children = C;
+}
 
+impl<'event, C> WidgetEvent<'event> for BlockWidget<C> {
     type Event = ();
 }
 

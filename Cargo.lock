@@ -1471,6 +1471,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "yuiui-derive"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "yuiui",
+]
+
+[[package]]
 name = "yuiui-legacy"
 version = "0.0.0"
 dependencies = [

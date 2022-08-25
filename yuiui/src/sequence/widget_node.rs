@@ -1,15 +1,14 @@
-use std::any::TypeId;
 use std::fmt;
 use std::ops::ControlFlow;
 
 use crate::component::{Component, ComponentStack};
 use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::{CaptureState, Event, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetNode};
+use crate::widget::{Widget, WidgetEvent, WidgetNode};
 
 use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 
@@ -75,7 +74,7 @@ where
 {
     fn event_mask() -> EventMask {
         let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
-        event_mask.add(TypeId::of::<<V::Widget as Widget<S, E>>::Event>());
+        event_mask.extend(<V::Widget as WidgetEvent>::Event::allowed_types());
         event_mask
     }
 
@@ -104,11 +103,7 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> CaptureState {
-        if event.id_path.top_id() == self.node.id {
-            self.node.internal_event(event, state, env, context)
-        } else {
-            CaptureState::Ignored
-        }
+        self.node.internal_event(event, state, env, context)
     }
 }
 

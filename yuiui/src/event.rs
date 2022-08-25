@@ -1,12 +1,41 @@
-use hlist::HNil;
 use std::any::{Any, TypeId};
 use std::collections::HashSet;
-use std::marker::PhantomData;
 
-use crate::effect::{Effect, EffectContext};
+use crate::effect::Effect;
 use crate::id::IdPath;
 use crate::state::State;
-use crate::widget::Widget;
+
+pub trait Event<'event> {
+    fn allowed_types() -> Vec<TypeId>;
+
+    fn from_any(value: &'event dyn Any) -> Option<Self>
+    where
+        Self: Sized;
+
+    fn from_static<T: 'static>(value: &'event T) -> Option<Self>
+    where
+        Self: Sized;
+}
+
+impl<'event> Event<'event> for () {
+    fn allowed_types() -> Vec<TypeId> {
+        Vec::new()
+    }
+
+    fn from_any(_value: &'event dyn Any) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
+    fn from_static<T: 'static>(_value: &'event T) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
+    }
+}
 
 pub struct InternalEvent {
     pub id_path: IdPath,
@@ -15,29 +44,47 @@ pub struct InternalEvent {
 
 #[derive(Debug)]
 pub struct EventMask {
-    masks: HashSet<TypeId>,
+    mask: HashSet<TypeId>,
 }
 
 impl EventMask {
     pub fn new() -> Self {
         Self {
-            masks: HashSet::new(),
+            mask: HashSet::new(),
         }
     }
 
     pub fn contains(&self, type_id: &TypeId) -> bool {
-        self.masks.contains(type_id)
+        self.mask.contains(type_id)
     }
 
     pub fn add(&mut self, type_id: TypeId) {
-        if type_id != TypeId::of::<()>() {
-            self.masks.insert(type_id);
-        }
+        self.mask.insert(type_id);
     }
 
     pub fn merge(mut self, other: Self) -> Self {
-        self.masks.extend(other.masks);
+        self.mask.extend(other.mask);
         self
+    }
+}
+
+impl FromIterator<TypeId> for EventMask {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = TypeId>,
+    {
+        EventMask {
+            mask: HashSet::from_iter(iter),
+        }
+    }
+}
+
+impl Extend<TypeId> for EventMask {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = TypeId>,
+    {
+        self.mask.extend(iter)
     }
 }
 
@@ -72,45 +119,5 @@ impl CaptureState {
             Self::Ignored => other,
             Self::Captured => Self::Captured,
         }
-    }
-}
-
-pub struct EventListener<F, Event> {
-    listener_fn: F,
-    event_type: PhantomData<Event>,
-}
-
-impl<F, Event> EventListener<F, Event> {
-    pub fn new<S, E>(listener_fn: F) -> Self
-    where
-        F: Fn(&Event, &S, &E, &mut EffectContext<S>),
-        S: State,
-        E: 'static,
-    {
-        Self {
-            listener_fn,
-            event_type: PhantomData,
-        }
-    }
-}
-
-impl<F, Event, S, E> Widget<S, E> for EventListener<F, Event>
-where
-    F: Fn(&Event, &S, &E) -> EventResult<S>,
-    Event: 'static,
-    S: State,
-{
-    type Children = HNil;
-
-    type Event = Event;
-
-    fn event(
-        &mut self,
-        event: &Self::Event,
-        _children: &Self::Children,
-        state: &S,
-        env: &E,
-    ) -> EventResult<S> {
-        (self.listener_fn)(event, state, env)
     }
 }

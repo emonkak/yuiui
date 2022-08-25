@@ -8,11 +8,13 @@ use crate::component::{Component, ComponentLifecycle, ComponentStack};
 use crate::effect::{Effect, EffectContext, Mutation};
 use crate::element::Element;
 use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetLifeCycle, WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget::{
+    Widget, WidgetEvent, WidgetLifeCycle, WidgetNode, WidgetNodeScope, WidgetState,
+};
 
 pub struct Adapt<T, F, S, SS> {
     target: T,
@@ -287,33 +289,40 @@ where
 {
     type Children = Adapt<T::Children, F, S, SS>;
 
-    type Event = T::Event;
-
     fn lifecycle(
         &mut self,
         lifecycle: WidgetLifeCycle,
         children: &Self::Children,
+        id_path: &IdPath,
         state: &S,
         env: &E,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .lifecycle(lifecycle, &children.target, sub_state, env)
+            .lifecycle(lifecycle, &children.target, id_path, sub_state, env)
             .map_effect(|effect| lift_effect(effect, &self.selector_fn))
     }
 
     fn event(
         &mut self,
-        event: &Self::Event,
+        event: <Self as WidgetEvent>::Event,
         children: &Self::Children,
+        id_path: &IdPath,
         state: &S,
         env: &E,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .event(event, &children.target, sub_state, env)
+            .event(event, &children.target, id_path, sub_state, env)
             .map_effect(|effect| lift_effect(effect, &self.selector_fn))
     }
+}
+
+impl<'event, T, F, S, SS> WidgetEvent<'event> for Adapt<T, F, S, SS>
+where
+    T: WidgetEvent<'event>,
+{
+    type Event = T::Event;
 }
 
 impl<T, F, S, SS> Mutation<S> for Adapt<T, F, S, SS>

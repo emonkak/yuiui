@@ -55,6 +55,10 @@ impl<S: State> EffectContext<S> {
         }
     }
 
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
     pub fn merge_unit_of_work<SS, F>(&mut self, unit_of_work: UnitOfWork<SS>, f: F)
     where
         SS: State,

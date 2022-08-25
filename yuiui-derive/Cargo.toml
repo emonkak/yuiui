@@ -1,0 +1,17 @@
+[package]
+name = "yuiui-derive"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0", features = ["full"] }
+
+[dev-dependencies]
+yuiui = { path = "../yuiui" }
+
+[lib]
+proc-macro = true
