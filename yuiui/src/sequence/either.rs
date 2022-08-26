@@ -2,12 +2,12 @@ use either::Either;
 use std::mem;
 
 use crate::effect::EffectContext;
-use crate::event::{EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
-use crate::widget_node::CommitMode;
+use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, RenderStatus, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct EitherStore<L, R> {
@@ -126,53 +126,26 @@ where
         }
     }
 
-    fn event<Event: 'static>(
+    fn for_each<V: WidgetNodeVisitor>(
         &mut self,
-        event: &Event,
+        visitor: &mut V,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> bool {
-        match &mut self.active {
-            Either::Left(node) => node.event(event, state, env, context),
-            Either::Right(node) => node.event(event, state, env, context),
-        }
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        match &mut self.active {
-            Either::Left(node) => node.internal_event(event, state, env, context),
-            Either::Right(node) => node.internal_event(event, state, env, context),
-        }
-    }
-}
-
-impl<'a, L, R, V, S, E, C> TraversableSeq<V, S, E, C> for EitherStore<L, R>
-where
-    L: TraversableSeq<V, S, E, C>,
-    R: TraversableSeq<V, S, E, C>,
-    S: State,
-{
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
+    ) {
         match &mut self.active {
             Either::Left(node) => node.for_each(visitor, state, env, context),
             Either::Right(node) => node.for_each(visitor, state, env, context),
         }
     }
 
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut C,
+        context: &mut EffectContext<S>,
     ) -> bool {
         match &mut self.active {
             Either::Left(node) => node.search(id_path, visitor, state, env, context),

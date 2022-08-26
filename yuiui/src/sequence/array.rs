@@ -1,10 +1,10 @@
 use crate::effect::EffectContext;
-use crate::event::{EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
-use crate::widget_node::CommitMode;
+use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -61,54 +61,25 @@ where
         }
     }
 
-    fn event<Event: 'static>(
+    fn for_each<V: WidgetNodeVisitor>(
         &mut self,
-        event: &Event,
+        visitor: &mut V,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> bool {
-        let mut result = false;
-        for node in &mut self.nodes {
-            result |= node.event(event, state, env, context);
-        }
-        result
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        for node in &mut self.nodes {
-            if node.internal_event(event, state, env, context) {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-impl<T, V, S, E, C, const N: usize> TraversableSeq<V, S, E, C> for ArrayStore<T, N>
-where
-    T: TraversableSeq<V, S, E, C>,
-    S: State,
-{
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
+    ) {
         for node in &mut self.nodes {
             node.for_each(visitor, state, env, context);
         }
     }
 
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut C,
+        context: &mut EffectContext<S>,
     ) -> bool {
         for node in &mut self.nodes {
             if node.search(id_path, visitor, state, env, context) {

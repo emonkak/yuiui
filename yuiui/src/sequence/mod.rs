@@ -6,10 +6,10 @@ mod vec;
 mod widget_node;
 
 use crate::effect::EffectContext;
-use crate::event::{EventMask, InternalEvent};
-use crate::id::{Id, IdContext, IdPath};
+use crate::event::EventMask;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
-use crate::widget_node::CommitMode;
+use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
 pub trait ElementSeq<S: State, E> {
     type Store: WidgetNodeSeq<S, E>;
@@ -24,34 +24,22 @@ pub trait WidgetNodeSeq<S: State, E> {
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 
-    fn event<Event: 'static>(&mut self, event: &Event, state: &S, env: &E, context: &mut EffectContext<S>) -> bool;
+    fn for_each<V: WidgetNodeVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    );
 
-    fn internal_event(&mut self, event: &InternalEvent, state: &S, env: &E, context: &mut EffectContext<S>) -> bool;
-}
-
-pub trait TraversableSeq<V, S: State, E, C> {
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C);
-
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut C,
+        context: &mut EffectContext<S>,
     ) -> bool;
-}
-
-pub trait TraverseContext {
-    fn id_path(&self) -> &IdPath;
-
-    fn begin_widget(&mut self, id: Id);
-
-    fn end_widget(&mut self) -> Id;
-}
-
-pub trait NodeVisitor<T, S: State, E, C> {
-    fn visit(&mut self, node: &mut T, state: &S, env: &E, context: &mut C);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

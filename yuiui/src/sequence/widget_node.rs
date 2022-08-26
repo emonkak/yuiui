@@ -4,15 +4,14 @@ use crate::component::Component;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::{Event, EventMask, InternalEvent};
+use crate::event::{Event, EventMask};
 use crate::id::{IdContext, IdPath};
-use crate::sequence::TraverseContext;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
-use crate::widget_node::{CommitMode, WidgetNode};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeVisitor};
 
-use super::{ElementSeq, NodeVisitor, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, WidgetNodeSeq};
 
 pub struct WidgetNodeStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     node: WidgetNode<V, CS, S, E>,
@@ -87,24 +86,25 @@ where
         }
     }
 
-    fn event<Event: 'static>(
+    fn for_each<Visitor: WidgetNodeVisitor>(
         &mut self,
-        event: &Event,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> bool {
-        self.node.event(event, state, env, context)
+    ) {
+        self.node.for_each(visitor, state, env, context);
     }
 
-    fn internal_event(
+    fn search<Visitor: WidgetNodeVisitor>(
         &mut self,
-        event: &InternalEvent,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) -> bool {
-        self.node.internal_event(event, state, env, context)
+        self.node.search(id_path, visitor, state, env, context)
     }
 }
 
@@ -121,30 +121,5 @@ where
             .field("node", &self.node)
             .field("dirty", &self.dirty)
             .finish()
-    }
-}
-
-impl<V, CS, Visitor, S, E, C> TraversableSeq<Visitor, S, E, C> for WidgetNodeStore<V, CS, S, E>
-where
-    V: View<S, E>,
-    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E, C>,
-    CS: ComponentStack<S, E>,
-    Visitor: NodeVisitor<WidgetNode<V, CS, S, E>, S, E, C>,
-    S: State,
-    C: TraverseContext,
-{
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut C) {
-        self.node.for_each(visitor, state, env, context);
-    }
-
-    fn search(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut C,
-    ) -> bool {
-        self.node.search(id_path, visitor, state, env, context)
     }
 }

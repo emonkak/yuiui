@@ -20,11 +20,11 @@ pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::Event;
 pub use id::{Id, IdPath, NodeId, NodePath};
-pub use sequence::{ElementSeq, NodeVisitor, TraversableSeq, WidgetNodeSeq};
+pub use sequence::{ElementSeq, WidgetNodeSeq};
 pub use state::{Data, State};
 pub use view::View;
 pub use widget::{Widget, WidgetEvent, WidgetLifeCycle};
-pub use widget_node::WidgetNode;
+pub use widget_node::{WidgetNode, WidgetNodeVisitor};
 pub use widget_tree::WidgetTree;
 
 use std::borrow::Cow;

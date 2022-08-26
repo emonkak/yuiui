@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::command::{Command, CommandId};
 use crate::event::EventResult;
 use crate::id::{ComponentIndex, Id, IdPath, NodePath};
-use crate::sequence::TraverseContext;
 use crate::state::State;
 
 pub enum Effect<S: State> {
@@ -90,6 +89,18 @@ impl<S: State> EffectContext<S> {
         }
     }
 
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
+    pub fn begin_widget(&mut self, id: Id) {
+        self.id_path.push(id);
+    }
+
+    pub fn end_widget(&mut self) -> Id {
+        self.id_path.pop()
+    }
+
     pub fn merge<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
     where
         S: 'static,
@@ -129,19 +140,5 @@ impl<S: State> EffectContext<S> {
 
     pub fn into_effects(self) -> Vec<(EffectPath, Effect<S>)> {
         self.pending_effects
-    }
-}
-
-impl<S: State> TraverseContext for EffectContext<S> {
-    fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
-
-    fn begin_widget(&mut self, id: Id) {
-        self.id_path.push(id);
-    }
-
-    fn end_widget(&mut self) -> Id {
-        self.id_path.pop()
     }
 }

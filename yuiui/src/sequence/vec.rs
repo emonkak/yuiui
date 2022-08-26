@@ -5,15 +5,14 @@ use std::fmt;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{Event, EventMask, InternalEvent};
+use crate::event::{Event, EventMask};
 use crate::id::{IdContext, IdPath};
-use crate::sequence::TraverseContext;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
-use crate::widget_node::{CommitMode, WidgetNode};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeVisitor};
 
-use super::{ElementSeq, NodeVisitor, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, WidgetNodeSeq};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,
@@ -151,61 +150,25 @@ where
         }
     }
 
-    fn event<Event: 'static>(
+    fn for_each<Visitor: WidgetNodeVisitor>(
         &mut self,
-        event: &Event,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> bool {
-        let mut result = false;
-        for node in &mut self.active {
-            result |= node.event(event, state, env, context);
-        }
-        result
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        if let Ok(index) = self
-            .active
-            .binary_search_by_key(&event.id_path().top_id(), |node| node.id)
-        {
-            let node = &mut self.active[index];
-            node.internal_event(event, state, env, context)
-        } else {
-            false
-        }
-    }
-}
-
-impl<V, CS, Visitor, S, E, C> TraversableSeq<Visitor, S, E, C> for VecStore<V, CS, S, E>
-where
-    V: View<S, E>,
-    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E, C>,
-    CS: ComponentStack<S, E>,
-    Visitor: NodeVisitor<WidgetNode<V, CS, S, E>, S, E, C>,
-    S: State,
-    C: TraverseContext,
-{
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut C) {
+    ) {
         for node in &mut self.active {
             node.for_each(visitor, state, env, context);
         }
     }
 
-    fn search(
+    fn search<Visitor: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut C,
+        context: &mut EffectContext<S>,
     ) -> bool {
         if let Ok(index) = self
             .active

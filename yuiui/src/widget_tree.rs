@@ -54,6 +54,18 @@ where
         context.into_effects()
     }
 
+    pub fn commit_subtree(&mut self, id_path: &IdPath) -> Vec<(EffectPath, Effect<S>)> {
+        let mut context = EffectContext::new();
+        self.root.commit_subtree(
+            CommitMode::Update,
+            id_path,
+            &self.state,
+            &self.env,
+            &mut context,
+        );
+        context.into_effects()
+    }
+
     pub fn event<Event: 'static>(&mut self, event: &Event) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
         self.root.event(event, &self.state, &self.env, &mut context);
@@ -62,7 +74,8 @@ where
 
     pub fn internal_event(&mut self, event: &InternalEvent) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
-        self.root.internal_event(event, &self.state, &self.env, &mut context);
+        self.root
+            .internal_event(event, &self.state, &self.env, &mut context);
         context.into_effects()
     }
 }

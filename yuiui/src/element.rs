@@ -5,7 +5,7 @@ use crate::adapt::Adapt;
 use crate::component::Component;
 use crate::component_node::{ComponentNode, ComponentStack};
 use crate::id::IdContext;
-use crate::sequence::{ElementSeq, TraverseContext};
+use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
 use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};

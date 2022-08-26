@@ -6,13 +6,13 @@ use crate::component::{Component, ComponentLifecycle};
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{EventMask, EventResult, InternalEvent};
+use crate::event::{EventMask, EventResult};
 use crate::id::{IdContext, IdPath};
-use crate::sequence::{ElementSeq, TraversableSeq, WidgetNodeSeq};
+use crate::sequence::{ElementSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
-use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetNodeVisitor, WidgetState};
 
 pub struct Adapt<T, F, SS> {
     target: T,
@@ -138,57 +138,13 @@ where
         context.merge(sub_context, &self.selector_fn);
     }
 
-    fn event<Event: 'static>(&mut self, event: &Event, state: &S, env: &E, context: &mut EffectContext<S>) -> bool {
-        let sub_state = (self.selector_fn)(state);
-        let mut sub_context = context.new_sub_context();
-        let result = self.target.event(event, sub_state, env, &mut sub_context);
-        context.merge(sub_context, &self.selector_fn);
-        result
-    }
-
-    fn internal_event(&mut self, event: &InternalEvent, state: &S, env: &E, context: &mut EffectContext<S>) -> bool {
-        let sub_state = (self.selector_fn)(state);
-        let mut sub_context = context.new_sub_context();
-        let result = self.target.internal_event(event, sub_state, env, &mut sub_context);
-        context.merge(sub_context, &self.selector_fn);
-        result
-    }
-}
-
-impl<T, F, SS, V, S, E> TraversableSeq<V, S, E, IdContext> for Adapt<T, F, SS>
-where
-    T: TraversableSeq<V, SS, E, IdContext>,
-    F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
-    SS: State + 'static,
-{
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut IdContext) {
-        let sub_state = (self.selector_fn)(state);
-        self.target.for_each(visitor, sub_state, env, context);
-    }
-
-    fn search(
+    fn for_each<V: WidgetNodeVisitor>(
         &mut self,
-        id_path: &IdPath,
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut IdContext,
-    ) -> bool {
-        let sub_state = (self.selector_fn)(state);
-        self.target
-            .search(id_path, visitor, sub_state, env, context)
-    }
-}
-
-impl<T, F, SS, V, S, E> TraversableSeq<V, S, E, EffectContext<S>> for Adapt<T, F, SS>
-where
-    T: TraversableSeq<V, SS, E, EffectContext<SS>>,
-    F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
-    SS: State + 'static,
-{
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+        context: &mut EffectContext<S>,
+    ) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
@@ -196,7 +152,7 @@ where
         context.merge(sub_context, &self.selector_fn);
     }
 
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,

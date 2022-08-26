@@ -1,12 +1,12 @@
 use std::mem;
 
 use crate::effect::EffectContext;
-use crate::event::{EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
-use crate::widget_node::CommitMode;
+use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, RenderStatus, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
@@ -94,53 +94,25 @@ where
         }
     }
 
-    fn event<Event: 'static>(
+    fn for_each<V: WidgetNodeVisitor>(
         &mut self,
-        event: &Event,
+        visitor: &mut V,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> bool {
-        if let Some(node) = &mut self.active {
-            node.event(event, state, env, context)
-        } else {
-            false
-        }
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        if let Some(node) = &mut self.active {
-            node.internal_event(event, state, env, context)
-        } else {
-            false
-        }
-    }
-}
-
-impl<T, V, S, E, C> TraversableSeq<V, S, E, C> for OptionStore<T>
-where
-    T: TraversableSeq<V, S, E, C>,
-    S: State,
-{
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
+    ) {
         if let Some(node) = &mut self.active {
             node.for_each(visitor, state, env, context);
         }
     }
 
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut C,
+        context: &mut EffectContext<S>,
     ) -> bool {
         if let Some(node) = &mut self.active {
             node.search(id_path, visitor, state, env, context)

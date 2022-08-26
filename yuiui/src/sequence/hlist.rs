@@ -1,12 +1,12 @@
 use hlist::{HCons, HList, HNil};
 
 use crate::effect::EffectContext;
-use crate::event::{EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
-use crate::widget_node::CommitMode;
+use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, WidgetNodeSeq};
 
 impl<S, E> ElementSeq<S, E> for HNil
 where
@@ -40,40 +40,22 @@ where
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
 
-    fn event<Event: 'static>(
+    fn for_each<V: WidgetNodeVisitor>(
         &mut self,
-        _event: &Event,
+        _visitor: &mut V,
         _state: &S,
         _env: &E,
         _context: &mut EffectContext<S>,
-    ) -> bool {
-        false
+    ) {
     }
 
-    fn internal_event(
-        &mut self,
-        _event: &InternalEvent,
-        _state: &S,
-        _env: &E,
-        _context: &mut EffectContext<S>,
-    ) -> bool {
-        false
-    }
-}
-
-impl<'a, V, S, E, C> TraversableSeq<V, S, E, C> for &'a HNil
-where
-    S: State,
-{
-    fn for_each(&mut self, _visitor: &mut V, _state: &S, _env: &E, _context: &mut C) {}
-
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         _id_path: &IdPath,
         _visitor: &mut V,
         _state: &S,
         _env: &E,
-        _context: &mut C,
+        _context: &mut EffectContext<S>,
     ) -> bool {
         false
     }
@@ -118,50 +100,24 @@ where
         self.tail.commit(mode, state, env, context);
     }
 
-    fn event<Event: 'static>(
+    fn for_each<V: WidgetNodeVisitor>(
         &mut self,
-        event: &Event,
+        visitor: &mut V,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) -> bool {
-        let mut result = false;
-        result |= self.head.event(event, state, env, context);
-        result |= self.tail.event(event, state, env, context);
-        result
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        self.head.internal_event(event, state, env, context)
-            || self.tail.internal_event(event, state, env, context)
-    }
-}
-
-impl<H, T, V, S, E, C> TraversableSeq<V, S, E, C> for HCons<H, T>
-where
-    H: TraversableSeq<V, S, E, C>,
-    T: TraversableSeq<V, S, E, C> + HList,
-    T: HList,
-    S: State,
-{
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
+    ) {
         self.head.for_each(visitor, state, env, context);
         self.tail.for_each(visitor, state, env, context);
     }
 
-    fn search(
+    fn search<V: WidgetNodeVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut C,
+        context: &mut EffectContext<S>,
     ) -> bool {
         self.head.search(id_path, visitor, state, env, context)
             || self.tail.search(id_path, visitor, state, env, context)
