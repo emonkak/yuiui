@@ -54,6 +54,8 @@ where
 }
 
 pub trait ComponentStack<S: State, E> {
+    const LEN: usize;
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 }
 
@@ -63,6 +65,8 @@ where
     CS: ComponentStack<S, E>,
     S: State,
 {
+    const LEN: usize = 1 + CS::LEN;
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         self.0.commit(mode, state, env, context);
         self.1.commit(mode, state, env, context);
@@ -70,6 +74,8 @@ where
 }
 
 impl<S: State, E> ComponentStack<S, E> for () {
+    const LEN: usize = 0;
+
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
 }

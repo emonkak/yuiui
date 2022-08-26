@@ -1,3 +1,7 @@
+pub type NodeId = (Id, ComponentIndex);
+
+pub type ComponentIndex = usize;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(usize);
 
@@ -11,7 +15,7 @@ pub struct IdPath {
 }
 
 impl IdPath {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { path: Vec::new() }
     }
 
@@ -36,18 +40,16 @@ impl IdPath {
     }
 }
 
-pub type ComponentIndex = usize;
-
-pub type NodeId = (Id, Option<ComponentIndex>);
-
 #[derive(Debug, Clone)]
 pub struct NodePath {
     id_path: IdPath,
-    component_index: Option<ComponentIndex>,
+    component_index: ComponentIndex,
 }
 
 impl NodePath {
-    pub fn new(id_path: IdPath, component_index: Option<ComponentIndex>) -> Self {
+    pub const ROOT: Self = NodePath::new(IdPath::new(), 0);
+
+    pub const fn new(id_path: IdPath, component_index: ComponentIndex) -> Self {
         Self {
             id_path,
             component_index,
@@ -58,7 +60,7 @@ impl NodePath {
         &self.id_path
     }
 
-    pub fn component_index(&self) -> Option<ComponentIndex> {
+    pub fn component_index(&self) -> ComponentIndex {
         self.component_index
     }
 
