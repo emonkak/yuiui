@@ -1,7 +1,7 @@
 use hlist::{HCons, HList, HNil};
 
 use crate::effect::EffectContext;
-use crate::event::EventMask;
+use crate::event::{EventMask, InternalEvent};
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::widget_node::CommitMode;
@@ -38,6 +38,26 @@ where
     }
 
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
+    }
+
+    fn event<Event: 'static>(
+        &mut self,
+        _event: &Event,
+        _state: &S,
+        _env: &E,
+        _context: &mut EffectContext<S>,
+    ) -> bool {
+        false
+    }
+
+    fn internal_event(
+        &mut self,
+        _event: &InternalEvent,
+        _state: &S,
+        _env: &E,
+        _context: &mut EffectContext<S>,
+    ) -> bool {
+        false
     }
 }
 
@@ -96,6 +116,30 @@ where
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         self.head.commit(mode, state, env, context);
         self.tail.commit(mode, state, env, context);
+    }
+
+    fn event<Event: 'static>(
+        &mut self,
+        event: &Event,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let mut result = false;
+        result |= self.head.event(event, state, env, context);
+        result |= self.tail.event(event, state, env, context);
+        result
+    }
+
+    fn internal_event(
+        &mut self,
+        event: &InternalEvent,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        self.head.internal_event(event, state, env, context)
+            || self.tail.internal_event(event, state, env, context)
     }
 }
 

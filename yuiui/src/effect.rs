@@ -63,9 +63,9 @@ impl EffectPath {
 
 pub struct EffectContext<S: State> {
     id_path: IdPath,
-    component_index: ComponentIndex,
+    component_index: Option<ComponentIndex>,
     state_id_path: IdPath,
-    state_component_index: ComponentIndex,
+    state_component_index: Option<ComponentIndex>,
     pending_effects: Vec<(EffectPath, Effect<S>)>,
 }
 
@@ -73,9 +73,9 @@ impl<S: State> EffectContext<S> {
     pub fn new() -> Self {
         Self {
             id_path: IdPath::new(),
-            component_index: 0,
+            component_index: None,
             state_id_path: IdPath::new(),
-            state_component_index: 0,
+            state_component_index: None,
             pending_effects: Vec::new(),
         }
     }
@@ -105,13 +105,17 @@ impl<S: State> EffectContext<S> {
         self.pending_effects.extend(pending_effects);
     }
 
-    pub fn begin_components(&mut self) {}
-
-    pub fn next_component(&mut self) {
-        self.component_index += 1;
+    pub fn begin_components(&mut self) {
+        self.component_index = Some(0);
     }
 
-    pub fn end_components(&mut self) {}
+    pub fn next_component(&mut self) {
+        *self.component_index.as_mut().unwrap() += 1;
+    }
+
+    pub fn end_components(&mut self) {
+        self.component_index = None;
+    }
 
     pub fn process_result(&mut self, result: EventResult<S>) {
         for effect in result.into_effects() {

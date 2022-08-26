@@ -4,7 +4,7 @@ use crate::component::Component;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
-use crate::event::{Event, EventMask};
+use crate::event::{Event, EventMask, InternalEvent};
 use crate::id::{IdContext, IdPath};
 use crate::sequence::TraverseContext;
 use crate::state::State;
@@ -85,6 +85,26 @@ where
             self.dirty = false;
             self.node.commit(mode, state, env, context);
         }
+    }
+
+    fn event<Event: 'static>(
+        &mut self,
+        event: &Event,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        self.node.event(event, state, env, context)
+    }
+
+    fn internal_event(
+        &mut self,
+        event: &InternalEvent,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        self.node.internal_event(event, state, env, context)
     }
 }
 

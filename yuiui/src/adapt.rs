@@ -6,7 +6,7 @@ use crate::component::{Component, ComponentLifecycle};
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{EventMask, EventResult};
+use crate::event::{EventMask, EventResult, InternalEvent};
 use crate::id::{IdContext, IdPath};
 use crate::sequence::{ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
@@ -136,6 +136,22 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
         context.merge(sub_context, &self.selector_fn);
+    }
+
+    fn event<Event: 'static>(&mut self, event: &Event, state: &S, env: &E, context: &mut EffectContext<S>) -> bool {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_context = context.new_sub_context();
+        let result = self.target.event(event, sub_state, env, &mut sub_context);
+        context.merge(sub_context, &self.selector_fn);
+        result
+    }
+
+    fn internal_event(&mut self, event: &InternalEvent, state: &S, env: &E, context: &mut EffectContext<S>) -> bool {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_context = context.new_sub_context();
+        let result = self.target.internal_event(event, sub_state, env, &mut sub_context);
+        context.merge(sub_context, &self.selector_fn);
+        result
     }
 }
 

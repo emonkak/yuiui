@@ -5,7 +5,7 @@ use std::fmt;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{Event, EventMask};
+use crate::event::{Event, EventMask, InternalEvent};
 use crate::id::{IdContext, IdPath};
 use crate::sequence::TraverseContext;
 use crate::state::State;
@@ -148,6 +148,38 @@ where
                 }
             }
             self.dirty = false;
+        }
+    }
+
+    fn event<Event: 'static>(
+        &mut self,
+        event: &Event,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let mut result = false;
+        for node in &mut self.active {
+            result |= node.event(event, state, env, context);
+        }
+        result
+    }
+
+    fn internal_event(
+        &mut self,
+        event: &InternalEvent,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        if let Ok(index) = self
+            .active
+            .binary_search_by_key(&event.id_path().top_id(), |node| node.id)
+        {
+            let node = &mut self.active[index];
+            node.internal_event(event, state, env, context)
+        } else {
+            false
         }
     }
 }
