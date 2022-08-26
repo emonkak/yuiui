@@ -4,12 +4,15 @@ use std::mem;
 use crate::effect::{Effect, EffectContext, EffectPath};
 use crate::element::Element;
 use crate::event::InternalEvent;
-use crate::id::IdContext;
+use crate::id::{ComponentIndex, IdContext, IdPath};
 use crate::sequence::TraversableSeq;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::Widget;
-use crate::widget_node::{AnyEventVisitor, CommitMode, StaticEventVisitor, WidgetNode};
+use crate::widget_node::{
+    CommitMode, InternalEventVisitor, RerenderComponent, StaticEventVisitor, SubtreeUpdateVisitor,
+    WidgetNode, WidgetNodeScope,
+};
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
     root: WidgetNode<El::View, El::Components, S, E>,
@@ -36,13 +39,26 @@ where
         }
     }
 
-    pub fn update(&mut self, element: El) -> Vec<(EffectPath, Effect<S>)> {
-        let mut context = EffectContext::new();
-        if element.update(self.root.scope(), &self.state, &self.env, &mut self.context) {
-            self.root
-                .commit(CommitMode::Update, &self.state, &self.env, &mut context);
-        }
-        context.into_effects()
+    pub fn update(&mut self, element: El) -> bool {
+        element.update(self.root.scope(), &self.state, &self.env, &mut self.context)
+    }
+
+    pub fn update_subtree(&mut self, id_path: &IdPath, component_index: ComponentIndex) -> bool
+    where
+        for<'widget> WidgetNodeScope<'widget, El::View, El::Components, S, E>:
+            RerenderComponent<S, E>,
+        <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children:
+            TraversableSeq<SubtreeUpdateVisitor, S, E, IdContext>,
+    {
+        let mut visitor = SubtreeUpdateVisitor::new(component_index);
+        let _ = self.root.search(
+            id_path,
+            &mut visitor,
+            &self.state,
+            &self.env,
+            &mut self.context,
+        );
+        visitor.has_changed()
     }
 
     pub fn commit(&mut self) -> Vec<(EffectPath, Effect<S>)> {
@@ -60,7 +76,7 @@ where
     where
         Event: 'static,
         <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children:
-            for<'a> TraversableSeq<StaticEventVisitor<'a, Event>, S, E>,
+            for<'a> TraversableSeq<StaticEventVisitor<'a, Event>, S, E, EffectContext<S>>,
     {
         let mut visitor = StaticEventVisitor::new(event);
         let mut context = EffectContext::new();
@@ -73,9 +89,9 @@ where
     pub fn internal_event(&mut self, event: &InternalEvent) -> Vec<(EffectPath, Effect<S>)>
     where
         <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children:
-            for<'a> TraversableSeq<AnyEventVisitor<'a>, S, E>,
+            for<'a> TraversableSeq<InternalEventVisitor<'a>, S, E, EffectContext<S>>,
     {
-        let mut visitor = AnyEventVisitor::new(event.payload());
+        let mut visitor = InternalEventVisitor::new(event.payload());
         let mut context = EffectContext::new();
         let _ = self.root.search(
             event.id_path(),

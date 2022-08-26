@@ -1,3 +1,5 @@
+use crate::sequence::TraverseContext;
+
 pub type NodeId = (Id, ComponentIndex);
 
 pub type ComponentIndex = usize;
@@ -83,17 +85,23 @@ impl IdContext {
         }
     }
 
-    pub fn begin_widget(&mut self, id: Id) {
-        self.id_path.push(id);
-    }
-
-    pub fn end_widget(&mut self) -> Id {
-        self.id_path.pop()
-    }
-
     pub fn next_identity(&mut self) -> Id {
         let id = self.id_counter;
         self.id_counter += 1;
         Id(id)
+    }
+}
+
+impl TraverseContext for IdContext {
+    fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
+    fn begin_widget(&mut self, id: Id) {
+        self.id_path.push(id);
+    }
+
+    fn end_widget(&mut self) -> Id {
+        self.id_path.pop()
     }
 }

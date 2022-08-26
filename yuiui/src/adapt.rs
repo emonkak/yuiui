@@ -81,9 +81,7 @@ where
             WidgetState::Prepared(widget, view) => {
                 WidgetState::Prepared(widget.target, view.target)
             }
-            WidgetState::Changed(widget, view, old_view) => {
-                WidgetState::Changed(widget.target, view.target, old_view.target)
-            }
+            WidgetState::Dirty(widget, view) => WidgetState::Dirty(widget.target, view.target),
         });
         let sub_scope = WidgetNodeScope {
             id: scope.id,
@@ -141,9 +139,35 @@ where
     }
 }
 
-impl<T, F, SS, V, S, E> TraversableSeq<V, S, E> for Adapt<T, F, SS>
+impl<T, F, SS, V, S, E> TraversableSeq<V, S, E, IdContext> for Adapt<T, F, SS>
 where
-    T: TraversableSeq<V, SS, E>,
+    T: TraversableSeq<V, SS, E, IdContext>,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
+    S: State + 'static,
+    SS: State + 'static,
+{
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut IdContext) {
+        let sub_state = (self.selector_fn)(state);
+        self.target.for_each(visitor, sub_state, env, context);
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut IdContext,
+    ) -> bool {
+        let sub_state = (self.selector_fn)(state);
+        self.target
+            .search(id_path, visitor, sub_state, env, context)
+    }
+}
+
+impl<T, F, SS, V, S, E> TraversableSeq<V, S, E, EffectContext<S>> for Adapt<T, F, SS>
+where
+    T: TraversableSeq<V, SS, E, EffectContext<SS>>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
@@ -248,19 +272,13 @@ where
     fn rebuild(
         &self,
         children: &<Self::Widget as Widget<S, E>>::Children,
-        old_view: &Self,
         widget: &mut Self::Widget,
         state: &S,
         env: &E,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
-        self.target.rebuild(
-            &children.target,
-            &old_view.target,
-            &mut widget.target,
-            sub_state,
-            env,
-        )
+        self.target
+            .rebuild(&children.target, &mut widget.target, sub_state, env)
     }
 }
 
@@ -324,10 +342,8 @@ where
         WidgetState::Prepared(widget, view) => {
             WidgetState::Prepared(Adapt::new(widget, f.clone()), Adapt::new(view, f.clone()))
         }
-        WidgetState::Changed(widget, view, old_view) => WidgetState::Changed(
-            Adapt::new(widget, f.clone()),
-            Adapt::new(view, f.clone()),
-            Adapt::new(old_view, f.clone()),
-        ),
+        WidgetState::Dirty(widget, view) => {
+            WidgetState::Dirty(Adapt::new(widget, f.clone()), Adapt::new(view, f.clone()))
+        }
     }
 }

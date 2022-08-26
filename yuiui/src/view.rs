@@ -20,7 +20,6 @@ pub trait View<S: State, E>: Sized {
     fn rebuild(
         &self,
         children: &<Self::Widget as Widget<S, E>>::Children,
-        _old_view: &Self,
         widget: &mut Self::Widget,
         state: &S,
         env: &E,

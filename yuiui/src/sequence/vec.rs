@@ -7,6 +7,7 @@ use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{Event, EventMask};
 use crate::id::{IdContext, IdPath};
+use crate::sequence::TraverseContext;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
@@ -151,21 +152,16 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, E> TraversableSeq<Visitor, S, E> for VecStore<V, CS, S, E>
+impl<V, CS, Visitor, S, E, C> TraversableSeq<Visitor, S, E, C> for VecStore<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E>,
+    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E, C>,
     CS: ComponentStack<S, E>,
-    Visitor: NodeVisitor<WidgetNode<V, CS, S, E>, S, E>,
+    Visitor: NodeVisitor<WidgetNode<V, CS, S, E>, S, E, C>,
     S: State,
+    C: TraverseContext,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut C) {
         for node in &mut self.active {
             node.for_each(visitor, state, env, context);
         }
@@ -177,7 +173,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut C,
     ) -> bool {
         if let Ok(index) = self
             .active

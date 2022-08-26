@@ -95,12 +95,12 @@ where
     }
 }
 
-impl<T, V, S, E> TraversableSeq<V, S, E> for OptionStore<T>
+impl<T, V, S, E, C> TraversableSeq<V, S, E, C> for OptionStore<T>
 where
-    T: TraversableSeq<V, S, E>,
+    T: TraversableSeq<V, S, E, C>,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
         if let Some(node) = &mut self.active {
             node.for_each(visitor, state, env, context);
         }
@@ -112,7 +112,7 @@ where
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut C,
     ) -> bool {
         if let Some(node) = &mut self.active {
             node.search(id_path, visitor, state, env, context)

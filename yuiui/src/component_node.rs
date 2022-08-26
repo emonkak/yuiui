@@ -28,13 +28,7 @@ where
         }
     }
 
-    pub(crate) fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let lifecycle = match mode {
             CommitMode::Mount => ComponentLifecycle::Mounted,
             CommitMode::Update => {

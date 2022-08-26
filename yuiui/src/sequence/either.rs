@@ -127,13 +127,13 @@ where
     }
 }
 
-impl<'a, L, R, V, S, E> TraversableSeq<V, S, E> for EitherStore<L, R>
+impl<'a, L, R, V, S, E, C> TraversableSeq<V, S, E, C> for EitherStore<L, R>
 where
-    L: TraversableSeq<V, S, E>,
-    R: TraversableSeq<V, S, E>,
+    L: TraversableSeq<V, S, E, C>,
+    R: TraversableSeq<V, S, E, C>,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
         match &mut self.active {
             Either::Left(node) => node.for_each(visitor, state, env, context),
             Either::Right(node) => node.for_each(visitor, state, env, context),
@@ -146,7 +146,7 @@ where
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut C,
     ) -> bool {
         match &mut self.active {
             Either::Left(node) => node.search(id_path, visitor, state, env, context),

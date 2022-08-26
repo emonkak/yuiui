@@ -41,18 +41,11 @@ where
     }
 }
 
-impl<'a, V, S, E> TraversableSeq<V, S, E> for &'a HNil
+impl<'a, V, S, E, C> TraversableSeq<V, S, E, C> for &'a HNil
 where
     S: State,
 {
-    fn for_each(
-        &mut self,
-        _visitor: &mut V,
-        _state: &S,
-        _env: &E,
-        _context: &mut EffectContext<S>,
-    ) {
-    }
+    fn for_each(&mut self, _visitor: &mut V, _state: &S, _env: &E, _context: &mut C) {}
 
     fn search(
         &mut self,
@@ -60,7 +53,7 @@ where
         _visitor: &mut V,
         _state: &S,
         _env: &E,
-        _context: &mut EffectContext<S>,
+        _context: &mut C,
     ) -> bool {
         false
     }
@@ -106,14 +99,14 @@ where
     }
 }
 
-impl<H, T, V, S, E> TraversableSeq<V, S, E> for HCons<H, T>
+impl<H, T, V, S, E, C> TraversableSeq<V, S, E, C> for HCons<H, T>
 where
-    H: TraversableSeq<V, S, E>,
-    T: TraversableSeq<V, S, E> + HList,
+    H: TraversableSeq<V, S, E, C>,
+    T: TraversableSeq<V, S, E, C> + HList,
     T: HList,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
         self.head.for_each(visitor, state, env, context);
         self.tail.for_each(visitor, state, env, context);
     }
@@ -124,7 +117,7 @@ where
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut C,
     ) -> bool {
         self.head.search(id_path, visitor, state, env, context)
             || self.tail.search(id_path, visitor, state, env, context)

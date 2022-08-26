@@ -5,7 +5,7 @@ use crate::adapt::Adapt;
 use crate::component::Component;
 use crate::component_node::{ComponentNode, ComponentStack};
 use crate::id::IdContext;
-use crate::sequence::ElementSeq;
+use crate::sequence::{ElementSeq, TraverseContext};
 use crate::state::State;
 use crate::view::View;
 use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
@@ -85,10 +85,8 @@ where
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
             WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
-            WidgetState::Prepared(widget, view) => WidgetState::Changed(widget, self.view, view),
-            WidgetState::Changed(widget, _, old_view) => {
-                WidgetState::Changed(widget, self.view, old_view)
-            }
+            WidgetState::Prepared(widget, _) => WidgetState::Dirty(widget, self.view),
+            WidgetState::Dirty(widget, _) => WidgetState::Dirty(widget, self.view),
         }
         .into();
         self.children.update(scope.children, state, env, context);
@@ -168,14 +166,14 @@ where
         context: &mut IdContext,
     ) -> bool {
         let (head, tail) = scope.components;
-        let scope = WidgetNodeScope {
-            id: scope.id,
-            state: scope.state,
-            children: scope.children,
-            components: tail,
-        };
         if head.component.should_update(&self.component, state, env) {
             let element = self.component.render(state, env);
+            let scope = WidgetNodeScope {
+                id: scope.id,
+                state: scope.state,
+                children: scope.children,
+                components: tail,
+            };
             head.pending_component = Some(self.component);
             element.update(scope, state, env, context)
         } else {

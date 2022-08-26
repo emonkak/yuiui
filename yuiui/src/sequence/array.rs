@@ -62,12 +62,12 @@ where
     }
 }
 
-impl<T, V, S, E, const N: usize> TraversableSeq<V, S, E> for ArrayStore<T, N>
+impl<T, V, S, E, C, const N: usize> TraversableSeq<V, S, E, C> for ArrayStore<T, N>
 where
-    T: TraversableSeq<V, S, E>,
+    T: TraversableSeq<V, S, E, C>,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut C) {
         for node in &mut self.nodes {
             node.for_each(visitor, state, env, context);
         }
@@ -79,7 +79,7 @@ where
         visitor: &mut V,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut C,
     ) -> bool {
         for node in &mut self.nodes {
             if node.search(id_path, visitor, state, env, context) {
