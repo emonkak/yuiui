@@ -1,11 +1,11 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::fmt;
 
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::event::{CaptureState, Event, EventMask, InternalEvent};
-use crate::id::Id;
-use crate::sequence::{CommitMode, WidgetNodeSeq};
+use crate::id::{Id, IdPath};
+use crate::sequence::{NodeVisitor, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
@@ -157,6 +157,31 @@ where
         capture_state
     }
 
+    pub fn any_event(
+        &mut self,
+        event: &dyn Any,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
+        match self.state.as_mut().unwrap() {
+            WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
+                context.begin_widget(self.id);
+                let event = <V::Widget as WidgetEvent>::Event::from_any(event)
+                    .expect("cast internal event to widget event");
+                context.process_result(widget.event(
+                    event,
+                    &self.children,
+                    context.id_path(),
+                    state,
+                    env,
+                ));
+                context.end_widget();
+            }
+            WidgetState::Uninitialized(_) => {}
+        }
+    }
+
     pub fn internal_event(
         &mut self,
         event: &InternalEvent,
@@ -167,8 +192,8 @@ where
         match self.state.as_mut().unwrap() {
             WidgetState::Prepared(widget, _) | WidgetState::Changed(widget, _, _) => {
                 context.begin_widget(self.id);
-                let capture_state = if self.id == event.id_path.bottom_id() {
-                    let event = <V::Widget as WidgetEvent>::Event::from_any(event.payload.as_ref())
+                let capture_state = if self.id == event.id_path().bottom_id() {
+                    let event = <V::Widget as WidgetEvent>::Event::from_any(event.payload())
                         .expect("cast internal event to widget event");
                     context.process_result(widget.event(
                         event,
@@ -178,7 +203,7 @@ where
                         env,
                     ));
                     CaptureState::Captured
-                } else if event.id_path.starts_with(context.id_path()) {
+                } else if event.id_path().starts_with(context.id_path()) {
                     self.children.internal_event(event, state, env, context)
                 } else {
                     CaptureState::Ignored
@@ -188,6 +213,47 @@ where
             }
             WidgetState::Uninitialized(_) => CaptureState::Ignored,
         }
+    }
+
+    pub fn for_each<Visitor>(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) where
+        <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E>,
+        Visitor: NodeVisitor<Self, S, E>,
+    {
+        context.begin_widget(self.id);
+        self.children.for_each(visitor, state, env, context);
+        visitor.visit(self, state, env, context);
+        context.end_widget();
+    }
+
+    pub fn search<Visitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool
+    where
+        <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E>,
+        Visitor: NodeVisitor<Self, S, E>,
+    {
+        context.begin_widget(self.id);
+        let result = if self.id == id_path.bottom_id() {
+            visitor.visit(self, state, env, context);
+            true
+        } else if id_path.starts_with(context.id_path()) {
+            self.children.search(id_path, visitor, state, env, context)
+        } else {
+            false
+        };
+        context.end_widget();
+        result
     }
 }
 
@@ -222,4 +288,20 @@ pub enum WidgetState<V, W> {
     Uninitialized(V),
     Prepared(W, V),
     Changed(W, V, V),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CommitMode {
+    Mount,
+    Unmount,
+    Update,
+}
+
+impl CommitMode {
+    pub fn is_propagatable(&self) -> bool {
+        match self {
+            Self::Mount | Self::Unmount => true,
+            Self::Update => false,
+        }
+    }
 }

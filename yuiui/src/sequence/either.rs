@@ -1,13 +1,13 @@
 use either::Either;
 use std::mem;
-use std::ops::ControlFlow;
 
 use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
+use crate::widget_node::CommitMode;
 
-use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct EitherStore<L, R> {
@@ -153,28 +153,30 @@ where
     }
 }
 
-impl<'a, L, R, C> TraversableSeq<C> for &'a EitherStore<L, R>
+impl<'a, L, R, V, S, E> TraversableSeq<V, S, E> for EitherStore<L, R>
 where
-    &'a L: TraversableSeq<C>,
-    &'a R: TraversableSeq<C>,
+    L: TraversableSeq<V, S, E>,
+    R: TraversableSeq<V, S, E>,
+    S: State,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        match &self.active {
-            Either::Left(node) => node.for_each(callback),
-            Either::Right(node) => node.for_each(callback),
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+        match &mut self.active {
+            Either::Left(node) => node.for_each(visitor, state, env, context),
+            Either::Right(node) => node.for_each(visitor, state, env, context),
         }
     }
-}
 
-impl<'a, L, R, C> TraversableSeq<C> for &'a mut EitherStore<L, R>
-where
-    &'a mut L: TraversableSeq<C>,
-    &'a mut R: TraversableSeq<C>,
-{
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.for_each(callback),
-            Either::Right(node) => node.for_each(callback),
+            Either::Left(node) => node.search(id_path, visitor, state, env, context),
+            Either::Right(node) => node.search(id_path, visitor, state, env, context),
         }
     }
 }

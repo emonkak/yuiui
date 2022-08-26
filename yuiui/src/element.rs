@@ -30,7 +30,7 @@ pub trait Element<S: State, E> {
         context: &mut IdContext,
     ) -> bool;
 
-    fn adapt<F, OriginState>(self, f: F) -> Adapt<Self, F, OriginState, S>
+    fn adapt<F, OriginState>(self, f: F) -> Adapt<Self, F, S>
     where
         Self: Sized,
         F: Fn(&OriginState) -> &S + Sync + Send + 'static,

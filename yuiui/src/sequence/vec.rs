@@ -1,19 +1,18 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::fmt;
-use std::ops::ControlFlow;
 
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{CaptureState, Event, EventMask, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
-use crate::widget_node::WidgetNode;
+use crate::widget_node::{CommitMode, WidgetNode};
 
-use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, NodeVisitor, TraversableSeq, WidgetNodeSeq};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,
@@ -174,7 +173,7 @@ where
     ) -> CaptureState {
         if let Ok(index) = self
             .active
-            .binary_search_by_key(&event.id_path.top_id(), |node| node.id)
+            .binary_search_by_key(&event.id_path().top_id(), |node| node.id)
         {
             let node = &mut self.active[index];
             node.internal_event(event, state, env, context)
@@ -184,36 +183,43 @@ where
     }
 }
 
-impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a VecStore<V, CS, S, E>
+impl<V, CS, Visitor, S, E> TraversableSeq<Visitor, S, E> for VecStore<V, CS, S, E>
 where
     V: View<S, E>,
+    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E>,
     CS: ComponentStack<S, E>,
+    Visitor: NodeVisitor<WidgetNode<V, CS, S, E>, S, E>,
     S: State,
-    C: CallbackMut<&'a WidgetNode<V, CS, S, E>>,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        for node in &self.active {
-            if let ControlFlow::Break(_) = callback.call(node) {
-                return ControlFlow::Break(());
-            }
-        }
-        ControlFlow::Continue(())
-    }
-}
-
-impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a mut VecStore<V, CS, S, E>
-where
-    V: View<S, E>,
-    CS: ComponentStack<S, E>,
-    S: State,
-    C: CallbackMut<&'a mut WidgetNode<V, CS, S, E>>,
-{
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
         for node in &mut self.active {
-            if let ControlFlow::Break(_) = callback.call(node) {
-                return ControlFlow::Break(());
-            }
+            node.for_each(visitor, state, env, context);
         }
-        ControlFlow::Continue(())
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        if let Ok(index) = self
+            .active
+            .binary_search_by_key(&id_path.top_id(), |node| node.id)
+        {
+            let node = &mut self.active[index];
+            node.search(id_path, visitor, state, env, context);
+            true
+        } else {
+            false
+        }
     }
 }

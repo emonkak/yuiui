@@ -1,18 +1,17 @@
 use std::fmt;
-use std::ops::ControlFlow;
 
 use crate::component::Component;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
 use crate::event::{CaptureState, Event, EventMask, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
-use crate::widget_node::WidgetNode;
+use crate::widget_node::{CommitMode, WidgetNode};
 
-use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, NodeVisitor, TraversableSeq, WidgetNodeSeq};
 
 pub struct WidgetNodeStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     node: WidgetNode<V, CS, S, E>,
@@ -124,26 +123,32 @@ where
     }
 }
 
-impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a WidgetNodeStore<V, CS, S, E>
+impl<V, CS, Visitor, S, E> TraversableSeq<Visitor, S, E> for WidgetNodeStore<V, CS, S, E>
 where
     V: View<S, E>,
+    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, S, E>,
     CS: ComponentStack<S, E>,
+    Visitor: NodeVisitor<WidgetNode<V, CS, S, E>, S, E>,
     S: State,
-    C: CallbackMut<&'a WidgetNode<V, CS, S, E>>,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        callback.call(&self.node)
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
+        self.node.for_each(visitor, state, env, context);
     }
-}
 
-impl<'a, V, CS, S, E, C> TraversableSeq<C> for &'a mut WidgetNodeStore<V, CS, S, E>
-where
-    V: View<S, E>,
-    CS: ComponentStack<S, E>,
-    S: State,
-    C: CallbackMut<&'a mut WidgetNode<V, CS, S, E>>,
-{
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        callback.call(&mut self.node)
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        self.node.search(id_path, visitor, state, env, context)
     }
 }

@@ -3,8 +3,8 @@ use std::mem;
 
 use crate::component::{Component, ComponentLifecycle};
 use crate::effect::EffectContext;
-use crate::sequence::CommitMode;
 use crate::state::State;
+use crate::widget_node::CommitMode;
 
 #[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {

@@ -1,12 +1,12 @@
 use std::mem;
-use std::ops::ControlFlow;
 
 use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
+use crate::widget_node::CommitMode;
 
-use super::{CommitMode, ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, RenderStatus, TraversableSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
@@ -123,30 +123,29 @@ where
     }
 }
 
-impl<'a, T, C> TraversableSeq<C> for &'a OptionStore<T>
+impl<T, V, S, E> TraversableSeq<V, S, E> for OptionStore<T>
 where
-    &'a T: TraversableSeq<C>,
+    T: TraversableSeq<V, S, E>,
+    S: State,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        if let Some(node) = &self.active {
-            if let ControlFlow::Break(_) = node.for_each(callback) {
-                return ControlFlow::Break(());
-            }
-        }
-        ControlFlow::Continue(())
-    }
-}
-
-impl<'a, T, C> TraversableSeq<C> for &'a mut OptionStore<T>
-where
-    &'a mut T: TraversableSeq<C>,
-{
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
         if let Some(node) = &mut self.active {
-            if let ControlFlow::Break(_) = node.for_each(callback) {
-                return ControlFlow::Break(());
-            }
+            node.for_each(visitor, state, env, context);
         }
-        ControlFlow::Continue(())
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        if let Some(node) = &mut self.active {
+            node.search(id_path, visitor, state, env, context)
+        } else {
+            false
+        }
     }
 }

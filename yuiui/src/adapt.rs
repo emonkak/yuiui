@@ -1,6 +1,5 @@
 use std::fmt;
 use std::marker::PhantomData;
-use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle};
@@ -9,31 +8,29 @@ use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
 use crate::id::{IdContext, IdPath};
-use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
+use crate::sequence::{ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
-use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetState};
 
-pub struct Adapt<T, F, S, SS> {
+pub struct Adapt<T, F, SS> {
     target: T,
     selector_fn: Arc<F>,
-    state: PhantomData<S>,
     sub_state: PhantomData<SS>,
 }
 
-impl<T, F, S, SS> Adapt<T, F, S, SS> {
+impl<T, F, SS> Adapt<T, F, SS> {
     pub fn new(target: T, selector_fn: Arc<F>) -> Self {
         Self {
             target,
             selector_fn,
-            state: PhantomData,
             sub_state: PhantomData,
         }
     }
 }
 
-impl<T, F, S, SS> fmt::Debug for Adapt<T, F, S, SS>
+impl<T, F, SS> fmt::Debug for Adapt<T, F, SS>
 where
     T: fmt::Debug,
 {
@@ -42,16 +39,16 @@ where
     }
 }
 
-impl<T, F, S, SS, E> Element<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> Element<S, E> for Adapt<T, F, SS>
 where
     T: Element<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
-    type View = Adapt<T::View, F, S, SS>;
+    type View = Adapt<T::View, F, SS>;
 
-    type Components = Adapt<T::Components, F, S, SS>;
+    type Components = Adapt<T::Components, F, SS>;
 
     fn render(
         self,
@@ -101,14 +98,14 @@ where
     }
 }
 
-impl<T, F, S, SS, E> ElementSeq<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> ElementSeq<S, E> for Adapt<T, F, SS>
 where
     T: ElementSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
-    type Store = Adapt<T::Store, F, S, SS>;
+    type Store = Adapt<T::Store, F, SS>;
 
     fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
         let sub_state = (self.selector_fn)(state);
@@ -125,7 +122,7 @@ where
     }
 }
 
-impl<T, F, S, SS, E> WidgetNodeSeq<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> WidgetNodeSeq<S, E> for Adapt<T, F, SS>
 where
     T: WidgetNodeSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -174,23 +171,47 @@ where
     }
 }
 
-impl<T, F, S, SS, C> TraversableSeq<C> for &Adapt<T, F, S, SS>
+impl<T, F, SS, V, S, E> TraversableSeq<V, S, E> for Adapt<T, F, SS>
 where
-    for<'a> &'a T: TraversableSeq<C>,
+    T: TraversableSeq<V, SS, E>,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
+    S: State + 'static,
+    SS: State + 'static,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        self.target.for_each(callback)
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_context = context.new_sub_context();
+        self.target
+            .for_each(visitor, sub_state, env, &mut sub_context);
+        context.merge(sub_context, self.selector_fn.clone());
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let sub_state = (self.selector_fn)(state);
+        let mut sub_context = context.new_sub_context();
+        let found = self
+            .target
+            .search(id_path, visitor, sub_state, env, &mut sub_context);
+        context.merge(sub_context, self.selector_fn.clone());
+        found
     }
 }
 
-impl<T, F, S, SS, E> Component<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> Component<S, E> for Adapt<T, F, SS>
 where
     T: Component<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
-    type Element = Adapt<T::Element, F, S, SS>;
+    type Element = Adapt<T::Element, F, SS>;
 
     fn lifecycle(&self, lifecycle: ComponentLifecycle<Self>, state: &S, env: &E) -> EventResult<S> {
         let sub_lifecycle = lifecycle.map_component(|component| component.target);
@@ -213,7 +234,7 @@ where
     }
 }
 
-impl<T, F, S, SS, E> ComponentStack<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> ComponentStack<S, E> for Adapt<T, F, SS>
 where
     T: ComponentStack<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -230,16 +251,16 @@ where
     }
 }
 
-impl<T, F, S, SS, E> View<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> View<S, E> for Adapt<T, F, SS>
 where
     T: View<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
-    type Widget = Adapt<T::Widget, F, S, SS>;
+    type Widget = Adapt<T::Widget, F, SS>;
 
-    type Children = Adapt<T::Children, F, S, SS>;
+    type Children = Adapt<T::Children, F, SS>;
 
     fn build(
         &self,
@@ -273,14 +294,14 @@ where
     }
 }
 
-impl<T, F, S, SS, E> Widget<S, E> for Adapt<T, F, S, SS>
+impl<T, F, SS, S, E> Widget<S, E> for Adapt<T, F, SS>
 where
     T: Widget<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     S: State + 'static,
     SS: State + 'static,
 {
-    type Children = Adapt<T::Children, F, S, SS>;
+    type Children = Adapt<T::Children, F, SS>;
 
     fn lifecycle(
         &mut self,
@@ -311,17 +332,17 @@ where
     }
 }
 
-impl<'event, T, F, S, SS> WidgetEvent<'event> for Adapt<T, F, S, SS>
+impl<'event, T, F, SS> WidgetEvent<'event> for Adapt<T, F, SS>
 where
     T: WidgetEvent<'event>,
 {
     type Event = T::Event;
 }
 
-fn lift_widget_state<V, F, S, SS, E>(
+fn lift_widget_state<V, F, SS, S, E>(
     state: WidgetState<V, V::Widget>,
     f: &Arc<F>,
-) -> WidgetState<Adapt<V, F, S, SS>, Adapt<V::Widget, F, S, SS>>
+) -> WidgetState<Adapt<V, F, SS>, Adapt<V::Widget, F, SS>>
 where
     V: View<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,

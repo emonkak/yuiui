@@ -116,15 +116,13 @@ impl<S: State> EffectContext<S> {
         self.id_path.pop()
     }
 
-    pub fn begin_components(&mut self) {
-    }
+    pub fn begin_components(&mut self) {}
 
     pub fn next_component(&mut self) {
         self.component_index += 1;
     }
 
-    pub fn end_components(&mut self) {
-    }
+    pub fn end_components(&mut self) {}
 
     pub fn process_result(&mut self, result: EventResult<S>) {
         for effect in result.into_effects() {

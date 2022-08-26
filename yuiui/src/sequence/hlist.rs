@@ -1,12 +1,12 @@
 use hlist::{HCons, HList, HNil};
-use std::ops::ControlFlow;
 
 use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
+use crate::widget_node::CommitMode;
 
-use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, TraversableSeq, WidgetNodeSeq};
 
 impl<S, E> ElementSeq<S, E> for HNil
 where
@@ -61,15 +61,28 @@ where
     }
 }
 
-impl<'a, C> TraversableSeq<C> for &'a HNil {
-    fn for_each(self, _callback: &mut C) -> ControlFlow<()> {
-        ControlFlow::Continue(())
+impl<'a, V, S, E> TraversableSeq<V, S, E> for &'a HNil
+where
+    S: State,
+{
+    fn for_each(
+        &mut self,
+        _visitor: &mut V,
+        _state: &S,
+        _env: &E,
+        _context: &mut EffectContext<S>,
+    ) {
     }
-}
 
-impl<'a, C> TraversableSeq<C> for &'a mut HNil {
-    fn for_each(self, _callback: &mut C) -> ControlFlow<()> {
-        ControlFlow::Continue(())
+    fn search(
+        &mut self,
+        _id_path: &IdPath,
+        _visitor: &mut V,
+        _state: &S,
+        _env: &E,
+        _context: &mut EffectContext<S>,
+    ) -> bool {
+        false
     }
 }
 
@@ -139,32 +152,27 @@ where
     }
 }
 
-impl<'a, H, T, C> TraversableSeq<C> for &'a HCons<H, T>
+impl<H, T, V, S, E> TraversableSeq<V, S, E> for HCons<H, T>
 where
-    &'a H: TraversableSeq<C>,
-    &'a T: TraversableSeq<C> + HList,
+    H: TraversableSeq<V, S, E>,
+    T: TraversableSeq<V, S, E> + HList,
     T: HList,
+    S: State,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        if let ControlFlow::Break(_) = self.head.for_each(callback) {
-            ControlFlow::Break(())
-        } else {
-            self.tail.for_each(callback)
-        }
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
+        self.head.for_each(visitor, state, env, context);
+        self.tail.for_each(visitor, state, env, context);
     }
-}
 
-impl<'a, H, T, C> TraversableSeq<C> for &'a mut HCons<H, T>
-where
-    &'a mut H: TraversableSeq<C>,
-    &'a mut T: TraversableSeq<C> + HList,
-    T: HList,
-{
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        if let ControlFlow::Break(_) = self.head.for_each(callback) {
-            ControlFlow::Break(())
-        } else {
-            self.tail.for_each(callback)
-        }
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        self.head.search(id_path, visitor, state, env, context)
+            || self.tail.search(id_path, visitor, state, env, context)
     }
 }

@@ -1,11 +1,10 @@
-use std::ops::ControlFlow;
-
 use crate::effect::EffectContext;
 use crate::event::{CaptureState, EventMask, InternalEvent};
-use crate::id::IdContext;
+use crate::id::{IdContext, IdPath};
 use crate::state::State;
+use crate::widget_node::CommitMode;
 
-use super::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
+use super::{ElementSeq, TraversableSeq, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -92,30 +91,30 @@ where
     }
 }
 
-impl<'a, T, C, const N: usize> TraversableSeq<C> for &'a ArrayStore<T, N>
+impl<T, V, S, E, const N: usize> TraversableSeq<V, S, E> for ArrayStore<T, N>
 where
-    &'a T: TraversableSeq<C>,
+    T: TraversableSeq<V, S, E>,
+    S: State,
 {
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
-        for node in &self.nodes {
-            if let ControlFlow::Break(_) = node.for_each(callback) {
-                return ControlFlow::Break(());
-            }
-        }
-        ControlFlow::Continue(())
-    }
-}
-
-impl<'a, T, C, const N: usize> TraversableSeq<C> for &'a mut ArrayStore<T, N>
-where
-    &'a mut T: TraversableSeq<C>,
-{
-    fn for_each(self, callback: &mut C) -> ControlFlow<()> {
+    fn for_each(&mut self, visitor: &mut V, state: &S, env: &E, context: &mut EffectContext<S>) {
         for node in &mut self.nodes {
-            if let ControlFlow::Break(_) = node.for_each(callback) {
-                return ControlFlow::Break(());
+            node.for_each(visitor, state, env, context);
+        }
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        for node in &mut self.nodes {
+            if node.search(id_path, visitor, state, env, context) {
+                return true;
             }
         }
-        ControlFlow::Continue(())
+        false
     }
 }

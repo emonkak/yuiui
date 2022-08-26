@@ -39,8 +39,18 @@ impl<'event> Event<'event> for () {
 }
 
 pub struct InternalEvent {
-    pub id_path: IdPath,
-    pub payload: Box<dyn Any>,
+    id_path: IdPath,
+    payload: Box<dyn Any>,
+}
+
+impl InternalEvent {
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
+    pub fn payload(&self) -> &dyn Any {
+        self.payload.as_ref()
+    }
 }
 
 #[derive(Debug)]

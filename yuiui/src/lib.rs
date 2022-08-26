@@ -20,7 +20,7 @@ pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::Event;
 pub use id::{Id, IdPath, NodeId, NodePath};
-pub use sequence::{CallbackMut, ElementSeq, TraversableSeq, WidgetNodeSeq};
+pub use sequence::{ElementSeq, NodeVisitor, TraversableSeq, WidgetNodeSeq};
 pub use state::{Data, State};
 pub use view::View;
 pub use widget::{Widget, WidgetEvent, WidgetLifeCycle};
