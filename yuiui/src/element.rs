@@ -146,14 +146,14 @@ where
         env: &E,
         context: &mut IdContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
-        let head_component = ComponentNode::new(self.component);
-        let element = head_component.component.render(state, env);
+        let head_node = ComponentNode::new(self.component);
+        let element = head_node.component.render(state, env);
         let widget_node = element.render(state, env, context);
         WidgetNode {
             id: widget_node.id,
             state: widget_node.state,
             children: widget_node.children,
-            components: (head_component, widget_node.components),
+            components: (head_node, widget_node.components),
             event_mask: widget_node.event_mask,
         }
     }
@@ -165,16 +165,16 @@ where
         env: &E,
         context: &mut IdContext,
     ) -> bool {
-        let (head, tail) = scope.components;
-        if head.component.should_update(&self.component, state, env) {
+        let (head_node, tail_nodes) = scope.components;
+        if head_node.component.should_update(&self.component, state, env) {
             let element = self.component.render(state, env);
             let scope = WidgetNodeScope {
                 id: scope.id,
                 state: scope.state,
                 children: scope.children,
-                components: tail,
+                components: tail_nodes,
             };
-            head.pending_component = Some(self.component);
+            head_node.pending_component = Some(self.component);
             element.update(scope, state, env, context)
         } else {
             false

@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle};
-use crate::component_node::ComponentStack;
+use crate::component_node::{ComponentNodeVisitor, ComponentStack};
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{EventMask, EventResult};
-use crate::id::{IdContext, IdPath};
+use crate::id::{ComponentIndex, IdContext, IdPath};
 use crate::sequence::{ElementSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
@@ -214,6 +214,11 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
         context.merge(sub_context, &self.selector_fn);
+    }
+
+    fn index<V: ComponentNodeVisitor>(&mut self, target_index: ComponentIndex, current_index: ComponentIndex, visitor: &mut V, state: &S, env: &E) -> bool {
+        let sub_state = (self.selector_fn)(state);
+        self.target.index(target_index, current_index, visitor, sub_state, env)
     }
 }
 

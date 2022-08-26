@@ -3,6 +3,7 @@ use std::mem;
 
 use crate::component::{Component, ComponentLifecycle};
 use crate::effect::EffectContext;
+use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::widget_node::CommitMode;
 
@@ -51,6 +52,15 @@ pub trait ComponentStack<S: State, E> {
     const LEN: usize;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
+
+    fn index<V: ComponentNodeVisitor>(
+        &mut self,
+        target_index: ComponentIndex,
+        current_index: ComponentIndex,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+    ) -> bool;
 }
 
 impl<C, CS, S, E> ComponentStack<S, E> for (ComponentNode<C, S, E>, CS)
@@ -65,6 +75,22 @@ where
         self.0.commit(mode, state, env, context);
         self.1.commit(mode, state, env, context);
     }
+
+    fn index<V: ComponentNodeVisitor>(
+        &mut self,
+        target_index: ComponentIndex,
+        current_index: ComponentIndex,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+    ) -> bool {
+        if target_index == current_index {
+            visitor.visit(&mut self.0, &mut self.1, state, env);
+            true
+        } else {
+            self.1.index(target_index, current_index + 1, visitor, state, env)
+        }
+    }
 }
 
 impl<S: State, E> ComponentStack<S, E> for () {
@@ -72,4 +98,28 @@ impl<S: State, E> ComponentStack<S, E> for () {
 
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
+
+    fn index<V: ComponentNodeVisitor>(
+        &mut self,
+        _target_index: ComponentIndex,
+        _current_index: ComponentIndex,
+        _visitor: &mut V,
+        _state: &S,
+        _env: &E,
+    ) -> bool {
+        false
+    }
+}
+
+pub trait ComponentNodeVisitor {
+    fn visit<C, CS, S, E>(
+        &mut self,
+        head_node: &mut ComponentNode<C, S, E>,
+        tail_nodes: &mut CS,
+        state: &S,
+        env: &E,
+    ) where
+        C: Component<S, E>,
+        CS: ComponentStack<S, E>,
+        S: State;
 }
