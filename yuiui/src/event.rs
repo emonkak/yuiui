@@ -143,19 +143,3 @@ impl<S: State> From<Effect<S>> for EventResult<S> {
         }
     }
 }
-
-#[derive(Debug, PartialEq, Eq)]
-#[must_use]
-pub enum CaptureState {
-    Ignored,
-    Captured,
-}
-
-impl CaptureState {
-    pub fn merge(self, other: Self) -> Self {
-        match self {
-            Self::Ignored => other,
-            Self::Captured => Self::Captured,
-        }
-    }
-}

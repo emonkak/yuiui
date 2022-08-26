@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::widget_node::CommitMode;
@@ -91,34 +91,6 @@ where
                 node.commit(mode, state, env, context);
             }
             self.status = RenderStatus::Unchanged;
-        }
-    }
-
-    fn event<Event: 'static>(
-        &mut self,
-        event: &Event,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        if let Some(node) = &mut self.active {
-            node.event(event, state, env, context)
-        } else {
-            CaptureState::Ignored
-        }
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        if let Some(node) = &mut self.active {
-            node.internal_event(event, state, env, context)
-        } else {
-            CaptureState::Ignored
         }
     }
 }

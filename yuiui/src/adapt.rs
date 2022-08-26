@@ -6,7 +6,7 @@ use crate::component::{Component, ComponentLifecycle};
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
+use crate::event::{EventMask, EventResult};
 use crate::id::{IdContext, IdPath};
 use crate::sequence::{ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
@@ -137,37 +137,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge(sub_context, self.selector_fn.clone());
-    }
-
-    fn event<Event: 'static>(
-        &mut self,
-        event: &Event,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        let sub_state = (self.selector_fn)(state);
-        let mut sub_context = context.new_sub_context();
-        let capture_state = self.target.event(event, sub_state, env, &mut sub_context);
-        context.merge(sub_context, self.selector_fn.clone());
-        capture_state
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        let sub_state = (self.selector_fn)(state);
-        let mut sub_context = context.new_sub_context();
-        let capture_state = self
-            .target
-            .internal_event(event, sub_state, env, &mut sub_context);
-        context.merge(sub_context, self.selector_fn.clone());
-        capture_state
+        context.merge(sub_context, &self.selector_fn);
     }
 }
 
@@ -183,7 +153,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target
             .for_each(visitor, sub_state, env, &mut sub_context);
-        context.merge(sub_context, self.selector_fn.clone());
+        context.merge(sub_context, &self.selector_fn);
     }
 
     fn search(
@@ -199,7 +169,7 @@ where
         let found = self
             .target
             .search(id_path, visitor, sub_state, env, &mut sub_context);
-        context.merge(sub_context, self.selector_fn.clone());
+        context.merge(sub_context, &self.selector_fn);
         found
     }
 }
@@ -247,7 +217,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge(sub_context, self.selector_fn.clone());
+        context.merge(sub_context, &self.selector_fn);
     }
 }
 

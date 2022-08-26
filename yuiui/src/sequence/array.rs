@@ -1,5 +1,5 @@
 use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::widget_node::CommitMode;
@@ -59,35 +59,6 @@ where
             }
             self.dirty = false;
         }
-    }
-
-    fn event<Event: 'static>(
-        &mut self,
-        event: &Event,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        let mut capture_state = CaptureState::Ignored;
-        for node in &mut self.nodes {
-            capture_state = capture_state.merge(node.event(event, state, env, context));
-        }
-        capture_state
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        for node in &mut self.nodes {
-            if node.internal_event(event, state, env, context) == CaptureState::Captured {
-                return CaptureState::Captured;
-            }
-        }
-        CaptureState::Ignored
     }
 }
 

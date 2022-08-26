@@ -6,7 +6,7 @@ mod vec;
 mod widget_node;
 
 use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::widget_node::CommitMode;
@@ -23,22 +23,6 @@ pub trait WidgetNodeSeq<S: State, E> {
     fn event_mask() -> EventMask;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
-
-    fn event<Event: 'static>(
-        &mut self,
-        event: &Event,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState;
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState;
 }
 
 pub trait TraversableSeq<V, S: State, E> {

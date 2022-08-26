@@ -93,7 +93,7 @@ impl<S: State> EffectContext<S> {
         &self.id_path
     }
 
-    pub fn merge<F, SS>(&mut self, sub_context: EffectContext<SS>, f: Arc<F>)
+    pub fn merge<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
     where
         S: 'static,
         F: Fn(&S) -> &SS + Sync + Send + 'static,

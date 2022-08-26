@@ -2,7 +2,7 @@ use either::Either;
 use std::mem;
 
 use crate::effect::EffectContext;
-use crate::event::{CaptureState, EventMask, InternalEvent};
+use crate::event::EventMask;
 use crate::id::{IdContext, IdPath};
 use crate::state::State;
 use crate::widget_node::CommitMode;
@@ -123,32 +123,6 @@ where
                 Either::Right(node) => node.commit(mode, state, env, context),
             }
             self.status = RenderStatus::Unchanged;
-        }
-    }
-
-    fn event<Event: 'static>(
-        &mut self,
-        event: &Event,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        match &mut self.active {
-            Either::Left(node) => node.event(event, state, env, context),
-            Either::Right(node) => node.event(event, state, env, context),
-        }
-    }
-
-    fn internal_event(
-        &mut self,
-        event: &InternalEvent,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> CaptureState {
-        match &mut self.active {
-            Either::Left(node) => node.internal_event(event, state, env, context),
-            Either::Right(node) => node.internal_event(event, state, env, context),
         }
     }
 }
