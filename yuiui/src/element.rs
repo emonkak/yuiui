@@ -2,12 +2,13 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::adapt::Adapt;
-use crate::component::{Component, ComponentNode, ComponentStack};
+use crate::component::Component;
+use crate::component_node::{ComponentNode, ComponentStack};
 use crate::id::IdContext;
 use crate::sequence::ElementSeq;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
 
 pub trait Element<S: State, E> {
     type View: View<S, E>;

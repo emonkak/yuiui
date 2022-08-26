@@ -1,27 +1,31 @@
 mod adapt;
 mod command;
 mod component;
+mod component_node;
 mod effect;
 mod element;
 mod event;
 mod id;
 mod sequence;
-mod stage;
 mod state;
 mod view;
 mod widget;
+mod widget_node;
+mod widget_tree;
 
 pub use command::{Command, CommandHandler, CommandId, CommandRuntime};
-pub use component::{Component, ComponentStack, FunctionComponent};
+pub use component::{Component, FunctionComponent};
+pub use component_node::{ComponentNode, ComponentStack};
 pub use effect::Effect;
 pub use element::{ComponentElement, Element, ViewElement};
 pub use event::Event;
 pub use id::{Id, IdPath, NodeId, NodePath};
 pub use sequence::{CallbackMut, ElementSeq, TraversableSeq, WidgetNodeSeq};
-pub use stage::Stage;
 pub use state::{Data, State};
 pub use view::View;
-pub use widget::{Widget, WidgetEvent, WidgetLifeCycle, WidgetNode};
+pub use widget::{Widget, WidgetEvent, WidgetLifeCycle};
+pub use widget_node::WidgetNode;
+pub use widget_tree::WidgetTree;
 
 use std::borrow::Cow;
 use std::fmt;

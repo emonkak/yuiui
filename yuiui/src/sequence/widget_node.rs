@@ -1,14 +1,16 @@
 use std::fmt;
 use std::ops::ControlFlow;
 
-use crate::component::{Component, ComponentStack};
+use crate::component::Component;
+use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
 use crate::event::{CaptureState, Event, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetEvent, WidgetNode};
+use crate::widget::{Widget, WidgetEvent};
+use crate::widget_node::WidgetNode;
 
 use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 

@@ -3,14 +3,15 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::ops::ControlFlow;
 
-use crate::component::ComponentStack;
+use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{CaptureState, Event, EventMask, InternalEvent};
 use crate::id::IdContext;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetEvent, WidgetNode};
+use crate::widget::{Widget, WidgetEvent};
+use crate::widget_node::WidgetNode;
 
 use super::{CallbackMut, CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 

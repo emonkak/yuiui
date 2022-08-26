@@ -3,7 +3,8 @@ use std::marker::PhantomData;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
-use crate::component::{Component, ComponentLifecycle, ComponentStack};
+use crate::component::{Component, ComponentLifecycle};
+use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{CaptureState, EventMask, EventResult, InternalEvent};
@@ -11,9 +12,8 @@ use crate::id::{IdContext, IdPath};
 use crate::sequence::{CommitMode, ElementSeq, TraversableSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{
-    Widget, WidgetEvent, WidgetLifeCycle, WidgetNode, WidgetNodeScope, WidgetState,
-};
+use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
+use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
 
 pub struct Adapt<T, F, S, SS> {
     target: T,

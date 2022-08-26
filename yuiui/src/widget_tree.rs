@@ -8,9 +8,10 @@ use crate::id::IdContext;
 use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetNode};
+use crate::widget::Widget;
+use crate::widget_node::WidgetNode;
 
-pub struct Stage<El: Element<S, E>, S: State, E> {
+pub struct WidgetTree<El: Element<S, E>, S: State, E> {
     root: WidgetNode<El::View, El::Components, S, E>,
     state: S,
     env: E,
@@ -18,7 +19,7 @@ pub struct Stage<El: Element<S, E>, S: State, E> {
     is_mounted: bool,
 }
 
-impl<El: Element<S, E>, S: State, E> Stage<El, S, E>
+impl<El: Element<S, E>, S: State, E> WidgetTree<El, S, E>
 where
     El: Element<S, E>,
     S: State,
@@ -70,7 +71,7 @@ where
     }
 }
 
-impl<El, S, E> fmt::Debug for Stage<El, S, E>
+impl<El, S, E> fmt::Debug for WidgetTree<El, S, E>
 where
     El: Element<S, E>,
     El::View: View<S, E> + fmt::Debug,
@@ -80,7 +81,7 @@ where
     S: State + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Stage")
+        f.debug_struct("WidgetTree")
             .field("root", &self.root)
             .field("state", &self.state)
             .field("context", &self.context)

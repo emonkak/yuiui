@@ -58,7 +58,7 @@ fn main() {
     };
     let env = AppEnv {};
     let root = app(&state);
-    let mut stage = Stage::new(root, state, env);
-    stage.commit();
-    println!("{:#?}", stage);
+    let mut widget_tree = WidgetTree::new(root, state, env);
+    widget_tree.commit();
+    println!("{:#?}", widget_tree);
 }
