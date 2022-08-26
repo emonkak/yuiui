@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::command::{Command, CommandId};
 use crate::event::EventResult;
-use crate::id::{ComponentIndex, Id, IdPath};
+use crate::id::{ComponentIndex, Id, IdPath, NodePath};
 use crate::state::State;
 
 pub enum Effect<S: State> {
@@ -44,14 +44,28 @@ impl<S: State> Effect<S> {
     }
 }
 
-pub type PendingEffects<S> = Vec<(IdPath, Option<ComponentIndex>, Effect<S>)>;
+#[derive(Debug, Clone)]
+pub struct EffectPath {
+    source_path: NodePath,
+    state_path: NodePath,
+}
+
+impl EffectPath {
+    pub fn source_path(&self) -> &NodePath {
+        &self.source_path
+    }
+
+    pub fn state_path(&self) -> &NodePath {
+        &self.state_path
+    }
+}
 
 pub struct EffectContext<S: State> {
     id_path: IdPath,
     component_index: Option<ComponentIndex>,
     state_id_path: IdPath,
     state_component_index: Option<ComponentIndex>,
-    pending_effects: PendingEffects<S>,
+    pending_effects: Vec<(EffectPath, Effect<S>)>,
 }
 
 impl<S: State> EffectContext<S> {
@@ -87,13 +101,10 @@ impl<S: State> EffectContext<S> {
     {
         assert!(sub_context.id_path.starts_with(&self.id_path));
 
-        let pending_effects =
-            sub_context
-                .pending_effects
-                .into_iter()
-                .map(|(id_path, component_index, message)| {
-                    (id_path, component_index, message.lift(f.clone()))
-                });
+        let pending_effects = sub_context
+            .pending_effects
+            .into_iter()
+            .map(|(effect_path, effect)| (effect_path, effect.lift(f.clone())));
         self.pending_effects.extend(pending_effects);
     }
 
@@ -119,15 +130,15 @@ impl<S: State> EffectContext<S> {
 
     pub fn process_result(&mut self, result: EventResult<S>) {
         for effect in result.into_effects() {
-            self.pending_effects.push((
-                self.state_id_path.clone(),
-                self.state_component_index,
-                effect,
-            ));
+            let path = EffectPath {
+                source_path: NodePath::new(self.id_path.clone(), self.component_index),
+                state_path: NodePath::new(self.state_id_path.clone(), self.state_component_index),
+            };
+            self.pending_effects.push((path, effect));
         }
     }
 
-    pub fn into_effects(self) -> PendingEffects<S> {
+    pub fn into_effects(self) -> Vec<(EffectPath, Effect<S>)> {
         self.pending_effects
     }
 }

@@ -38,6 +38,35 @@ impl IdPath {
 
 pub type ComponentIndex = usize;
 
+pub type NodeId = (Id, Option<ComponentIndex>);
+
+#[derive(Debug, Clone)]
+pub struct NodePath {
+    id_path: IdPath,
+    component_index: Option<ComponentIndex>,
+}
+
+impl NodePath {
+    pub fn new(id_path: IdPath, component_index: Option<ComponentIndex>) -> Self {
+        Self {
+            id_path,
+            component_index,
+        }
+    }
+
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
+    pub fn component_index(&self) -> Option<ComponentIndex> {
+        self.component_index
+    }
+
+    pub fn as_node_id(&self) -> NodeId {
+        (self.id_path.bottom_id(), self.component_index)
+    }
+}
+
 #[derive(Debug)]
 pub struct IdContext {
     id_path: IdPath,

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::mem;
 
-use crate::effect::{EffectContext, PendingEffects};
+use crate::effect::{Effect, EffectContext, EffectPath};
 use crate::element::Element;
 use crate::event::InternalEvent;
 use crate::id::IdContext;
@@ -35,18 +35,16 @@ where
         }
     }
 
-    pub fn update(&mut self, element: El) -> PendingEffects<S> {
+    pub fn update(&mut self, element: El) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
         if element.update(self.root.scope(), &self.state, &self.env, &mut self.context) {
             self.root
                 .commit(CommitMode::Update, &self.state, &self.env, &mut context);
-            context.into_effects()
-        } else {
-            PendingEffects::default()
         }
+        context.into_effects()
     }
 
-    pub fn commit(&mut self) -> PendingEffects<S> {
+    pub fn commit(&mut self) -> Vec<(EffectPath, Effect<S>)> {
         let mode = if mem::replace(&mut self.is_mounted, true) {
             CommitMode::Update
         } else {
@@ -57,13 +55,13 @@ where
         context.into_effects()
     }
 
-    pub fn event<Event: 'static>(&mut self, event: &Event) -> PendingEffects<S> {
+    pub fn event<Event: 'static>(&mut self, event: &Event) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
         let _ = self.root.event(event, &self.state, &self.env, &mut context);
         context.into_effects()
     }
 
-    pub fn internal_event(&mut self, event: &InternalEvent) -> PendingEffects<S> {
+    pub fn internal_event(&mut self, event: &InternalEvent) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
         let _ = self
             .root

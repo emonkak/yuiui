@@ -4,8 +4,8 @@ use std::collections::{hash_map, HashMap};
 use std::future::Future;
 use std::mem;
 
-use crate::effect::Effect;
-use crate::id::{ComponentIndex, Id};
+use crate::effect::{Effect, EffectPath};
+use crate::id::NodeId;
 use crate::state::State;
 
 pub type CommandId = usize;
@@ -46,14 +46,14 @@ impl<S: State> Command<S> {
 pub trait CommandRuntime {
     type Token;
 
-    fn run<S: State>(&mut self, command: Command<S>) -> Self::Token;
+    fn run<S: State>(&mut self, path: EffectPath, command: Command<S>) -> Self::Token;
 
     fn abort(&mut self, token: Self::Token);
 }
 
 pub struct CommandHandler<R: CommandRuntime> {
     runtime: R,
-    running_commands: HashMap<(Id, Option<ComponentIndex>), TokenMap<R::Token>>,
+    running_commands: HashMap<NodeId, TokenMap<R::Token>>,
 }
 
 impl<R: CommandRuntime> CommandHandler<R> {
@@ -66,13 +66,13 @@ impl<R: CommandRuntime> CommandHandler<R> {
 
     pub fn run<S: State>(
         &mut self,
-        id: Id,
-        component_index: Option<ComponentIndex>,
+        path: EffectPath,
         command: Command<S>,
         command_id: Option<CommandId>,
     ) {
-        let token = self.runtime.run(command);
-        match self.running_commands.entry((id, component_index)) {
+        let node_id = path.source_path().as_node_id();
+        let token = self.runtime.run(path, command);
+        match self.running_commands.entry(node_id) {
             hash_map::Entry::Occupied(mut entry) => {
                 if let Some(token) = entry.get_mut().add(token, command_id) {
                     self.runtime.abort(token);
@@ -86,13 +86,8 @@ impl<R: CommandRuntime> CommandHandler<R> {
         }
     }
 
-    pub fn abort(
-        &mut self,
-        id: Id,
-        component_index: Option<ComponentIndex>,
-        command_id: CommandId,
-    ) -> bool {
-        if let Some(token_map) = self.running_commands.get_mut(&(id, component_index)) {
+    pub fn abort(&mut self, node_id: NodeId, command_id: CommandId) -> bool {
+        if let Some(token_map) = self.running_commands.get_mut(&node_id) {
             if let Some(token) = token_map.remove(command_id) {
                 self.runtime.abort(token);
                 return true;
@@ -101,8 +96,8 @@ impl<R: CommandRuntime> CommandHandler<R> {
         false
     }
 
-    pub fn abort_all(&mut self, id: Id, component_index: Option<ComponentIndex>) {
-        if let Some(token_map) = self.running_commands.remove(&(id, component_index)) {
+    pub fn abort_all(&mut self, node_id: NodeId) {
+        if let Some(token_map) = self.running_commands.remove(&node_id) {
             for token in token_map.tokens {
                 self.runtime.abort(token);
             }
