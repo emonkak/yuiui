@@ -117,7 +117,6 @@ impl<S: State> EventResult<S> {
 
     pub(crate) fn lift<F, PS>(self, f: &Arc<F>) -> EventResult<PS>
     where
-        S: 'static,
         F: Fn(&PS) -> &S + Sync + Send + 'static,
         PS: State,
     {

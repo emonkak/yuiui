@@ -15,7 +15,6 @@ pub enum Effect<S: State> {
 impl<S: State> Effect<S> {
     pub(crate) fn lift<F, PS>(self, f: &Arc<F>) -> Effect<PS>
     where
-        S: 'static,
         F: Fn(&PS) -> &S + Sync + Send + 'static,
         PS: State,
     {

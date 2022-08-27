@@ -43,8 +43,8 @@ impl<T, F, SS, S, E> Element<S, E> for Adapt<T, F, SS>
 where
     T: Element<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     type View = Adapt<T::View, F, SS>;
 
@@ -102,8 +102,8 @@ impl<T, F, SS, S, E> ElementSeq<S, E> for Adapt<T, F, SS>
 where
     T: ElementSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     type Store = Adapt<T::Store, F, SS>;
 
@@ -132,8 +132,8 @@ impl<T, F, SS, S, E> WidgetNodeSeq<S, E> for Adapt<T, F, SS>
 where
     T: WidgetNodeSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
@@ -151,8 +151,8 @@ impl<T, F, SS, Visitor, S, E> TraversableSeq<Visitor, RenderContext, S, E> for A
 where
     T: TraversableSeq<Visitor, RenderContext, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut RenderContext) {
         let sub_state = (self.selector_fn)(state);
@@ -177,8 +177,8 @@ impl<T, F, SS, Visitor, S, E> TraversableSeq<Visitor, EffectContext<S>, S, E> fo
 where
     T: TraversableSeq<Visitor, EffectContext<SS>, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     fn for_each(
         &mut self,
@@ -216,8 +216,8 @@ impl<T, F, SS, S, E> Component<S, E> for Adapt<T, F, SS>
 where
     T: Component<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     type Element = Adapt<T::Element, F, SS>;
 
@@ -246,8 +246,8 @@ impl<T, F, SS, S, E> ComponentStack<S, E> for Adapt<T, F, SS>
 where
     T: ComponentStack<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     type View = Adapt<T::View, F, SS>;
 
@@ -299,8 +299,8 @@ impl<T, F, SS, S, E> View<S, E> for Adapt<T, F, SS>
 where
     T: View<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     type Widget = Adapt<T::Widget, F, SS>;
 
@@ -336,8 +336,8 @@ impl<T, F, SS, S, E> Widget<S, E> for Adapt<T, F, SS>
 where
     T: Widget<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State + 'static,
-    S: State + 'static,
+    SS: State,
+    S: State,
 {
     type Children = Adapt<T::Children, F, SS>;
 

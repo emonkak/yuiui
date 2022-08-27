@@ -79,9 +79,8 @@ impl<S: State> EffectContext<S> {
 
     pub fn merge<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
     where
-        S: 'static,
         F: Fn(&S) -> &SS + Sync + Send + 'static,
-        SS: State + 'static,
+        SS: State,
     {
         assert!(sub_context.id_path.starts_with(&self.id_path));
 

@@ -33,7 +33,6 @@ impl<S: State> Command<S> {
 
     pub fn map<F, PS>(self, f: F) -> Command<PS>
     where
-        S: 'static,
         F: Fn(Effect<S>) -> Effect<PS> + Send + 'static,
         PS: State,
     {
