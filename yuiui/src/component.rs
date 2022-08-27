@@ -72,8 +72,8 @@ where
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("FunctionComponent")
-            .field("props", &self.props)
+        f.debug_tuple("FunctionComponent")
+            .field(&self.props)
             .finish()
     }
 }
