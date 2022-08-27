@@ -15,7 +15,7 @@ use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 use super::{TraversableSeq, TraversableSeqVisitor};
 
-pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
+pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,
     staging: VecDeque<WidgetNode<V, CS, S, E>>,
     new_len: usize,

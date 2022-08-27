@@ -39,15 +39,18 @@ where
         env: &E,
         context: &mut RenderContext,
     ) {
-        let scope = node.scope();
-        let component_index = self.component_index.take().unwrap_or(0);
-        if CS::force_update(scope, component_index, 0, state, env, context) {
+        if CS::LEN > 0 {
+            let scope = node.scope();
+            let component_index = self.component_index.take().unwrap_or(0);
+            self.result |= CS::force_update(scope, component_index, 0, state, env, context)
+        } else {
             self.result = true;
             node.state = match node.state.take().unwrap() {
                 WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
                 state @ _ => state,
             }
             .into();
+            node.dirty = true;
             node.children.for_each(self, state, env, context);
         }
     }

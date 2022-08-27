@@ -134,6 +134,6 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
         _env: &E,
         _context: &mut RenderContext,
     ) -> bool {
-        true
+        false
     }
 }

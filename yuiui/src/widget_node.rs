@@ -33,7 +33,7 @@ pub trait WidgetNodeSeq<S: State, E>:
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 }
 
-pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
+pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     pub(crate) id: Id,
     pub(crate) state: Option<WidgetState<V, V::Widget>>,
     pub(crate) children: <V::Widget as Widget<S, E>>::Children,
@@ -235,6 +235,7 @@ where
             .field("children", &self.children)
             .field("components", &self.components)
             .field("event_mask", &self.event_mask)
+            .field("dirty", &self.dirty)
             .finish()
     }
 }

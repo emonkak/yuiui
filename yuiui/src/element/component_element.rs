@@ -73,6 +73,8 @@ where
             .should_update(&self.component, state, env)
         {
             let element = self.component.render(state, env);
+            head_node.pending_component = Some(self.component);
+            *scope.dirty = true;
             let scope = WidgetNodeScope {
                 id: scope.id,
                 state: scope.state,
@@ -80,8 +82,6 @@ where
                 components: tail_nodes,
                 dirty: scope.dirty,
             };
-            *scope.dirty = true;
-            head_node.pending_component = Some(self.component);
             element.update(scope, state, env, context)
         } else {
             false
