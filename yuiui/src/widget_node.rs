@@ -78,10 +78,25 @@ where
         &self.event_mask
     }
 
+    pub fn update_subtree(
+        &mut self,
+        id_path: &IdPath,
+        component_index: Option<ComponentIndex>,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        let mut visitor = UpdateSubtreeVisitor::new(component_index);
+        RenderContextSeq::search(self, id_path, &mut visitor, state, env, context);
+        visitor.has_changed
+    }
+
     pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode);
+            context.begin_widget(self.id);
             visitor.visit(self, state, env, context);
+            context.end_widget();
             self.dirty = false;
         }
     }
@@ -96,17 +111,6 @@ where
     ) {
         let mut visitor = CommitVisitor::new(mode);
         EffectContextSeq::search(self, id_path, &mut visitor, state, env, context);
-    }
-
-    pub fn force_update(
-        &mut self,
-        component_index: ComponentIndex,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
-        let scope = self.scope();
-        CS::force_update(scope, component_index, 0, state, env, context);
     }
 
     pub fn event<Event: 'static>(
@@ -237,7 +241,7 @@ where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: ComponentStack<S, E> + fmt::Debug,
+    CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -282,6 +286,46 @@ impl CommitMode {
     }
 }
 
+struct UpdateSubtreeVisitor {
+    component_index: Option<ComponentIndex>,
+    has_changed: bool,
+}
+
+impl UpdateSubtreeVisitor {
+    fn new(component_index: Option<ComponentIndex>) -> Self {
+        Self {
+            component_index,
+            has_changed: false,
+        }
+    }
+}
+
+impl RenderContextVisitor for UpdateSubtreeVisitor {
+    fn visit<V, CS, S, E>(
+        &mut self,
+        node: &mut WidgetNode<V, CS, S, E>,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) where
+        V: View<S, E>,
+        CS: ComponentStack<S, E, View = V>,
+        S: State,
+    {
+        let scope = node.scope();
+        let component_index = self.component_index.take().unwrap_or(0);
+        if CS::force_update(scope, component_index, 0, state, env, context) {
+            self.has_changed = true;
+            node.state = match node.state.take().unwrap() {
+                WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
+                state @ _ => state,
+            }
+            .into();
+            RenderContextSeq::for_each(&mut node.children, self, state, env, context);
+        }
+    }
+}
+
 struct CommitVisitor {
     mode: CommitMode,
 }
@@ -301,10 +345,9 @@ impl EffectContextVisitor for CommitVisitor {
         context: &mut EffectContext<S>,
     ) where
         V: View<S, E>,
-        CS: ComponentStack<S, E>,
+        CS: ComponentStack<S, E, View = V>,
         S: State,
     {
-        context.begin_widget(node.id);
         context.begin_components();
         node.components.commit(self.mode, state, env, context);
         context.end_components();
@@ -363,7 +406,6 @@ impl EffectContextVisitor for CommitVisitor {
             }
         }
         .into();
-        context.end_widget();
     }
 }
 
@@ -390,7 +432,7 @@ impl<'a, Event: 'static> EffectContextVisitor for StaticEventVisitor<'a, Event> 
         context: &mut EffectContext<S>,
     ) where
         V: View<S, E>,
-        CS: ComponentStack<S, E>,
+        CS: ComponentStack<S, E, View = V>,
         S: State,
     {
         match node.state.as_mut().unwrap() {
@@ -428,7 +470,7 @@ impl<'a> EffectContextVisitor for InternalEventVisitor<'a> {
         context: &mut EffectContext<S>,
     ) where
         V: View<S, E>,
-        CS: ComponentStack<S, E>,
+        CS: ComponentStack<S, E, View = V>,
         S: State,
     {
         match node.state.as_mut().unwrap() {

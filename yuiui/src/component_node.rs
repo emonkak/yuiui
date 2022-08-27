@@ -7,7 +7,7 @@ use crate::element::Element;
 use crate::render::{ComponentIndex, RenderContext};
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{CommitMode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{CommitMode, WidgetNodeScope};
 
 #[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
@@ -62,7 +62,7 @@ pub trait ComponentStack<S: State, E>: Sized {
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    );
+    ) -> bool;
 }
 
 impl<C, CS, S, E> ComponentStack<S, E> for (ComponentNode<C, S, E>, CS)
@@ -86,7 +86,7 @@ where
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) {
+    ) -> bool {
         let (head, tail) = scope.components;
         let scope = WidgetNodeScope {
             id: scope.id,
@@ -97,9 +97,9 @@ where
         };
         if target_index == current_index {
             let element = head.component.render(state, env);
-            element.update(scope, state, env, context);
+            element.update(scope, state, env, context)
         } else {
-            CS::force_update(scope, target_index, current_index + 1, state, env, context);
+            CS::force_update(scope, target_index, current_index + 1, state, env, context)
         }
     }
 }
@@ -120,18 +120,13 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
     }
 
     fn force_update<'a>(
-        scope: WidgetNodeScope<'a, V, Self, S, E>,
+        _scope: WidgetNodeScope<'a, V, Self, S, E>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
         _state: &S,
         _env: &E,
         _context: &mut RenderContext,
-    ) {
-        // TODO: update children
-        *scope.state = match scope.state.take().unwrap() {
-            WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
-            state @ _ => state,
-        }
-        .into();
+    ) -> bool {
+        true
     }
 }

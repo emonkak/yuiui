@@ -174,6 +174,6 @@ pub trait EffectContextVisitor {
         context: &mut EffectContext<S>,
     ) where
         V: View<S, E>,
-        CS: ComponentStack<S, E>,
+        CS: ComponentStack<S, E, View = V>,
         S: State;
 }

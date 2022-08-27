@@ -39,8 +39,18 @@ where
         element.update(self.root.scope(), &self.state, &self.env, &mut self.context)
     }
 
-    pub fn update_subtree(&mut self, _id_path: &IdPath, _component_index: ComponentIndex) -> bool {
-        false
+    pub fn update_subtree(
+        &mut self,
+        id_path: &IdPath,
+        component_index: Option<ComponentIndex>,
+    ) -> bool {
+        self.root.update_subtree(
+            id_path,
+            component_index,
+            &self.state,
+            &self.env,
+            &mut self.context,
+        )
     }
 
     pub fn commit(&mut self) -> Vec<(EffectPath, Effect<S>)> {

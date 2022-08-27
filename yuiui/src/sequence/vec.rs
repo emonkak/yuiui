@@ -22,7 +22,7 @@ pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
 impl<V, CS, S, E> VecStore<V, CS, S, E>
 where
     V: View<S, E>,
-    CS: ComponentStack<S, E>,
+    CS: ComponentStack<S, E, View = V>,
     S: State,
 {
     fn new(active: Vec<WidgetNode<V, CS, S, E>>) -> Self {
@@ -40,7 +40,7 @@ where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
     <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: ComponentStack<S, E> + fmt::Debug,
+    CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -138,6 +138,6 @@ pub trait RenderContextVisitor {
         context: &mut RenderContext,
     ) where
         V: View<S, E>,
-        CS: ComponentStack<S, E>,
+        CS: ComponentStack<S, E, View = V>,
         S: State;
 }

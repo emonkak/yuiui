@@ -272,7 +272,7 @@ where
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) {
+    ) -> bool {
         let mut sub_widget_state = scope.state.take().map(|state| match state {
             WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
             WidgetState::Prepared(widget, view) => {
