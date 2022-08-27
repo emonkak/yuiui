@@ -1,21 +1,22 @@
-use std::any::TypeId;
+use std::any::Any;
 
 use crate::component_node::ComponentStack;
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, IdContext};
 use crate::event::Event;
+use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
 
 use super::{WidgetNode, WidgetState};
 
-pub struct EventVisitor<'a, Event> {
-    event: &'a Event,
+pub struct EventVisitor<'a> {
+    event: &'a dyn Any,
     result: bool,
 }
 
-impl<'a, Event: 'static> EventVisitor<'a, Event> {
-    pub fn new(event: &'a Event) -> Self {
+impl<'a> EventVisitor<'a> {
+    pub fn new(event: &'a dyn Any) -> Self {
         Self {
             event,
             result: false,
@@ -27,24 +28,26 @@ impl<'a, Event: 'static> EventVisitor<'a, Event> {
     }
 }
 
-impl<'a, Event: 'static> EffectContextVisitor for EventVisitor<'a, Event> {
-    fn visit<V, CS, S, E>(
+impl<'a, V, CS, S, E> TraversableSeqVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
+    for EventVisitor<'a>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn visit(
         &mut self,
         node: &mut WidgetNode<V, CS, S, E>,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
+    ) {
         match node.state.as_mut().unwrap() {
             WidgetState::Prepared(widget, _) | WidgetState::Dirty(widget, _) => {
-                if node.event_mask.contains(&TypeId::of::<Event>()) {
-                    EffectContextSeq::for_each(&mut node.children, self, state, env, context);
+                if node.event_mask.contains(&self.event.type_id()) {
+                    node.children.for_each(self, state, env, context);
                 }
-                if let Some(event) = <V::Widget as WidgetEvent>::Event::from_static(self.event) {
+                if let Some(event) = <V::Widget as WidgetEvent>::Event::from_any(self.event) {
                     let result = widget.event(event, &node.children, context.id_path(), state, env);
                     context.process_result(result);
                     self.result = true;

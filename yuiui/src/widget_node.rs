@@ -6,11 +6,10 @@ mod update_subtree_visitor;
 use std::fmt;
 
 use crate::component_node::ComponentStack;
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::event::{Event, EventMask, InternalEvent};
-use crate::render::{
-    ComponentIndex, Id, IdPath, RenderContext, RenderContextSeq, RenderContextVisitor,
-};
+use crate::id::{ComponentIndex, Id, IdPath};
+use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
@@ -20,7 +19,12 @@ use event_visitor::EventVisitor;
 use internal_event_visitor::InternalEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
 
-pub trait WidgetNodeSeq<S: State, E>: RenderContextSeq<S, E> + EffectContextSeq<S, E> {
+pub trait WidgetNodeSeq<S: State, E>:
+    TraversableSeq<CommitVisitor, EffectContext<S>, S, E>
+    + TraversableSeq<UpdateSubtreeVisitor, RenderContext, S, E>
+    + for<'a> TraversableSeq<EventVisitor<'a>, EffectContext<S>, S, E>
+    + for<'a> TraversableSeq<InternalEventVisitor<'a>, EffectContext<S>, S, E>
+{
     fn event_mask() -> EventMask;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
@@ -96,7 +100,7 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let mut visitor = UpdateSubtreeVisitor::new(component_index);
-        RenderContextSeq::search(self, id_path, &mut visitor, state, env, context);
+        self.search(id_path, &mut visitor, state, env, context);
         visitor.result()
     }
 
@@ -109,7 +113,7 @@ where
         context: &mut EffectContext<S>,
     ) {
         let mut visitor = CommitVisitor::new(mode);
-        EffectContextSeq::search(self, id_path, &mut visitor, state, env, context);
+        self.search(id_path, &mut visitor, state, env, context);
     }
 
     pub fn event<Event: 'static>(
@@ -134,7 +138,7 @@ where
         context: &mut EffectContext<S>,
     ) -> bool {
         let mut visitor = InternalEventVisitor::new(event.payload());
-        EffectContextSeq::search(self, event.id_path(), &mut visitor, state, env, context)
+        self.search(event.id_path(), &mut visitor, state, env, context)
     }
 }
 
@@ -161,78 +165,36 @@ where
     }
 }
 
-impl<V, CS, S, E> RenderContextSeq<S, E> for WidgetNode<V, CS, S, E>
+impl<V, CS, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E>
+    for WidgetNode<V, CS, S, E>
 where
     V: View<S, E>,
+    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
+    Visitor: TraversableSeqVisitor<Self, Context, S, E>,
+    Context: IdContext,
     S: State,
 {
-    fn for_each<Visitor: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
         context.begin_widget(self.id);
         visitor.visit(self, state, env, context);
         context.end_widget();
     }
 
-    fn search<Visitor: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut Context,
     ) -> bool {
         context.begin_widget(self.id);
         let result = if self.id == id_path.bottom_id() {
             visitor.visit(self, state, env, context);
             true
         } else if id_path.starts_with(context.id_path()) {
-            RenderContextSeq::search(&mut self.children, id_path, visitor, state, env, context)
-        } else {
-            false
-        };
-        context.end_widget();
-        result
-    }
-}
-
-impl<V, CS, S, E> EffectContextSeq<S, E> for WidgetNode<V, CS, S, E>
-where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
-    S: State,
-{
-    fn for_each<Visitor: EffectContextVisitor>(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        context.begin_widget(self.id);
-        visitor.visit(self, state, env, context);
-        context.end_widget();
-    }
-
-    fn search<Visitor: EffectContextVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        context.begin_widget(self.id);
-        let result = if self.id == id_path.bottom_id() {
-            visitor.visit(self, state, env, context);
-            true
-        } else if id_path.starts_with(context.id_path()) {
-            EffectContextSeq::search(&mut self.children, id_path, visitor, state, env, context)
+            self.children.search(id_path, visitor, state, env, context)
         } else {
             false
         };
@@ -249,7 +211,7 @@ where
     CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("WidgetNode")
             .field("id", &self.id)
             .field("state", &self.state)

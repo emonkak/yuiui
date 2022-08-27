@@ -1,5 +1,5 @@
 use crate::event::{Event, EventResult};
-use crate::render::IdPath;
+use crate::id::IdPath;
 use crate::state::State;
 use crate::widget_node::WidgetNodeSeq;
 

@@ -1,13 +1,13 @@
 use std::mem;
 
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
+use crate::id::IdPath;
 use crate::state::State;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
-use super::RenderStatus;
+use super::{RenderStatus, TraversableSeq};
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
@@ -102,63 +102,24 @@ where
     }
 }
 
-impl<T, S, E> RenderContextSeq<S, E> for OptionStore<T>
+impl<T, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for OptionStore<T>
 where
-    T: RenderContextSeq<S, E>,
+    T: TraversableSeq<Visitor, Context, S, E>,
     S: State,
 {
-    fn for_each<V: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
         if let Some(node) = &mut self.active {
             node.for_each(visitor, state, env, context);
         }
     }
 
-    fn search<V: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
-        if let Some(node) = &mut self.active {
-            node.search(id_path, visitor, state, env, context)
-        } else {
-            false
-        }
-    }
-}
-
-impl<T, S, E> EffectContextSeq<S, E> for OptionStore<T>
-where
-    T: EffectContextSeq<S, E>,
-    S: State,
-{
-    fn for_each<V: EffectContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        if let Some(node) = &mut self.active {
-            node.for_each(visitor, state, env, context);
-        }
-    }
-
-    fn search<V: EffectContextVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut Context,
     ) -> bool {
         if let Some(node) = &mut self.active {
             node.search(id_path, visitor, state, env, context)

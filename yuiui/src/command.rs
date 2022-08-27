@@ -4,8 +4,9 @@ use std::collections::{hash_map, HashMap};
 use std::future::Future;
 use std::mem;
 
-use crate::effect::{Effect, EffectPath};
-use crate::render::NodeId;
+use crate::context::EffectPath;
+use crate::effect::Effect;
+use crate::id::NodeId;
 use crate::state::State;
 
 pub type CommandId = usize;

@@ -3,14 +3,16 @@ use std::collections::VecDeque;
 use std::fmt;
 
 use crate::component_node::ComponentStack;
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask};
-use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
+use crate::id::IdPath;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
+
+use super::{TraversableSeq, TraversableSeqVisitor};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,
@@ -155,77 +157,35 @@ where
     }
 }
 
-impl<V, CS, S, E> RenderContextSeq<S, E> for VecStore<V, CS, S, E>
+impl<V, CS, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for VecStore<V, CS, S, E>
 where
     V: View<S, E>,
+    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
+    Visitor: TraversableSeqVisitor<WidgetNode<V, CS, S, E>, Context, S, E>,
+    Context: IdContext,
     S: State,
 {
-    fn for_each<Visitor: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
         for node in &mut self.active {
-            RenderContextSeq::for_each(node, visitor, state, env, context);
+            node.for_each(visitor, state, env, context);
         }
     }
 
-    fn search<Visitor: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
+        context: &mut Context,
     ) -> bool {
         if let Ok(index) = self
             .active
             .binary_search_by_key(&id_path.top_id(), |node| node.id)
         {
             let node = &mut self.active[index];
-            RenderContextSeq::search(node, id_path, visitor, state, env, context);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl<V, CS, S, E> EffectContextSeq<S, E> for VecStore<V, CS, S, E>
-where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
-    S: State,
-{
-    fn for_each<Visitor: EffectContextVisitor>(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        for node in &mut self.active {
-            EffectContextSeq::for_each(node, visitor, state, env, context);
-        }
-    }
-
-    fn search<Visitor: EffectContextVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        if let Ok(index) = self
-            .active
-            .binary_search_by_key(&id_path.top_id(), |node| node.id)
-        {
-            let node = &mut self.active[index];
-            EffectContextSeq::search(node, id_path, visitor, state, env, context);
+            node.search(id_path, visitor, state, env, context);
             true
         } else {
             false

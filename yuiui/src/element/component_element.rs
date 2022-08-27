@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::component_node::ComponentNode;
-use crate::render::RenderContext;
+use crate::context::RenderContext;
 use crate::state::State;
 use crate::widget_node::{WidgetNode, WidgetNodeScope};
 

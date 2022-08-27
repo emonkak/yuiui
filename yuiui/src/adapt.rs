@@ -4,12 +4,11 @@ use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle};
 use crate::component_node::ComponentStack;
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{EventMask, EventResult};
-use crate::render::{
-    ComponentIndex, IdPath, RenderContext, RenderContextSeq, RenderContextVisitor,
-};
+use crate::id::{ComponentIndex, IdPath};
+use crate::sequence::TraversableSeq;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
@@ -44,8 +43,8 @@ impl<T, F, SS, S, E> Element<S, E> for Adapt<T, F, SS>
 where
     T: Element<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     type View = Adapt<T::View, F, SS>;
 
@@ -103,8 +102,8 @@ impl<T, F, SS, S, E> ElementSeq<S, E> for Adapt<T, F, SS>
 where
     T: ElementSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     type Store = Adapt<T::Store, F, SS>;
 
@@ -133,8 +132,8 @@ impl<T, F, SS, S, E> WidgetNodeSeq<S, E> for Adapt<T, F, SS>
 where
     T: WidgetNodeSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     fn event_mask() -> EventMask {
         T::event_mask()
@@ -148,28 +147,22 @@ where
     }
 }
 
-impl<T, F, SS, S, E> RenderContextSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, E> TraversableSeq<Visitor, RenderContext, S, E> for Adapt<T, F, SS>
 where
-    T: RenderContextSeq<SS, E>,
+    T: TraversableSeq<Visitor, RenderContext, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
-    fn for_each<V: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut RenderContext) {
         let sub_state = (self.selector_fn)(state);
         self.target.for_each(visitor, sub_state, env, context);
     }
 
-    fn search<V: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -180,16 +173,16 @@ where
     }
 }
 
-impl<T, F, SS, S, E> EffectContextSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, E> TraversableSeq<Visitor, EffectContext<S>, S, E> for Adapt<T, F, SS>
 where
-    T: EffectContextSeq<SS, E>,
+    T: TraversableSeq<Visitor, EffectContext<SS>, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
-    fn for_each<V: EffectContextVisitor>(
+    fn for_each(
         &mut self,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
@@ -201,10 +194,10 @@ where
         context.merge(sub_context, &self.selector_fn);
     }
 
-    fn search<V: EffectContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
@@ -223,8 +216,8 @@ impl<T, F, SS, S, E> Component<S, E> for Adapt<T, F, SS>
 where
     T: Component<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     type Element = Adapt<T::Element, F, SS>;
 
@@ -253,8 +246,8 @@ impl<T, F, SS, S, E> ComponentStack<S, E> for Adapt<T, F, SS>
 where
     T: ComponentStack<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     type View = Adapt<T::View, F, SS>;
 
@@ -306,8 +299,8 @@ impl<T, F, SS, S, E> View<S, E> for Adapt<T, F, SS>
 where
     T: View<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     type Widget = Adapt<T::Widget, F, SS>;
 
@@ -343,8 +336,8 @@ impl<T, F, SS, S, E> Widget<S, E> for Adapt<T, F, SS>
 where
     T: Widget<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State + 'static,
     SS: State + 'static,
+    S: State + 'static,
 {
     type Children = Adapt<T::Children, F, SS>;
 
@@ -391,8 +384,8 @@ fn lift_widget_state<V, F, SS, S, E>(
 where
     V: View<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    S: State,
     SS: State,
+    S: State,
 {
     match state {
         WidgetState::Uninitialized(view) => WidgetState::Uninitialized(Adapt::new(view, f.clone())),

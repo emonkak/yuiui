@@ -1,9 +1,11 @@
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
+use crate::id::IdPath;
 use crate::state::State;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
+
+use super::TraversableSeq;
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -67,64 +69,25 @@ where
     }
 }
 
-impl<T, S, E, const N: usize> RenderContextSeq<S, E> for ArrayStore<T, N>
+impl<T, Visitor, Context, S, E, const N: usize> TraversableSeq<Visitor, Context, S, E>
+    for ArrayStore<T, N>
 where
-    T: RenderContextSeq<S, E>,
+    T: TraversableSeq<Visitor, Context, S, E>,
     S: State,
 {
-    fn for_each<V: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
         for node in &mut self.nodes {
             node.for_each(visitor, state, env, context);
         }
     }
 
-    fn search<V: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
-        for node in &mut self.nodes {
-            if node.search(id_path, visitor, state, env, context) {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-impl<T, S, E, const N: usize> EffectContextSeq<S, E> for ArrayStore<T, N>
-where
-    T: EffectContextSeq<S, E>,
-    S: State,
-{
-    fn for_each<V: EffectContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        for node in &mut self.nodes {
-            node.for_each(visitor, state, env, context);
-        }
-    }
-
-    fn search<V: EffectContextVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut Context,
     ) -> bool {
         for node in &mut self.nodes {
             if node.search(id_path, visitor, state, env, context) {

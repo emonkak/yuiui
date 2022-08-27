@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_node::ComponentEnd;
-use crate::render::RenderContext;
+use crate::context::{IdContext, RenderContext};
 use crate::state::State;
 use crate::view::View;
 use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};

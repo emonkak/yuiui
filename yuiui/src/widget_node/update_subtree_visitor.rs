@@ -1,5 +1,7 @@
 use crate::component_node::ComponentStack;
-use crate::render::{ComponentIndex, RenderContext, RenderContextSeq, RenderContextVisitor};
+use crate::context::RenderContext;
+use crate::id::ComponentIndex;
+use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
 use crate::view::View;
 
@@ -10,7 +12,7 @@ pub struct UpdateSubtreeVisitor {
     result: bool,
 }
 
-impl UpdateSubtreeVisitor {
+impl<'a> UpdateSubtreeVisitor {
     pub fn new(component_index: Option<ComponentIndex>) -> Self {
         Self {
             component_index,
@@ -23,18 +25,20 @@ impl UpdateSubtreeVisitor {
     }
 }
 
-impl RenderContextVisitor for UpdateSubtreeVisitor {
-    fn visit<V, CS, S, E>(
+impl<V, CS, S, E> TraversableSeqVisitor<WidgetNode<V, CS, S, E>, RenderContext, S, E>
+    for UpdateSubtreeVisitor
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn visit(
         &mut self,
         node: &mut WidgetNode<V, CS, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
+    ) {
         let scope = node.scope();
         let component_index = self.component_index.take().unwrap_or(0);
         if CS::force_update(scope, component_index, 0, state, env, context) {
@@ -44,7 +48,7 @@ impl RenderContextVisitor for UpdateSubtreeVisitor {
                 state @ _ => state,
             }
             .into();
-            RenderContextSeq::for_each(&mut node.children, self, state, env, context);
+            node.children.for_each(self, state, env, context);
         }
     }
 }

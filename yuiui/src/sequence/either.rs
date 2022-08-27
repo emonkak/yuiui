@@ -1,14 +1,14 @@
 use either::Either;
 use std::mem;
 
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
+use crate::id::IdPath;
 use crate::state::State;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
-use super::RenderStatus;
+use super::{RenderStatus, TraversableSeq};
 
 #[derive(Debug)]
 pub struct EitherStore<L, R> {
@@ -134,66 +134,26 @@ where
     }
 }
 
-impl<L, R, S, E> RenderContextSeq<S, E> for EitherStore<L, R>
+impl<L, R, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for EitherStore<L, R>
 where
-    L: RenderContextSeq<S, E>,
-    R: RenderContextSeq<S, E>,
+    L: TraversableSeq<Visitor, Context, S, E>,
+    R: TraversableSeq<Visitor, Context, S, E>,
     S: State,
 {
-    fn for_each<V: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
         match &mut self.active {
             Either::Left(node) => node.for_each(visitor, state, env, context),
             Either::Right(node) => node.for_each(visitor, state, env, context),
         }
     }
 
-    fn search<V: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
-        match &mut self.active {
-            Either::Left(node) => node.search(id_path, visitor, state, env, context),
-            Either::Right(node) => node.search(id_path, visitor, state, env, context),
-        }
-    }
-}
-
-impl<L, R, S, E> EffectContextSeq<S, E> for EitherStore<L, R>
-where
-    L: EffectContextSeq<S, E>,
-    R: EffectContextSeq<S, E>,
-    S: State,
-{
-    fn for_each<V: EffectContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, state, env, context),
-            Either::Right(node) => node.for_each(visitor, state, env, context),
-        }
-    }
-
-    fn search<V: EffectContextVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut Context,
     ) -> bool {
         match &mut self.active {
             Either::Left(node) => node.search(id_path, visitor, state, env, context),

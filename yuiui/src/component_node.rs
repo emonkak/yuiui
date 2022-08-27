@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 use std::mem;
 
 use crate::component::{Component, ComponentLifecycle};
-use crate::effect::EffectContext;
+use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
-use crate::render::{ComponentIndex, RenderContext};
+use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view::View;
 use crate::widget_node::{CommitMode, WidgetNodeScope};

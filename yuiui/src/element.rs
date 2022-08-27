@@ -8,7 +8,7 @@ use std::fmt;
 
 use crate::adapt::Adapt;
 use crate::component_node::ComponentStack;
-use crate::render::RenderContext;
+use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::Widget;

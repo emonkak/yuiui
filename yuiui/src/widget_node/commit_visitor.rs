@@ -1,5 +1,6 @@
 use crate::component_node::ComponentStack;
-use crate::effect::{EffectContext, EffectContextVisitor};
+use crate::context::{EffectContext, IdContext};
+use crate::sequence::TraversableSeqVisitor;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetLifeCycle};
@@ -16,18 +17,20 @@ impl CommitVisitor {
     }
 }
 
-impl EffectContextVisitor for CommitVisitor {
-    fn visit<V, CS, S, E>(
+impl<V, CS, S, E> TraversableSeqVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
+    for CommitVisitor
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn visit(
         &mut self,
         node: &mut WidgetNode<V, CS, S, E>,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
+    ) {
         context.begin_components();
         node.components.commit(self.mode, state, env, context);
         context.end_components();

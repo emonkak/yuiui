@@ -1,11 +1,13 @@
 use hlist::{HCons, HList, HNil};
 
-use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
+use crate::id::IdPath;
 use crate::state::State;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
+
+use super::TraversableSeq;
 
 impl<S, E> ElementSeq<S, E> for HNil
 where
@@ -40,51 +42,19 @@ where
     }
 }
 
-impl<S, E> RenderContextSeq<S, E> for HNil
+impl<Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for HNil
 where
     S: State,
 {
-    fn for_each<V: RenderContextVisitor>(
-        &mut self,
-        _visitor: &mut V,
-        _state: &S,
-        _env: &E,
-        _context: &mut RenderContext,
-    ) {
-    }
+    fn for_each(&mut self, _visitor: &mut Visitor, _state: &S, _env: &E, _context: &mut Context) {}
 
-    fn search<V: RenderContextVisitor>(
+    fn search(
         &mut self,
         _id_path: &IdPath,
-        _visitor: &mut V,
+        _visitor: &mut Visitor,
         _state: &S,
         _env: &E,
-        _context: &mut RenderContext,
-    ) -> bool {
-        false
-    }
-}
-
-impl<S, E> EffectContextSeq<S, E> for HNil
-where
-    S: State,
-{
-    fn for_each<V: EffectContextVisitor>(
-        &mut self,
-        _visitor: &mut V,
-        _state: &S,
-        _env: &E,
-        _context: &mut EffectContext<S>,
-    ) {
-    }
-
-    fn search<V: EffectContextVisitor>(
-        &mut self,
-        _id_path: &IdPath,
-        _visitor: &mut V,
-        _state: &S,
-        _env: &E,
-        _context: &mut EffectContext<S>,
+        _context: &mut Context,
     ) -> bool {
         false
     }
@@ -136,60 +106,24 @@ where
     }
 }
 
-impl<H, T, S, E> RenderContextSeq<S, E> for HCons<H, T>
+impl<H, T, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for HCons<H, T>
 where
-    H: RenderContextSeq<S, E>,
-    T: RenderContextSeq<S, E> + HList,
+    H: TraversableSeq<Visitor, Context, S, E>,
+    T: TraversableSeq<Visitor, Context, S, E> + HList,
     S: State,
 {
-    fn for_each<V: RenderContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
         self.head.for_each(visitor, state, env, context);
         self.tail.for_each(visitor, state, env, context);
     }
 
-    fn search<V: RenderContextVisitor>(
+    fn search(
         &mut self,
         id_path: &IdPath,
-        visitor: &mut V,
+        visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
-        self.head.search(id_path, visitor, state, env, context)
-            || self.tail.search(id_path, visitor, state, env, context)
-    }
-}
-
-impl<H, T, S, E> EffectContextSeq<S, E> for HCons<H, T>
-where
-    H: EffectContextSeq<S, E>,
-    T: EffectContextSeq<S, E> + HList,
-    S: State,
-{
-    fn for_each<V: EffectContextVisitor>(
-        &mut self,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        self.head.for_each(visitor, state, env, context);
-        self.tail.for_each(visitor, state, env, context);
-    }
-
-    fn search<V: EffectContextVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut V,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut Context,
     ) -> bool {
         self.head.search(id_path, visitor, state, env, context)
             || self.tail.search(id_path, visitor, state, env, context)
