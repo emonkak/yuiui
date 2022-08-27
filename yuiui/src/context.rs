@@ -88,7 +88,7 @@ impl<S: State> EffectContext<S> {
         let pending_effects = sub_context
             .pending_effects
             .into_iter()
-            .map(|(effect_path, effect)| (effect_path, effect.lift(f.clone())));
+            .map(|(effect_path, effect)| (effect_path, effect.lift(f)));
         self.pending_effects.extend(pending_effects);
     }
 

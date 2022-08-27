@@ -226,7 +226,7 @@ where
         let sub_state = (self.selector_fn)(state);
         self.target
             .lifecycle(sub_lifecycle, sub_state, env)
-            .lift(self.selector_fn.clone())
+            .lift(&self.selector_fn)
     }
 
     fn render(&self, state: &S, env: &E) -> Self::Element {
@@ -352,7 +352,7 @@ where
         let sub_state = (self.selector_fn)(state);
         self.target
             .lifecycle(lifecycle, &children.target, id_path, sub_state, env)
-            .lift(self.selector_fn.clone())
+            .lift(&self.selector_fn)
     }
 
     fn event(
@@ -366,7 +366,7 @@ where
         let sub_state = (self.selector_fn)(state);
         self.target
             .event(event, &children.target, id_path, sub_state, env)
-            .lift(self.selector_fn.clone())
+            .lift(&self.selector_fn)
     }
 }
 

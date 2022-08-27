@@ -115,7 +115,7 @@ impl<S: State> EventResult<S> {
         self.effects
     }
 
-    pub(crate) fn lift<F, PS>(self, f: Arc<F>) -> EventResult<PS>
+    pub(crate) fn lift<F, PS>(self, f: &Arc<F>) -> EventResult<PS>
     where
         S: 'static,
         F: Fn(&PS) -> &S + Sync + Send + 'static,
@@ -124,7 +124,7 @@ impl<S: State> EventResult<S> {
         let effects = self
             .effects
             .into_iter()
-            .map(move |effect| effect.lift(f.clone()))
+            .map(|effect| effect.lift(f))
             .collect();
         EventResult { effects }
     }
