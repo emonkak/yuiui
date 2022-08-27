@@ -8,7 +8,7 @@ use crate::render::{ComponentIndex, IdPath, RenderContext};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::Widget;
-use crate::widget_node::{CommitMode, WidgetNode};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
     pub root: WidgetNode<El::View, El::Components, S, E>,

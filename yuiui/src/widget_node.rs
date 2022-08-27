@@ -100,16 +100,6 @@ where
         visitor.result()
     }
 
-    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        if self.dirty || mode.is_propagatable() {
-            let mut visitor = CommitVisitor::new(mode);
-            context.begin_widget(self.id);
-            visitor.visit(self, state, env, context);
-            context.end_widget();
-            self.dirty = false;
-        }
-    }
-
     pub fn commit_subtree(
         &mut self,
         mode: CommitMode,
@@ -161,7 +151,13 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        self.commit(mode, state, env, context);
+        if self.dirty || mode.is_propagatable() {
+            let mut visitor = CommitVisitor::new(mode);
+            context.begin_widget(self.id);
+            visitor.visit(self, state, env, context);
+            context.end_widget();
+            self.dirty = false;
+        }
     }
 }
 
