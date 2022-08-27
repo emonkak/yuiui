@@ -4,8 +4,8 @@ use std::fmt;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::event::{Event, EventMask, InternalEvent};
-use crate::id::{ComponentIndex, Id, IdContext, IdPath};
-use crate::sequence::WidgetNodeSeq;
+use crate::render::{ComponentIndex, Id, IdPath, RenderContext};
+use crate::sequence::{CommitMode, EffectContextSeq, EffectContextVisitor, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
@@ -16,6 +16,7 @@ pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     pub(crate) children: <V::Widget as Widget<S, E>>::Children,
     pub(crate) components: CS,
     pub(crate) event_mask: EventMask,
+    pub(crate) dirty: bool,
 }
 
 impl<V, CS, S, E> WidgetNode<V, CS, S, E>
@@ -36,6 +37,7 @@ where
             children,
             components,
             event_mask: <V::Widget as Widget<S, E>>::Children::event_mask(),
+            dirty: true,
         }
     }
 
@@ -64,11 +66,16 @@ where
         &self.components
     }
 
+    pub fn event_mask(&self) -> &EventMask {
+        &self.event_mask
+    }
+
     pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        let mut visitor = CommitVisitor::new(mode);
-        context.begin_widget(self.id);
-        visitor.visit(self, state, env, context);
-        context.end_widget();
+        if self.dirty || mode.is_propagatable() {
+            let mut visitor = CommitVisitor::new(mode);
+            visitor.visit(self, state, env, context);
+            self.dirty = false;
+        }
     }
 
     pub fn commit_subtree(
@@ -80,7 +87,7 @@ where
         context: &mut EffectContext<S>,
     ) {
         let mut visitor = CommitVisitor::new(mode);
-        self.search(id_path, &mut visitor, state, env, context);
+        EffectContextSeq::search(self, id_path, &mut visitor, state, env, context);
     }
 
     pub fn force_update(
@@ -88,7 +95,7 @@ where
         component_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) {
         let scope = self.scope();
         CS::force_update(scope, component_index, 0, state, env, context);
@@ -117,39 +124,6 @@ where
     ) -> bool {
         let mut visitor = InternalEventVisitor::new(event.payload());
         self.search(event.id_path(), &mut visitor, state, env, context)
-    }
-
-    pub fn for_each<Visitor: WidgetNodeVisitor>(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        context.begin_widget(self.id);
-        visitor.visit(self, state, env, context);
-        context.end_widget();
-    }
-
-    pub fn search<Visitor: WidgetNodeVisitor>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        context.begin_widget(self.id);
-        let result = if self.id == id_path.bottom_id() {
-            visitor.visit(self, state, env, context);
-            true
-        } else if id_path.starts_with(context.id_path()) {
-            self.children.search(id_path, visitor, state, env, context)
-        } else {
-            false
-        };
-        context.end_widget();
-        result
     }
 }
 
@@ -186,35 +160,6 @@ pub enum WidgetState<V, W> {
     Dirty(W, V),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CommitMode {
-    Mount,
-    Unmount,
-    Update,
-}
-
-impl CommitMode {
-    pub fn is_propagatable(&self) -> bool {
-        match self {
-            Self::Mount | Self::Unmount => true,
-            Self::Update => false,
-        }
-    }
-}
-
-pub trait WidgetNodeVisitor {
-    fn visit<V, CS, S, E>(
-        &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E>,
-        S: State;
-}
-
 struct CommitVisitor {
     mode: CommitMode,
 }
@@ -225,7 +170,7 @@ impl CommitVisitor {
     }
 }
 
-impl WidgetNodeVisitor for CommitVisitor {
+impl EffectContextVisitor for CommitVisitor {
     fn visit<V, CS, S, E>(
         &mut self,
         node: &mut WidgetNode<V, CS, S, E>,
@@ -237,6 +182,7 @@ impl WidgetNodeVisitor for CommitVisitor {
         CS: ComponentStack<S, E>,
         S: State,
     {
+        context.begin_widget(node.id);
         context.begin_components();
         node.components.commit(self.mode, state, env, context);
         context.end_components();
@@ -295,6 +241,7 @@ impl WidgetNodeVisitor for CommitVisitor {
             }
         }
         .into();
+        context.end_widget();
     }
 }
 
@@ -312,7 +259,7 @@ impl<'a, Event: 'static> StaticEventVisitor<'a, Event> {
     }
 }
 
-impl<'a, Event: 'static> WidgetNodeVisitor for StaticEventVisitor<'a, Event> {
+impl<'a, Event: 'static> EffectContextVisitor for StaticEventVisitor<'a, Event> {
     fn visit<V, CS, S, E>(
         &mut self,
         node: &mut WidgetNode<V, CS, S, E>,
@@ -350,7 +297,7 @@ impl<'a> InternalEventVisitor<'a> {
     }
 }
 
-impl<'a> WidgetNodeVisitor for InternalEventVisitor<'a> {
+impl<'a> EffectContextVisitor for InternalEventVisitor<'a> {
     fn visit<V, CS, S, E>(
         &mut self,
         node: &mut WidgetNode<V, CS, S, E>,

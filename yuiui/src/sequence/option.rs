@@ -2,11 +2,13 @@ use std::mem;
 
 use crate::effect::EffectContext;
 use crate::event::EventMask;
-use crate::id::{IdContext, IdPath};
+use crate::render::{IdPath, RenderContext};
 use crate::state::State;
-use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, RenderStatus, WidgetNodeSeq};
+use super::{
+    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
+    RenderContextVisitor, RenderStatus, WidgetNodeSeq,
+};
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
@@ -32,11 +34,17 @@ where
 {
     type Store = OptionStore<T::Store>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         OptionStore::new(self.map(|element| element.render(state, env, context)))
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
         match (&mut store.active, self) {
             (Some(node), Some(element)) => {
                 if element.update(node, state, env, context) {
@@ -93,8 +101,47 @@ where
             self.status = RenderStatus::Unchanged;
         }
     }
+}
 
-    fn for_each<V: WidgetNodeVisitor>(
+impl<T, S, E> RenderContextSeq<S, E> for OptionStore<T>
+where
+    T: RenderContextSeq<S, E>,
+    S: State,
+{
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        if let Some(node) = &mut self.active {
+            node.for_each(visitor, state, env, context);
+        }
+    }
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        if let Some(node) = &mut self.active {
+            node.search(id_path, visitor, state, env, context)
+        } else {
+            false
+        }
+    }
+}
+
+impl<T, S, E> EffectContextSeq<S, E> for OptionStore<T>
+where
+    T: EffectContextSeq<S, E>,
+    S: State,
+{
+    fn for_each<V: EffectContextVisitor>(
         &mut self,
         visitor: &mut V,
         state: &S,
@@ -106,7 +153,7 @@ where
         }
     }
 
-    fn search<V: WidgetNodeVisitor>(
+    fn search<V: EffectContextVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,

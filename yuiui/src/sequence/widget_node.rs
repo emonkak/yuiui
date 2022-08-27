@@ -1,22 +1,18 @@
-use std::fmt;
-
 use crate::component::Component;
 use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::{ComponentElement, Element, ViewElement};
 use crate::event::{Event, EventMask};
-use crate::id::{IdContext, IdPath};
+use crate::render::{IdPath, RenderContext};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
-use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeVisitor};
+use crate::widget_node::WidgetNode;
 
-use super::{ElementSeq, WidgetNodeSeq};
-
-pub struct WidgetNodeStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
-    node: WidgetNode<V, CS, S, E>,
-    dirty: bool,
-}
+use super::{
+    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
+    RenderContextVisitor, WidgetNodeSeq,
+};
 
 impl<V, S, E> ElementSeq<S, E> for ViewElement<V, S, E>
 where
@@ -24,16 +20,20 @@ where
     S: State,
 {
     type Store =
-        WidgetNodeStore<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+        WidgetNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
-        WidgetNodeStore::new(Element::render(self, state, env, context))
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+        Element::render(self, state, env, context)
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
-        let has_changed = Element::update(self, store.node.scope(), state, env, context);
-        store.dirty = has_changed;
-        has_changed
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        Element::update(self, store.scope(), state, env, context)
     }
 }
 
@@ -43,31 +43,24 @@ where
     S: State,
 {
     type Store =
-        WidgetNodeStore<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+        WidgetNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
-        WidgetNodeStore::new(Element::render(self, state, env, context))
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+        Element::render(self, state, env, context)
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
-        let has_changed = Element::update(self, store.node.scope(), state, env, context);
-        store.dirty = has_changed;
-        has_changed
-    }
-}
-
-impl<V, CS, S, E> WidgetNodeStore<V, CS, S, E>
-where
-    V: View<S, E>,
-    CS: ComponentStack<S, E>,
-    S: State,
-{
-    fn new(node: WidgetNode<V, CS, S, E>) -> Self {
-        Self { node, dirty: true }
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        Element::update(self, store.scope(), state, env, context)
     }
 }
 
-impl<V, CS, S, E> WidgetNodeSeq<S, E> for WidgetNodeStore<V, CS, S, E>
+impl<V, CS, S, E> WidgetNodeSeq<S, E> for WidgetNode<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -80,23 +73,69 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        if self.dirty || mode.is_propagatable() {
-            self.dirty = false;
-            self.node.commit(mode, state, env, context);
-        }
+        self.commit(mode, state, env, context);
+    }
+}
+
+impl<V, CS, S, E> RenderContextSeq<S, E> for WidgetNode<V, CS, S, E>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn for_each<Visitor: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        context.begin_widget(self.id);
+        visitor.visit(self, state, env, context);
+        context.end_widget();
     }
 
-    fn for_each<Visitor: WidgetNodeVisitor>(
+    fn search<Visitor: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        context.begin_widget(self.id);
+        let result = if self.id == id_path.bottom_id() {
+            visitor.visit(self, state, env, context);
+            true
+        } else if id_path.starts_with(context.id_path()) {
+            RenderContextSeq::search(&mut self.children, id_path, visitor, state, env, context)
+        } else {
+            false
+        };
+        context.end_widget();
+        result
+    }
+}
+
+impl<V, CS, S, E> EffectContextSeq<S, E> for WidgetNode<V, CS, S, E>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn for_each<Visitor: EffectContextVisitor>(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) {
-        self.node.for_each(visitor, state, env, context);
+        context.begin_widget(self.id);
+        visitor.visit(self, state, env, context);
+        context.end_widget();
     }
 
-    fn search<Visitor: WidgetNodeVisitor>(
+    fn search<Visitor: EffectContextVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -104,22 +143,16 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> bool {
-        self.node.search(id_path, visitor, state, env, context)
-    }
-}
-
-impl<V, CS, S, E> fmt::Debug for WidgetNodeStore<V, CS, S, E>
-where
-    V: View<S, E> + fmt::Debug,
-    V::Widget: fmt::Debug,
-    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
-    CS: ComponentStack<S, E> + fmt::Debug,
-    S: State,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WidgetNodeStore")
-            .field("node", &self.node)
-            .field("dirty", &self.dirty)
-            .finish()
+        context.begin_widget(self.id);
+        let result = if self.id == id_path.bottom_id() {
+            visitor.visit(self, state, env, context);
+            true
+        } else if id_path.starts_with(context.id_path()) {
+            EffectContextSeq::search(&mut self.children, id_path, visitor, state, env, context)
+        } else {
+            false
+        };
+        context.end_widget();
+        result
     }
 }

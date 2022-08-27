@@ -4,10 +4,11 @@ use std::mem;
 use crate::component::{Component, ComponentLifecycle};
 use crate::effect::EffectContext;
 use crate::element::Element;
-use crate::id::{ComponentIndex, IdContext};
+use crate::render::{ComponentIndex, RenderContext};
+use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{CommitMode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{WidgetNodeScope, WidgetState};
 
 #[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
@@ -61,7 +62,7 @@ pub trait ComponentStack<S: State, E>: Sized {
         current_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     );
 }
 
@@ -85,7 +86,7 @@ where
         current_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) {
         let (head, tail) = scope.components;
         let scope = WidgetNodeScope {
@@ -124,7 +125,7 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
         _current_index: ComponentIndex,
         _state: &S,
         _env: &E,
-        _context: &mut IdContext,
+        _context: &mut RenderContext,
     ) {
         // TODO: update children
         *scope.state = match scope.state.take().unwrap() {

@@ -5,7 +5,7 @@ mod component_node;
 mod effect;
 mod element;
 mod event;
-mod id;
+mod render;
 mod sequence;
 mod state;
 mod view;
@@ -19,12 +19,15 @@ pub use component_node::{ComponentNode, ComponentStack};
 pub use effect::Effect;
 pub use element::{ComponentElement, DebuggableElement, Element, ViewElement};
 pub use event::Event;
-pub use id::{Id, IdPath, NodeId, NodePath};
-pub use sequence::{ElementSeq, WidgetNodeSeq};
+pub use render::{Id, IdPath, NodeId, NodePath};
+pub use sequence::{
+    ElementSeq, RenderContextSeq, RenderContextVisitor,
+    WidgetNodeSeq,
+};
 pub use state::{Data, State};
 pub use view::View;
 pub use widget::{Widget, WidgetEvent, WidgetLifeCycle};
-pub use widget_node::{WidgetNode, WidgetNodeVisitor};
+pub use widget_node::WidgetNode;
 pub use widget_tree::WidgetTree;
 
 use std::borrow::Cow;

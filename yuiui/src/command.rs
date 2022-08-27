@@ -5,7 +5,7 @@ use std::future::Future;
 use std::mem;
 
 use crate::effect::{Effect, EffectPath};
-use crate::id::NodeId;
+use crate::render::NodeId;
 use crate::state::State;
 
 pub type CommandId = usize;

@@ -2,11 +2,13 @@ use hlist::{HCons, HList, HNil};
 
 use crate::effect::EffectContext;
 use crate::event::EventMask;
-use crate::id::{IdContext, IdPath};
+use crate::render::{IdPath, RenderContext};
 use crate::state::State;
-use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, WidgetNodeSeq};
+use super::{
+    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
+    RenderContextVisitor, WidgetNodeSeq,
+};
 
 impl<S, E> ElementSeq<S, E> for HNil
 where
@@ -14,7 +16,7 @@ where
 {
     type Store = HNil;
 
-    fn render(self, _state: &S, _env: &E, _context: &mut IdContext) -> Self::Store {
+    fn render(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Store {
         HNil
     }
 
@@ -23,7 +25,7 @@ where
         _nodes: &mut Self::Store,
         _state: &S,
         _env: &E,
-        _context: &mut IdContext,
+        _context: &mut RenderContext,
     ) -> bool {
         false
     }
@@ -39,8 +41,38 @@ where
 
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
+}
 
-    fn for_each<V: WidgetNodeVisitor>(
+impl<S, E> RenderContextSeq<S, E> for HNil
+where
+    S: State,
+{
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        _visitor: &mut V,
+        _state: &S,
+        _env: &E,
+        _context: &mut RenderContext,
+    ) {
+    }
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        _id_path: &IdPath,
+        _visitor: &mut V,
+        _state: &S,
+        _env: &E,
+        _context: &mut RenderContext,
+    ) -> bool {
+        false
+    }
+}
+
+impl<S, E> EffectContextSeq<S, E> for HNil
+where
+    S: State,
+{
+    fn for_each<V: EffectContextVisitor>(
         &mut self,
         _visitor: &mut V,
         _state: &S,
@@ -49,7 +81,7 @@ where
     ) {
     }
 
-    fn search<V: WidgetNodeVisitor>(
+    fn search<V: EffectContextVisitor>(
         &mut self,
         _id_path: &IdPath,
         _visitor: &mut V,
@@ -70,14 +102,20 @@ where
 {
     type Store = HCons<H::Store, T::Store>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         HCons {
             head: self.head.render(state, env, context),
             tail: self.tail.render(state, env, context),
         }
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
         let mut has_changed = false;
         has_changed |= self.head.update(&mut store.head, state, env, context);
         has_changed |= self.tail.update(&mut store.tail, state, env, context);
@@ -99,8 +137,45 @@ where
         self.head.commit(mode, state, env, context);
         self.tail.commit(mode, state, env, context);
     }
+}
 
-    fn for_each<V: WidgetNodeVisitor>(
+impl<H, T, S, E> RenderContextSeq<S, E> for HCons<H, T>
+where
+    H: RenderContextSeq<S, E>,
+    T: RenderContextSeq<S, E> + HList,
+    S: State,
+{
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        self.head.for_each(visitor, state, env, context);
+        self.tail.for_each(visitor, state, env, context);
+    }
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        self.head.search(id_path, visitor, state, env, context)
+            || self.tail.search(id_path, visitor, state, env, context)
+    }
+}
+
+impl<H, T, S, E> EffectContextSeq<S, E> for HCons<H, T>
+where
+    H: EffectContextSeq<S, E>,
+    T: EffectContextSeq<S, E> + HList,
+    S: State,
+{
+    fn for_each<V: EffectContextVisitor>(
         &mut self,
         visitor: &mut V,
         state: &S,
@@ -111,7 +186,7 @@ where
         self.tail.for_each(visitor, state, env, context);
     }
 
-    fn search<V: WidgetNodeVisitor>(
+    fn search<V: EffectContextVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,

@@ -7,12 +7,15 @@ use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{EventMask, EventResult};
-use crate::id::{ComponentIndex, IdContext, IdPath};
-use crate::sequence::{ElementSeq, WidgetNodeSeq};
+use crate::render::{ComponentIndex, IdPath, RenderContext};
+use crate::sequence::{
+    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
+    RenderContextVisitor, WidgetNodeSeq,
+};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
-use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetNodeVisitor, WidgetState};
+use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
 
 pub struct Adapt<T, F, SS> {
     target: T,
@@ -54,7 +57,7 @@ where
         self,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let sub_state = (self.selector_fn)(state);
         let sub_node = self.target.render(sub_state, env, context);
@@ -66,6 +69,7 @@ where
             children: Adapt::new(sub_node.children, self.selector_fn.clone()),
             components: Adapt::new(sub_node.components, self.selector_fn),
             event_mask: sub_node.event_mask,
+            dirty: true,
         }
     }
 
@@ -74,7 +78,7 @@ where
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> bool {
         let mut sub_widget_state = scope.state.take().map(|state| match state {
             WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
@@ -105,7 +109,7 @@ where
 {
     type Store = Adapt<T::Store, F, SS>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
             self.target.render(sub_state, env, context),
@@ -113,7 +117,13 @@ where
         )
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
             .update(&mut store.target, sub_state, env, context)
@@ -137,8 +147,48 @@ where
         self.target.commit(mode, sub_state, env, &mut sub_context);
         context.merge(sub_context, &self.selector_fn);
     }
+}
 
-    fn for_each<V: WidgetNodeVisitor>(
+impl<T, F, SS, S, E> RenderContextSeq<S, E> for Adapt<T, F, SS>
+where
+    T: RenderContextSeq<SS, E>,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
+    S: State + 'static,
+    SS: State + 'static,
+{
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        let sub_state = (self.selector_fn)(state);
+        self.target.for_each(visitor, sub_state, env, context);
+    }
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        let sub_state = (self.selector_fn)(state);
+        self.target
+            .search(id_path, visitor, sub_state, env, context)
+    }
+}
+
+impl<T, F, SS, S, E> EffectContextSeq<S, E> for Adapt<T, F, SS>
+where
+    T: EffectContextSeq<SS, E>,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
+    S: State + 'static,
+    SS: State + 'static,
+{
+    fn for_each<V: EffectContextVisitor>(
         &mut self,
         visitor: &mut V,
         state: &S,
@@ -152,7 +202,7 @@ where
         context.merge(sub_context, &self.selector_fn);
     }
 
-    fn search<V: WidgetNodeVisitor>(
+    fn search<V: EffectContextVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,
@@ -222,7 +272,7 @@ where
         current_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) {
         let mut sub_widget_state = scope.state.take().map(|state| match state {
             WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),

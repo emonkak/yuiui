@@ -4,17 +4,18 @@ use std::mem;
 use crate::effect::{Effect, EffectContext, EffectPath};
 use crate::element::Element;
 use crate::event::InternalEvent;
-use crate::id::{ComponentIndex, IdContext, IdPath};
+use crate::render::{ComponentIndex, IdPath, RenderContext};
+use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::Widget;
-use crate::widget_node::{CommitMode, WidgetNode};
+use crate::widget_node::WidgetNode;
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
     pub root: WidgetNode<El::View, El::Components, S, E>,
     state: S,
     env: E,
-    context: IdContext,
+    context: RenderContext,
     is_mounted: bool,
 }
 
@@ -24,7 +25,7 @@ where
     S: State,
 {
     pub fn new(element: El, state: S, env: E) -> Self {
-        let mut context = IdContext::new();
+        let mut context = RenderContext::new();
         let root = element.render(&state, &env, &mut context);
         Self {
             root,

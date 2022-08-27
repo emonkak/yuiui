@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::effect::Effect;
-use crate::id::IdPath;
+use crate::render::IdPath;
 use crate::state::State;
 
 pub trait Event<'event> {

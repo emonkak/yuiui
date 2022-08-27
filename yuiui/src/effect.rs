@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::command::{Command, CommandId};
 use crate::event::EventResult;
-use crate::id::{ComponentIndex, Id, IdPath, NodePath};
+use crate::render::{ComponentIndex, Id, IdPath, NodePath};
 use crate::state::State;
 
 pub enum Effect<S: State> {

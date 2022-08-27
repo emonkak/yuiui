@@ -3,11 +3,13 @@ use std::mem;
 
 use crate::effect::EffectContext;
 use crate::event::EventMask;
-use crate::id::{IdContext, IdPath};
+use crate::render::{IdPath, RenderContext};
 use crate::state::State;
-use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, RenderStatus, WidgetNodeSeq};
+use super::{
+    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
+    RenderContextVisitor, RenderStatus, WidgetNodeSeq,
+};
 
 #[derive(Debug)]
 pub struct EitherStore<L, R> {
@@ -34,7 +36,7 @@ where
 {
     type Store = EitherStore<L::Store, R::Store>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         match self {
             Either::Left(element) => {
                 EitherStore::new(Either::Left(element.render(state, env, context)))
@@ -45,7 +47,13 @@ where
         }
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
         match (&mut store.active, self) {
             (Either::Left(node), Either::Left(element)) => {
                 if element.update(node, state, env, context) {
@@ -125,8 +133,49 @@ where
             self.status = RenderStatus::Unchanged;
         }
     }
+}
 
-    fn for_each<V: WidgetNodeVisitor>(
+impl<L, R, S, E> RenderContextSeq<S, E> for EitherStore<L, R>
+where
+    L: RenderContextSeq<S, E>,
+    R: RenderContextSeq<S, E>,
+    S: State,
+{
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        match &mut self.active {
+            Either::Left(node) => node.for_each(visitor, state, env, context),
+            Either::Right(node) => node.for_each(visitor, state, env, context),
+        }
+    }
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        match &mut self.active {
+            Either::Left(node) => node.search(id_path, visitor, state, env, context),
+            Either::Right(node) => node.search(id_path, visitor, state, env, context),
+        }
+    }
+}
+
+impl<L, R, S, E> EffectContextSeq<S, E> for EitherStore<L, R>
+where
+    L: EffectContextSeq<S, E>,
+    R: EffectContextSeq<S, E>,
+    S: State,
+{
+    fn for_each<V: EffectContextVisitor>(
         &mut self,
         visitor: &mut V,
         state: &S,
@@ -139,7 +188,7 @@ where
         }
     }
 
-    fn search<V: WidgetNodeVisitor>(
+    fn search<V: EffectContextVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,

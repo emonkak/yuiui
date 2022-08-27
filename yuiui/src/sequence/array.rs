@@ -1,10 +1,12 @@
 use crate::effect::EffectContext;
 use crate::event::EventMask;
-use crate::id::{IdContext, IdPath};
+use crate::render::{IdPath, RenderContext};
 use crate::state::State;
-use crate::widget_node::{CommitMode, WidgetNodeVisitor};
 
-use super::{ElementSeq, WidgetNodeSeq};
+use super::{
+    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
+    RenderContextVisitor, WidgetNodeSeq,
+};
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -25,11 +27,17 @@ where
 {
     type Store = ArrayStore<T::Store, N>;
 
-    fn render(self, state: &S, env: &E, context: &mut IdContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         ArrayStore::new(self.map(|element| element.render(state, env, context)))
     }
 
-    fn update(self, store: &mut Self::Store, state: &S, env: &E, context: &mut IdContext) -> bool {
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
@@ -60,8 +68,48 @@ where
             self.dirty = false;
         }
     }
+}
 
-    fn for_each<V: WidgetNodeVisitor>(
+impl<T, S, E, const N: usize> RenderContextSeq<S, E> for ArrayStore<T, N>
+where
+    T: RenderContextSeq<S, E>,
+    S: State,
+{
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        for node in &mut self.nodes {
+            node.for_each(visitor, state, env, context);
+        }
+    }
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        for node in &mut self.nodes {
+            if node.search(id_path, visitor, state, env, context) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+impl<T, S, E, const N: usize> EffectContextSeq<S, E> for ArrayStore<T, N>
+where
+    T: EffectContextSeq<S, E>,
+    S: State,
+{
+    fn for_each<V: EffectContextVisitor>(
         &mut self,
         visitor: &mut V,
         state: &S,
@@ -73,7 +121,7 @@ where
         }
     }
 
-    fn search<V: WidgetNodeVisitor>(
+    fn search<V: EffectContextVisitor>(
         &mut self,
         id_path: &IdPath,
         visitor: &mut V,

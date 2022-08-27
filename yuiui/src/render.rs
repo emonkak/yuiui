@@ -73,12 +73,12 @@ impl NodePath {
 }
 
 #[derive(Debug)]
-pub struct IdContext {
+pub struct RenderContext {
     id_path: IdPath,
     id_counter: usize,
 }
 
-impl IdContext {
+impl RenderContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPath::new(),

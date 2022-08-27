@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use crate::adapt::Adapt;
 use crate::component::Component;
 use crate::component_node::{ComponentEnd, ComponentNode, ComponentStack};
-use crate::id::IdContext;
+use crate::render::RenderContext;
 use crate::sequence::{ElementSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
@@ -20,7 +20,7 @@ pub trait Element<S: State, E> {
         self,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E>;
 
     fn update(
@@ -28,7 +28,7 @@ pub trait Element<S: State, E> {
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> bool;
 
     fn adapt<F, OriginState>(self, f: F) -> Adapt<Self, F, S>
@@ -104,7 +104,7 @@ where
         self,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let id = context.next_identity();
         context.begin_widget(id);
@@ -118,7 +118,7 @@ where
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
             WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
@@ -181,7 +181,7 @@ where
         self,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let head_node = ComponentNode::new(self.component);
         let element = head_node.component.render(state, env);
@@ -192,6 +192,7 @@ where
             children: widget_node.children,
             components: (head_node, widget_node.components),
             event_mask: widget_node.event_mask,
+            dirty: true,
         }
     }
 
@@ -200,7 +201,7 @@ where
         scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
-        context: &mut IdContext,
+        context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
         if head_node
