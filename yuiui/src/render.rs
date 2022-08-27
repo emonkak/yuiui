@@ -1,3 +1,8 @@
+use crate::component_node::ComponentStack;
+use crate::state::State;
+use crate::view::View;
+use crate::widget_node::WidgetNode;
+
 pub type NodeId = (Id, ComponentIndex);
 
 pub type ComponentIndex = usize;
@@ -103,4 +108,36 @@ impl RenderContext {
         self.id_counter += 1;
         Id(id)
     }
+}
+
+pub trait RenderContextSeq<S: State, E> {
+    fn for_each<V: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    );
+
+    fn search<V: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool;
+}
+
+pub trait RenderContextVisitor {
+    fn visit<V, CS, S, E>(
+        &mut self,
+        node: &mut WidgetNode<V, CS, S, E>,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) where
+        V: View<S, E>,
+        CS: ComponentStack<S, E>,
+        S: State;
 }

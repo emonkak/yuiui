@@ -1,7 +1,7 @@
 use crate::event::{Event, EventResult};
 use crate::render::IdPath;
-use crate::sequence::WidgetNodeSeq;
 use crate::state::State;
+use crate::widget_node::WidgetNodeSeq;
 
 pub trait Widget<S: State, E>: for<'event> WidgetEvent<'event> {
     type Children: WidgetNodeSeq<S, E>;

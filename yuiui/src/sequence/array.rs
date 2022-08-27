@@ -1,12 +1,9 @@
-use crate::effect::EffectContext;
+use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext};
+use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
 use crate::state::State;
-
-use super::{
-    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
-    RenderContextVisitor, WidgetNodeSeq,
-};
+use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {

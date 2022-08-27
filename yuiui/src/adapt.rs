@@ -4,18 +4,16 @@ use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle};
 use crate::component_node::ComponentStack;
-use crate::effect::EffectContext;
-use crate::element::Element;
+use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::element::{Element, ElementSeq};
 use crate::event::{EventMask, EventResult};
-use crate::render::{ComponentIndex, IdPath, RenderContext};
-use crate::sequence::{
-    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
-    RenderContextVisitor, WidgetNodeSeq,
+use crate::render::{
+    ComponentIndex, IdPath, RenderContext, RenderContextSeq, RenderContextVisitor,
 };
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
-use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetNodeSeq, WidgetState};
 
 pub struct Adapt<T, F, SS> {
     target: T,
@@ -92,6 +90,7 @@ where
             state: &mut sub_widget_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
+            dirty: scope.dirty,
         };
         let sub_state = (self.selector_fn)(state);
         let has_changed = self.target.update(sub_scope, sub_state, env, context);
@@ -287,6 +286,7 @@ where
             state: &mut sub_widget_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
+            dirty: scope.dirty,
         };
         let sub_state = selector_fn(state);
         let has_changed = T::force_update(

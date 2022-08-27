@@ -1,7 +1,6 @@
 use hlist::HNil;
 
-use crate::element::ViewElement;
-use crate::sequence::ElementSeq;
+use crate::element::{ElementSeq, ViewElement};
 use crate::state::State;
 use crate::widget::Widget;
 

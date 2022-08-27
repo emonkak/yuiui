@@ -1,14 +1,13 @@
 use std::mem;
 
-use crate::effect::EffectContext;
+use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext};
+use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
 use crate::state::State;
+use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
-use super::{
-    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
-    RenderContextVisitor, RenderStatus, WidgetNodeSeq,
-};
+use super::RenderStatus;
 
 #[derive(Debug)]
 pub struct OptionStore<T> {

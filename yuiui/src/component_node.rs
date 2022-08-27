@@ -5,10 +5,9 @@ use crate::component::{Component, ComponentLifecycle};
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::render::{ComponentIndex, RenderContext};
-use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{WidgetNodeScope, WidgetState};
+use crate::widget_node::{CommitMode, WidgetNodeScope, WidgetState};
 
 #[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
@@ -94,6 +93,7 @@ where
             state: scope.state,
             children: scope.children,
             components: tail,
+            dirty: scope.dirty,
         };
         if target_index == current_index {
             let element = head.component.render(state, env);

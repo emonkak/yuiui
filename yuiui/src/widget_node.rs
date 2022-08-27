@@ -2,13 +2,20 @@ use std::any::{Any, TypeId};
 use std::fmt;
 
 use crate::component_node::ComponentStack;
-use crate::effect::EffectContext;
+use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
 use crate::event::{Event, EventMask, InternalEvent};
-use crate::render::{ComponentIndex, Id, IdPath, RenderContext};
-use crate::sequence::{CommitMode, EffectContextSeq, EffectContextVisitor, WidgetNodeSeq};
+use crate::render::{
+    ComponentIndex, Id, IdPath, RenderContext, RenderContextSeq, RenderContextVisitor,
+};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
+
+pub trait WidgetNodeSeq<S: State, E>: RenderContextSeq<S, E> + EffectContextSeq<S, E> {
+    fn event_mask() -> EventMask;
+
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
+}
 
 pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     pub(crate) id: Id,
@@ -47,6 +54,7 @@ where
             state: &mut self.state,
             children: &mut self.children,
             components: &mut self.components,
+            dirty: &mut self.dirty,
         }
     }
 
@@ -123,7 +131,104 @@ where
         context: &mut EffectContext<S>,
     ) -> bool {
         let mut visitor = InternalEventVisitor::new(event.payload());
-        self.search(event.id_path(), &mut visitor, state, env, context)
+        EffectContextSeq::search(self, event.id_path(), &mut visitor, state, env, context)
+    }
+}
+
+impl<V, CS, S, E> WidgetNodeSeq<S, E> for WidgetNode<V, CS, S, E>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn event_mask() -> EventMask {
+        let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
+        event_mask.extend(<V::Widget as WidgetEvent>::Event::allowed_types());
+        event_mask
+    }
+
+    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+        self.commit(mode, state, env, context);
+    }
+}
+
+impl<V, CS, S, E> RenderContextSeq<S, E> for WidgetNode<V, CS, S, E>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn for_each<Visitor: RenderContextVisitor>(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) {
+        context.begin_widget(self.id);
+        visitor.visit(self, state, env, context);
+        context.end_widget();
+    }
+
+    fn search<Visitor: RenderContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        context.begin_widget(self.id);
+        let result = if self.id == id_path.bottom_id() {
+            visitor.visit(self, state, env, context);
+            true
+        } else if id_path.starts_with(context.id_path()) {
+            RenderContextSeq::search(&mut self.children, id_path, visitor, state, env, context)
+        } else {
+            false
+        };
+        context.end_widget();
+        result
+    }
+}
+
+impl<V, CS, S, E> EffectContextSeq<S, E> for WidgetNode<V, CS, S, E>
+where
+    V: View<S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    S: State,
+{
+    fn for_each<Visitor: EffectContextVisitor>(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
+        context.begin_widget(self.id);
+        visitor.visit(self, state, env, context);
+        context.end_widget();
+    }
+
+    fn search<Visitor: EffectContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        context.begin_widget(self.id);
+        let result = if self.id == id_path.bottom_id() {
+            visitor.visit(self, state, env, context);
+            true
+        } else if id_path.starts_with(context.id_path()) {
+            EffectContextSeq::search(&mut self.children, id_path, visitor, state, env, context)
+        } else {
+            false
+        };
+        context.end_widget();
+        result
     }
 }
 
@@ -151,6 +256,7 @@ pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E> {
     pub state: &'a mut Option<WidgetState<V, V::Widget>>,
     pub children: &'a mut <V::Widget as Widget<S, E>>::Children,
     pub components: &'a mut CS,
+    pub dirty: &'a mut bool,
 }
 
 #[derive(Debug)]
@@ -158,6 +264,22 @@ pub enum WidgetState<V, W> {
     Uninitialized(V),
     Prepared(W, V),
     Dirty(W, V),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CommitMode {
+    Mount,
+    Unmount,
+    Update,
+}
+
+impl CommitMode {
+    pub fn is_propagatable(&self) -> bool {
+        match self {
+            Self::Mount | Self::Unmount => true,
+            Self::Update => false,
+        }
+    }
 }
 
 struct CommitVisitor {
@@ -274,7 +396,7 @@ impl<'a, Event: 'static> EffectContextVisitor for StaticEventVisitor<'a, Event> 
         match node.state.as_mut().unwrap() {
             WidgetState::Prepared(widget, _) | WidgetState::Dirty(widget, _) => {
                 if node.event_mask.contains(&TypeId::of::<Event>()) {
-                    node.children.for_each(self, state, env, context);
+                    EffectContextSeq::for_each(&mut node.children, self, state, env, context);
                 }
                 if let Some(event) = <V::Widget as WidgetEvent>::Event::from_static(self.event) {
                     let result = widget.event(event, &node.children, context.id_path(), state, env);

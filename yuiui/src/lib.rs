@@ -17,17 +17,13 @@ pub use command::{Command, CommandHandler, CommandId, CommandRuntime};
 pub use component::{Component, FunctionComponent};
 pub use component_node::{ComponentNode, ComponentStack};
 pub use effect::Effect;
-pub use element::{ComponentElement, DebuggableElement, Element, ViewElement};
+pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, ViewElement};
 pub use event::Event;
-pub use render::{Id, IdPath, NodeId, NodePath};
-pub use sequence::{
-    ElementSeq, RenderContextSeq, RenderContextVisitor,
-    WidgetNodeSeq,
-};
+pub use render::{Id, IdPath, NodeId, NodePath, RenderContextSeq, RenderContextVisitor};
 pub use state::{Data, State};
 pub use view::View;
 pub use widget::{Widget, WidgetEvent, WidgetLifeCycle};
-pub use widget_node::WidgetNode;
+pub use widget_node::{WidgetNode, WidgetNodeSeq};
 pub use widget_tree::WidgetTree;
 
 use std::borrow::Cow;

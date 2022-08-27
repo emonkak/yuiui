@@ -3,19 +3,14 @@ use std::collections::VecDeque;
 use std::fmt;
 
 use crate::component_node::ComponentStack;
-use crate::effect::EffectContext;
-use crate::element::Element;
+use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask};
-use crate::render::{IdPath, RenderContext};
+use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::{Widget, WidgetEvent};
-use crate::widget_node::WidgetNode;
-
-use super::{
-    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
-    RenderContextVisitor, WidgetNodeSeq,
-};
+use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,

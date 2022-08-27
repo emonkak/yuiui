@@ -1,14 +1,11 @@
 use hlist::{HCons, HList, HNil};
 
-use crate::effect::EffectContext;
+use crate::effect::{EffectContext, EffectContextSeq, EffectContextVisitor};
+use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::render::{IdPath, RenderContext};
+use crate::render::{IdPath, RenderContext, RenderContextSeq, RenderContextVisitor};
 use crate::state::State;
-
-use super::{
-    CommitMode, EffectContextSeq, EffectContextVisitor, ElementSeq, RenderContextSeq,
-    RenderContextVisitor, WidgetNodeSeq,
-};
+use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
 impl<S, E> ElementSeq<S, E> for HNil
 where

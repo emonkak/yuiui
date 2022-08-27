@@ -5,11 +5,10 @@ use crate::adapt::Adapt;
 use crate::component::Component;
 use crate::component_node::{ComponentEnd, ComponentNode, ComponentStack};
 use crate::render::RenderContext;
-use crate::sequence::{ElementSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
 use crate::widget::Widget;
-use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
+use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetNodeSeq, WidgetState};
 
 pub trait Element<S: State, E> {
     type View: View<S, E>;
@@ -38,6 +37,20 @@ pub trait Element<S: State, E> {
     {
         Adapt::new(self, f.into())
     }
+}
+
+pub trait ElementSeq<S: State, E> {
+    type Store: WidgetNodeSeq<S, E>;
+
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store;
+
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool;
 }
 
 pub trait DebuggableElement<S: State, E>:
@@ -126,8 +139,32 @@ where
             WidgetState::Dirty(widget, _) => WidgetState::Dirty(widget, self.view),
         }
         .into();
+        *scope.dirty = true;
         self.children.update(scope.children, state, env, context);
         true
+    }
+}
+
+impl<V, S, E> ElementSeq<S, E> for ViewElement<V, S, E>
+where
+    V: View<S, E>,
+    S: State,
+{
+    type Store =
+        WidgetNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+        Element::render(self, state, env, context)
+    }
+
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        Element::update(self, store.scope(), state, env, context)
     }
 }
 
@@ -214,12 +251,37 @@ where
                 state: scope.state,
                 children: scope.children,
                 components: tail_nodes,
+                dirty: scope.dirty,
             };
+            *scope.dirty = true;
             head_node.pending_component = Some(self.component);
             element.update(scope, state, env, context)
         } else {
             false
         }
+    }
+}
+
+impl<C, S, E> ElementSeq<S, E> for ComponentElement<C, S, E>
+where
+    C: Component<S, E>,
+    S: State,
+{
+    type Store =
+        WidgetNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+        Element::render(self, state, env, context)
+    }
+
+    fn update(
+        self,
+        store: &mut Self::Store,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        Element::update(self, store.scope(), state, env, context)
     }
 }
 

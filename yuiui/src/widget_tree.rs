@@ -5,11 +5,10 @@ use crate::effect::{Effect, EffectContext, EffectPath};
 use crate::element::Element;
 use crate::event::InternalEvent;
 use crate::render::{ComponentIndex, IdPath, RenderContext};
-use crate::sequence::CommitMode;
 use crate::state::State;
 use crate::view::View;
 use crate::widget::Widget;
-use crate::widget_node::WidgetNode;
+use crate::widget_node::{CommitMode, WidgetNode};
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
     pub root: WidgetNode<El::View, El::Components, S, E>,

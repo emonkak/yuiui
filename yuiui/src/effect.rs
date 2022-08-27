@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
 use crate::command::{Command, CommandId};
+use crate::component_node::ComponentStack;
 use crate::event::EventResult;
 use crate::render::{ComponentIndex, Id, IdPath, NodePath};
 use crate::state::State;
+use crate::view::View;
+use crate::widget_node::WidgetNode;
 
 pub enum Effect<S: State> {
     Message(S::Message),
@@ -141,4 +144,36 @@ impl<S: State> EffectContext<S> {
     pub fn into_effects(self) -> Vec<(EffectPath, Effect<S>)> {
         self.pending_effects
     }
+}
+
+pub trait EffectContextSeq<S: State, E> {
+    fn for_each<V: EffectContextVisitor>(
+        &mut self,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    );
+
+    fn search<V: EffectContextVisitor>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut V,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool;
+}
+
+pub trait EffectContextVisitor {
+    fn visit<V, CS, S, E>(
+        &mut self,
+        node: &mut WidgetNode<V, CS, S, E>,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) where
+        V: View<S, E>,
+        CS: ComponentStack<S, E>,
+        S: State;
 }
