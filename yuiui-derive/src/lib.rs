@@ -9,7 +9,7 @@ pub fn event(input: TokenStream) -> TokenStream {
         syn::Data::Struct(data) => impl_from_struct(ast.ident, data),
         syn::Data::Enum(data) => impl_from_enum(ast.ident, data),
         syn::Data::Union(_) => {
-            panic!("Event implementations can only be derived from struct or enum")
+            panic!("Event implementations cannot be derived from union")
         }
     };
     let tokens = TokenStream::from(quote!(#event_impl));
