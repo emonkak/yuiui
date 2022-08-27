@@ -39,13 +39,14 @@ where
                     &mut self.component,
                     self.pending_component
                         .take()
-                        .expect("get pending component"),
+                        .expect("take pending component"),
                 );
                 ComponentLifecycle::Updated(old_component)
             }
             CommitMode::Unmount => ComponentLifecycle::Unmounted,
         };
-        context.process_result(self.component.lifecycle(lifecycle, state, env));
+        let result = self.component.lifecycle(lifecycle, state, env);
+        context.process_result(result);
         context.next_component();
     }
 }
