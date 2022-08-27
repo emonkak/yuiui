@@ -253,6 +253,8 @@ where
     SS: State,
     S: State,
 {
+    const LEN: usize = T::LEN;
+
     type View = Adapt<T::View, F, SS>;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {

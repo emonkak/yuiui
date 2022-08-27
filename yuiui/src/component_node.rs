@@ -52,6 +52,8 @@ where
 }
 
 pub trait ComponentStack<S: State, E>: Sized {
+    const LEN: usize;
+
     type View: View<S, E>;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
@@ -73,6 +75,8 @@ where
     CS: ComponentStack<S, E, View = <C::Element as Element<S, E>>::View>,
     S: State,
 {
+    const LEN: usize = 1 + CS::LEN;
+
     type View = <C::Element as Element<S, E>>::View;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
@@ -115,6 +119,8 @@ impl<V> ComponentEnd<V> {
 }
 
 impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
+    const LEN: usize = 0;
+
     type View = V;
 
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
