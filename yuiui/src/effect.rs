@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::command::{Command, CommandId};
+use crate::id::{NodeId, NodePath};
 use crate::state::State;
 
 pub enum Effect<S: State> {
@@ -13,10 +14,10 @@ pub enum Effect<S: State> {
 }
 
 impl<S: State> Effect<S> {
-    pub(crate) fn lift<F, PS>(self, f: &Arc<F>) -> Effect<PS>
+    pub(crate) fn lift<F, NS>(self, f: &Arc<F>) -> Effect<NS>
     where
-        F: Fn(&PS) -> &S + Sync + Send + 'static,
-        PS: State,
+        F: Fn(&NS) -> &S + Sync + Send + 'static,
+        NS: State,
     {
         match self {
             Self::Message(message) => {
@@ -46,5 +47,33 @@ impl<S: State> Effect<S> {
             Self::CancelCommand(id) => Effect::CancelCommand(id),
             Self::CancelAllCommands => Effect::CancelAllCommands,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EffectPath {
+    source_path: NodePath,
+    dest_path: NodePath,
+}
+
+impl EffectPath {
+    pub fn new(source_path: NodePath, dest_path: NodePath) -> Self {
+        Self {
+            source_path,
+            dest_path,
+        }
+    }
+
+    pub fn source_path(&self) -> &NodePath {
+        &self.source_path
+    }
+
+    pub fn source_id(&self) -> NodeId {
+        let (id_path, component_index) = &self.source_path;
+        (id_path.bottom_id(), *component_index)
+    }
+
+    pub fn dest_path(&self) -> &NodePath {
+        &self.dest_path
     }
 }

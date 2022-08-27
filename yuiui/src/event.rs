@@ -110,10 +110,10 @@ impl<S: State> EventResult<S> {
         self.effects
     }
 
-    pub(crate) fn lift<F, PS>(self, f: &Arc<F>) -> EventResult<PS>
+    pub(crate) fn lift<F, NS>(self, f: &Arc<F>) -> EventResult<NS>
     where
-        F: Fn(&PS) -> &S + Sync + Send + 'static,
-        PS: State,
+        F: Fn(&NS) -> &S + Sync + Send + 'static,
+        NS: State,
     {
         let effects = self
             .effects

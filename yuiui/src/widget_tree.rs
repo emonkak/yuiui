@@ -1,8 +1,8 @@
 use std::fmt;
 use std::mem;
 
-use crate::context::{EffectContext, EffectPath, RenderContext};
-use crate::effect::Effect;
+use crate::context::{EffectContext, RenderContext};
+use crate::effect::{Effect, EffectPath};
 use crate::element::Element;
 use crate::event::InternalEvent;
 use crate::id::{ComponentIndex, IdPath};

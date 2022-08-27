@@ -147,7 +147,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge(sub_context, &self.selector_fn);
+        context.merge_sub_context(sub_context, &self.selector_fn);
     }
 }
 
@@ -195,7 +195,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target
             .for_each(visitor, sub_state, env, &mut sub_context);
-        context.merge(sub_context, &self.selector_fn);
+        context.merge_sub_context(sub_context, &self.selector_fn);
     }
 
     fn search(
@@ -211,7 +211,7 @@ where
         let found = self
             .target
             .search(id_path, visitor, sub_state, env, &mut sub_context);
-        context.merge(sub_context, &self.selector_fn);
+        context.merge_sub_context(sub_context, &self.selector_fn);
         found
     }
 }
@@ -261,7 +261,7 @@ where
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target.commit(mode, sub_state, env, &mut sub_context);
-        context.merge(sub_context, &self.selector_fn);
+        context.merge_sub_context(sub_context, &self.selector_fn);
     }
 
     fn force_update<'a>(

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::effect::Effect;
+use crate::effect::{Effect, EffectPath};
 use crate::event::EventResult;
-use crate::id::{ComponentIndex, Id, IdPath, NodePath};
+use crate::id::{ComponentIndex, Id, IdPath};
 use crate::state::State;
 
 pub trait IdContext {
@@ -53,7 +53,7 @@ pub struct EffectContext<S: State> {
     component_index: Option<ComponentIndex>,
     state_id_path: IdPath,
     state_component_index: Option<ComponentIndex>,
-    pending_effects: Vec<(EffectPath, Effect<S>)>,
+    effects: Vec<(EffectPath, Effect<S>)>,
 }
 
 impl<S: State> EffectContext<S> {
@@ -63,7 +63,7 @@ impl<S: State> EffectContext<S> {
             component_index: None,
             state_id_path: IdPath::new(),
             state_component_index: None,
-            pending_effects: Vec::new(),
+            effects: Vec::new(),
         }
     }
 
@@ -73,22 +73,22 @@ impl<S: State> EffectContext<S> {
             component_index: self.component_index,
             state_id_path: self.id_path.clone(),
             state_component_index: self.component_index,
-            pending_effects: Vec::new(),
+            effects: Vec::new(),
         }
     }
 
-    pub fn merge<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
+    pub fn merge_sub_context<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
     where
         F: Fn(&S) -> &SS + Sync + Send + 'static,
         SS: State,
     {
         assert!(sub_context.id_path.starts_with(&self.id_path));
 
-        let pending_effects = sub_context
-            .pending_effects
+        let effects = sub_context
+            .effects
             .into_iter()
             .map(|(effect_path, effect)| (effect_path, effect.lift(f)));
-        self.pending_effects.extend(pending_effects);
+        self.effects.extend(effects);
     }
 
     pub fn begin_components(&mut self) {
@@ -105,16 +105,16 @@ impl<S: State> EffectContext<S> {
 
     pub fn process_result(&mut self, result: EventResult<S>) {
         for effect in result.into_effects() {
-            let path = EffectPath {
-                source_path: NodePath::new(self.id_path.clone(), self.component_index),
-                state_path: NodePath::new(self.state_id_path.clone(), self.state_component_index),
-            };
-            self.pending_effects.push((path, effect));
+            let path = EffectPath::new(
+                (self.id_path.clone(), self.component_index),
+                (self.state_id_path.clone(), self.state_component_index),
+            );
+            self.effects.push((path, effect));
         }
     }
 
     pub fn into_effects(self) -> Vec<(EffectPath, Effect<S>)> {
-        self.pending_effects
+        self.effects
     }
 }
 
@@ -129,21 +129,5 @@ impl<S: State> IdContext for EffectContext<S> {
 
     fn end_widget(&mut self) -> Id {
         self.id_path.pop()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct EffectPath {
-    source_path: NodePath,
-    state_path: NodePath,
-}
-
-impl EffectPath {
-    pub fn source_path(&self) -> &NodePath {
-        &self.source_path
-    }
-
-    pub fn state_path(&self) -> &NodePath {
-        &self.state_path
     }
 }

@@ -1,4 +1,6 @@
-pub type NodeId = (Id, ComponentIndex);
+pub type NodeId = (Id, Option<ComponentIndex>);
+
+pub type NodePath = (IdPath, Option<ComponentIndex>);
 
 pub type ComponentIndex = usize;
 
@@ -37,37 +39,5 @@ impl IdPath {
 
     pub fn pop(&mut self) -> Id {
         self.path.pop().unwrap()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum NodePath {
-    WidgetPath(IdPath),
-    ComponentPath(IdPath, ComponentIndex),
-}
-
-impl NodePath {
-    pub fn new(id_path: IdPath, component_index: Option<ComponentIndex>) -> Self {
-        if let Some(component_index) = component_index {
-            Self::ComponentPath(id_path, component_index)
-        } else {
-            Self::WidgetPath(id_path)
-        }
-    }
-
-    pub fn id_path(&self) -> &IdPath {
-        match self {
-            Self::WidgetPath(id_path) => &id_path,
-            Self::ComponentPath(id_path, _) => &id_path,
-        }
-    }
-
-    pub fn as_node_id(&self) -> NodeId {
-        match self {
-            Self::WidgetPath(id_path) => (id_path.bottom_id(), 0),
-            Self::ComponentPath(id_path, component_index) => {
-                (id_path.bottom_id(), *component_index)
-            }
-        }
     }
 }

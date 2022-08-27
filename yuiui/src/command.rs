@@ -4,8 +4,7 @@ use std::collections::{hash_map, HashMap};
 use std::future::Future;
 use std::mem;
 
-use crate::context::EffectPath;
-use crate::effect::Effect;
+use crate::effect::{Effect, EffectPath};
 use crate::id::NodeId;
 use crate::state::State;
 
@@ -31,10 +30,10 @@ impl<S: State> Command<S> {
         Command::Stream(Box::pin(stream))
     }
 
-    pub fn map<F, PS>(self, f: F) -> Command<PS>
+    pub fn map<F, NS>(self, f: F) -> Command<NS>
     where
-        F: Fn(Effect<S>) -> Effect<PS> + Send + 'static,
-        PS: State,
+        F: Fn(Effect<S>) -> Effect<NS> + Send + 'static,
+        NS: State,
     {
         match self {
             Command::Future(future) => Command::Future(Box::pin(future.map(f))),
@@ -43,7 +42,7 @@ impl<S: State> Command<S> {
     }
 }
 
-pub trait CommandRuntime {
+pub trait CommandContext {
     type Token;
 
     fn run<S: State>(&mut self, path: EffectPath, command: Command<S>) -> Self::Token;
@@ -51,31 +50,30 @@ pub trait CommandRuntime {
     fn abort(&mut self, token: Self::Token);
 }
 
-pub struct CommandHandler<R: CommandRuntime> {
-    runtime: R,
-    running_commands: HashMap<NodeId, TokenMap<R::Token>>,
+pub struct CommandHandler<Token> {
+    running_commands: HashMap<NodeId, TokenMap<Token>>,
 }
 
-impl<R: CommandRuntime> CommandHandler<R> {
-    pub fn new(runtime: R) -> Self {
+impl<Token> CommandHandler<Token> {
+    pub fn new() -> Self {
         Self {
-            runtime,
             running_commands: HashMap::new(),
         }
     }
 
-    pub fn run<S: State>(
+    pub fn run<C: CommandContext<Token = Token>, S: State>(
         &mut self,
         path: EffectPath,
         command: Command<S>,
         command_id: Option<CommandId>,
+        context: &mut C,
     ) {
-        let node_id = path.source_path().as_node_id();
-        let token = self.runtime.run(path, command);
-        match self.running_commands.entry(node_id) {
+        let source_id = path.source_id();
+        let token = context.run(path, command);
+        match self.running_commands.entry(source_id) {
             hash_map::Entry::Occupied(mut entry) => {
                 if let Some(token) = entry.get_mut().add(token, command_id) {
-                    self.runtime.abort(token);
+                    context.abort(token);
                 }
             }
             hash_map::Entry::Vacant(entry) => {
@@ -86,23 +84,32 @@ impl<R: CommandRuntime> CommandHandler<R> {
         }
     }
 
-    pub fn abort(&mut self, node_id: NodeId, command_id: CommandId) -> bool {
+    pub fn abort<C: CommandContext<Token = Token>>(
+        &mut self,
+        node_id: NodeId,
+        command_id: CommandId,
+        context: &mut C,
+    ) -> bool {
         if let Some(token_map) = self.running_commands.get_mut(&node_id) {
             if let Some(token) = token_map.remove(command_id) {
-                self.runtime.abort(token);
+                context.abort(token);
                 return true;
             }
         }
         false
     }
 
-    pub fn abort_all(&mut self, node_id: NodeId) {
+    pub fn abort_all<C: CommandContext<Token = Token>>(
+        &mut self,
+        node_id: NodeId,
+        context: &mut C,
+    ) {
         if let Some(token_map) = self.running_commands.remove(&node_id) {
             for token in token_map.tokens {
-                self.runtime.abort(token);
+                context.abort(token);
             }
             for (token, _) in token_map.identified_tokens {
-                self.runtime.abort(token);
+                context.abort(token);
             }
         }
     }
@@ -122,23 +129,20 @@ impl<T> TokenMap<T> {
     }
 
     fn add(&mut self, new_token: T, new_command_id: Option<CommandId>) -> Option<T> {
-        match new_command_id {
-            Some(new_command_id) => {
-                if let Some((token, _)) = self
-                    .identified_tokens
-                    .iter_mut()
-                    .find(|(_, command_id)| *command_id == new_command_id)
-                {
-                    Some(mem::replace(token, new_token))
-                } else {
-                    self.identified_tokens.push((new_token, new_command_id));
-                    None
-                }
-            }
-            None => {
-                self.tokens.push(new_token);
+        if let Some(new_command_id) = new_command_id {
+            if let Some((token, _)) = self
+                .identified_tokens
+                .iter_mut()
+                .find(|(_, command_id)| *command_id == new_command_id)
+            {
+                Some(mem::replace(token, new_token))
+            } else {
+                self.identified_tokens.push((new_token, new_command_id));
                 None
             }
+        } else {
+            self.tokens.push(new_token);
+            None
         }
     }
 

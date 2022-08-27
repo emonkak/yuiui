@@ -14,7 +14,7 @@ mod widget;
 mod widget_node;
 mod widget_tree;
 
-pub use command::{Command, CommandHandler, CommandId, CommandRuntime};
+pub use command::{Command, CommandContext, CommandHandler, CommandId};
 pub use component::{Component, FunctionComponent};
 pub use component_node::{ComponentNode, ComponentStack};
 pub use effect::Effect;
