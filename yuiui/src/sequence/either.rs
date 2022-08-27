@@ -1,5 +1,6 @@
 use either::Either;
 use std::mem;
+use std::sync::Once;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
@@ -106,8 +107,21 @@ where
     R: WidgetNodeSeq<S, E>,
     S: State,
 {
-    fn event_mask() -> EventMask {
-        L::event_mask().merge(R::event_mask())
+    fn event_mask() -> &'static EventMask {
+        static INIT: Once = Once::new();
+        static mut EVENT_MASK: EventMask = EventMask::new();
+
+        if !INIT.is_completed() {
+            let left_mask = L::event_mask();
+            let right_mask = R::event_mask();
+
+            INIT.call_once(|| unsafe {
+                EVENT_MASK.merge(left_mask);
+                EVENT_MASK.merge(right_mask);
+            });
+        }
+
+        unsafe { &EVENT_MASK }
     }
 
     fn len(&self) -> usize {

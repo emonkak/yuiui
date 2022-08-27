@@ -55,47 +55,42 @@ impl InternalEvent {
 
 #[derive(Debug)]
 pub struct EventMask {
-    mask: HashSet<TypeId>,
+    mask: Option<HashSet<TypeId>>,
 }
 
 impl EventMask {
-    pub fn new() -> Self {
-        Self {
-            mask: HashSet::new(),
-        }
+    pub const fn new() -> Self {
+        Self { mask: None }
     }
 
     pub fn contains(&self, type_id: &TypeId) -> bool {
-        self.mask.contains(type_id)
+        if let Some(mask) = &self.mask {
+            mask.contains(type_id)
+        } else {
+            false
+        }
     }
 
     pub fn add(&mut self, type_id: TypeId) {
-        self.mask.insert(type_id);
+        self.mask
+            .get_or_insert_with(|| HashSet::new())
+            .insert(type_id);
     }
 
-    pub fn merge(mut self, other: Self) -> Self {
-        self.mask.extend(other.mask);
-        self
-    }
-}
-
-impl FromIterator<TypeId> for EventMask {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = TypeId>,
-    {
-        EventMask {
-            mask: HashSet::from_iter(iter),
+    pub fn add_all(&mut self, type_ids: &[TypeId]) {
+        if !type_ids.is_empty() {
+            self.mask
+                .get_or_insert_with(|| HashSet::new())
+                .extend(type_ids);
         }
     }
-}
 
-impl Extend<TypeId> for EventMask {
-    fn extend<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = TypeId>,
-    {
-        self.mask.extend(iter)
+    pub fn merge(&mut self, other: &Self) {
+        if let Some(mask) = &other.mask {
+            if !mask.is_empty() {
+                self.mask.get_or_insert_with(|| HashSet::new()).extend(mask);
+            }
+        }
     }
 }
 

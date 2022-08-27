@@ -4,6 +4,7 @@ mod internal_event_visitor;
 mod update_subtree_visitor;
 
 use std::fmt;
+use std::sync::Once;
 
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
@@ -25,7 +26,7 @@ pub trait WidgetNodeSeq<S: State, E>:
     + for<'a> TraversableSeq<EventVisitor<'a>, EffectContext<S>, S, E>
     + for<'a> TraversableSeq<InternalEventVisitor<'a>, EffectContext<S>, S, E>
 {
-    fn event_mask() -> EventMask;
+    fn event_mask() -> &'static EventMask;
 
     fn len(&self) -> usize;
 
@@ -37,7 +38,7 @@ pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
     pub(crate) state: Option<WidgetState<V, V::Widget>>,
     pub(crate) children: <V::Widget as Widget<S, E>>::Children,
     pub(crate) components: CS,
-    pub(crate) event_mask: EventMask,
+    pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
 
@@ -150,10 +151,20 @@ where
     CS: ComponentStack<S, E, View = V>,
     S: State,
 {
-    fn event_mask() -> EventMask {
-        let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
-        event_mask.extend(<V::Widget as WidgetEvent>::Event::allowed_types());
-        event_mask
+    fn event_mask() -> &'static EventMask {
+        static INIT: Once = Once::new();
+        static mut EVENT_MASK: EventMask = EventMask::new();
+
+        if !INIT.is_completed() {
+            let children_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
+
+            INIT.call_once(|| unsafe {
+                EVENT_MASK.merge(children_mask);
+                EVENT_MASK.add_all(&<V::Widget as WidgetEvent>::Event::allowed_types());
+            });
+        }
+
+        unsafe { &EVENT_MASK }
     }
 
     fn len(&self) -> usize {

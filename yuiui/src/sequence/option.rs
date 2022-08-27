@@ -77,7 +77,7 @@ where
     T: WidgetNodeSeq<S, E>,
     S: State,
 {
-    fn event_mask() -> EventMask {
+    fn event_mask() -> &'static EventMask {
         T::event_mask()
     }
 

@@ -1,4 +1,5 @@
 use hlist::{HCons, HList, HNil};
+use std::sync::Once;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
@@ -34,8 +35,9 @@ impl<S, E> WidgetNodeSeq<S, E> for HNil
 where
     S: State,
 {
-    fn event_mask() -> EventMask {
-        EventMask::new()
+    fn event_mask() -> &'static EventMask {
+        static MASK: EventMask = EventMask::new();
+        &MASK
     }
 
     fn len(&self) -> usize {
@@ -100,8 +102,21 @@ where
     T: WidgetNodeSeq<S, E> + HList,
     S: State,
 {
-    fn event_mask() -> EventMask {
-        H::event_mask().merge(T::event_mask())
+    fn event_mask() -> &'static EventMask {
+        static INIT: Once = Once::new();
+        static mut EVENT_MASK: EventMask = EventMask::new();
+
+        if !INIT.is_completed() {
+            let head_mask = H::event_mask();
+            let tail_mask = T::event_mask();
+
+            INIT.call_once(|| unsafe {
+                EVENT_MASK.merge(head_mask);
+                EVENT_MASK.merge(tail_mask);
+            });
+        }
+
+        unsafe { &EVENT_MASK }
     }
 
     fn len(&self) -> usize {

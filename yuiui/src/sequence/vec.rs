@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::fmt;
+use std::sync::Once;
 
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
@@ -113,10 +114,15 @@ where
     CS: ComponentStack<S, E, View = V>,
     S: State,
 {
-    fn event_mask() -> EventMask {
-        let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
-        event_mask.extend(<V::Widget as WidgetEvent>::Event::allowed_types());
-        event_mask
+    fn event_mask() -> &'static EventMask {
+        static INIT: Once = Once::new();
+        static mut EVENT_MASK: EventMask = EventMask::new();
+
+        INIT.call_once(|| unsafe {
+            EVENT_MASK.add_all(&<V::Widget as WidgetEvent>::Event::allowed_types());
+        });
+
+        unsafe { &EVENT_MASK }
     }
 
     fn len(&self) -> usize {
