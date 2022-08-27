@@ -1,4 +1,8 @@
-use std::any::{Any, TypeId};
+mod commit_visitor;
+mod event_visitor;
+mod internal_event_visitor;
+mod update_subtree_visitor;
+
 use std::fmt;
 
 use crate::component_node::ComponentStack;
@@ -9,7 +13,12 @@ use crate::render::{
 };
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetEvent, WidgetLifeCycle};
+use crate::widget::{Widget, WidgetEvent};
+
+use commit_visitor::CommitVisitor;
+use event_visitor::EventVisitor;
+use internal_event_visitor::InternalEventVisitor;
+use update_subtree_visitor::UpdateSubtreeVisitor;
 
 pub trait WidgetNodeSeq<S: State, E>: RenderContextSeq<S, E> + EffectContextSeq<S, E> {
     fn event_mask() -> EventMask;
@@ -88,7 +97,7 @@ where
     ) -> bool {
         let mut visitor = UpdateSubtreeVisitor::new(component_index);
         RenderContextSeq::search(self, id_path, &mut visitor, state, env, context);
-        visitor.has_changed
+        visitor.result()
     }
 
     pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
@@ -120,11 +129,11 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) -> bool {
-        let mut visitor = StaticEventVisitor::new(event);
+        let mut visitor = EventVisitor::new(event);
         context.begin_widget(self.id);
         visitor.visit(self, state, env, context);
         context.end_widget();
-        visitor.captured
+        visitor.result()
     }
 
     pub fn internal_event(
@@ -282,205 +291,6 @@ impl CommitMode {
         match self {
             Self::Mount | Self::Unmount => true,
             Self::Update => false,
-        }
-    }
-}
-
-struct UpdateSubtreeVisitor {
-    component_index: Option<ComponentIndex>,
-    has_changed: bool,
-}
-
-impl UpdateSubtreeVisitor {
-    fn new(component_index: Option<ComponentIndex>) -> Self {
-        Self {
-            component_index,
-            has_changed: false,
-        }
-    }
-}
-
-impl RenderContextVisitor for UpdateSubtreeVisitor {
-    fn visit<V, CS, S, E>(
-        &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
-        let scope = node.scope();
-        let component_index = self.component_index.take().unwrap_or(0);
-        if CS::force_update(scope, component_index, 0, state, env, context) {
-            self.has_changed = true;
-            node.state = match node.state.take().unwrap() {
-                WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
-                state @ _ => state,
-            }
-            .into();
-            RenderContextSeq::for_each(&mut node.children, self, state, env, context);
-        }
-    }
-}
-
-struct CommitVisitor {
-    mode: CommitMode,
-}
-
-impl CommitVisitor {
-    fn new(mode: CommitMode) -> Self {
-        Self { mode }
-    }
-}
-
-impl EffectContextVisitor for CommitVisitor {
-    fn visit<V, CS, S, E>(
-        &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
-        context.begin_components();
-        node.components.commit(self.mode, state, env, context);
-        context.end_components();
-        node.children.commit(self.mode, state, env, context);
-        node.state = match node.state.take().unwrap() {
-            WidgetState::Uninitialized(view) => {
-                let mut widget = view.build(&node.children, state, env);
-                let result = widget.lifecycle(
-                    WidgetLifeCycle::Mounted,
-                    &node.children,
-                    context.id_path(),
-                    state,
-                    env,
-                );
-                context.process_result(result);
-                WidgetState::Prepared(widget, view)
-            }
-            WidgetState::Prepared(mut widget, view) => {
-                match self.mode {
-                    CommitMode::Mount => {
-                        let result = widget.lifecycle(
-                            WidgetLifeCycle::Mounted,
-                            &node.children,
-                            context.id_path(),
-                            state,
-                            env,
-                        );
-                        context.process_result(result);
-                    }
-                    CommitMode::Unmount => {
-                        let result = widget.lifecycle(
-                            WidgetLifeCycle::Unmounted,
-                            &node.children,
-                            context.id_path(),
-                            state,
-                            env,
-                        );
-                        context.process_result(result);
-                    }
-                    CommitMode::Update => {}
-                }
-                WidgetState::Prepared(widget, view)
-            }
-            WidgetState::Dirty(mut widget, view) => {
-                if view.rebuild(&node.children, &mut widget, state, env) {
-                    let result = widget.lifecycle(
-                        WidgetLifeCycle::Updated,
-                        &node.children,
-                        context.id_path(),
-                        state,
-                        env,
-                    );
-                    context.process_result(result);
-                }
-                WidgetState::Prepared(widget, view)
-            }
-        }
-        .into();
-    }
-}
-
-struct StaticEventVisitor<'a, Event> {
-    event: &'a Event,
-    captured: bool,
-}
-
-impl<'a, Event: 'static> StaticEventVisitor<'a, Event> {
-    fn new(event: &'a Event) -> Self {
-        Self {
-            event,
-            captured: false,
-        }
-    }
-}
-
-impl<'a, Event: 'static> EffectContextVisitor for StaticEventVisitor<'a, Event> {
-    fn visit<V, CS, S, E>(
-        &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
-        match node.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget, _) | WidgetState::Dirty(widget, _) => {
-                if node.event_mask.contains(&TypeId::of::<Event>()) {
-                    EffectContextSeq::for_each(&mut node.children, self, state, env, context);
-                }
-                if let Some(event) = <V::Widget as WidgetEvent>::Event::from_static(self.event) {
-                    let result = widget.event(event, &node.children, context.id_path(), state, env);
-                    context.process_result(result);
-                    self.captured = true;
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-struct InternalEventVisitor<'a> {
-    event: &'a dyn Any,
-}
-
-impl<'a> InternalEventVisitor<'a> {
-    fn new(event: &'a dyn Any) -> Self {
-        Self { event }
-    }
-}
-
-impl<'a> EffectContextVisitor for InternalEventVisitor<'a> {
-    fn visit<V, CS, S, E>(
-        &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) where
-        V: View<S, E>,
-        CS: ComponentStack<S, E, View = V>,
-        S: State,
-    {
-        match node.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget, _) | WidgetState::Dirty(widget, _) => {
-                let event = <V::Widget as WidgetEvent>::Event::from_any(self.event)
-                    .expect("cast any event to widget event");
-                let result = widget.event(event, &node.children, context.id_path(), state, env);
-                context.process_result(result);
-            }
-            WidgetState::Uninitialized(_) => {}
         }
     }
 }
