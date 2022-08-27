@@ -1,10 +1,8 @@
 use std::any::{Any, TypeId};
 use std::fmt;
 
-use crate::component::Component;
-use crate::component_node::{ComponentNode, ComponentStack};
+use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
-use crate::element::Element;
 use crate::event::{Event, EventMask, InternalEvent};
 use crate::id::{ComponentIndex, Id, IdContext, IdPath};
 use crate::sequence::WidgetNodeSeq;
@@ -23,7 +21,7 @@ pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E>, S: State, E> {
 impl<V, CS, S, E> WidgetNode<V, CS, S, E>
 where
     V: View<S, E>,
-    CS: ComponentStack<S, E>,
+    CS: ComponentStack<S, E, View = V>,
     S: State,
 {
     pub(crate) fn new(
@@ -83,6 +81,17 @@ where
     ) {
         let mut visitor = CommitVisitor::new(mode);
         self.search(id_path, &mut visitor, state, env, context);
+    }
+
+    pub fn force_update(
+        &mut self,
+        component_index: ComponentIndex,
+        state: &S,
+        env: &E,
+        context: &mut IdContext,
+    ) {
+        let scope = self.scope();
+        CS::force_update(scope, component_index, 0, state, env, context);
     }
 
     pub fn event<Event: 'static>(
@@ -189,68 +198,6 @@ impl CommitMode {
         match self {
             Self::Mount | Self::Unmount => true,
             Self::Update => false,
-        }
-    }
-}
-
-pub trait RerenderComponent<S, E> {
-    fn rerender(
-        self,
-        _target: ComponentIndex,
-        _current: ComponentIndex,
-        _state: &S,
-        _env: &E,
-        context: &mut IdContext,
-    ) -> bool;
-}
-
-impl<'a, V, S, E> RerenderComponent<S, E> for WidgetNodeScope<'a, V, (), S, E>
-where
-    V: View<S, E>,
-    S: State,
-{
-    fn rerender(
-        self,
-        _target: ComponentIndex,
-        _current: ComponentIndex,
-        _state: &S,
-        _env: &E,
-        _context: &mut IdContext,
-    ) -> bool {
-        false
-    }
-}
-
-impl<'a, V, C, CS, S, E> RerenderComponent<S, E>
-    for WidgetNodeScope<'a, V, (ComponentNode<C, S, E>, CS), S, E>
-where
-    WidgetNodeScope<'a, V, CS, S, E>: RerenderComponent<S, E>,
-    V: View<S, E>,
-    C: Component<S, E>,
-    C::Element: Element<S, E, View = V, Components = CS>,
-    CS: ComponentStack<S, E>,
-    S: State,
-{
-    fn rerender(
-        self,
-        target: ComponentIndex,
-        current: ComponentIndex,
-        state: &S,
-        env: &E,
-        context: &mut IdContext,
-    ) -> bool {
-        let (head, tail) = self.components;
-        let scope = WidgetNodeScope {
-            id: self.id,
-            state: self.state,
-            children: self.children,
-            components: tail,
-        };
-        if target <= current {
-            let element = head.component.render(state, env);
-            element.update(scope, state, env, context)
-        } else {
-            scope.rerender(target, current + 1, state, env, context)
         }
     }
 }

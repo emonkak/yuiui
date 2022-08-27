@@ -70,7 +70,7 @@ where
 impl<V, CS, S, E> WidgetNodeSeq<S, E> for WidgetNodeStore<V, CS, S, E>
 where
     V: View<S, E>,
-    CS: ComponentStack<S, E>,
+    CS: ComponentStack<S, E, View = V>,
     S: State,
 {
     fn event_mask() -> EventMask {

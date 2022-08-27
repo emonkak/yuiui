@@ -3,17 +3,18 @@ use std::marker::PhantomData;
 
 use crate::adapt::Adapt;
 use crate::component::Component;
-use crate::component_node::{ComponentNode, ComponentStack};
+use crate::component_node::{ComponentEnd, ComponentNode, ComponentStack};
 use crate::id::IdContext;
-use crate::sequence::ElementSeq;
+use crate::sequence::{ElementSeq, WidgetNodeSeq};
 use crate::state::State;
 use crate::view::View;
+use crate::widget::Widget;
 use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
 
 pub trait Element<S: State, E> {
     type View: View<S, E>;
 
-    type Components: ComponentStack<S, E>;
+    type Components: ComponentStack<S, E, View = Self::View>;
 
     fn render(
         self,
@@ -39,6 +40,42 @@ pub trait Element<S: State, E> {
     }
 }
 
+pub trait DebuggableElement<S: State, E>:
+    Element<
+        S,
+        E,
+        View = <Self as DebuggableElement<S, E>>::View,
+        Components = <Self as DebuggableElement<S, E>>::Components,
+    > + fmt::Debug
+{
+    type View: View<S, E, Widget = Self::Widget> + fmt::Debug;
+
+    type Widget: Widget<S, E, Children = Self::Children> + fmt::Debug;
+
+    type Children: WidgetNodeSeq<S, E> + fmt::Debug;
+
+    type Components: ComponentStack<S, E, View = <Self as DebuggableElement<S, E>>::View>
+        + fmt::Debug;
+}
+
+impl<El, S, E> DebuggableElement<S, E> for El
+where
+    El: Element<S, E> + fmt::Debug,
+    El::View: fmt::Debug,
+    <El::View as View<S, E>>::Widget: fmt::Debug,
+    <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children: fmt::Debug,
+    El::Components: fmt::Debug,
+    S: State,
+{
+    type View = El::View;
+
+    type Widget = <El::View as View<S, E>>::Widget;
+
+    type Children = <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children;
+
+    type Components = El::Components;
+}
+
 pub struct ViewElement<V: View<S, E>, S: State, E> {
     view: V,
     children: V::Children,
@@ -61,7 +98,7 @@ where
 {
     type View = V;
 
-    type Components = ();
+    type Components = ComponentEnd<V>;
 
     fn render(
         self,
@@ -73,7 +110,7 @@ where
         context.begin_widget(id);
         let children = self.children.render(state, env, context);
         context.end_widget();
-        WidgetNode::new(id, self.view, children, ())
+        WidgetNode::new(id, self.view, children, ComponentEnd::new())
     }
 
     fn update(
@@ -166,7 +203,10 @@ where
         context: &mut IdContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
-        if head_node.component.should_update(&self.component, state, env) {
+        if head_node
+            .component
+            .should_update(&self.component, state, env)
+        {
             let element = self.component.render(state, env);
             let scope = WidgetNodeScope {
                 id: scope.id,
@@ -191,21 +231,5 @@ where
         f.debug_struct("ComponentElement")
             .field("component", &self.component)
             .finish()
-    }
-}
-
-#[macro_export]
-macro_rules! Element {
-    ($S:ty, $E:ty) => {
-        impl Element<
-            $S,
-            $E,
-            View = impl View<
-                $S,
-                $E,
-                Widget = impl Widget<$S, $E, Children = impl ::std::fmt::Debug> + ::std::fmt::Debug,
-            > + ::std::fmt::Debug,
-            Components = impl ComponentStack<$S, $E> + ::std::fmt::Debug
-        > + ::std::fmt::Debug
     }
 }

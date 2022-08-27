@@ -3,9 +3,11 @@ use std::mem;
 
 use crate::component::{Component, ComponentLifecycle};
 use crate::effect::EffectContext;
-use crate::id::ComponentIndex;
+use crate::element::Element;
+use crate::id::{ComponentIndex, IdContext};
 use crate::state::State;
-use crate::widget_node::CommitMode;
+use crate::view::View;
+use crate::widget_node::{CommitMode, WidgetNodeScope, WidgetState};
 
 #[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
@@ -48,78 +50,87 @@ where
     }
 }
 
-pub trait ComponentStack<S: State, E> {
-    const LEN: usize;
+pub trait ComponentStack<S: State, E>: Sized {
+    type View: View<S, E>;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 
-    fn index<V: ComponentNodeVisitor>(
-        &mut self,
+    fn force_update<'a>(
+        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
-        visitor: &mut V,
         state: &S,
         env: &E,
-    ) -> bool;
+        context: &mut IdContext,
+    );
 }
 
 impl<C, CS, S, E> ComponentStack<S, E> for (ComponentNode<C, S, E>, CS)
 where
     C: Component<S, E>,
-    CS: ComponentStack<S, E>,
+    C::Element: Element<S, E, Components = CS>,
+    CS: ComponentStack<S, E, View = <C::Element as Element<S, E>>::View>,
     S: State,
 {
-    const LEN: usize = 1 + CS::LEN;
+    type View = <C::Element as Element<S, E>>::View;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         self.0.commit(mode, state, env, context);
         self.1.commit(mode, state, env, context);
     }
 
-    fn index<V: ComponentNodeVisitor>(
-        &mut self,
+    fn force_update<'a>(
+        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
-        visitor: &mut V,
         state: &S,
         env: &E,
-    ) -> bool {
+        context: &mut IdContext,
+    ) {
+        let (head, tail) = scope.components;
+        let scope = WidgetNodeScope {
+            id: scope.id,
+            state: scope.state,
+            children: scope.children,
+            components: tail,
+        };
         if target_index == current_index {
-            visitor.visit(&mut self.0, &mut self.1, state, env);
-            true
+            let element = head.component.render(state, env);
+            element.update(scope, state, env, context);
         } else {
-            self.1.index(target_index, current_index + 1, visitor, state, env)
+            CS::force_update(scope, target_index, current_index + 1, state, env, context);
         }
     }
 }
 
-impl<S: State, E> ComponentStack<S, E> for () {
-    const LEN: usize = 0;
+#[derive(Debug)]
+pub struct ComponentEnd<V>(PhantomData<V>);
+
+impl<V> ComponentEnd<V> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
+    type View = V;
 
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
 
-    fn index<V: ComponentNodeVisitor>(
-        &mut self,
+    fn force_update<'a>(
+        scope: WidgetNodeScope<'a, V, Self, S, E>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
-        _visitor: &mut V,
         _state: &S,
         _env: &E,
-    ) -> bool {
-        false
+        _context: &mut IdContext,
+    ) {
+        // TODO: update children
+        *scope.state = match scope.state.take().unwrap() {
+            WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
+            state @ _ => state,
+        }
+        .into();
     }
-}
-
-pub trait ComponentNodeVisitor {
-    fn visit<C, CS, S, E>(
-        &mut self,
-        head_node: &mut ComponentNode<C, S, E>,
-        tail_nodes: &mut CS,
-        state: &S,
-        env: &E,
-    ) where
-        C: Component<S, E>,
-        CS: ComponentStack<S, E>,
-        S: State;
 }

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::component::{Component, ComponentLifecycle};
-use crate::component_node::{ComponentNodeVisitor, ComponentStack};
+use crate::component_node::ComponentStack;
 use crate::effect::EffectContext;
 use crate::element::Element;
 use crate::event::{EventMask, EventResult};
@@ -207,7 +207,7 @@ where
     S: State + 'static,
     SS: State + 'static,
 {
-    const LEN: usize = T::LEN;
+    type View = Adapt<T::View, F, SS>;
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
@@ -216,9 +216,39 @@ where
         context.merge(sub_context, &self.selector_fn);
     }
 
-    fn index<V: ComponentNodeVisitor>(&mut self, target_index: ComponentIndex, current_index: ComponentIndex, visitor: &mut V, state: &S, env: &E) -> bool {
-        let sub_state = (self.selector_fn)(state);
-        self.target.index(target_index, current_index, visitor, sub_state, env)
+    fn force_update<'a>(
+        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
+        target_index: ComponentIndex,
+        current_index: ComponentIndex,
+        state: &S,
+        env: &E,
+        context: &mut IdContext,
+    ) {
+        let mut sub_widget_state = scope.state.take().map(|state| match state {
+            WidgetState::Uninitialized(view) => WidgetState::Uninitialized(view.target),
+            WidgetState::Prepared(widget, view) => {
+                WidgetState::Prepared(widget.target, view.target)
+            }
+            WidgetState::Dirty(widget, view) => WidgetState::Dirty(widget.target, view.target),
+        });
+        let selector_fn = &scope.components.selector_fn;
+        let sub_scope = WidgetNodeScope {
+            id: scope.id,
+            state: &mut sub_widget_state,
+            children: &mut scope.children.target,
+            components: &mut scope.components.target,
+        };
+        let sub_state = selector_fn(state);
+        let has_changed = T::force_update(
+            sub_scope,
+            target_index,
+            current_index,
+            sub_state,
+            env,
+            context,
+        );
+        *scope.state = sub_widget_state.map(|state| lift_widget_state(state, selector_fn));
+        has_changed
     }
 }
 

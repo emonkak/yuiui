@@ -17,7 +17,7 @@ pub use command::{Command, CommandHandler, CommandId, CommandRuntime};
 pub use component::{Component, FunctionComponent};
 pub use component_node::{ComponentNode, ComponentStack};
 pub use effect::Effect;
-pub use element::{ComponentElement, Element, ViewElement};
+pub use element::{ComponentElement, DebuggableElement, Element, ViewElement};
 pub use event::Event;
 pub use id::{Id, IdPath, NodeId, NodePath};
 pub use sequence::{ElementSeq, WidgetNodeSeq};
@@ -139,8 +139,12 @@ pub struct ButtonProps {
 #[allow(non_snake_case)]
 pub fn Button<S: State, E>(
     props: ButtonProps,
-) -> FunctionComponent<ButtonProps, Element![S, E], S, E> {
-    fn render<S: State, E>(props: &ButtonProps, _state: &S, _env: &E) -> Element![S, E] {
+) -> FunctionComponent<ButtonProps, impl DebuggableElement<S, E>, S, E> {
+    fn render<S: State, E>(
+        props: &ButtonProps,
+        _state: &S,
+        _env: &E,
+    ) -> impl DebuggableElement<S, E> {
         Block::new().el_with(Text::new(props.label.clone()).el())
     }
 
@@ -153,8 +157,8 @@ pub fn Button<S: State, E>(
 }
 
 #[allow(non_snake_case)]
-pub fn Counter<E>() -> FunctionComponent<(), Element![Data<i64>, E], Data<i64>, E> {
-    fn render<E>(_props: &(), state: &Data<i64>, _env: &E) -> Element![Data<i64>, E] {
+pub fn Counter<E>() -> FunctionComponent<(), impl DebuggableElement<Data<i64>, E>, Data<i64>, E> {
+    fn render<E>(_props: &(), state: &Data<i64>, _env: &E) -> impl DebuggableElement<Data<i64>, E> {
         Block::new().el_with(Text::new(format!("{}", state.value)).el())
     }
 

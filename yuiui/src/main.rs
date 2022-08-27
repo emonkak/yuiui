@@ -31,7 +31,7 @@ impl State for AppState {
     }
 }
 
-fn app(_state: &AppState) -> Element![AppState, AppEnv] {
+fn app(_state: &AppState) -> impl DebuggableElement<AppState, AppEnv> {
     Block::new().el_with(hlist![
         Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
         Block::new().el_with(Text::new("hello world!").el()),
