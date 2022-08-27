@@ -110,6 +110,13 @@ where
         L::event_mask().merge(R::event_mask())
     }
 
+    fn len(&self) -> usize {
+        match &self.active {
+            Either::Left(node) => node.len(),
+            Either::Right(node) => node.len(),
+        }
+    }
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
             match &mut self.active {

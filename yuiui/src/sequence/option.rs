@@ -81,6 +81,13 @@ where
         T::event_mask()
     }
 
+    fn len(&self) -> usize {
+        match &self.active {
+            Some(node) => node.len(),
+            None => 0,
+        }
+    }
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.status == RenderStatus::Swapped {
             if let Some(node) = &mut self.active {

@@ -27,6 +27,8 @@ pub trait WidgetNodeSeq<S: State, E>:
 {
     fn event_mask() -> EventMask;
 
+    fn len(&self) -> usize;
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 }
 
@@ -152,6 +154,10 @@ where
         let mut event_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
         event_mask.extend(<V::Widget as WidgetEvent>::Event::allowed_types());
         event_mask
+    }
+
+    fn len(&self) -> usize {
+        1
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {

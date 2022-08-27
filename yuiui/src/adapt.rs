@@ -139,6 +139,10 @@ where
         T::event_mask()
     }
 
+    fn len(&self) -> usize {
+        self.target.len()
+    }
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();

@@ -38,6 +38,10 @@ where
         EventMask::new()
     }
 
+    fn len(&self) -> usize {
+        0
+    }
+
     fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
     }
 }
@@ -98,6 +102,10 @@ where
 {
     fn event_mask() -> EventMask {
         H::event_mask().merge(T::event_mask())
+    }
+
+    fn len(&self) -> usize {
+        self.head.len() + self.tail.len()
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {

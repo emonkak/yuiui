@@ -59,6 +59,10 @@ where
         T::event_mask()
     }
 
+    fn len(&self) -> usize {
+        N
+    }
+
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
