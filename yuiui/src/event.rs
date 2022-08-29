@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::command::Command;
 use crate::effect::Effect;
 use crate::id::IdPath;
 use crate::state::State;
@@ -134,6 +135,14 @@ impl<S: State> From<Effect<S>> for EventResult<S> {
     fn from(effect: Effect<S>) -> Self {
         EventResult {
             effects: vec![effect],
+        }
+    }
+}
+
+impl<S: State> From<Command<S>> for EventResult<S> {
+    fn from(command: Command<S>) -> Self {
+        EventResult {
+            effects: vec![Effect::Command(command)],
         }
     }
 }

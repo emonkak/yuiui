@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::command::{Command, CommandId};
+use crate::command::Command;
 use crate::id::{NodeId, NodePath};
 use crate::state::State;
 
@@ -8,9 +8,6 @@ pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
     Command(Command<S>),
-    IdentifiedCommand(CommandId, Command<S>),
-    CancelCommand(CommandId),
-    CancelAllCommands,
 }
 
 impl<S: State> Effect<S> {
@@ -39,13 +36,6 @@ impl<S: State> Effect<S> {
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command)
             }
-            Self::IdentifiedCommand(command_id, command) => {
-                let f = f.clone();
-                let command = command.map(move |effect| effect.lift(&f));
-                Effect::IdentifiedCommand(command_id, command)
-            }
-            Self::CancelCommand(id) => Effect::CancelCommand(id),
-            Self::CancelAllCommands => Effect::CancelAllCommands,
         }
     }
 }
@@ -53,14 +43,14 @@ impl<S: State> Effect<S> {
 #[derive(Debug, Clone)]
 pub struct EffectPath {
     source_path: NodePath,
-    dest_path: NodePath,
+    state_path: NodePath,
 }
 
 impl EffectPath {
-    pub fn new(source_path: NodePath, dest_path: NodePath) -> Self {
+    pub fn new(source_path: NodePath, state_path: NodePath) -> Self {
         Self {
             source_path,
-            dest_path,
+            state_path,
         }
     }
 
@@ -73,7 +63,7 @@ impl EffectPath {
         (id_path.bottom_id(), *component_index)
     }
 
-    pub fn dest_path(&self) -> &NodePath {
-        &self.dest_path
+    pub fn state_path(&self) -> &NodePath {
+        &self.state_path
     }
 }
