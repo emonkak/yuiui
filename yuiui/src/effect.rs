@@ -8,6 +8,7 @@ pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
     Command(Command<S>),
+    RequestUpdate,
 }
 
 impl<S: State> Effect<S> {
@@ -36,6 +37,7 @@ impl<S: State> Effect<S> {
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command)
             }
+            Self::RequestUpdate => Effect::RequestUpdate,
         }
     }
 }

@@ -1,6 +1,7 @@
 use futures::future::{BoxFuture, FutureExt as _};
 use futures::stream::{BoxStream, Stream, StreamExt as _};
 use std::future::Future;
+use std::time::Duration;
 
 use crate::effect::{Effect, EffectPath};
 use crate::state::State;
@@ -8,6 +9,9 @@ use crate::state::State;
 pub enum Command<S: State> {
     Future(BoxFuture<'static, Effect<S>>),
     Stream(BoxStream<'static, Effect<S>>),
+    Timeout(Duration, Box<dyn FnOnce() -> Effect<S>>),
+    Interval(Duration, Box<dyn FnOnce() -> Effect<S>>),
+    RequestIdle(Box<dyn FnOnce() -> Effect<S>>),
 }
 
 impl<S: State> Command<S> {
@@ -33,6 +37,9 @@ impl<S: State> Command<S> {
         match self {
             Command::Future(future) => Command::Future(Box::pin(future.map(f))),
             Command::Stream(stream) => Command::Stream(Box::pin(stream.map(f))),
+            Command::Timeout(duration, callback) => Command::Timeout(duration, Box::new(move || f(callback()))),
+            Command::Interval(period, callback) => Command::Interval(period, Box::new(move || f(callback()))),
+            Command::RequestIdle(callback) => Command::RequestIdle(Box::new(move || f(callback()))),
         }
     }
 }
