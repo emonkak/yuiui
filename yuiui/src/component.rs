@@ -7,19 +7,28 @@ use crate::state::State;
 pub trait Component<S: State, E>: Sized {
     type Element: Element<S, E>;
 
-    fn render(&self, state: &S, env: &E) -> Self::Element;
-
-    fn should_update(&self, _other: &Self, _state: &S, _env: &E) -> bool {
-        true
-    }
+    type LocalState: Default;
 
     fn lifecycle(
         &self,
         _lifecycle: ComponentLifecycle<Self>,
+        _local_state: &mut Self::LocalState,
         _state: &S,
         _env: &E,
     ) -> EventResult<S> {
         EventResult::nop()
+    }
+
+    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element;
+
+    fn should_update(
+        &self,
+        _other: &Self,
+        _local_state: &Self::LocalState,
+        _state: &S,
+        _env: &E,
+    ) -> bool {
+        true
     }
 
     fn el(self) -> ComponentElement<Self, S, E>
@@ -30,43 +39,53 @@ pub trait Component<S: State, E>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, El, S: State, E> {
+pub struct FunctionComponent<Props, LocalState, El, S: State, E> {
     pub props: Props,
-    pub render: fn(&Props, &S, &E) -> El,
-    pub should_update: Option<fn(&Props, &Props, &S, &E) -> bool>,
-    pub lifecycle: Option<fn(&Props, ComponentLifecycle<Props>, &S, &E) -> EventResult<S>>,
+    pub render: fn(&Props, &LocalState, &S, &E) -> El,
+    pub should_update: Option<fn(&Props, &Props, &LocalState, &S, &E) -> bool>,
+    pub lifecycle:
+        Option<fn(&Props, ComponentLifecycle<Props>, &mut LocalState, &S, &E) -> EventResult<S>>,
 }
 
-impl<Props, El, S, E> Component<S, E> for FunctionComponent<Props, El, S, E>
+impl<Props, LocalState, El, S, E> Component<S, E> for FunctionComponent<Props, LocalState, El, S, E>
 where
+    LocalState: Default,
     El: Element<S, E>,
     S: State,
 {
     type Element = El;
 
-    fn render(&self, state: &S, env: &E) -> Self::Element {
-        (self.render)(&self.props, state, env)
+    type LocalState = LocalState;
+
+    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
+        (self.render)(&self.props, local_state, state, env)
     }
 
-    fn should_update(&self, other: &Self, state: &S, env: &E) -> bool {
+    fn should_update(&self, other: &Self, local_state: &Self::LocalState, state: &S, env: &E) -> bool {
         if let Some(should_update_fn) = &self.should_update {
-            should_update_fn(&self.props, &other.props, state, env)
+            should_update_fn(&self.props, &other.props, local_state, state, env)
         } else {
             true
         }
     }
 
-    fn lifecycle(&self, lifecycle: ComponentLifecycle<Self>, state: &S, env: &E) -> EventResult<S> {
+    fn lifecycle(
+        &self,
+        lifecycle: ComponentLifecycle<Self>,
+        local_state: &mut Self::LocalState,
+        state: &S,
+        env: &E,
+    ) -> EventResult<S> {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map_component(|component| component.props);
-            lifecycle_fn(&self.props, lifecycle, state, env)
+            lifecycle_fn(&self.props, lifecycle, local_state, state, env)
         } else {
             EventResult::nop()
         }
     }
 }
 
-impl<Props, El, S, E> fmt::Debug for FunctionComponent<Props, El, S, E>
+impl<Props, LocalState, El, S, E> fmt::Debug for FunctionComponent<Props, LocalState, El, S, E>
 where
     Props: fmt::Debug,
     S: State,

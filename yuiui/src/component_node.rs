@@ -13,6 +13,7 @@ use crate::widget_node::{CommitMode, WidgetNodeScope};
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
+    pub(crate) local_state: C::LocalState,
     pub(crate) state: PhantomData<S>,
     pub(crate) env: PhantomData<E>,
 }
@@ -26,9 +27,19 @@ where
         Self {
             component,
             pending_component: None,
+            local_state: Default::default(),
             state: PhantomData,
             env: PhantomData,
         }
+    }
+
+    pub(crate) fn render(&self, state: &S, env: &E) -> C::Element {
+        self.component.render(&self.local_state, state, env)
+    }
+
+    pub(crate) fn should_update(&self, other: &C, state: &S, env: &E) -> bool {
+        self.component
+            .should_update(other, &self.local_state, state, env)
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
@@ -45,7 +56,9 @@ where
             }
             CommitMode::Unmount => ComponentLifecycle::Unmounted,
         };
-        let result = self.component.lifecycle(lifecycle, state, env);
+        let result = self
+            .component
+            .lifecycle(lifecycle, &mut self.local_state, state, env);
         context.process_result(result);
         context.next_component();
     }
@@ -101,7 +114,7 @@ where
             dirty: scope.dirty,
         };
         if target_index == current_index {
-            let element = head.component.render(state, env);
+            let element = head.render(state, env);
             element.update(scope, state, env, context)
         } else {
             CS::force_update(scope, target_index, current_index + 1, state, env, context)

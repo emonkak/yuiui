@@ -48,7 +48,7 @@ where
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
         let head_node = ComponentNode::new(self.component);
-        let element = head_node.component.render(state, env);
+        let element = head_node.render(state, env);
         let widget_node = element.render(state, env, context);
         WidgetNode {
             id: widget_node.id,
@@ -68,11 +68,10 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
-        if head_node
-            .component
-            .should_update(&self.component, state, env)
-        {
-            let element = self.component.render(state, env);
+        if head_node.should_update(&self.component, state, env) {
+            let element = self
+                .component
+                .render(&mut head_node.local_state, state, env);
             head_node.pending_component = Some(self.component);
             *scope.dirty = true;
             let scope = WidgetNodeScope {

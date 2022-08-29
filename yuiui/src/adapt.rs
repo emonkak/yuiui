@@ -225,24 +225,33 @@ where
 {
     type Element = Adapt<T::Element, F, SS>;
 
-    fn lifecycle(&self, lifecycle: ComponentLifecycle<Self>, state: &S, env: &E) -> EventResult<S> {
+    type LocalState = T::LocalState;
+
+    fn lifecycle(
+        &self,
+        lifecycle: ComponentLifecycle<Self>,
+        local_state: &mut Self::LocalState,
+        state: &S,
+        env: &E,
+    ) -> EventResult<S> {
         let sub_lifecycle = lifecycle.map_component(|component| component.target);
         let sub_state = (self.selector_fn)(state);
         self.target
-            .lifecycle(sub_lifecycle, sub_state, env)
+            .lifecycle(sub_lifecycle, local_state, sub_state, env)
             .lift(&self.selector_fn)
     }
 
-    fn render(&self, state: &S, env: &E) -> Self::Element {
+    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
         Adapt::new(
-            self.target.render((self.selector_fn)(state), env),
+            self.target
+                .render(local_state, (self.selector_fn)(state), env),
             self.selector_fn.clone(),
         )
     }
 
-    fn should_update(&self, other: &Self, state: &S, env: &E) -> bool {
+    fn should_update(&self, other: &Self, local_state: &Self::LocalState, state: &S, env: &E) -> bool {
         self.target
-            .should_update(&other.target, (self.selector_fn)(state), env)
+            .should_update(&other.target, local_state, (self.selector_fn)(state), env)
     }
 }
 
