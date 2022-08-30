@@ -8,8 +8,8 @@ use crate::context::{EffectContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{EventMask, EventResult, Lifecycle};
 use crate::id::{ComponentIndex, IdPath};
-use crate::sequence::TraversableSeq;
 use crate::state::State;
+use crate::traversable::Traversable;
 use crate::view::{View, ViewEvent};
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetNodeSeq};
 
@@ -148,12 +148,10 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, E> TraversableSeq<Visitor, RenderContext, S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, E> Traversable<Visitor, RenderContext, S, E> for Adapt<T, F, SS>
 where
-    T: TraversableSeq<Visitor, RenderContext, SS, E>,
+    T: Traversable<Visitor, RenderContext, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State,
-    S: State,
 {
     fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut RenderContext) {
         let sub_state = (self.selector_fn)(state);
@@ -174,9 +172,9 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, E> TraversableSeq<Visitor, EffectContext<S>, S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, E> Traversable<Visitor, EffectContext<S>, S, E> for Adapt<T, F, SS>
 where
-    T: TraversableSeq<Visitor, EffectContext<SS>, SS, E>,
+    T: Traversable<Visitor, EffectContext<SS>, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,

@@ -3,8 +3,8 @@ use std::any::Any;
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext};
 use crate::event::Event;
-use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
+use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::{View, ViewEvent};
 
 use super::{WidgetNode, WidgetState};
@@ -27,7 +27,7 @@ impl<'a> EventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, E> TraversableSeqVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
+impl<'a, V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
     for EventVisitor<'a>
 where
     V: View<S, E>,

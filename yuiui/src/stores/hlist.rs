@@ -6,9 +6,8 @@ use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
+use crate::traversable::Traversable;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
-
-use super::TraversableSeq;
 
 impl<S, E> ElementSeq<S, E> for HNil
 where
@@ -48,7 +47,7 @@ where
     }
 }
 
-impl<Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for HNil
+impl<Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for HNil
 where
     S: State,
 {
@@ -129,10 +128,10 @@ where
     }
 }
 
-impl<H, T, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for HCons<H, T>
+impl<H, T, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for HCons<H, T>
 where
-    H: TraversableSeq<Visitor, Context, S, E>,
-    T: TraversableSeq<Visitor, Context, S, E> + HList,
+    H: Traversable<Visitor, Context, S, E>,
+    T: Traversable<Visitor, Context, S, E> + HList,
     S: State,
 {
     fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {

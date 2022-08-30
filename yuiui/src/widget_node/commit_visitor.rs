@@ -2,8 +2,8 @@ use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext};
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
-use crate::sequence::TraversableSeqVisitor;
 use crate::state::State;
+use crate::traversable::TraversableVisitor;
 use crate::view::View;
 
 use super::{CommitMode, WidgetNode, WidgetNodeSeq, WidgetState};
@@ -22,7 +22,7 @@ impl CommitVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableSeqVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
+impl<V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
     for CommitVisitor
 where
     V: View<S, E>,

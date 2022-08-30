@@ -7,8 +7,9 @@ mod effect;
 mod element;
 mod event;
 mod id;
-mod sequence;
 mod state;
+mod stores;
+mod traversable;
 mod view;
 mod widget_node;
 mod widget_tree;
@@ -21,6 +22,7 @@ pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, View
 pub use event::Event;
 pub use id::{Id, IdPath, NodeId, NodePath};
 pub use state::{Data, State};
+pub use traversable::{Traversable, TraversableVisitor};
 pub use view::{View, ViewEvent};
 pub use widget_node::{WidgetNode, WidgetNodeSeq};
 pub use widget_tree::WidgetTree;

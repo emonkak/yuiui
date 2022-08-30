@@ -3,9 +3,8 @@ use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
+use crate::traversable::Traversable;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
-
-use super::TraversableSeq;
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -73,10 +72,10 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, E, const N: usize> TraversableSeq<Visitor, Context, S, E>
+impl<T, Visitor, Context, S, E, const N: usize> Traversable<Visitor, Context, S, E>
     for ArrayStore<T, N>
 where
-    T: TraversableSeq<Visitor, Context, S, E>,
+    T: Traversable<Visitor, Context, S, E>,
     S: State,
 {
     fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {

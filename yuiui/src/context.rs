@@ -25,7 +25,7 @@ pub trait IdContext {
 pub struct RenderContext {
     id_path: IdPath,
     component_index: Option<ComponentIndex>,
-    id_counter: usize,
+    id_counter: u64,
 }
 
 impl RenderContext {
@@ -115,18 +115,6 @@ impl<S: State> EffectContext<S> {
             .into_iter()
             .map(|(effect_path, effect)| (effect_path, effect.lift(f)));
         self.effects.extend(sub_effects);
-    }
-
-    pub fn begin_components(&mut self) {
-        self.component_index = Some(0);
-    }
-
-    pub fn next_component(&mut self) {
-        *self.component_index.as_mut().unwrap() += 1;
-    }
-
-    pub fn end_components(&mut self) {
-        self.component_index = None;
     }
 
     pub fn process_result(&mut self, result: EventResult<S>) {

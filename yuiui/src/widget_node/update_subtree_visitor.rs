@@ -1,8 +1,8 @@
 use crate::component_node::ComponentStack;
 use crate::context::{IdContext, RenderContext};
 use crate::id::ComponentIndex;
-use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
+use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
 
 use super::{WidgetNode, WidgetState};
@@ -25,7 +25,7 @@ impl<'a> UpdateSubtreeVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableSeqVisitor<WidgetNode<V, CS, S, E>, RenderContext, S, E>
+impl<V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, RenderContext, S, E>
     for UpdateSubtreeVisitor
 where
     V: View<S, E>,

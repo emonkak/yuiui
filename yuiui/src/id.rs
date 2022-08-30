@@ -5,7 +5,7 @@ pub type NodePath = (IdPath, Option<ComponentIndex>);
 pub type ComponentIndex = usize;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Id(pub(crate) usize);
+pub struct Id(pub(crate) u64);
 
 impl Id {
     pub const ROOT: Self = Self(0);

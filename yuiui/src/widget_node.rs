@@ -11,8 +11,8 @@ use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, InternalEvent};
 use crate::id::{ComponentIndex, Id, IdPath};
-use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
+use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::{View, ViewEvent};
 
 use commit_visitor::CommitVisitor;
@@ -21,10 +21,10 @@ use internal_event_visitor::InternalEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
 
 pub trait WidgetNodeSeq<S: State, E>:
-    TraversableSeq<CommitVisitor, EffectContext<S>, S, E>
-    + TraversableSeq<UpdateSubtreeVisitor, RenderContext, S, E>
-    + for<'a> TraversableSeq<EventVisitor<'a>, EffectContext<S>, S, E>
-    + for<'a> TraversableSeq<InternalEventVisitor<'a>, EffectContext<S>, S, E>
+    Traversable<CommitVisitor, EffectContext<S>, S, E>
+    + Traversable<UpdateSubtreeVisitor, RenderContext, S, E>
+    + for<'a> Traversable<EventVisitor<'a>, EffectContext<S>, S, E>
+    + for<'a> Traversable<InternalEventVisitor<'a>, EffectContext<S>, S, E>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -183,13 +183,12 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E>
-    for WidgetNode<V, CS, S, E>
+impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for WidgetNode<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Store: TraversableSeq<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableSeqVisitor<Self, Context, S, E>,
+    Visitor: TraversableVisitor<Self, Context, S, E>,
     Context: IdContext,
     S: State,
 {

@@ -5,9 +5,10 @@ use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
+use crate::traversable::Traversable;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
-use super::{RenderStatus, TraversableSeq};
+use super::RenderStatus;
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
@@ -109,9 +110,9 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for OptionStore<T>
+impl<T, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for OptionStore<T>
 where
-    T: TraversableSeq<Visitor, Context, S, E>,
+    T: Traversable<Visitor, Context, S, E>,
     S: State,
 {
     fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {

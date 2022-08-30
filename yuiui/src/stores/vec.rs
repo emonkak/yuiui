@@ -9,10 +9,9 @@ use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask};
 use crate::id::IdPath;
 use crate::state::State;
+use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::{View, ViewEvent};
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
-
-use super::{TraversableSeq, TraversableSeqVisitor};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     active: Vec<WidgetNode<V, CS, S, E>>,
@@ -166,12 +165,12 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for VecStore<V, CS, S, E>
+impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for VecStore<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Store: TraversableSeq<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableSeqVisitor<WidgetNode<V, CS, S, E>, Context, S, E>,
+    Visitor: TraversableVisitor<WidgetNode<V, CS, S, E>, Context, S, E>,
     Context: IdContext,
     S: State,
 {
