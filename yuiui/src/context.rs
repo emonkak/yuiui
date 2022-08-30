@@ -84,11 +84,11 @@ impl<S: State> EffectContext<S> {
     {
         assert!(sub_context.id_path.starts_with(&self.id_path));
 
-        let effects = sub_context
+        let sub_effects = sub_context
             .effects
             .into_iter()
             .map(|(effect_path, effect)| (effect_path, effect.lift(f)));
-        self.effects.extend(effects);
+        self.effects.extend(sub_effects);
     }
 
     pub fn begin_components(&mut self) {

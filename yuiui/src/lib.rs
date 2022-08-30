@@ -10,7 +10,6 @@ mod id;
 mod sequence;
 mod state;
 mod view;
-mod widget;
 mod widget_node;
 mod widget_tree;
 
@@ -22,16 +21,14 @@ pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, View
 pub use event::Event;
 pub use id::{Id, IdPath, NodeId, NodePath};
 pub use state::{Data, State};
-pub use view::View;
-pub use widget::{Widget, WidgetEvent, WidgetLifeCycle};
+pub use view::{View, ViewEvent};
 pub use widget_node::{WidgetNode, WidgetNodeSeq};
 pub use widget_tree::WidgetTree;
 
 use std::borrow::Cow;
-use std::fmt;
 use std::marker::PhantomData;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct Text {
     content: Cow<'static, str>,
@@ -49,32 +46,28 @@ impl<S, E> View<S, E> for Text
 where
     S: State,
 {
-    type Widget = Text;
+    type Widget = TextWidget;
 
     type Children = hlist::HNil;
 
     fn build(
         &self,
-        _children: &<Self::Widget as Widget<S, E>>::Children,
+        _children: &<Self::Children as ElementSeq<S, E>>::Store,
         _state: &S,
         _env: &E,
     ) -> Self::Widget {
-        self.clone()
+        TextWidget
     }
 }
 
-impl<S, E> Widget<S, E> for Text
-where
-    S: State,
-{
-    type Children = hlist::HNil;
-}
-
-impl<'event> WidgetEvent<'event> for Text {
+impl<'event> ViewEvent<'event> for Text {
     type Event = ();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+pub struct TextWidget;
+
+#[derive(Debug)]
 pub struct Block<C> {
     children: PhantomData<C>,
 }
@@ -92,44 +85,26 @@ where
     C: ElementSeq<S, E>,
     S: State,
 {
-    type Widget = BlockWidget<<C as ElementSeq<S, E>>::Store>;
+    type Widget = BlockWidget;
 
     type Children = C;
 
     fn build(
         &self,
-        _children: &<Self::Widget as Widget<S, E>>::Children,
+        _children: &<Self::Children as ElementSeq<S, E>>::Store,
         _state: &S,
         _env: &E,
     ) -> Self::Widget {
-        BlockWidget {
-            children: PhantomData,
-        }
+        BlockWidget
     }
 }
 
-#[derive(Clone)]
-pub struct BlockWidget<C> {
-    children: PhantomData<C>,
-}
-
-impl<C, S, E> Widget<S, E> for BlockWidget<C>
-where
-    C: WidgetNodeSeq<S, E>,
-    S: State,
-{
-    type Children = C;
-}
-
-impl<'event, C> WidgetEvent<'event> for BlockWidget<C> {
+impl<'event, C> ViewEvent<'event> for Block<C> {
     type Event = ();
 }
 
-impl<C> fmt::Debug for BlockWidget<C> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("BlockWidget")
-    }
-}
+#[derive(Debug)]
+pub struct BlockWidget;
 
 #[derive(Debug)]
 pub struct ButtonProps {

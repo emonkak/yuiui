@@ -1,9 +1,9 @@
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext};
+use crate::event::Lifecycle;
 use crate::sequence::TraversableSeqVisitor;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::{Widget, WidgetLifeCycle};
 
 use super::{CommitMode, WidgetNode, WidgetNodeSeq, WidgetState};
 
@@ -38,8 +38,9 @@ where
         node.state = match node.state.take().unwrap() {
             WidgetState::Uninitialized(view) => {
                 let mut widget = view.build(&node.children, state, env);
-                let result = widget.lifecycle(
-                    WidgetLifeCycle::Mounted,
+                let result = view.lifecycle(
+                    Lifecycle::Mounted,
+                    &mut widget,
                     &node.children,
                     context.id_path(),
                     state,
@@ -51,8 +52,9 @@ where
             WidgetState::Prepared(mut widget, view) => {
                 match self.mode {
                     CommitMode::Mount => {
-                        let result = widget.lifecycle(
-                            WidgetLifeCycle::Mounted,
+                        let result = view.lifecycle(
+                            Lifecycle::Mounted,
+                            &mut widget,
                             &node.children,
                             context.id_path(),
                             state,
@@ -61,8 +63,9 @@ where
                         context.process_result(result);
                     }
                     CommitMode::Unmount => {
-                        let result = widget.lifecycle(
-                            WidgetLifeCycle::Unmounted,
+                        let result = view.lifecycle(
+                            Lifecycle::Unmounted,
+                            &mut widget,
                             &node.children,
                             context.id_path(),
                             state,
@@ -76,8 +79,9 @@ where
             }
             WidgetState::Dirty(mut widget, view) => {
                 if view.rebuild(&node.children, &mut widget, state, env) {
-                    let result = widget.lifecycle(
-                        WidgetLifeCycle::Updated,
+                    let result = view.lifecycle(
+                        Lifecycle::Updated(&view),
+                        &mut widget,
                         &node.children,
                         context.id_path(),
                         state,
@@ -86,6 +90,20 @@ where
                     context.process_result(result);
                 }
                 WidgetState::Prepared(widget, view)
+            }
+            WidgetState::Pending(mut widget, view, pending_view) => {
+                if view.rebuild(&node.children, &mut widget, state, env) {
+                    let result = pending_view.lifecycle(
+                        Lifecycle::Updated(&view),
+                        &mut widget,
+                        &node.children,
+                        context.id_path(),
+                        state,
+                        env,
+                    );
+                    context.process_result(result);
+                }
+                WidgetState::Prepared(widget, pending_view)
             }
         }
         .into();

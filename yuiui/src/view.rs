@@ -1,30 +1,55 @@
 use hlist::HNil;
 
 use crate::element::{ElementSeq, ViewElement};
+use crate::event::{Event, EventResult, Lifecycle};
+use crate::id::IdPath;
 use crate::state::State;
-use crate::widget::Widget;
 
-pub trait View<S: State, E>: Sized {
-    type Widget: Widget<S, E>;
+pub trait View<S: State, E>: Sized + for<'event> ViewEvent<'event> {
+    type Widget;
 
-    type Children: ElementSeq<S, E, Store = <Self::Widget as Widget<S, E>>::Children>;
+    type Children: ElementSeq<S, E>;
 
     fn build(
         &self,
-        children: &<Self::Widget as Widget<S, E>>::Children,
+        children: &<Self::Children as ElementSeq<S, E>>::Store,
         state: &S,
         env: &E,
     ) -> Self::Widget;
 
     fn rebuild(
         &self,
-        children: &<Self::Widget as Widget<S, E>>::Children,
+        children: &<Self::Children as ElementSeq<S, E>>::Store,
         widget: &mut Self::Widget,
         state: &S,
         env: &E,
     ) -> bool {
         *widget = self.build(children, state, env);
         true
+    }
+
+    fn lifecycle(
+        &self,
+        _lifecycle: Lifecycle<&Self>,
+        _widget: &mut Self::Widget,
+        _children: &<Self::Children as ElementSeq<S, E>>::Store,
+        _id_path: &IdPath,
+        _state: &S,
+        _env: &E,
+    ) -> EventResult<S> {
+        EventResult::nop()
+    }
+
+    fn event(
+        &self,
+        _event: <Self as ViewEvent>::Event,
+        _widget: &mut Self::Widget,
+        _children: &<Self::Children as ElementSeq<S, E>>::Store,
+        _id_path: &IdPath,
+        _state: &S,
+        _env: &E,
+    ) -> EventResult<S> {
+        EventResult::nop()
     }
 
     fn el(self) -> ViewElement<Self, S, E>
@@ -37,4 +62,8 @@ pub trait View<S: State, E>: Sized {
     fn el_with(self, children: Self::Children) -> ViewElement<Self, S, E> {
         ViewElement::new(self, children)
     }
+}
+
+pub trait ViewEvent<'event> {
+    type Event: Event<'event>;
 }

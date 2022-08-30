@@ -9,8 +9,7 @@ use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask};
 use crate::id::IdPath;
 use crate::state::State;
-use crate::view::View;
-use crate::widget::{Widget, WidgetEvent};
+use crate::view::{View, ViewEvent};
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 use super::{TraversableSeq, TraversableSeqVisitor};
@@ -42,7 +41,7 @@ impl<V, CS, S, E> fmt::Debug for VecStore<V, CS, S, E>
 where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
+    <V::Children as ElementSeq<S, E>>::Store: fmt::Debug,
     CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
@@ -119,7 +118,7 @@ where
         static mut EVENT_MASK: EventMask = EventMask::new();
 
         INIT.call_once(|| unsafe {
-            EVENT_MASK.add_all(&<V::Widget as WidgetEvent>::Event::allowed_types());
+            EVENT_MASK.add_all(&<V as ViewEvent>::Event::allowed_types());
         });
 
         unsafe { &EVENT_MASK }
@@ -170,7 +169,7 @@ where
 impl<V, CS, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E> for VecStore<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Store: TraversableSeq<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
     Visitor: TraversableSeqVisitor<WidgetNode<V, CS, S, E>, Context, S, E>,
     Context: IdContext,

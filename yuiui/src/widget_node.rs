@@ -8,12 +8,12 @@ use std::sync::Once;
 
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
+use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, InternalEvent};
 use crate::id::{ComponentIndex, Id, IdPath};
 use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
-use crate::view::View;
-use crate::widget::{Widget, WidgetEvent};
+use crate::view::{View, ViewEvent};
 
 use commit_visitor::CommitVisitor;
 use event_visitor::EventVisitor;
@@ -36,7 +36,7 @@ pub trait WidgetNodeSeq<S: State, E>:
 pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     pub(crate) id: Id,
     pub(crate) state: Option<WidgetState<V, V::Widget>>,
-    pub(crate) children: <V::Widget as Widget<S, E>>::Children,
+    pub(crate) children: <V::Children as ElementSeq<S, E>>::Store,
     pub(crate) components: CS,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
@@ -51,7 +51,7 @@ where
     pub(crate) fn new(
         id: Id,
         view: V,
-        children: <V::Widget as Widget<S, E>>::Children,
+        children: <V::Children as ElementSeq<S, E>>::Store,
         components: CS,
     ) -> Self {
         Self {
@@ -59,7 +59,7 @@ where
             state: Some(WidgetState::Uninitialized(view)),
             children,
             components,
-            event_mask: <V::Widget as Widget<S, E>>::Children::event_mask(),
+            event_mask: <V::Children as ElementSeq<S, E>>::Store::event_mask(),
             dirty: true,
         }
     }
@@ -82,7 +82,7 @@ where
         self.state.as_ref().unwrap()
     }
 
-    pub fn children(&self) -> &<V::Widget as Widget<S, E>>::Children {
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, E>>::Store {
         &self.children
     }
 
@@ -156,11 +156,11 @@ where
         static mut EVENT_MASK: EventMask = EventMask::new();
 
         if !INIT.is_completed() {
-            let children_mask = <V::Widget as Widget<S, E>>::Children::event_mask();
+            let children_mask = <V::Children as ElementSeq<S, E>>::Store::event_mask();
 
             INIT.call_once(|| unsafe {
                 EVENT_MASK.merge(children_mask);
-                EVENT_MASK.add_all(&<V::Widget as WidgetEvent>::Event::allowed_types());
+                EVENT_MASK.add_all(&<V as ViewEvent>::Event::allowed_types());
             });
         }
 
@@ -186,7 +186,7 @@ impl<V, CS, Visitor, Context, S, E> TraversableSeq<Visitor, Context, S, E>
     for WidgetNode<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Widget as Widget<S, E>>::Children: TraversableSeq<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Store: TraversableSeq<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
     Visitor: TraversableSeqVisitor<Self, Context, S, E>,
     Context: IdContext,
@@ -224,7 +224,7 @@ impl<V, CS, S, E> fmt::Debug for WidgetNode<V, CS, S, E>
 where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Widget as Widget<S, E>>::Children: fmt::Debug,
+    <V::Children as ElementSeq<S, E>>::Store: fmt::Debug,
     CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
@@ -243,7 +243,7 @@ where
 pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E> {
     pub id: Id,
     pub state: &'a mut Option<WidgetState<V, V::Widget>>,
-    pub children: &'a mut <V::Widget as Widget<S, E>>::Children,
+    pub children: &'a mut <V::Children as ElementSeq<S, E>>::Store,
     pub components: &'a mut CS,
     pub dirty: &'a mut bool,
 }
@@ -253,6 +253,23 @@ pub enum WidgetState<V, W> {
     Uninitialized(V),
     Prepared(W, V),
     Dirty(W, V),
+    Pending(W, V, V),
+}
+
+impl<V, W> WidgetState<V, W> {
+    pub fn map_view<F, NV>(self, f: F) -> WidgetState<NV, W>
+    where
+        F: Fn(V) -> NV,
+    {
+        match self {
+            Self::Uninitialized(view) => WidgetState::Uninitialized(f(view)),
+            Self::Prepared(widget, view) => WidgetState::Prepared(widget, f(view)),
+            Self::Dirty(widget, view) => WidgetState::Dirty(widget, f(view)),
+            Self::Pending(widget, view, pending_view) => {
+                WidgetState::Pending(widget, f(view), f(pending_view))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

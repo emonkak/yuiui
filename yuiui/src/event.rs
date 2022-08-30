@@ -39,6 +39,26 @@ impl<'event> Event<'event> for () {
     }
 }
 
+#[derive(Debug)]
+pub enum Lifecycle<T> {
+    Mounted,
+    Updated(T),
+    Unmounted,
+}
+
+impl<T> Lifecycle<T> {
+    pub fn map<F, U>(self, f: F) -> Lifecycle<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Mounted => Lifecycle::Mounted,
+            Self::Updated(value) => Lifecycle::Updated(f(value)),
+            Self::Unmounted => Lifecycle::Unmounted,
+        }
+    }
+}
+
 pub struct InternalEvent {
     id_path: IdPath,
     payload: Box<dyn Any>,

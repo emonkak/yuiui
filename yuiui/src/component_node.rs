@@ -1,15 +1,16 @@
+use std::fmt;
 use std::marker::PhantomData;
 use std::mem;
 
-use crate::component::{Component, ComponentLifecycle};
+use crate::component::Component;
 use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
+use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view::View;
 use crate::widget_node::{CommitMode, WidgetNodeScope};
 
-#[derive(Debug)]
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
@@ -43,8 +44,11 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        let lifecycle = match mode {
-            CommitMode::Mount => ComponentLifecycle::Mounted,
+        let result = match mode {
+            CommitMode::Mount => {
+                self.component
+                    .lifecycle(Lifecycle::Mounted, &mut self.local_state, state, env)
+            }
             CommitMode::Update => {
                 let old_component = mem::replace(
                     &mut self.component,
@@ -52,15 +56,35 @@ where
                         .take()
                         .expect("take pending component"),
                 );
-                ComponentLifecycle::Updated(old_component)
+                self.component.lifecycle(
+                    Lifecycle::Updated(&old_component),
+                    &mut self.local_state,
+                    state,
+                    env,
+                )
             }
-            CommitMode::Unmount => ComponentLifecycle::Unmounted,
+            CommitMode::Unmount => {
+                self.component
+                    .lifecycle(Lifecycle::Unmounted, &mut self.local_state, state, env)
+            }
         };
-        let result = self
-            .component
-            .lifecycle(lifecycle, &mut self.local_state, state, env);
         context.process_result(result);
         context.next_component();
+    }
+}
+
+impl<C, S, E> fmt::Debug for ComponentNode<C, S, E>
+where
+    C: Component<S, E> + fmt::Debug,
+    C::LocalState: fmt::Debug,
+    S: State,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ComponentNode")
+            .field("component", &self.component)
+            .field("pending_component", &self.pending_component)
+            .field("local_state", &self.local_state)
+            .finish()
     }
 }
 

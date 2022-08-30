@@ -3,12 +3,11 @@ use std::mem;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::{Effect, EffectPath};
-use crate::element::Element;
+use crate::element::{Element, ElementSeq};
 use crate::event::InternalEvent;
 use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 use crate::view::View;
-use crate::widget::Widget;
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
@@ -96,7 +95,7 @@ where
     El: Element<S, E>,
     El::View: fmt::Debug,
     <El::View as View<S, E>>::Widget: fmt::Debug,
-    <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children: fmt::Debug,
+    <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store: fmt::Debug,
     El::Components: fmt::Debug,
     S: State + fmt::Debug,
 {

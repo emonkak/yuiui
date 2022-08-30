@@ -5,8 +5,7 @@ use crate::context::{EffectContext, IdContext};
 use crate::event::Event;
 use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
-use crate::view::View;
-use crate::widget::{Widget, WidgetEvent};
+use crate::view::{View, ViewEvent};
 
 use super::{WidgetNode, WidgetState};
 
@@ -43,12 +42,15 @@ where
         context: &mut EffectContext<S>,
     ) {
         match node.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget, _) | WidgetState::Dirty(widget, _) => {
+            WidgetState::Prepared(widget, view)
+            | WidgetState::Dirty(widget, view)
+            | WidgetState::Pending(widget, view, _) => {
                 if node.event_mask.contains(&self.event.type_id()) {
                     node.children.for_each(self, state, env, context);
                 }
-                if let Some(event) = <V::Widget as WidgetEvent>::Event::from_any(self.event) {
-                    let result = widget.event(event, &node.children, context.id_path(), state, env);
+                if let Some(event) = <V as ViewEvent>::Event::from_any(self.event) {
+                    let result =
+                        view.event(event, widget, &node.children, context.id_path(), state, env);
                     context.process_result(result);
                     self.result = true;
                 }

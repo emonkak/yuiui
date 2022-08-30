@@ -11,7 +11,6 @@ use crate::component_node::ComponentStack;
 use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
-use crate::widget::Widget;
 use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetNodeSeq};
 
 pub trait Element<S: State, E> {
@@ -65,11 +64,13 @@ pub trait DebuggableElement<S: State, E>:
         Components = <Self as DebuggableElement<S, E>>::Components,
     > + fmt::Debug
 {
-    type View: View<S, E, Widget = Self::Widget> + fmt::Debug;
+    type View: View<S, E, Widget = Self::Widget, Children = Self::Children> + fmt::Debug;
 
-    type Widget: Widget<S, E, Children = Self::Children> + fmt::Debug;
+    type Widget: fmt::Debug;
 
-    type Children: WidgetNodeSeq<S, E> + fmt::Debug;
+    type Children: ElementSeq<S, E, Store = Self::Store> + fmt::Debug;
+
+    type Store: WidgetNodeSeq<S, E> + fmt::Debug;
 
     type Components: ComponentStack<S, E, View = <Self as DebuggableElement<S, E>>::View>
         + fmt::Debug;
@@ -80,7 +81,8 @@ where
     El: Element<S, E> + fmt::Debug,
     El::View: fmt::Debug,
     <El::View as View<S, E>>::Widget: fmt::Debug,
-    <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children: fmt::Debug,
+    <El::View as View<S, E>>::Children: fmt::Debug,
+    <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store: fmt::Debug,
     El::Components: fmt::Debug,
     S: State,
 {
@@ -88,7 +90,9 @@ where
 
     type Widget = <El::View as View<S, E>>::Widget;
 
-    type Children = <<El::View as View<S, E>>::Widget as Widget<S, E>>::Children;
+    type Children = <El::View as View<S, E>>::Children;
+
+    type Store = <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store;
 
     type Components = El::Components;
 }

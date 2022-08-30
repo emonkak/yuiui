@@ -37,8 +37,12 @@ impl<S: State> Command<S> {
         match self {
             Command::Future(future) => Command::Future(Box::pin(future.map(f))),
             Command::Stream(stream) => Command::Stream(Box::pin(stream.map(f))),
-            Command::Timeout(duration, callback) => Command::Timeout(duration, Box::new(move || f(callback()))),
-            Command::Interval(period, callback) => Command::Interval(period, Box::new(move || f(callback()))),
+            Command::Timeout(duration, callback) => {
+                Command::Timeout(duration, Box::new(move || f(callback())))
+            }
+            Command::Interval(period, callback) => {
+                Command::Interval(period, Box::new(move || f(callback())))
+            }
             Command::RequestIdle(callback) => Command::RequestIdle(Box::new(move || f(callback()))),
         }
     }
