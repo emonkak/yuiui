@@ -9,9 +9,8 @@ use crate::state::State;
 pub enum Command<S: State> {
     Future(BoxFuture<'static, Effect<S>>),
     Stream(BoxStream<'static, Effect<S>>),
-    Timeout(Duration, Box<dyn FnOnce() -> Effect<S>>),
-    Interval(Duration, Box<dyn FnOnce() -> Effect<S>>),
-    RequestIdle(Box<dyn FnOnce() -> Effect<S>>),
+    Timeout(Duration, Box<dyn FnOnce() -> Effect<S> + Send>),
+    Interval(Duration, Box<dyn Fn() -> Effect<S> + Send>),
 }
 
 impl<S: State> Command<S> {
@@ -43,7 +42,6 @@ impl<S: State> Command<S> {
             Command::Interval(period, callback) => {
                 Command::Interval(period, Box::new(move || f(callback())))
             }
-            Command::RequestIdle(callback) => Command::RequestIdle(Box::new(move || f(callback()))),
         }
     }
 }

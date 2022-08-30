@@ -119,10 +119,10 @@ impl<S: State> EffectContext<S> {
 
     pub fn process_result(&mut self, result: EventResult<S>) {
         for effect in result.into_effects() {
-            let path = EffectPath::new(
-                (self.id_path.clone(), self.component_index),
-                (self.state_id_path.clone(), self.state_component_index),
-            );
+            let path = EffectPath {
+                source_path: (self.id_path.clone(), self.component_index),
+                state_path: (self.state_id_path.clone(), self.state_component_index),
+            };
             self.effects.push((path, effect));
         }
     }

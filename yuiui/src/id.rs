@@ -1,9 +1,3 @@
-pub type NodeId = (Id, Option<ComponentIndex>);
-
-pub type NodePath = (IdPath, Option<ComponentIndex>);
-
-pub type ComponentIndex = usize;
-
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(pub(crate) u64);
 
@@ -41,3 +35,5 @@ impl IdPath {
         self.path.pop().unwrap()
     }
 }
+
+pub type ComponentIndex = usize;

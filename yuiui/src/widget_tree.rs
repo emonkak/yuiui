@@ -12,8 +12,6 @@ use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
     root: WidgetNode<El::View, El::Components, S, E>,
-    state: S,
-    env: E,
     context: RenderContext,
     is_mounted: bool,
 }
@@ -23,44 +21,39 @@ where
     El: Element<S, E>,
     S: State,
 {
-    pub fn new(element: El, state: S, env: E) -> Self {
+    pub fn new(element: El, state: &S, env: &E) -> Self {
         let mut context = RenderContext::new();
-        let root = element.render(&state, &env, &mut context);
+        let root = element.render(state, env, &mut context);
         Self {
             root,
-            state,
-            env,
             context,
             is_mounted: false,
         }
     }
 
-    pub fn update(&mut self, element: El) -> bool {
-        element.update(self.root.scope(), &self.state, &self.env, &mut self.context)
+    pub fn update(&mut self, element: El, state: &S, env: &E) -> bool {
+        element.update(self.root.scope(), state, env, &mut self.context)
     }
 
     pub fn update_subtree(
         &mut self,
         id_path: &IdPath,
         component_index: Option<ComponentIndex>,
+        state: &S,
+        env: &E,
     ) -> bool {
-        self.root.update_subtree(
-            id_path,
-            component_index,
-            &self.state,
-            &self.env,
-            &mut self.context,
-        )
+        self.root
+            .update_subtree(id_path, component_index, state, env, &mut self.context)
     }
 
-    pub fn commit(&mut self) -> Vec<(EffectPath, Effect<S>)> {
+    pub fn commit(&mut self, state: &S, env: &E) -> Vec<(EffectPath, Effect<S>)> {
         let mode = if mem::replace(&mut self.is_mounted, true) {
             CommitMode::Update
         } else {
             CommitMode::Mount
         };
         let mut context = EffectContext::new();
-        self.root.commit(mode, &self.state, &self.env, &mut context);
+        self.root.commit(mode, state, env, &mut context);
         context.into_effects()
     }
 
@@ -68,29 +61,40 @@ where
         &mut self,
         id_path: &IdPath,
         component_index: Option<ComponentIndex>,
+        state: &S,
+        env: &E,
     ) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
         self.root.commit_subtree(
             CommitMode::Update,
             id_path,
             component_index,
-            &self.state,
-            &self.env,
+            state,
+            env,
             &mut context,
         );
         context.into_effects()
     }
 
-    pub fn event<Event: 'static>(&mut self, event: &Event) -> Vec<(EffectPath, Effect<S>)> {
+    pub fn event<Event: 'static>(
+        &mut self,
+        event: &Event,
+        state: &S,
+        env: &E,
+    ) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
-        self.root.event(event, &self.state, &self.env, &mut context);
+        self.root.event(event, state, env, &mut context);
         context.into_effects()
     }
 
-    pub fn internal_event(&mut self, event: &InternalEvent) -> Vec<(EffectPath, Effect<S>)> {
+    pub fn internal_event(
+        &mut self,
+        event: &InternalEvent,
+        state: &S,
+        env: &E,
+    ) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
-        self.root
-            .internal_event(event, &self.state, &self.env, &mut context);
+        self.root.internal_event(event, state, env, &mut context);
         context.into_effects()
     }
 }
@@ -102,12 +106,11 @@ where
     <El::View as View<S, E>>::Widget: fmt::Debug,
     <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store: fmt::Debug,
     El::Components: fmt::Debug,
-    S: State + fmt::Debug,
+    S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WidgetTree")
             .field("root", &self.root)
-            .field("state", &self.state)
             .field("context", &self.context)
             .field("is_mounted", &self.is_mounted)
             .finish()

@@ -60,8 +60,8 @@ fn main() {
     };
     let env = AppEnv {};
     let root = app(&state);
-    let mut widget_tree = WidgetTree::new(root, state, env);
-    widget_tree.commit();
+    let mut widget_tree = WidgetTree::new(root, &state, &env);
+    widget_tree.commit(&state, &env);
     println!("{:#?}", widget_tree);
 }
 

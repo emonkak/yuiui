@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::effect::Effect;
 use crate::id::IdPath;
@@ -61,15 +62,12 @@ impl<T> Lifecycle<T> {
 
 pub struct InternalEvent {
     id_path: IdPath,
-    payload: Box<dyn Any>,
+    payload: Box<dyn Any + Send>,
 }
 
 impl InternalEvent {
-    pub fn new(id_path: IdPath, payload: Box<dyn Any>) -> Self {
-        Self {
-            id_path,
-            payload,
-        }
+    pub fn new(id_path: IdPath, payload: Box<dyn Any + Send>) -> Self {
+        Self { id_path, payload }
     }
 
     pub fn id_path(&self) -> &IdPath {
@@ -169,7 +167,15 @@ impl<S: State> From<Effect<S>> for EventResult<S> {
 impl<S: State> From<Command<S>> for EventResult<S> {
     fn from(command: Command<S>) -> Self {
         EventResult {
-            effects: vec![Effect::Command(command)],
+            effects: vec![Effect::Command(command, None)],
+        }
+    }
+}
+
+impl<S: State> From<(Command<S>, CancellationToken)> for EventResult<S> {
+    fn from((command, cancellation_token): (Command<S>, CancellationToken)) -> Self {
+        EventResult {
+            effects: vec![Effect::Command(command, Some(cancellation_token))],
         }
     }
 }

@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
+use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::id::{NodeId, NodePath};
+use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 
 pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
-    Command(Command<S>),
+    Command(Command<S>, Option<CancellationToken>),
     RequestUpdate,
 }
 
@@ -32,10 +33,10 @@ impl<S: State> Effect<S> {
                     mutation(sub_state)
                 }))
             }
-            Self::Command(command) => {
+            Self::Command(command, cancellation_token) => {
                 let f = f.clone();
                 let command = command.map(move |effect| effect.lift(&f));
-                Effect::Command(command)
+                Effect::Command(command, cancellation_token)
             }
             Self::RequestUpdate => Effect::RequestUpdate,
         }
@@ -44,28 +45,6 @@ impl<S: State> Effect<S> {
 
 #[derive(Debug, Clone)]
 pub struct EffectPath {
-    source_path: NodePath,
-    state_path: NodePath,
-}
-
-impl EffectPath {
-    pub fn new(source_path: NodePath, state_path: NodePath) -> Self {
-        Self {
-            source_path,
-            state_path,
-        }
-    }
-
-    pub fn source_path(&self) -> &NodePath {
-        &self.source_path
-    }
-
-    pub fn source_id(&self) -> NodeId {
-        let (id_path, component_index) = &self.source_path;
-        (id_path.bottom_id(), *component_index)
-    }
-
-    pub fn state_path(&self) -> &NodePath {
-        &self.state_path
-    }
+    pub source_path: (IdPath, Option<ComponentIndex>),
+    pub state_path: (IdPath, Option<ComponentIndex>),
 }
