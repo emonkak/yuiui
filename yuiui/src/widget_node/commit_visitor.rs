@@ -1,6 +1,7 @@
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext};
 use crate::event::Lifecycle;
+use crate::id::ComponentIndex;
 use crate::sequence::TraversableSeqVisitor;
 use crate::state::State;
 use crate::view::View;
@@ -9,11 +10,15 @@ use super::{CommitMode, WidgetNode, WidgetNodeSeq, WidgetState};
 
 pub struct CommitVisitor {
     mode: CommitMode,
+    component_index: Option<ComponentIndex>,
 }
 
 impl CommitVisitor {
-    pub fn new(mode: CommitMode) -> Self {
-        Self { mode }
+    pub fn new(mode: CommitMode, component_index: Option<ComponentIndex>) -> Self {
+        Self {
+            mode,
+            component_index,
+        }
     }
 }
 
@@ -32,7 +37,9 @@ where
         context: &mut EffectContext<S>,
     ) {
         context.begin_components();
-        node.components.commit(self.mode, state, env, context);
+        let component_index = self.component_index.take().unwrap_or(0);
+        node.components
+            .commit(self.mode, component_index, state, env, context);
         context.end_components();
         node.children.commit(self.mode, state, env, context);
         node.state = match node.state.take().unwrap() {

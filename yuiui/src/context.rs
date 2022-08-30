@@ -8,14 +8,23 @@ use crate::state::State;
 pub trait IdContext {
     fn id_path(&self) -> &IdPath;
 
+    fn component_index(&self) -> Option<ComponentIndex>;
+
     fn begin_widget(&mut self, id: Id);
 
     fn end_widget(&mut self) -> Id;
+
+    fn begin_components(&mut self);
+
+    fn next_component(&mut self);
+
+    fn end_components(&mut self);
 }
 
 #[derive(Debug)]
 pub struct RenderContext {
     id_path: IdPath,
+    component_index: Option<ComponentIndex>,
     id_counter: usize,
 }
 
@@ -23,6 +32,7 @@ impl RenderContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPath::new(),
+            component_index: None,
             id_counter: 0,
         }
     }
@@ -39,12 +49,28 @@ impl IdContext for RenderContext {
         &self.id_path
     }
 
+    fn component_index(&self) -> Option<ComponentIndex> {
+        self.component_index
+    }
+
     fn begin_widget(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
     fn end_widget(&mut self) -> Id {
         self.id_path.pop()
+    }
+
+    fn begin_components(&mut self) {
+        self.component_index = Some(0);
+    }
+
+    fn next_component(&mut self) {
+        *self.component_index.as_mut().unwrap() += 1;
+    }
+
+    fn end_components(&mut self) {
+        self.component_index = None;
     }
 }
 
@@ -123,11 +149,27 @@ impl<S: State> IdContext for EffectContext<S> {
         &self.id_path
     }
 
+    fn component_index(&self) -> Option<ComponentIndex> {
+        self.component_index
+    }
+
     fn begin_widget(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
     fn end_widget(&mut self) -> Id {
         self.id_path.pop()
+    }
+
+    fn begin_components(&mut self) {
+        self.component_index = Some(0);
+    }
+
+    fn next_component(&mut self) {
+        *self.component_index.as_mut().unwrap() += 1;
+    }
+
+    fn end_components(&mut self) {
+        self.component_index = None;
     }
 }

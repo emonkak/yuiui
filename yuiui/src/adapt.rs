@@ -269,17 +269,24 @@ where
 
     type View = Adapt<T::View, F, SS>;
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        component_index: ComponentIndex,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        self.target.commit(mode, sub_state, env, &mut sub_context);
+        self.target
+            .commit(mode, component_index, sub_state, env, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
     }
 
     fn force_update<'a>(
         scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
-        current_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -297,14 +304,7 @@ where
             dirty: scope.dirty,
         };
         let sub_state = selector_fn(state);
-        let has_changed = T::force_update(
-            sub_scope,
-            target_index,
-            current_index,
-            sub_state,
-            env,
-            context,
-        );
+        let has_changed = T::force_update(sub_scope, target_index, sub_state, env, context);
         *scope.state = sub_widget_state
             .map(|state| state.map_view(|view| Adapt::new(view, selector_fn.clone())));
         has_changed

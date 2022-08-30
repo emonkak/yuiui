@@ -111,11 +111,12 @@ where
         &mut self,
         mode: CommitMode,
         id_path: &IdPath,
+        component_index: Option<ComponentIndex>,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) {
-        let mut visitor = CommitVisitor::new(mode);
+        let mut visitor = CommitVisitor::new(mode, component_index);
         self.search(id_path, &mut visitor, state, env, context);
     }
 
@@ -173,7 +174,7 @@ where
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
         if self.dirty || mode.is_propagatable() {
-            let mut visitor = CommitVisitor::new(mode);
+            let mut visitor = CommitVisitor::new(mode, None);
             context.begin_widget(self.id);
             visitor.visit(self, state, env, context);
             context.end_widget();

@@ -64,11 +64,16 @@ where
         context.into_effects()
     }
 
-    pub fn commit_subtree(&mut self, id_path: &IdPath) -> Vec<(EffectPath, Effect<S>)> {
+    pub fn commit_subtree(
+        &mut self,
+        id_path: &IdPath,
+        component_index: Option<ComponentIndex>,
+    ) -> Vec<(EffectPath, Effect<S>)> {
         let mut context = EffectContext::new();
         self.root.commit_subtree(
             CommitMode::Update,
             id_path,
+            component_index,
             &self.state,
             &self.env,
             &mut context,

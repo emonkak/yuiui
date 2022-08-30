@@ -1,5 +1,5 @@
 use crate::component_node::ComponentStack;
-use crate::context::RenderContext;
+use crate::context::{IdContext, RenderContext};
 use crate::id::ComponentIndex;
 use crate::sequence::{TraversableSeq, TraversableSeqVisitor};
 use crate::state::State;
@@ -42,7 +42,9 @@ where
         if CS::LEN > 0 {
             let scope = node.scope();
             let component_index = self.component_index.take().unwrap_or(0);
-            self.result |= CS::force_update(scope, component_index, 0, state, env, context)
+            context.begin_components();
+            self.result |= CS::force_update(scope, component_index, state, env, context);
+            context.end_components();
         } else {
             self.result = true;
             node.state = match node.state.take().unwrap() {
