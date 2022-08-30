@@ -11,7 +11,7 @@ use crate::view::View;
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 pub struct WidgetTree<El: Element<S, E>, S: State, E> {
-    pub root: WidgetNode<El::View, El::Components, S, E>,
+    root: WidgetNode<El::View, El::Components, S, E>,
     state: S,
     env: E,
     context: RenderContext,

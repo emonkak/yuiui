@@ -65,6 +65,13 @@ pub struct InternalEvent {
 }
 
 impl InternalEvent {
+    pub fn new(id_path: IdPath, payload: Box<dyn Any>) -> Self {
+        Self {
+            id_path,
+            payload,
+        }
+    }
+
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
     }
