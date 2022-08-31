@@ -36,11 +36,12 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) {
-        context.begin_components();
-        let component_index = self.component_index.take().unwrap_or(0);
-        node.components
-            .commit(self.mode, component_index, state, env, context);
-        context.end_components();
+        if let Some(component_index) = self.component_index.replace(0) {
+            context.begin_components();
+            node.components
+                .commit(self.mode, component_index, state, env, context);
+            context.end_components();
+        }
         node.children.commit(self.mode, state, env, context);
         node.state = match node.state.take().unwrap() {
             WidgetState::Uninitialized(view) => {

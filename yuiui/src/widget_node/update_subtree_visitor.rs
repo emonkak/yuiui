@@ -39,21 +39,23 @@ where
         env: &E,
         context: &mut RenderContext,
     ) {
-        if CS::LEN > 0 {
-            let scope = node.scope();
-            let component_index = self.component_index.take().unwrap_or(0);
-            context.begin_components();
-            self.result |= CS::force_update(scope, component_index, state, env, context);
-            context.end_components();
-        } else {
-            self.result = true;
-            node.state = match node.state.take().unwrap() {
-                WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
-                state @ _ => state,
+        match self.component_index.replace(0) {
+            Some(component_index) if CS::LEN > 0 => {
+                context.begin_components();
+                let scope = node.scope();
+                self.result |= CS::force_update(scope, component_index, state, env, context);
+                context.end_components();
             }
-            .into();
-            node.dirty = true;
-            node.children.for_each(self, state, env, context);
+            _ => {
+                self.result = true;
+                node.state = match node.state.take().unwrap() {
+                    WidgetState::Prepared(widget, view) => WidgetState::Dirty(widget, view),
+                    state @ _ => state,
+                }
+                .into();
+                node.dirty = true;
+                node.children.for_each(self, state, env, context);
+            }
         }
     }
 }
