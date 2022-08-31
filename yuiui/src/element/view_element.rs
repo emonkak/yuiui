@@ -54,9 +54,11 @@ where
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
             WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
-            WidgetState::Prepared(widget, view) => WidgetState::Pending(widget, view, self.view),
-            WidgetState::Dirty(widget, view) => WidgetState::Pending(widget, view, self.view),
-            WidgetState::Pending(widget, view, _) => WidgetState::Pending(widget, view, self.view),
+            WidgetState::Prepared(widget, view)
+            | WidgetState::Dirty(widget, view)
+            | WidgetState::Pending(widget, view, _) => {
+                WidgetState::Pending(widget, view, self.view)
+            }
         }
         .into();
         *scope.dirty = true;
