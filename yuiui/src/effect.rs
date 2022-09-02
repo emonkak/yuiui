@@ -11,7 +11,8 @@ pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
     Command(Command<S>, Option<CancellationToken>),
-    Event(Box<dyn Any + Send>),
+    DownwardEvent(Box<dyn Any + Send>),
+    UpwardEvent(Box<dyn Any + Send>),
     InternalEvent(Box<dyn Any + Send>),
     RequestUpdate,
 }
@@ -42,7 +43,8 @@ impl<S: State> Effect<S> {
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command, cancellation_token)
             }
-            Self::Event(event) => Effect::Event(event),
+            Self::DownwardEvent(event) => Effect::DownwardEvent(event),
+            Self::UpwardEvent(event) => Effect::UpwardEvent(event),
             Self::InternalEvent(event) => Effect::InternalEvent(event),
             Self::RequestUpdate => Effect::RequestUpdate,
         }
@@ -62,8 +64,9 @@ where
                 .field(command)
                 .field(cancellation_token)
                 .finish(),
-            Self::Event(_) => f.debug_struct("Event").finish_non_exhaustive(),
-            Self::InternalEvent(_) => f.debug_struct("InternalEvent").finish_non_exhaustive(),
+            Self::DownwardEvent(event) => f.debug_tuple("DownwardEvent").field(event).finish(),
+            Self::UpwardEvent(event) => f.debug_tuple("UpwardEvent").field(event).finish(),
+            Self::InternalEvent(event) => f.debug_tuple("InternalEvent").field(event).finish(),
             Self::RequestUpdate => f.write_str("RequestUpdate"),
         }
     }

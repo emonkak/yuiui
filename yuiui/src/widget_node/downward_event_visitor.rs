@@ -9,12 +9,12 @@ use crate::view::View;
 
 use super::{WidgetNode, WidgetState};
 
-pub struct EventVisitor<'a> {
+pub struct DownwardEventVisitor<'a> {
     event: &'a dyn Any,
     result: bool,
 }
 
-impl<'a> EventVisitor<'a> {
+impl<'a> DownwardEventVisitor<'a> {
     pub fn new(event: &'a dyn Any) -> Self {
         Self {
             event,
@@ -28,7 +28,7 @@ impl<'a> EventVisitor<'a> {
 }
 
 impl<'a, V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
-    for EventVisitor<'a>
+    for DownwardEventVisitor<'a>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,

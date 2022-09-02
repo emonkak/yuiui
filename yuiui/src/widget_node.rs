@@ -1,7 +1,8 @@
 mod commit_visitor;
-mod event_visitor;
+mod downward_event_visitor;
 mod internal_event_visitor;
 mod update_subtree_visitor;
+mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
@@ -17,15 +18,17 @@ use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
 
 use commit_visitor::CommitVisitor;
-use event_visitor::EventVisitor;
+use downward_event_visitor::DownwardEventVisitor;
 use internal_event_visitor::InternalEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
+use upward_event_visitor::UpwardEventVisitor;
 
 pub trait WidgetNodeSeq<S: State, E>:
     Traversable<CommitVisitor, EffectContext<S>, S, E>
     + Traversable<UpdateSubtreeVisitor, RenderContext, S, E>
-    + for<'a> Traversable<EventVisitor<'a>, EffectContext<S>, S, E>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, S, E>
     + for<'a> Traversable<InternalEventVisitor<'a>, EffectContext<S>, S, E>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, S, E>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -120,14 +123,28 @@ where
         self.search(id_path, &mut visitor, state, env, context);
     }
 
-    pub fn event(
+    pub fn downward_event(
         &mut self,
         event: &dyn Any,
+        id_path: &IdPath,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) -> bool {
-        let mut visitor = EventVisitor::new(event);
+        let mut visitor = DownwardEventVisitor::new(event);
+        self.search(id_path, &mut visitor, state, env, context);
+        visitor.result()
+    }
+
+    pub fn upward_event(
+        &mut self,
+        event: &dyn Any,
+        id_path: &IdPath,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let mut visitor = UpwardEventVisitor::new(event, id_path);
         context.begin_widget(self.id);
         visitor.visit(self, state, env, context);
         context.end_widget();

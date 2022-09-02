@@ -1,5 +1,6 @@
 use std::collections::vec_deque::IntoIter;
 use std::collections::VecDeque;
+use std::ops::Deref;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(pub(crate) u64);
@@ -26,28 +27,32 @@ impl IdPath {
         self.path.last().copied().unwrap_or(Id::ROOT)
     }
 
-    pub fn starts_with(&self, needle: &Self) -> bool {
-        self.path.starts_with(&needle.path)
-    }
-
     pub fn push(&mut self, id: Id) {
         self.path.push(id);
     }
 
-    pub fn pop(&mut self) -> Id {
-        self.path.pop().unwrap()
+    pub fn pop(&mut self) -> Option<Id> {
+        self.path.pop()
     }
 
     fn strip_intersection<'other>(&self, other: &'other Self) -> (&[Id], &'other [Id]) {
         let mismatched_index = match self.path.iter().zip(&other.path).position(|(x, y)| x != y) {
             None => self.path.len().min(other.path.len()),
-            Some(diff) => diff,
+            Some(index) => index,
         };
 
         let left = &self.path[mismatched_index..];
         let right = &other.path[mismatched_index..];
 
         (left, right)
+    }
+}
+
+impl Deref for IdPath {
+    type Target = [Id];
+
+    fn deref(&self) -> &Self::Target {
+        self.path.as_slice()
     }
 }
 

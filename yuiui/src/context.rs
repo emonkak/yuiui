@@ -44,7 +44,7 @@ impl IdContext for RenderContext {
     }
 
     fn end_widget(&mut self) -> Id {
-        self.id_path.pop()
+        self.id_path.pop().unwrap()
     }
 }
 
@@ -119,6 +119,6 @@ impl<S: State> IdContext for EffectContext<S> {
     }
 
     fn end_widget(&mut self) -> Id {
-        self.effect_path.id_path.pop()
+        self.effect_path.id_path.pop().unwrap()
     }
 }

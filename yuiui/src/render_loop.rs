@@ -144,10 +144,26 @@ where
                 self.env
                     .invoke_command(effect_path, command, cancellation_token);
             }
-            Effect::Event(event) => {
+            Effect::DownwardEvent(event) => {
                 let mut effect_context = EffectContext::new();
-                self.node
-                    .event(&event, &self.state, &self.env, &mut effect_context);
+                self.node.downward_event(
+                    &event,
+                    &effect_path.id_path,
+                    &self.state,
+                    &self.env,
+                    &mut effect_context,
+                );
+                self.effect_queue.extend(effect_context.into_effects());
+            }
+            Effect::UpwardEvent(event) => {
+                let mut effect_context = EffectContext::new();
+                self.node.upward_event(
+                    &event,
+                    &effect_path.id_path,
+                    &self.state,
+                    &self.env,
+                    &mut effect_context,
+                );
                 self.effect_queue.extend(effect_context.into_effects());
             }
             Effect::InternalEvent(event) => {
