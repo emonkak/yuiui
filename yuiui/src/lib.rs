@@ -24,7 +24,7 @@ pub use effect::{Effect, EffectPath};
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, ViewElement};
 pub use event::{Event, EventMask, EventResult, HasEvent, Lifecycle};
 pub use id::{ComponentIndex, Id, IdPath};
-pub use render_loop::{RenderLoop, RenderLoopContext};
+pub use render_loop::{RenderLoop, RenderLoopContext, RenderStatus};
 pub use state::{Data, State};
 pub use traversable::{Traversable, TraversableVisitor};
 pub use view::View;

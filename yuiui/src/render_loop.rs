@@ -44,18 +44,16 @@ where
         }
     }
 
-    pub fn run(&mut self, deadline: &Instant) {
+    pub fn run(&mut self, deadline: &Instant) -> RenderStatus {
         if deadline_did_timeout(&deadline) {
-            self.schedule_render();
-            return;
+            return self.schedule_render();
         }
 
         loop {
             while let Some((path, effect)) = self.effect_queue.pop_front() {
                 self.apply_effect(path, effect);
                 if deadline_did_timeout(&deadline) {
-                    self.schedule_render();
-                    return;
+                    return self.schedule_render();
                 }
             }
 
@@ -71,8 +69,7 @@ where
                     self.commit_selection.select(id_path, component_index);
                 }
                 if deadline_did_timeout(&deadline) {
-                    self.schedule_render();
-                    return;
+                    return self.schedule_render();
                 }
             }
 
@@ -88,8 +85,7 @@ where
                     );
                     self.effect_queue.extend(effect_context.into_effects());
                     if deadline_did_timeout(&deadline) {
-                        self.schedule_render();
-                        return;
+                        return self.schedule_render();
                     }
                 }
             } else {
@@ -103,13 +99,12 @@ where
                 self.effect_queue.extend(effect_context.into_effects());
                 self.is_mounted = true;
                 if deadline_did_timeout(&deadline) {
-                    self.schedule_render();
-                    return;
+                    return self.schedule_render();
                 }
             }
 
             if self.effect_queue.is_empty() {
-                return;
+                return RenderStatus::Done;
             }
         }
     }
@@ -118,13 +113,16 @@ where
         self.effect_queue.push_back((effect_path, effect));
     }
 
-    fn schedule_render(&self) {
+    fn schedule_render(&self) -> RenderStatus {
         let is_finished = self.effect_queue.is_empty()
             && self.update_selection.is_empty()
             && self.commit_selection.is_empty()
             && self.is_mounted;
         if !is_finished {
             self.env.request_render();
+            RenderStatus::Suspended
+        } else {
+            RenderStatus::Done
         }
     }
 
@@ -209,4 +207,10 @@ pub trait RenderLoopContext<S: State> {
 
 fn deadline_did_timeout(deadline: &Instant) -> bool {
     deadline.saturating_duration_since(Instant::now()) <= Duration::from_millis(1)
+}
+
+#[derive(Debug)]
+pub enum RenderStatus {
+    Suspended,
+    Done,
 }
