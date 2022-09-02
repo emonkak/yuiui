@@ -1,5 +1,6 @@
 use futures::future::{BoxFuture, FutureExt as _};
 use futures::stream::{BoxStream, Stream, StreamExt as _};
+use std::fmt;
 use std::future::Future;
 use std::time::Duration;
 
@@ -46,6 +47,22 @@ impl<S: State> Command<S> {
     }
 }
 
-pub trait CommandHandler {
-    fn run<S: State>(&mut self, path: EffectPath, command: Command<S>);
+impl<S: State> fmt::Debug for Command<S>
+where
+    S::Message: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Future(_) => f.debug_struct("Future").finish_non_exhaustive(),
+            Self::Stream(_) => f.debug_struct("Stream").finish_non_exhaustive(),
+            Self::Timeout(duration, _) => f
+                .debug_struct("Timeout")
+                .field("duration", duration)
+                .finish_non_exhaustive(),
+            Self::Interval(period, _) => f
+                .debug_struct("Interval")
+                .field("period", period)
+                .finish_non_exhaustive(),
+        }
+    }
 }

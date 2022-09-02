@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
@@ -39,6 +40,24 @@ impl<S: State> Effect<S> {
                 Effect::Command(command, cancellation_token)
             }
             Self::RequestUpdate => Effect::RequestUpdate,
+        }
+    }
+}
+
+impl<S: State> fmt::Debug for Effect<S>
+where
+    S::Message: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Message(message) => f.debug_tuple("Message").field(message).finish(),
+            Self::Mutation(_) => f.debug_struct("Mutation").finish_non_exhaustive(),
+            Self::Command(command, cancellation_token) => f
+                .debug_tuple("Command")
+                .field(command)
+                .field(cancellation_token)
+                .finish(),
+            Self::RequestUpdate => f.write_str("RequestUpdate"),
         }
     }
 }
