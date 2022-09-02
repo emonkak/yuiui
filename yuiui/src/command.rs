@@ -4,7 +4,7 @@ use std::fmt;
 use std::future::Future;
 use std::time::Duration;
 
-use crate::effect::{Effect, EffectPath};
+use crate::effect::Effect;
 use crate::state::State;
 
 pub enum Command<S: State> {

@@ -33,7 +33,7 @@ impl State for AppState {
     }
 }
 
-fn app(_state: &AppState) -> impl DebuggableElement<AppState, AppEnv> {
+fn app() -> impl DebuggableElement<AppState, AppEnv> {
     Block::new().el_with(hlist![
         Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
         Block::new().el_with(Text::new("hello world!").el()),
@@ -59,10 +59,10 @@ fn main() {
         count: Data::from(0),
     };
     let env = AppEnv {};
-    let root = app(&state);
-    let mut widget_tree = WidgetTree::new(root, &state, &env);
-    widget_tree.commit(&state, &env);
-    println!("{:#?}", widget_tree);
+    let element = app();
+    let mut context = RenderContext::new();
+    let node = element.render(&state, &env, &mut context);
+    println!("{:#?}", node);
 }
 
 #[derive(Debug)]

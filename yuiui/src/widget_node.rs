@@ -3,6 +3,7 @@ mod event_visitor;
 mod internal_event_visitor;
 mod update_subtree_visitor;
 
+use std::any::Any;
 use std::fmt;
 use std::sync::Once;
 
@@ -109,20 +110,19 @@ where
 
     pub fn commit_subtree(
         &mut self,
-        mode: CommitMode,
         id_path: &IdPath,
         component_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) {
-        let mut visitor = CommitVisitor::new(mode, component_index);
+        let mut visitor = CommitVisitor::new(CommitMode::Update, component_index);
         self.search(id_path, &mut visitor, state, env, context);
     }
 
-    pub fn event<Event: 'static>(
+    pub fn event(
         &mut self,
-        event: &Event,
+        event: &dyn Any,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
