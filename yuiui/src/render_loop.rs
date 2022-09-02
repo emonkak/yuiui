@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::collections::VecDeque;
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -8,7 +7,6 @@ use crate::command::Command;
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::{Effect, EffectPath};
 use crate::element::{Element, ElementSeq};
-use crate::event::InternalEvent;
 use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 use crate::view::View;
@@ -120,20 +118,6 @@ where
         self.effect_queue.push_back((effect_path, effect));
     }
 
-    pub fn push_event(&mut self, event: Box<dyn Any>) {
-        let mut effect_context = EffectContext::new();
-        self.node
-            .event(&event, &self.state, &self.env, &mut effect_context);
-        self.effect_queue.extend(effect_context.into_effects());
-    }
-
-    pub fn push_internal_event(&mut self, event: InternalEvent) {
-        let mut effect_context = EffectContext::new();
-        self.node
-            .internal_event(&event, &self.state, &self.env, &mut effect_context);
-        self.effect_queue.extend(effect_context.into_effects());
-    }
-
     fn apply_effect(&mut self, effect_path: EffectPath, effect: Effect<S>) {
         match effect {
             Effect::Message(message) => {
@@ -151,6 +135,18 @@ where
             Effect::Command(command, cancellation_token) => {
                 self.env
                     .invoke_command(effect_path, command, cancellation_token);
+            }
+            Effect::Event(event) => {
+                let mut effect_context = EffectContext::new();
+                self.node
+                    .event(&event, &self.state, &self.env, &mut effect_context);
+                self.effect_queue.extend(effect_context.into_effects());
+            }
+            Effect::InternalEvent(event) => {
+                let mut effect_context = EffectContext::new();
+                self.node
+                    .internal_event(&event, &effect_path.id_path, &self.state, &self.env, &mut effect_context);
+                self.effect_queue.extend(effect_context.into_effects());
             }
             Effect::RequestUpdate => {
                 self.update_queue

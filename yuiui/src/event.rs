@@ -5,7 +5,6 @@ use std::sync::Arc;
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::effect::Effect;
-use crate::id::IdPath;
 use crate::state::State;
 
 pub trait Event<'event> {
@@ -57,25 +56,6 @@ impl<T> Lifecycle<T> {
             Self::Updated(value) => Lifecycle::Updated(f(value)),
             Self::Unmounted => Lifecycle::Unmounted,
         }
-    }
-}
-
-pub struct InternalEvent {
-    id_path: IdPath,
-    payload: Box<dyn Any + Send>,
-}
-
-impl InternalEvent {
-    pub fn new(id_path: IdPath, payload: Box<dyn Any + Send>) -> Self {
-        Self { id_path, payload }
-    }
-
-    pub fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
-
-    pub fn payload(&self) -> &dyn Any {
-        self.payload.as_ref()
     }
 }
 

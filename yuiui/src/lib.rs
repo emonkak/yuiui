@@ -22,7 +22,7 @@ pub use component_node::{ComponentNode, ComponentStack};
 pub use context::{EffectContext, IdContext, RenderContext};
 pub use effect::{Effect, EffectPath};
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, ViewElement};
-pub use event::{Event, EventMask, EventResult, HasEvent, InternalEvent, Lifecycle};
+pub use event::{Event, EventMask, EventResult, HasEvent, Lifecycle};
 pub use id::{ComponentIndex, Id, IdPath};
 pub use render_loop::{RenderLoop, RenderLoopContext};
 pub use state::{Data, State};

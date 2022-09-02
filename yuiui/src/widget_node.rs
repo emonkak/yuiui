@@ -10,7 +10,7 @@ use std::sync::Once;
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::{Event, EventMask, HasEvent, InternalEvent};
+use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{ComponentIndex, Id, IdPath};
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
@@ -136,13 +136,14 @@ where
 
     pub fn internal_event(
         &mut self,
-        event: &InternalEvent,
+        event: &dyn Any,
+        id_path: &IdPath,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) -> bool {
-        let mut visitor = InternalEventVisitor::new(event.payload());
-        self.search(event.id_path(), &mut visitor, state, env, context)
+        let mut visitor = InternalEventVisitor::new(event);
+        self.search(id_path, &mut visitor, state, env, context)
     }
 }
 

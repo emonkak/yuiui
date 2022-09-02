@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
@@ -10,6 +11,8 @@ pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
     Command(Command<S>, Option<CancellationToken>),
+    Event(Box<dyn Any + Send>),
+    InternalEvent(Box<dyn Any + Send>),
     RequestUpdate,
 }
 
@@ -39,6 +42,8 @@ impl<S: State> Effect<S> {
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command, cancellation_token)
             }
+            Self::Event(event) => Effect::Event(event),
+            Self::InternalEvent(event) => Effect::InternalEvent(event),
             Self::RequestUpdate => Effect::RequestUpdate,
         }
     }
@@ -57,6 +62,8 @@ where
                 .field(command)
                 .field(cancellation_token)
                 .finish(),
+            Self::Event(_) => f.debug_struct("Event").finish_non_exhaustive(),
+            Self::InternalEvent(_) => f.debug_struct("InternalEvent").finish_non_exhaustive(),
             Self::RequestUpdate => f.write_str("RequestUpdate"),
         }
     }
@@ -71,7 +78,9 @@ pub struct EffectPath {
 }
 
 impl EffectPath {
-    pub(crate) fn new() -> Self {
+    pub const ROOT: Self = Self::new();
+
+    pub(crate) const fn new() -> Self {
         Self {
             id_path: IdPath::new(),
             component_index: 0,
