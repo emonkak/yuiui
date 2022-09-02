@@ -29,6 +29,20 @@ impl<S: State> Command<S> {
         Command::Stream(Box::pin(stream))
     }
 
+    pub fn delay<F>(duration: Duration, f: F) -> Self
+    where
+        F: FnOnce() -> Effect<S> + Send + 'static,
+    {
+        Command::Timeout(duration, Box::new(f))
+    }
+
+    pub fn every<F>(period: Duration, f: F) -> Self
+    where
+        F: Fn() -> Effect<S> + Send + 'static,
+    {
+        Command::Interval(period, Box::new(f))
+    }
+
     pub fn map<F, NS>(self, f: F) -> Command<NS>
     where
         F: Fn(Effect<S>) -> Effect<NS> + Send + 'static,
