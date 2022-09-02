@@ -10,11 +10,11 @@ use std::sync::Once;
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::{Event, EventMask, InternalEvent};
+use crate::event::{Event, EventMask, HasEvent, InternalEvent};
 use crate::id::{ComponentIndex, Id, IdPath};
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
-use crate::view::{View, ViewEvent};
+use crate::view::View;
 
 use commit_visitor::CommitVisitor;
 use event_visitor::EventVisitor;
@@ -161,7 +161,7 @@ where
 
             INIT.call_once(|| unsafe {
                 EVENT_MASK.merge(children_mask);
-                EVENT_MASK.add_all(&<V as ViewEvent>::Event::allowed_types());
+                EVENT_MASK.add_all(&<V as HasEvent>::Event::allowed_types());
             });
         }
 

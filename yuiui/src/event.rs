@@ -179,3 +179,7 @@ impl<S: State> From<(Command<S>, CancellationToken)> for EventResult<S> {
         }
     }
 }
+
+pub trait HasEvent<'event> {
+    type Event: Event<'event>;
+}

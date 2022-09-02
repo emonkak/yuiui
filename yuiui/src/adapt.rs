@@ -7,11 +7,11 @@ use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::EffectPath;
 use crate::element::{Element, ElementSeq};
-use crate::event::{EventMask, EventResult, Lifecycle};
+use crate::event::{EventMask, EventResult, HasEvent, Lifecycle};
 use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 use crate::traversable::Traversable;
-use crate::view::{View, ViewEvent};
+use crate::view::View;
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetNodeSeq};
 
 pub struct Adapt<T, F, SS> {
@@ -376,7 +376,7 @@ where
 
     fn event(
         &self,
-        event: <Self as ViewEvent>::Event,
+        event: <Self as HasEvent>::Event,
         widget: &mut Self::Widget,
         children: &<Self::Children as ElementSeq<S, E>>::Store,
         effect_path: &EffectPath,
@@ -390,9 +390,9 @@ where
     }
 }
 
-impl<'event, T, F, SS> ViewEvent<'event> for Adapt<T, F, SS>
+impl<'event, T, F, SS> HasEvent<'event> for Adapt<T, F, SS>
 where
-    T: ViewEvent<'event>,
+    T: HasEvent<'event>,
 {
     type Event = T::Event;
 }

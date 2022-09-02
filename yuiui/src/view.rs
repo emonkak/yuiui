@@ -2,10 +2,10 @@ use hlist::HNil;
 
 use crate::effect::EffectPath;
 use crate::element::{ElementSeq, ViewElement};
-use crate::event::{Event, EventResult, Lifecycle};
+use crate::event::{EventResult, HasEvent, Lifecycle};
 use crate::state::State;
 
-pub trait View<S: State, E>: Sized + for<'event> ViewEvent<'event> {
+pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
     type Widget;
 
     type Children: ElementSeq<S, E>;
@@ -42,7 +42,7 @@ pub trait View<S: State, E>: Sized + for<'event> ViewEvent<'event> {
 
     fn event(
         &self,
-        _event: <Self as ViewEvent>::Event,
+        _event: <Self as HasEvent>::Event,
         _widget: &mut Self::Widget,
         _children: &<Self::Children as ElementSeq<S, E>>::Store,
         _effect_path: &EffectPath,
@@ -62,8 +62,4 @@ pub trait View<S: State, E>: Sized + for<'event> ViewEvent<'event> {
     fn el_with(self, children: Self::Children) -> ViewElement<Self, S, E> {
         ViewElement::new(self, children)
     }
-}
-
-pub trait ViewEvent<'event> {
-    type Event: Event<'event>;
 }

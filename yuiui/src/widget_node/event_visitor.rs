@@ -2,10 +2,10 @@ use std::any::Any;
 
 use crate::component_node::ComponentStack;
 use crate::context::EffectContext;
-use crate::event::Event;
+use crate::event::{Event, HasEvent};
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
-use crate::view::{View, ViewEvent};
+use crate::view::View;
 
 use super::{WidgetNode, WidgetState};
 
@@ -49,7 +49,7 @@ where
                 if node.event_mask.contains(&self.event.type_id()) {
                     node.children.for_each(self, state, env, context);
                 }
-                if let Some(event) = <V as ViewEvent>::Event::from_any(self.event) {
+                if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     let result = view.event(
                         event,
                         widget,

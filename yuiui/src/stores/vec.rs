@@ -6,11 +6,11 @@ use std::sync::Once;
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::{Element, ElementSeq};
-use crate::event::{Event, EventMask};
+use crate::event::{Event, EventMask, HasEvent};
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
-use crate::view::{View, ViewEvent};
+use crate::view::View;
 use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
@@ -117,7 +117,7 @@ where
         static mut EVENT_MASK: EventMask = EventMask::new();
 
         INIT.call_once(|| unsafe {
-            EVENT_MASK.add_all(&<V as ViewEvent>::Event::allowed_types());
+            EVENT_MASK.add_all(&<V as HasEvent>::Event::allowed_types());
         });
 
         unsafe { &EVENT_MASK }

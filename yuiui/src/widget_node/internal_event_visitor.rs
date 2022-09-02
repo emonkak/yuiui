@@ -2,10 +2,10 @@ use std::any::Any;
 
 use crate::component_node::ComponentStack;
 use crate::context::EffectContext;
-use crate::event::Event;
+use crate::event::{Event, HasEvent};
 use crate::state::State;
 use crate::traversable::TraversableVisitor;
-use crate::view::{View, ViewEvent};
+use crate::view::View;
 
 use super::{WidgetNode, WidgetState};
 
@@ -38,7 +38,7 @@ where
             WidgetState::Prepared(widget, view)
             | WidgetState::Dirty(widget, view)
             | WidgetState::Pending(widget, view, _) => {
-                let event = <V as ViewEvent>::Event::from_any(self.event)
+                let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to widget event");
                 let result = view.event(
                     event,

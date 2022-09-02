@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<'event> ViewEvent<'event> for Text {
+impl<'event> HasEvent<'event> for Text {
     type Event = ();
 }
 
@@ -136,7 +136,7 @@ where
     }
 }
 
-impl<'event, C> ViewEvent<'event> for Block<C> {
+impl<'event, C> HasEvent<'event> for Block<C> {
     type Event = ();
 }
 
