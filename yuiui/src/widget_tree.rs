@@ -38,7 +38,7 @@ where
     pub fn update_subtree(
         &mut self,
         id_path: &IdPath,
-        component_index: Option<ComponentIndex>,
+        component_index: ComponentIndex,
         state: &S,
         env: &E,
     ) -> bool {
@@ -60,7 +60,7 @@ where
     pub fn commit_subtree(
         &mut self,
         id_path: &IdPath,
-        component_index: Option<ComponentIndex>,
+        component_index: ComponentIndex,
         state: &S,
         env: &E,
     ) -> Vec<(EffectPath, Effect<S>)> {

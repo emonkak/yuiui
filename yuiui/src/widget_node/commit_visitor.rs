@@ -1,5 +1,7 @@
+use std::mem;
+
 use crate::component_node::ComponentStack;
-use crate::context::{EffectContext, IdContext};
+use crate::context::EffectContext;
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
@@ -10,11 +12,11 @@ use super::{CommitMode, WidgetNode, WidgetNodeSeq, WidgetState};
 
 pub struct CommitVisitor {
     mode: CommitMode,
-    component_index: Option<ComponentIndex>,
+    component_index: ComponentIndex,
 }
 
 impl CommitVisitor {
-    pub fn new(mode: CommitMode, component_index: Option<ComponentIndex>) -> Self {
+    pub fn new(mode: CommitMode, component_index: ComponentIndex) -> Self {
         Self {
             mode,
             component_index,
@@ -36,11 +38,10 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) {
-        if let Some(component_index) = self.component_index.replace(0) {
-            context.begin_components();
+        let component_index = mem::replace(&mut self.component_index, 0);
+        if component_index < CS::LEN {
             node.components
                 .commit(self.mode, component_index, state, env, context);
-            context.end_components();
         }
         node.children.commit(self.mode, state, env, context);
         node.state = match node.state.take().unwrap() {
@@ -50,7 +51,7 @@ where
                     Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context.effect_path(),
                     state,
                     env,
                 );
@@ -64,7 +65,7 @@ where
                             Lifecycle::Mounted,
                             &mut widget,
                             &node.children,
-                            context.id_path(),
+                            context.effect_path(),
                             state,
                             env,
                         );
@@ -75,7 +76,7 @@ where
                             Lifecycle::Unmounted,
                             &mut widget,
                             &node.children,
-                            context.id_path(),
+                            context.effect_path(),
                             state,
                             env,
                         );
@@ -91,7 +92,7 @@ where
                         Lifecycle::Updated(&view),
                         &mut widget,
                         &node.children,
-                        context.id_path(),
+                        context.effect_path(),
                         state,
                         env,
                     );
@@ -105,7 +106,7 @@ where
                         Lifecycle::Updated(&view),
                         &mut widget,
                         &node.children,
-                        context.id_path(),
+                        context.effect_path(),
                         state,
                         env,
                     );

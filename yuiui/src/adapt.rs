@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::component::Component;
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectPath;
 use crate::element::{Element, ElementSeq};
 use crate::event::{EventMask, EventResult, Lifecycle};
 use crate::id::{ComponentIndex, IdPath};
@@ -285,6 +286,7 @@ where
     fn force_update<'a>(
         scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
+        current_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -302,7 +304,14 @@ where
             dirty: scope.dirty,
         };
         let sub_state = selector_fn(state);
-        let has_changed = T::force_update(sub_scope, target_index, sub_state, env, context);
+        let has_changed = T::force_update(
+            sub_scope,
+            target_index,
+            current_index,
+            sub_state,
+            env,
+            context,
+        );
         *scope.state = sub_widget_state
             .map(|state| state.map_view(|view| Adapt::new(view, selector_fn.clone())));
         has_changed
@@ -347,7 +356,7 @@ where
         lifecycle: Lifecycle<&Self>,
         widget: &mut Self::Widget,
         children: &<Self::Children as ElementSeq<S, E>>::Store,
-        id_path: &IdPath,
+        effect_path: &EffectPath,
         state: &S,
         env: &E,
     ) -> EventResult<S> {
@@ -358,7 +367,7 @@ where
                 sub_lifecycle,
                 widget,
                 &children.target,
-                id_path,
+                effect_path,
                 sub_state,
                 env,
             )
@@ -370,13 +379,13 @@ where
         event: <Self as ViewEvent>::Event,
         widget: &mut Self::Widget,
         children: &<Self::Children as ElementSeq<S, E>>::Store,
-        id_path: &IdPath,
+        effect_path: &EffectPath,
         state: &S,
         env: &E,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .event(event, widget, &children.target, id_path, sub_state, env)
+            .event(event, widget, &children.target, effect_path, sub_state, env)
             .lift(&self.selector_fn)
     }
 }

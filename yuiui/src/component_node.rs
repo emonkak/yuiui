@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::mem;
 
 use crate::component::Component;
-use crate::context::{EffectContext, IdContext, RenderContext};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
@@ -92,6 +92,15 @@ pub trait ComponentStack<S: State, E>: Sized {
 
     type View: View<S, E>;
 
+    fn force_update<'a>(
+        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
+        target_index: ComponentIndex,
+        current_index: ComponentIndex,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool;
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -100,14 +109,6 @@ pub trait ComponentStack<S: State, E>: Sized {
         env: &E,
         context: &mut EffectContext<S>,
     );
-
-    fn force_update<'a>(
-        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
-        target_index: ComponentIndex,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool;
 }
 
 impl<C, CS, S, E> ComponentStack<S, E> for (ComponentNode<C, S, E>, CS)
@@ -121,24 +122,10 @@ where
 
     type View = <C::Element as Element<S, E>>::View;
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        target_index: ComponentIndex,
-        state: &S,
-        env: &E,
-        context: &mut EffectContext<S>,
-    ) {
-        if target_index <= context.component_index().unwrap() {
-            self.0.commit(mode, state, env, context);
-        }
-        context.next_component();
-        self.1.commit(mode, target_index, state, env, context);
-    }
-
     fn force_update<'a>(
         scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
+        current_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -151,13 +138,27 @@ where
             components: tail,
             dirty: scope.dirty,
         };
-        if target_index <= context.component_index().unwrap() {
+        if target_index <= current_index {
             let element = head.render(state, env);
             element.update(scope, state, env, context)
         } else {
-            context.next_component();
-            CS::force_update(scope, target_index, state, env, context)
+            CS::force_update(scope, target_index, current_index + 1, state, env, context)
         }
+    }
+
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        target_index: ComponentIndex,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) {
+        if target_index <= context.effect_path().component_index {
+            self.0.commit(mode, state, env, context);
+        }
+        context.increment_component_index();
+        self.1.commit(mode, target_index, state, env, context);
     }
 }
 
@@ -175,6 +176,17 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
 
     type View = V;
 
+    fn force_update<'a>(
+        _scope: WidgetNodeScope<'a, V, Self, S, E>,
+        _target_index: ComponentIndex,
+        _current_index: ComponentIndex,
+        _state: &S,
+        _env: &E,
+        _context: &mut RenderContext,
+    ) -> bool {
+        false
+    }
+
     fn commit(
         &mut self,
         _mode: CommitMode,
@@ -183,15 +195,5 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
         _env: &E,
         _context: &mut EffectContext<S>,
     ) {
-    }
-
-    fn force_update<'a>(
-        _scope: WidgetNodeScope<'a, V, Self, S, E>,
-        _target_index: ComponentIndex,
-        _state: &S,
-        _env: &E,
-        _context: &mut RenderContext,
-    ) -> bool {
-        false
     }
 }

@@ -8,23 +8,14 @@ use crate::state::State;
 pub trait IdContext {
     fn id_path(&self) -> &IdPath;
 
-    fn component_index(&self) -> Option<ComponentIndex>;
-
     fn begin_widget(&mut self, id: Id);
 
     fn end_widget(&mut self) -> Id;
-
-    fn begin_components(&mut self);
-
-    fn next_component(&mut self);
-
-    fn end_components(&mut self);
 }
 
 #[derive(Debug)]
 pub struct RenderContext {
     id_path: IdPath,
-    component_index: Option<ComponentIndex>,
     id_counter: u64,
 }
 
@@ -32,7 +23,6 @@ impl RenderContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPath::new(),
-            component_index: None,
             id_counter: 0,
         }
     }
@@ -49,10 +39,6 @@ impl IdContext for RenderContext {
         &self.id_path
     }
 
-    fn component_index(&self) -> Option<ComponentIndex> {
-        self.component_index
-    }
-
     fn begin_widget(&mut self, id: Id) {
         self.id_path.push(id);
     }
@@ -60,47 +46,38 @@ impl IdContext for RenderContext {
     fn end_widget(&mut self) -> Id {
         self.id_path.pop()
     }
-
-    fn begin_components(&mut self) {
-        self.component_index = Some(0);
-    }
-
-    fn next_component(&mut self) {
-        *self.component_index.as_mut().unwrap() += 1;
-    }
-
-    fn end_components(&mut self) {
-        self.component_index = None;
-    }
 }
 
 pub struct EffectContext<S: State> {
-    id_path: IdPath,
-    component_index: Option<ComponentIndex>,
-    state_id_path: IdPath,
-    state_component_index: Option<ComponentIndex>,
+    effect_path: EffectPath,
     effects: Vec<(EffectPath, Effect<S>)>,
 }
 
 impl<S: State> EffectContext<S> {
     pub fn new() -> Self {
         Self {
-            id_path: IdPath::new(),
-            component_index: None,
-            state_id_path: IdPath::new(),
-            state_component_index: None,
+            effect_path: EffectPath::new(),
             effects: Vec::new(),
         }
     }
 
+    pub fn effect_path(&self) -> &EffectPath {
+        &self.effect_path
+    }
+
     pub fn new_sub_context<SS: State>(&self) -> EffectContext<SS> {
         EffectContext {
-            id_path: self.id_path.clone(),
-            component_index: self.component_index,
-            state_id_path: self.id_path.clone(),
-            state_component_index: self.component_index,
+            effect_path: self.effect_path.new_sub_path(),
             effects: Vec::new(),
         }
+    }
+
+    pub fn set_component_index(&mut self, component_index: ComponentIndex) {
+        self.effect_path.component_index = component_index;
+    }
+
+    pub fn increment_component_index(&mut self) {
+        self.effect_path.component_index += 1;
     }
 
     pub fn merge_sub_context<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
@@ -108,8 +85,10 @@ impl<S: State> EffectContext<S> {
         F: Fn(&S) -> &SS + Sync + Send + 'static,
         SS: State,
     {
-        assert!(sub_context.id_path.starts_with(&self.id_path));
-
+        assert!(sub_context
+            .effect_path
+            .id_path
+            .starts_with(&self.effect_path.id_path));
         let sub_effects = sub_context
             .effects
             .into_iter()
@@ -119,11 +98,8 @@ impl<S: State> EffectContext<S> {
 
     pub fn process_result(&mut self, result: EventResult<S>) {
         for effect in result.into_effects() {
-            let path = EffectPath {
-                source_path: (self.id_path.clone(), self.component_index),
-                state_path: (self.state_id_path.clone(), self.state_component_index),
-            };
-            self.effects.push((path, effect));
+            let effect_path = self.effect_path.clone();
+            self.effects.push((effect_path, effect));
         }
     }
 
@@ -134,30 +110,15 @@ impl<S: State> EffectContext<S> {
 
 impl<S: State> IdContext for EffectContext<S> {
     fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
-
-    fn component_index(&self) -> Option<ComponentIndex> {
-        self.component_index
+        &self.effect_path.id_path
     }
 
     fn begin_widget(&mut self, id: Id) {
-        self.id_path.push(id);
+        self.effect_path.id_path.push(id);
+        self.effect_path.component_index = 0;
     }
 
     fn end_widget(&mut self) -> Id {
-        self.id_path.pop()
-    }
-
-    fn begin_components(&mut self) {
-        self.component_index = Some(0);
-    }
-
-    fn next_component(&mut self) {
-        *self.component_index.as_mut().unwrap() += 1;
-    }
-
-    fn end_components(&mut self) {
-        self.component_index = None;
+        self.effect_path.id_path.pop()
     }
 }

@@ -45,6 +45,32 @@ impl<S: State> Effect<S> {
 
 #[derive(Debug, Clone)]
 pub struct EffectPath {
-    pub source_path: (IdPath, Option<ComponentIndex>),
-    pub state_path: (IdPath, Option<ComponentIndex>),
+    pub(crate) id_path: IdPath,
+    pub(crate) component_index: ComponentIndex,
+    pub(crate) state_id_path: IdPath,
+    pub(crate) state_component_index: ComponentIndex,
+}
+
+impl EffectPath {
+    pub(crate) fn new() -> Self {
+        Self {
+            id_path: IdPath::new(),
+            component_index: 0,
+            state_id_path: IdPath::new(),
+            state_component_index: 0,
+        }
+    }
+
+    pub(crate) fn new_sub_path(&self) -> Self {
+        Self {
+            id_path: self.id_path.clone(),
+            component_index: self.component_index,
+            state_id_path: self.id_path.clone(),
+            state_component_index: self.component_index,
+        }
+    }
+
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
 }

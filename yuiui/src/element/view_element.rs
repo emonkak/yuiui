@@ -41,8 +41,9 @@ where
         let id = context.next_identity();
         context.begin_widget(id);
         let children = self.children.render(state, env, context);
+        let node = WidgetNode::new(id, self.view, children, ComponentEnd::new());
         context.end_widget();
-        WidgetNode::new(id, self.view, children, ComponentEnd::new())
+        node
     }
 
     fn update(
