@@ -166,9 +166,9 @@ where
                 );
                 self.effect_queue.extend(effect_context.into_effects());
             }
-            Effect::InternalEvent(event) => {
+            Effect::LocalEvent(event) => {
                 let mut effect_context = EffectContext::new();
-                self.node.internal_event(
+                self.node.local_event(
                     &event,
                     &effect_path.id_path,
                     &self.state,

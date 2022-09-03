@@ -9,18 +9,18 @@ use crate::view::View;
 
 use super::{WidgetNode, WidgetState};
 
-pub struct InternalEventVisitor<'a> {
+pub struct LocalEventVisitor<'a> {
     event: &'a dyn Any,
 }
 
-impl<'a> InternalEventVisitor<'a> {
+impl<'a> LocalEventVisitor<'a> {
     pub fn new(event: &'a dyn Any) -> Self {
         Self { event }
     }
 }
 
 impl<'a, V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
-    for InternalEventVisitor<'a>
+    for LocalEventVisitor<'a>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,

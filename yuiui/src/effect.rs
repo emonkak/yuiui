@@ -13,7 +13,7 @@ pub enum Effect<S: State> {
     Command(Command<S>, Option<CancellationToken>),
     DownwardEvent(Box<dyn Any + Send>),
     UpwardEvent(Box<dyn Any + Send>),
-    InternalEvent(Box<dyn Any + Send>),
+    LocalEvent(Box<dyn Any + Send>),
     RequestUpdate,
 }
 
@@ -45,7 +45,7 @@ impl<S: State> Effect<S> {
             }
             Self::DownwardEvent(event) => Effect::DownwardEvent(event),
             Self::UpwardEvent(event) => Effect::UpwardEvent(event),
-            Self::InternalEvent(event) => Effect::InternalEvent(event),
+            Self::LocalEvent(event) => Effect::LocalEvent(event),
             Self::RequestUpdate => Effect::RequestUpdate,
         }
     }
@@ -66,7 +66,7 @@ where
                 .finish(),
             Self::DownwardEvent(event) => f.debug_tuple("DownwardEvent").field(event).finish(),
             Self::UpwardEvent(event) => f.debug_tuple("UpwardEvent").field(event).finish(),
-            Self::InternalEvent(event) => f.debug_tuple("InternalEvent").field(event).finish(),
+            Self::LocalEvent(event) => f.debug_tuple("LocalEvent").field(event).finish(),
             Self::RequestUpdate => f.write_str("RequestUpdate"),
         }
     }
