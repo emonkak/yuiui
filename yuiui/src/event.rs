@@ -39,24 +39,8 @@ impl<'event> Event<'event> for () {
     }
 }
 
-#[derive(Debug)]
-pub enum Lifecycle<T> {
-    Mounted,
-    Updated(T),
-    Unmounted,
-}
-
-impl<T> Lifecycle<T> {
-    pub fn map<F, U>(self, f: F) -> Lifecycle<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        match self {
-            Self::Mounted => Lifecycle::Mounted,
-            Self::Updated(value) => Lifecycle::Updated(f(value)),
-            Self::Unmounted => Lifecycle::Unmounted,
-        }
-    }
+pub trait HasEvent<'event> {
+    type Event: Event<'event>;
 }
 
 #[derive(Debug)]
@@ -96,6 +80,26 @@ impl EventMask {
             if !mask.is_empty() {
                 self.mask.get_or_insert_with(|| HashSet::new()).extend(mask);
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Lifecycle<T> {
+    Mounted,
+    Updated(T),
+    Unmounted,
+}
+
+impl<T> Lifecycle<T> {
+    pub fn map<F, U>(self, f: F) -> Lifecycle<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Mounted => Lifecycle::Mounted,
+            Self::Updated(value) => Lifecycle::Updated(f(value)),
+            Self::Unmounted => Lifecycle::Unmounted,
         }
     }
 }
@@ -158,8 +162,4 @@ impl<S: State> From<(Command<S>, CancellationToken)> for EventResult<S> {
             effects: vec![Effect::Command(command, Some(cancellation_token))],
         }
     }
-}
-
-pub trait HasEvent<'event> {
-    type Event: Event<'event>;
 }
