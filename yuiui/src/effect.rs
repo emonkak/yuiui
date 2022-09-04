@@ -18,10 +18,10 @@ pub enum Effect<S: State> {
 }
 
 impl<S: State> Effect<S> {
-    pub(crate) fn lift<F, NS>(self, f: &Arc<F>) -> Effect<NS>
+    pub(crate) fn lift<F, NewState>(self, f: &Arc<F>) -> Effect<NewState>
     where
-        F: Fn(&NS) -> &S + Sync + Send + 'static,
-        NS: State,
+        F: Fn(&NewState) -> &S + Sync + Send + 'static,
+        NewState: State,
     {
         match self {
             Self::Message(message) => {

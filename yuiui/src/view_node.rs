@@ -303,9 +303,9 @@ pub enum ViewNodeState<V, W> {
 }
 
 impl<V, W> ViewNodeState<V, W> {
-    pub fn map_view<F, NV>(self, f: F) -> ViewNodeState<NV, W>
+    pub fn map_view<F, NewView>(self, f: F) -> ViewNodeState<NewView, W>
     where
-        F: Fn(V) -> NV,
+        F: Fn(V) -> NewView,
     {
         match self {
             Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),

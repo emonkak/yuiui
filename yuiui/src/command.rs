@@ -43,10 +43,10 @@ impl<S: State> Command<S> {
         Command::Interval(period, Box::new(f))
     }
 
-    pub fn map<F, NS>(self, f: F) -> Command<NS>
+    pub fn map<F, NewState>(self, f: F) -> Command<NewState>
     where
-        F: Fn(Effect<S>) -> Effect<NS> + Send + 'static,
-        NS: State,
+        F: Fn(Effect<S>) -> Effect<NewState> + Send + 'static,
+        NewState: State,
     {
         match self {
             Command::Future(future) => Command::Future(Box::pin(future.map(f))),
