@@ -8,13 +8,13 @@ use crate::state::State;
 use crate::traversable::Traversable;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
-use super::RenderStatus;
+use super::RenderFlags;
 
 #[derive(Debug)]
 pub struct OptionStore<T> {
     active: Option<T>,
     staging: Option<T>,
-    status: RenderStatus,
+    flags: RenderFlags,
 }
 
 impl<T> OptionStore<T> {
@@ -22,7 +22,7 @@ impl<T> OptionStore<T> {
         Self {
             active,
             staging: None,
-            status: RenderStatus::Unchanged,
+            flags: RenderFlags::NONE,
         }
     }
 }
@@ -48,7 +48,7 @@ where
         match (&mut store.active, self) {
             (Some(node), Some(element)) => {
                 if element.update(node, state, env, context) {
-                    store.status = RenderStatus::Changed;
+                    store.flags |= RenderFlags::UPDATED;
                     true
                 } else {
                     false
@@ -60,12 +60,12 @@ where
                 } else {
                     store.staging = Some(element.render(state, env, context));
                 }
-                store.status = RenderStatus::Swapped;
+                store.flags |= RenderFlags::SWAPPED;
                 true
             }
             (Some(_), None) => {
                 assert!(store.staging.is_none());
-                store.status = RenderStatus::Swapped;
+                store.flags |= RenderFlags::SWAPPED;
                 true
             }
             (None, None) => false,
@@ -90,9 +90,11 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        if self.status == RenderStatus::Swapped {
-            if let Some(node) = &mut self.active {
-                node.commit(CommitMode::Unmount, state, env, context);
+        if self.flags.contains(RenderFlags::SWAPPED) {
+            if self.flags.contains(RenderFlags::COMMITED) {
+                if let Some(node) = &mut self.active {
+                    node.commit(CommitMode::Unmount, state, env, context);
+                }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
@@ -100,13 +102,14 @@ where
                     node.commit(CommitMode::Mount, state, env, context);
                 }
             }
-            self.status = RenderStatus::Unchanged;
-        } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
+            self.flags = RenderFlags::COMMITED;
+        } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
                 node.commit(mode, state, env, context);
             }
-            self.status = RenderStatus::Unchanged;
+            self.flags = RenderFlags::COMMITED;
         }
+        self.flags |= RenderFlags::COMMITED;
     }
 }
 

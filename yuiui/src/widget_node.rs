@@ -86,6 +86,13 @@ where
         self.state.as_ref().unwrap()
     }
 
+    pub fn as_widget(&self) -> Option<&<V as View<S, E>>::Widget> {
+        match self.state.as_ref().unwrap() {
+            WidgetState::Prepared(widget, _) | WidgetState::Pending(widget, _, _) => Some(widget),
+            WidgetState::Uninitialized(_) => None,
+        }
+    }
+
     pub fn children(&self) -> &<V::Children as ElementSeq<S, E>>::Store {
         &self.children
     }
@@ -288,7 +295,6 @@ pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E> {
 pub enum WidgetState<V, W> {
     Uninitialized(V),
     Prepared(W, V),
-    Dirty(W, V),
     Pending(W, V, V),
 }
 
@@ -300,7 +306,6 @@ impl<V, W> WidgetState<V, W> {
         match self {
             Self::Uninitialized(view) => WidgetState::Uninitialized(f(view)),
             Self::Prepared(widget, view) => WidgetState::Prepared(widget, f(view)),
-            Self::Dirty(widget, view) => WidgetState::Dirty(widget, f(view)),
             Self::Pending(widget, view, pending_view) => {
                 WidgetState::Pending(widget, f(view), f(pending_view))
             }

@@ -10,6 +10,7 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
+bitflags = "1"
 either = { path = "../either" }
 either-macro = { path = "../either-macro" }
 futures = "0.3"

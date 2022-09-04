@@ -46,9 +46,7 @@ where
     ) {
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget, view)
-            | WidgetState::Dirty(widget, view)
-            | WidgetState::Pending(widget, view, _) => {
+            WidgetState::Prepared(widget, view) | WidgetState::Pending(widget, view, _) => {
                 if self.id_path.bottom_id() != context.effect_path().id_path.bottom_id() {
                     if let Some(id_path) = self.id_path.strip_next(&context.effect_path().id_path) {
                         node.children.search(id_path, self, state, env, context);

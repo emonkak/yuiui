@@ -87,6 +87,7 @@ impl EventMask {
 #[derive(Debug)]
 pub enum Lifecycle<T> {
     Mounted,
+    Remounted,
     Updated(T),
     Unmounted,
 }
@@ -98,6 +99,7 @@ impl<T> Lifecycle<T> {
     {
         match self {
             Self::Mounted => Lifecycle::Mounted,
+            Self::Remounted => Lifecycle::Remounted,
             Self::Updated(value) => Lifecycle::Updated(f(value)),
             Self::Unmounted => Lifecycle::Unmounted,
         }

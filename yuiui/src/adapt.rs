@@ -329,28 +329,6 @@ where
 
     type Children = Adapt<T::Children, F, SS>;
 
-    fn build(
-        &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
-        state: &S,
-        env: &E,
-    ) -> Self::Widget {
-        let sub_state = (self.selector_fn)(state);
-        self.target.build(&children.target, sub_state, env)
-    }
-
-    fn rebuild(
-        &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
-        widget: &mut Self::Widget,
-        state: &S,
-        env: &E,
-    ) -> bool {
-        let sub_state = (self.selector_fn)(state);
-        self.target
-            .rebuild(&children.target, widget, sub_state, env)
-    }
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<&Self>,
@@ -387,6 +365,16 @@ where
         self.target
             .event(event, widget, &children.target, effect_path, sub_state, env)
             .lift(&self.selector_fn)
+    }
+
+    fn build(
+        &self,
+        children: &<Self::Children as ElementSeq<S, E>>::Store,
+        state: &S,
+        env: &E,
+    ) -> Self::Widget {
+        let sub_state = (self.selector_fn)(state);
+        self.target.build(&children.target, sub_state, env)
     }
 }
 

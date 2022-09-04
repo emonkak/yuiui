@@ -35,9 +35,7 @@ where
     ) {
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget, view)
-            | WidgetState::Dirty(widget, view)
-            | WidgetState::Pending(widget, view, _) => {
+            WidgetState::Prepared(widget, view) | WidgetState::Pending(widget, view, _) => {
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to widget event");
                 let result = view.event(

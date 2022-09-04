@@ -10,24 +10,6 @@ pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
 
     type Children: ElementSeq<S, E>;
 
-    fn build(
-        &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
-        state: &S,
-        env: &E,
-    ) -> Self::Widget;
-
-    fn rebuild(
-        &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
-        widget: &mut Self::Widget,
-        state: &S,
-        env: &E,
-    ) -> bool {
-        *widget = self.build(children, state, env);
-        true
-    }
-
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<&Self>,
@@ -51,6 +33,13 @@ pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
     ) -> EventResult<S> {
         EventResult::nop()
     }
+
+    fn build(
+        &self,
+        children: &<Self::Children as ElementSeq<S, E>>::Store,
+        state: &S,
+        env: &E,
+    ) -> Self::Widget;
 
     fn el(self) -> ViewElement<Self, S, E>
     where

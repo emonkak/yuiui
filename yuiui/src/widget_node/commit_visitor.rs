@@ -44,8 +44,8 @@ where
                 .commit(self.mode, component_index, state, env, context);
         }
         node.children.commit(self.mode, state, env, context);
-        node.state = match node.state.take().unwrap() {
-            WidgetState::Uninitialized(view) => {
+        node.state = match (self.mode, node.state.take().unwrap()) {
+            (CommitMode::Mount, WidgetState::Uninitialized(view)) => {
                 let mut widget = view.build(&node.children, state, env);
                 let result = view.lifecycle(
                     Lifecycle::Mounted,
@@ -58,61 +58,92 @@ where
                 context.process_result(result);
                 WidgetState::Prepared(widget, view)
             }
-            WidgetState::Prepared(mut widget, view) => {
-                match self.mode {
-                    CommitMode::Mount => {
-                        let result = view.lifecycle(
-                            Lifecycle::Mounted,
-                            &mut widget,
-                            &node.children,
-                            context.effect_path(),
-                            state,
-                            env,
-                        );
-                        context.process_result(result);
-                    }
-                    CommitMode::Unmount => {
-                        let result = view.lifecycle(
-                            Lifecycle::Unmounted,
-                            &mut widget,
-                            &node.children,
-                            context.effect_path(),
-                            state,
-                            env,
-                        );
-                        context.process_result(result);
-                    }
-                    CommitMode::Update => {}
-                }
+            (CommitMode::Mount, WidgetState::Prepared(mut widget, view)) => {
+                let result = view.lifecycle(
+                    Lifecycle::Remounted,
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
                 WidgetState::Prepared(widget, view)
             }
-            WidgetState::Dirty(mut widget, view) => {
-                if view.rebuild(&node.children, &mut widget, state, env) {
-                    let result = view.lifecycle(
-                        Lifecycle::Updated(&view),
-                        &mut widget,
-                        &node.children,
-                        context.effect_path(),
-                        state,
-                        env,
-                    );
-                    context.process_result(result);
-                }
-                WidgetState::Prepared(widget, view)
-            }
-            WidgetState::Pending(mut widget, view, pending_view) => {
-                if view.rebuild(&node.children, &mut widget, state, env) {
-                    let result = pending_view.lifecycle(
-                        Lifecycle::Updated(&view),
-                        &mut widget,
-                        &node.children,
-                        context.effect_path(),
-                        state,
-                        env,
-                    );
-                    context.process_result(result);
-                }
+            (CommitMode::Mount, WidgetState::Pending(mut widget, view, pending_view)) => {
+                let result = view.lifecycle(
+                    Lifecycle::Remounted,
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
+                let result = pending_view.lifecycle(
+                    Lifecycle::Updated(&view),
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
                 WidgetState::Prepared(widget, pending_view)
+            }
+            (CommitMode::Update, WidgetState::Uninitialized(_)) => {
+                unreachable!()
+            }
+            (CommitMode::Update, WidgetState::Prepared(mut widget, view)) => {
+                let result = view.lifecycle(
+                    Lifecycle::Updated(&view),
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
+                WidgetState::Prepared(widget, view)
+            }
+            (CommitMode::Update, WidgetState::Pending(mut widget, view, pending_view)) => {
+                let result = pending_view.lifecycle(
+                    Lifecycle::Updated(&view),
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
+                WidgetState::Prepared(widget, pending_view)
+            }
+            (CommitMode::Unmount, WidgetState::Uninitialized(_)) => {
+                unreachable!()
+            }
+            (CommitMode::Unmount, WidgetState::Prepared(mut widget, view)) => {
+                let result = view.lifecycle(
+                    Lifecycle::Unmounted,
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
+                WidgetState::Prepared(widget, view)
+            }
+            (CommitMode::Unmount, WidgetState::Pending(mut widget, view, pending_view)) => {
+                let result = view.lifecycle(
+                    Lifecycle::Unmounted,
+                    &mut widget,
+                    &node.children,
+                    context.effect_path(),
+                    state,
+                    env,
+                );
+                context.process_result(result);
+                WidgetState::Pending(widget, view, pending_view)
             }
         }
         .into();

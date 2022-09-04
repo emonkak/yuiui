@@ -10,13 +10,13 @@ use crate::state::State;
 use crate::traversable::Traversable;
 use crate::widget_node::{CommitMode, WidgetNodeSeq};
 
-use super::RenderStatus;
+use super::RenderFlags;
 
 #[derive(Debug)]
 pub struct EitherStore<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
-    status: RenderStatus,
+    flags: RenderFlags,
 }
 
 impl<L, R> EitherStore<L, R> {
@@ -24,7 +24,7 @@ impl<L, R> EitherStore<L, R> {
         Self {
             active,
             staging: None,
-            status: RenderStatus::Unchanged,
+            flags: RenderFlags::NONE,
         }
     }
 }
@@ -58,7 +58,7 @@ where
         match (&mut store.active, self) {
             (Either::Left(node), Either::Left(element)) => {
                 if element.update(node, state, env, context) {
-                    store.status = RenderStatus::Changed;
+                    store.flags |= RenderFlags::UPDATED;
                     true
                 } else {
                     false
@@ -66,7 +66,7 @@ where
             }
             (Either::Right(node), Either::Right(element)) => {
                 if element.update(node, state, env, context) {
-                    store.status = RenderStatus::Changed;
+                    store.flags |= RenderFlags::UPDATED;
                     true
                 } else {
                     false
@@ -82,7 +82,7 @@ where
                     }
                     _ => unreachable!(),
                 };
-                store.status = RenderStatus::Swapped;
+                store.flags |= RenderFlags::SWAPPED;
                 true
             }
             (Either::Right(_), Either::Left(element)) => {
@@ -95,7 +95,7 @@ where
                     }
                     _ => unreachable!(),
                 }
-                store.status = RenderStatus::Swapped;
+                store.flags |= RenderFlags::SWAPPED;
                 true
             }
         }
@@ -133,10 +133,12 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        if self.status == RenderStatus::Swapped {
-            match &mut self.active {
-                Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
-                Either::Right(node) => node.commit(CommitMode::Unmount, state, env, context),
+        if self.flags.contains(RenderFlags::SWAPPED) {
+            if self.flags.contains(RenderFlags::COMMITED) {
+                match &mut self.active {
+                    Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
+                    Either::Right(node) => node.commit(CommitMode::Unmount, state, env, context),
+                }
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
@@ -145,13 +147,13 @@ where
                     Either::Right(node) => node.commit(CommitMode::Mount, state, env, context),
                 }
             }
-            self.status = RenderStatus::Unchanged;
-        } else if self.status == RenderStatus::Changed || mode.is_propagatable() {
+            self.flags = RenderFlags::COMMITED;
+        } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             match &mut self.active {
                 Either::Left(node) => node.commit(mode, state, env, context),
                 Either::Right(node) => node.commit(mode, state, env, context),
             }
-            self.status = RenderStatus::Unchanged;
+            self.flags = RenderFlags::COMMITED;
         }
     }
 }
