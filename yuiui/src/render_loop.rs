@@ -14,7 +14,6 @@ use crate::widget_node::{CommitMode, WidgetNode};
 
 pub struct RenderLoop<El: Element<S, E>, S: State, E> {
     node: WidgetNode<El::View, El::Components, S, E>,
-    state: S,
     render_context: RenderContext,
     effect_queue: VecDeque<(EffectPath, Effect<S>)>,
     update_selection: IdSelection,
@@ -28,12 +27,11 @@ where
     S: State,
     E: RenderLoopContext<S>,
 {
-    pub fn build(element: El, state: S, env: &E) -> Self {
+    pub fn build(element: El, state: &S, env: &E) -> Self {
         let mut context = RenderContext::new();
-        let node = element.render(&state, env, &mut context);
+        let node = element.render(state, env, &mut context);
         Self {
             node,
-            state,
             render_context: RenderContext::new(),
             effect_queue: VecDeque::new(),
             update_selection: IdSelection::new(),
@@ -42,10 +40,10 @@ where
         }
     }
 
-    pub fn run(&mut self, deadline: &impl Deadline, env: &E) -> RenderFlow {
+    pub fn run(&mut self, deadline: &impl Deadline, state: &mut S, env: &E) -> RenderFlow {
         loop {
             while let Some((path, effect)) = self.effect_queue.pop_front() {
-                self.apply_effect(path, effect, env);
+                self.apply_effect(path, effect, state, env);
                 if deadline.did_timeout() {
                     return self.render_status();
                 }
@@ -55,7 +53,7 @@ where
                 self.node.update_subtree(
                     &id_path,
                     component_index,
-                    &self.state,
+                    state,
                     env,
                     &mut self.render_context,
                 );
@@ -73,7 +71,7 @@ where
                     self.node.commit_subtree(
                         &id_path,
                         component_index,
-                        &self.state,
+                        state,
                         env,
                         &mut effect_context,
                     );
@@ -85,7 +83,7 @@ where
             } else {
                 let mut effect_context = EffectContext::new();
                 self.node
-                    .commit(CommitMode::Mount, &self.state, env, &mut effect_context);
+                    .commit(CommitMode::Mount, state, env, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
@@ -115,16 +113,16 @@ where
         }
     }
 
-    fn apply_effect(&mut self, effect_path: EffectPath, effect: Effect<S>, env: &E) {
+    fn apply_effect(&mut self, effect_path: EffectPath, effect: Effect<S>, state: &mut S, env: &E) {
         match effect {
             Effect::Message(message) => {
-                if self.state.reduce(message) {
+                if state.reduce(message) {
                     self.update_selection
                         .select(effect_path.state_id_path, effect_path.state_component_index);
                 }
             }
             Effect::Mutation(mutation) => {
-                if mutation(&mut self.state) {
+                if mutation(state) {
                     self.update_selection
                         .select(effect_path.state_id_path, effect_path.state_component_index);
                 }
@@ -137,7 +135,7 @@ where
                 self.node.downward_event(
                     &event,
                     &effect_path.id_path,
-                    &self.state,
+                    state,
                     env,
                     &mut effect_context,
                 );
@@ -148,7 +146,7 @@ where
                 self.node.upward_event(
                     &event,
                     &effect_path.id_path,
-                    &self.state,
+                    state,
                     env,
                     &mut effect_context,
                 );
@@ -159,7 +157,7 @@ where
                 self.node.local_event(
                     &event,
                     &effect_path.id_path,
-                    &self.state,
+                    state,
                     env,
                     &mut effect_context,
                 );
@@ -180,14 +178,13 @@ where
     <El::View as View<S, E>>::Widget: fmt::Debug,
     <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store: fmt::Debug,
     El::Components: fmt::Debug,
-    S: State + fmt::Debug,
+    S: State,
     S::Message: fmt::Debug,
     E: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderLoop")
             .field("node", &self.node)
-            .field("state", &self.state)
             .field("render_context", &self.render_context)
             .field("effect_queue", &self.effect_queue)
             .field("update_selection", &self.update_selection)
