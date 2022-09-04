@@ -17,7 +17,7 @@ mod widget_node;
 
 pub use cancellation_token::{CancellationToken, RawToken, RawTokenVTable};
 pub use command::Command;
-pub use component::{Component, FunctionComponent};
+pub use component::{Component, FunctionComponent, Memoize};
 pub use component_node::{ComponentNode, ComponentStack};
 pub use context::{EffectContext, IdContext, RenderContext};
 pub use effect::{Effect, EffectPath};

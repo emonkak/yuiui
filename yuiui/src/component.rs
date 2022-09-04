@@ -109,3 +109,66 @@ where
             .finish()
     }
 }
+
+pub struct Memoize<Render, Dependence, El, S, E> {
+    render: Render,
+    dependence: Dependence,
+    _phantom: PhantomData<(El, S, E)>,
+}
+
+impl<Render, Dependence, El, S, E> Memoize<Render, Dependence, El, S, E>
+where
+    Render: Fn(&S, &E) -> El,
+    Dependence: PartialEq,
+    El: Element<S, E>,
+    S: State,
+{
+    pub fn new(render: Render, dependence: Dependence) -> Self {
+        Self {
+            render,
+            dependence,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<Render, Dependence, El, S, E> Component<S, E> for Memoize<Render, Dependence, El, S, E>
+where
+    Render: Fn(&S, &E) -> El,
+    Dependence: PartialEq,
+    El: Element<S, E>,
+    S: State,
+{
+    type Element = El;
+
+    type LocalState = ();
+
+    fn initial_state(&self, _state: &S, _env: &E) -> Self::LocalState {
+        ()
+    }
+
+    fn should_update(
+        &self,
+        other: &Self,
+        _local_state: &Self::LocalState,
+        _state: &S,
+        _env: &E,
+    ) -> bool {
+        self.dependence != other.dependence
+    }
+
+    fn render(&self, _local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
+        (self.render)(state, env)
+    }
+}
+
+impl<Render, Dependence, El, S, E> fmt::Debug for Memoize<Render, Dependence, El, S, E>
+where
+    Dependence: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Memoize")
+            .field("dependence", &self.dependence)
+            .finish_non_exhaustive()
+    }
+}
