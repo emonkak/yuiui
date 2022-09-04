@@ -1,13 +1,26 @@
 use std::fmt;
+use std::marker::PhantomData;
 
 use crate::element::{ComponentElement, Element};
 use crate::event::{EventResult, Lifecycle};
 use crate::state::State;
 
 pub trait Component<S: State, E>: Sized {
+    type LocalState;
+
     type Element: Element<S, E>;
 
-    type LocalState: Default;
+    fn initial_state(&self, state: &S, env: &E) -> Self::LocalState;
+
+    fn should_update(
+        &self,
+        _other: &Self,
+        _local_state: &Self::LocalState,
+        _state: &S,
+        _env: &E,
+    ) -> bool {
+        true
+    }
 
     fn lifecycle(
         &self,
@@ -21,16 +34,6 @@ pub trait Component<S: State, E>: Sized {
 
     fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element;
 
-    fn should_update(
-        &self,
-        _other: &Self,
-        _local_state: &Self::LocalState,
-        _state: &S,
-        _env: &E,
-    ) -> bool {
-        true
-    }
-
     fn el(self) -> ComponentElement<Self, S, E>
     where
         Self: Sized,
@@ -41,9 +44,10 @@ pub trait Component<S: State, E>: Sized {
 
 pub struct FunctionComponent<Props, LocalState, El, S: State, E> {
     pub props: Props,
-    pub render: fn(&Props, &LocalState, &S, &E) -> El,
+    pub initial_state: fn(&Props, &S, &E) -> LocalState,
     pub should_update: Option<fn(&Props, &Props, &LocalState, &S, &E) -> bool>,
     pub lifecycle: Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &S, &E) -> EventResult<S>>,
+    pub render: fn(&Props, &LocalState, &S, &E) -> El,
 }
 
 impl<Props, LocalState, El, S, E> Component<S, E> for FunctionComponent<Props, LocalState, El, S, E>
@@ -56,8 +60,8 @@ where
 
     type LocalState = LocalState;
 
-    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
-        (self.render)(&self.props, local_state, state, env)
+    fn initial_state(&self, state: &S, env: &E) -> Self::LocalState {
+        (self.initial_state)(&self.props, state, env)
     }
 
     fn should_update(
@@ -87,6 +91,10 @@ where
         } else {
             EventResult::nop()
         }
+    }
+
+    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
+        (self.render)(&self.props, local_state, state, env)
     }
 }
 

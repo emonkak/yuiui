@@ -11,8 +11,7 @@ use super::{Element, ElementSeq};
 
 pub struct ComponentElement<C: Component<S, E>, S: State, E> {
     component: C,
-    state: PhantomData<S>,
-    env: PhantomData<E>,
+    _phantom: PhantomData<(S, E)>,
 }
 
 impl<C, S, E> ComponentElement<C, S, E>
@@ -23,8 +22,7 @@ where
     pub fn new(component: C) -> ComponentElement<C, S, E> {
         Self {
             component,
-            state: PhantomData,
-            env: PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
@@ -47,7 +45,8 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> WidgetNode<Self::View, Self::Components, S, E> {
-        let head_node = ComponentNode::new(self.component);
+        let initial_state = self.component.initial_state(state, env);
+        let head_node = ComponentNode::new(self.component, initial_state);
         let element = head_node.render(state, env);
         let widget_node = element.render(state, env, context);
         WidgetNode {

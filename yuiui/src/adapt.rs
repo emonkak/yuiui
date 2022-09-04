@@ -2,7 +2,6 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::component::Component;
 use crate::component_node::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::EffectPath;
@@ -209,51 +208,6 @@ where
             .search(id_path, visitor, sub_state, env, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
         found
-    }
-}
-
-impl<T, F, SS, S, E> Component<S, E> for Adapt<T, F, SS>
-where
-    T: Component<SS, E>,
-    F: Fn(&S) -> &SS + Sync + Send + 'static,
-    SS: State,
-    S: State,
-{
-    type Element = Adapt<T::Element, F, SS>;
-
-    type LocalState = T::LocalState;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<&Self>,
-        local_state: &mut Self::LocalState,
-        state: &S,
-        env: &E,
-    ) -> EventResult<S> {
-        let sub_lifecycle = lifecycle.map(|component| &component.target);
-        let sub_state = (self.selector_fn)(state);
-        self.target
-            .lifecycle(sub_lifecycle, local_state, sub_state, env)
-            .lift(&self.selector_fn)
-    }
-
-    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
-        Adapt::new(
-            self.target
-                .render(local_state, (self.selector_fn)(state), env),
-            self.selector_fn.clone(),
-        )
-    }
-
-    fn should_update(
-        &self,
-        other: &Self,
-        local_state: &Self::LocalState,
-        state: &S,
-        env: &E,
-    ) -> bool {
-        self.target
-            .should_update(&other.target, local_state, (self.selector_fn)(state), env)
     }
 }
 

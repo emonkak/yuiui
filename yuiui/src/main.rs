@@ -152,6 +152,10 @@ pub struct ButtonProps {
 pub fn Button<S: State, E>(
     props: ButtonProps,
 ) -> FunctionComponent<ButtonProps, (), impl DebuggableElement<S, E>, S, E> {
+    fn initial_state<S: State, E>(_props: &ButtonProps, _state: &S, _env: &E) -> () {
+        ()
+    }
+
     fn render<S: State, E>(
         props: &ButtonProps,
         _local_state: &(),
@@ -163,15 +167,20 @@ pub fn Button<S: State, E>(
 
     FunctionComponent {
         props,
-        render,
+        initial_state,
         should_update: None,
         lifecycle: None,
+        render,
     }
 }
 
 #[allow(non_snake_case)]
 pub fn Counter<E>() -> FunctionComponent<(), (), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>
 {
+    fn initial_state<S: State, E>(_props: &(), _state: &S, _env: &E) -> () {
+        ()
+    }
+
     fn render<E>(
         _props: &(),
         _local_state: &(),
@@ -183,8 +192,9 @@ pub fn Counter<E>() -> FunctionComponent<(), (), impl DebuggableElement<Data<i64
 
     FunctionComponent {
         props: (),
-        render,
+        initial_state,
         should_update: None,
         lifecycle: None,
+        render,
     }
 }

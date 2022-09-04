@@ -15,8 +15,7 @@ pub struct ComponentNode<C: Component<S, E>, S: State, E> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
     pub(crate) local_state: C::LocalState,
-    pub(crate) state: PhantomData<S>,
-    pub(crate) env: PhantomData<E>,
+    _phantom: PhantomData<(S, E)>,
 }
 
 impl<C, S, E> ComponentNode<C, S, E>
@@ -24,13 +23,12 @@ where
     C: Component<S, E>,
     S: State,
 {
-    pub(crate) fn new(component: C) -> Self {
+    pub(crate) fn new(component: C, local_state: C::LocalState) -> Self {
         Self {
             component,
             pending_component: None,
-            local_state: Default::default(),
-            state: PhantomData,
-            env: PhantomData,
+            local_state,
+            _phantom: PhantomData,
         }
     }
 
