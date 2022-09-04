@@ -1,7 +1,7 @@
 mod commit_visitor;
 mod downward_event_visitor;
 mod local_event_visitor;
-mod update_subtree_visitor;
+mod update_visitor;
 mod upward_event_visitor;
 
 use std::any::Any;
@@ -20,12 +20,12 @@ use crate::view::View;
 use commit_visitor::CommitVisitor;
 use downward_event_visitor::DownwardEventVisitor;
 use local_event_visitor::LocalEventVisitor;
-use update_subtree_visitor::UpdateSubtreeVisitor;
+use update_visitor::UpdateVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
 pub trait WidgetNodeSeq<S: State, E>:
     Traversable<CommitVisitor, EffectContext<S>, S, E>
-    + Traversable<UpdateSubtreeVisitor, RenderContext, S, E>
+    + Traversable<UpdateVisitor, RenderContext, S, E>
     + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, S, E>
     + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext<S>, S, E>
     + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, S, E>
@@ -113,7 +113,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        let mut visitor = UpdateSubtreeVisitor::new(component_index);
+        let mut visitor = UpdateVisitor::new(component_index);
         self.search(id_path, &mut visitor, state, env, context);
         visitor.result()
     }

@@ -9,12 +9,12 @@ use crate::view::View;
 
 use super::WidgetNode;
 
-pub struct UpdateSubtreeVisitor {
+pub struct UpdateVisitor {
     component_index: ComponentIndex,
     result: bool,
 }
 
-impl<'a> UpdateSubtreeVisitor {
+impl<'a> UpdateVisitor {
     pub fn new(component_index: ComponentIndex) -> Self {
         Self {
             component_index,
@@ -27,8 +27,7 @@ impl<'a> UpdateSubtreeVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, RenderContext, S, E>
-    for UpdateSubtreeVisitor
+impl<V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, RenderContext, S, E> for UpdateVisitor
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
