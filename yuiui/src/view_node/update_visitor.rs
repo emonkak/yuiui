@@ -7,7 +7,7 @@ use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
 
-use super::WidgetNode;
+use super::ViewNode;
 
 pub struct UpdateVisitor {
     component_index: ComponentIndex,
@@ -27,7 +27,7 @@ impl<'a> UpdateVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, RenderContext, S, E> for UpdateVisitor
+impl<V, CS, S, E> TraversableVisitor<ViewNode<V, CS, S, E>, RenderContext, S, E> for UpdateVisitor
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -35,7 +35,7 @@ where
 {
     fn visit(
         &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
+        node: &mut ViewNode<V, CS, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,

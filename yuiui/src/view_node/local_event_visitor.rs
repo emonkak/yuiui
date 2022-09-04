@@ -7,7 +7,7 @@ use crate::state::State;
 use crate::traversable::TraversableVisitor;
 use crate::view::View;
 
-use super::{WidgetNode, WidgetState};
+use super::{ViewNode, ViewNodeState};
 
 pub struct LocalEventVisitor<'a> {
     event: &'a dyn Any,
@@ -19,7 +19,7 @@ impl<'a> LocalEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
+impl<'a, V, CS, S, E> TraversableVisitor<ViewNode<V, CS, S, E>, EffectContext<S>, S, E>
     for LocalEventVisitor<'a>
 where
     V: View<S, E>,
@@ -28,16 +28,16 @@ where
 {
     fn visit(
         &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
+        node: &mut ViewNode<V, CS, S, E>,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
     ) {
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
-            WidgetState::Prepared(widget, view) | WidgetState::Pending(widget, view, _) => {
+            ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let event = <V as HasEvent>::Event::from_any(self.event)
-                    .expect("cast any event to widget event");
+                    .expect("cast any event to view event");
                 let result = view.event(
                     event,
                     widget,
@@ -48,7 +48,7 @@ where
                 );
                 context.process_result(result);
             }
-            WidgetState::Uninitialized(_) => {}
+            ViewNodeState::Uninitialized(_) => {}
         }
     }
 }

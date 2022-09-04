@@ -4,7 +4,7 @@ use crate::component_node::ComponentEnd;
 use crate::context::{IdContext, RenderContext};
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetState};
+use crate::view_node::{ViewNode, ViewNodeScope, ViewNodeState};
 
 use super::{Element, ElementSeq};
 
@@ -37,26 +37,26 @@ where
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, E> {
         let id = context.next_identity();
-        context.begin_widget(id);
+        context.begin_view(id);
         let children = self.children.render(state, env, context);
-        let node = WidgetNode::new(id, self.view, children, ComponentEnd::new());
-        context.end_widget();
+        let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
+        context.end_view();
         node
     }
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
+        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
-            WidgetState::Uninitialized(_) => WidgetState::Uninitialized(self.view),
-            WidgetState::Prepared(widget, view) | WidgetState::Pending(widget, view, _) => {
-                WidgetState::Pending(widget, view, self.view)
+            ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
+            ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+                ViewNodeState::Pending(view, self.view, widget)
             }
         }
         .into();
@@ -71,8 +71,7 @@ where
     V: View<S, E>,
     S: State,
 {
-    type Store =
-        WidgetNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+    type Store = ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         Element::render(self, state, env, context)

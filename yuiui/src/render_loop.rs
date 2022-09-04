@@ -10,10 +10,10 @@ use crate::element::{Element, ElementSeq};
 use crate::id::IdSelection;
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{CommitMode, WidgetNode};
+use crate::view_node::{CommitMode, ViewNode};
 
 pub struct RenderLoop<El: Element<S, E>, S: State, E> {
-    node: WidgetNode<El::View, El::Components, S, E>,
+    node: ViewNode<El::View, El::Components, S, E>,
     render_context: RenderContext,
     effect_queue: VecDeque<(EffectPath, Effect<S>)>,
     update_selection: IdSelection,

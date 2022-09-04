@@ -5,7 +5,7 @@ use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
 use crate::state::State;
-use crate::widget_node::{WidgetNode, WidgetNodeScope};
+use crate::view_node::{ViewNode, ViewNodeScope};
 
 use super::{Element, ElementSeq};
 
@@ -44,24 +44,24 @@ where
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, E> {
         let initial_state = self.component.initial_state(state, env);
-        let head_node = ComponentNode::new(self.component, initial_state);
-        let element = head_node.render(state, env);
-        let widget_node = element.render(state, env, context);
-        WidgetNode {
-            id: widget_node.id,
-            state: widget_node.state,
-            children: widget_node.children,
-            components: (head_node, widget_node.components),
-            event_mask: widget_node.event_mask,
+        let component_node = ComponentNode::new(self.component, initial_state);
+        let element = component_node.render(state, env);
+        let view_node = element.render(state, env, context);
+        ViewNode {
+            id: view_node.id,
+            state: view_node.state,
+            children: view_node.children,
+            components: (component_node, view_node.components),
+            event_mask: view_node.event_mask,
             dirty: true,
         }
     }
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
+        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -73,7 +73,7 @@ where
                 .render(&mut head_node.local_state, state, env);
             head_node.pending_component = Some(self.component);
             *scope.dirty = true;
-            let scope = WidgetNodeScope {
+            let scope = ViewNodeScope {
                 id: scope.id,
                 state: scope.state,
                 children: scope.children,
@@ -92,8 +92,7 @@ where
     C: Component<S, E>,
     S: State,
 {
-    type Store =
-        WidgetNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+    type Store = ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
         Element::render(self, state, env, context)

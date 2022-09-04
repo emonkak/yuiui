@@ -11,11 +11,11 @@ use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
-use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
+use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
 
 pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
-    active: Vec<WidgetNode<V, CS, S, E>>,
-    staging: VecDeque<WidgetNode<V, CS, S, E>>,
+    active: Vec<ViewNode<V, CS, S, E>>,
+    staging: VecDeque<ViewNode<V, CS, S, E>>,
     new_len: usize,
     dirty: bool,
 }
@@ -26,7 +26,7 @@ where
     CS: ComponentStack<S, E, View = V>,
     S: State,
 {
-    fn new(active: Vec<WidgetNode<V, CS, S, E>>) -> Self {
+    fn new(active: Vec<ViewNode<V, CS, S, E>>) -> Self {
         Self {
             staging: VecDeque::with_capacity(active.len()),
             new_len: active.len(),
@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<V, CS, S, E> WidgetNodeSeq<S, E> for VecStore<V, CS, S, E>
+impl<V, CS, S, E> ViewNodeSeq<S, E> for VecStore<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -172,7 +172,7 @@ where
     V: View<S, E>,
     <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<WidgetNode<V, CS, S, E>, Context, S, E>,
+    Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, Context, S, E>,
     Context: IdContext,
     S: State,
 {

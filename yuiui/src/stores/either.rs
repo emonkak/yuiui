@@ -8,7 +8,7 @@ use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::Traversable;
-use crate::widget_node::{CommitMode, WidgetNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::RenderFlags;
 
@@ -102,10 +102,10 @@ where
     }
 }
 
-impl<L, R, S, E> WidgetNodeSeq<S, E> for EitherStore<L, R>
+impl<L, R, S, E> ViewNodeSeq<S, E> for EitherStore<L, R>
 where
-    L: WidgetNodeSeq<S, E>,
-    R: WidgetNodeSeq<S, E>,
+    L: ViewNodeSeq<S, E>,
+    R: ViewNodeSeq<S, E>,
     S: State,
 {
     fn event_mask() -> &'static EventMask {

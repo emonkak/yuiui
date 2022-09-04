@@ -7,7 +7,7 @@ use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::Traversable;
-use crate::widget_node::{CommitMode, WidgetNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, E> ElementSeq<S, E> for HNil
 where
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<S, E> WidgetNodeSeq<S, E> for HNil
+impl<S, E> ViewNodeSeq<S, E> for HNil
 where
     S: State,
 {
@@ -95,10 +95,10 @@ where
     }
 }
 
-impl<H, T, S, E> WidgetNodeSeq<S, E> for HCons<H, T>
+impl<H, T, S, E> ViewNodeSeq<S, E> for HCons<H, T>
 where
-    H: WidgetNodeSeq<S, E>,
-    T: WidgetNodeSeq<S, E> + HList,
+    H: ViewNodeSeq<S, E>,
+    T: ViewNodeSeq<S, E> + HList,
     S: State,
 {
     fn event_mask() -> &'static EventMask {

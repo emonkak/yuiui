@@ -8,7 +8,7 @@ use crate::state::State;
 use crate::traversable::TraversableVisitor;
 use crate::view::View;
 
-use super::{CommitMode, WidgetNode, WidgetNodeSeq, WidgetState};
+use super::{CommitMode, ViewNode, ViewNodeSeq, ViewNodeState};
 
 pub struct CommitVisitor {
     mode: CommitMode,
@@ -24,7 +24,7 @@ impl CommitVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableVisitor<WidgetNode<V, CS, S, E>, EffectContext<S>, S, E>
+impl<V, CS, S, E> TraversableVisitor<ViewNode<V, CS, S, E>, EffectContext<S>, S, E>
     for CommitVisitor
 where
     V: View<S, E>,
@@ -33,7 +33,7 @@ where
 {
     fn visit(
         &mut self,
-        node: &mut WidgetNode<V, CS, S, E>,
+        node: &mut ViewNode<V, CS, S, E>,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
@@ -45,7 +45,7 @@ where
         }
         node.children.commit(self.mode, state, env, context);
         node.state = match (self.mode, node.state.take().unwrap()) {
-            (CommitMode::Mount, WidgetState::Uninitialized(view)) => {
+            (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut widget = view.build(&node.children, state, env);
                 let result = view.lifecycle(
                     Lifecycle::Mounted,
@@ -56,9 +56,9 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Prepared(widget, view)
+                ViewNodeState::Prepared(view, widget)
             }
-            (CommitMode::Mount, WidgetState::Prepared(mut widget, view)) => {
+            (CommitMode::Mount, ViewNodeState::Prepared(view, mut widget)) => {
                 let result = view.lifecycle(
                     Lifecycle::Remounted,
                     &mut widget,
@@ -68,9 +68,9 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Prepared(widget, view)
+                ViewNodeState::Prepared(view, widget)
             }
-            (CommitMode::Mount, WidgetState::Pending(mut widget, view, pending_view)) => {
+            (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut widget)) => {
                 let result = view.lifecycle(
                     Lifecycle::Remounted,
                     &mut widget,
@@ -89,12 +89,12 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Prepared(widget, pending_view)
+                ViewNodeState::Prepared(pending_view, widget)
             }
-            (CommitMode::Update, WidgetState::Uninitialized(_)) => {
+            (CommitMode::Update, ViewNodeState::Uninitialized(_)) => {
                 unreachable!()
             }
-            (CommitMode::Update, WidgetState::Prepared(mut widget, view)) => {
+            (CommitMode::Update, ViewNodeState::Prepared(view, mut widget)) => {
                 let result = view.lifecycle(
                     Lifecycle::Updated(&view),
                     &mut widget,
@@ -104,9 +104,9 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Prepared(widget, view)
+                ViewNodeState::Prepared(view, widget)
             }
-            (CommitMode::Update, WidgetState::Pending(mut widget, view, pending_view)) => {
+            (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut widget)) => {
                 let result = pending_view.lifecycle(
                     Lifecycle::Updated(&view),
                     &mut widget,
@@ -116,12 +116,12 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Prepared(widget, pending_view)
+                ViewNodeState::Prepared(pending_view, widget)
             }
-            (CommitMode::Unmount, WidgetState::Uninitialized(_)) => {
+            (CommitMode::Unmount, ViewNodeState::Uninitialized(_)) => {
                 unreachable!()
             }
-            (CommitMode::Unmount, WidgetState::Prepared(mut widget, view)) => {
+            (CommitMode::Unmount, ViewNodeState::Prepared(view, mut widget)) => {
                 let result = view.lifecycle(
                     Lifecycle::Unmounted,
                     &mut widget,
@@ -131,9 +131,9 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Prepared(widget, view)
+                ViewNodeState::Prepared(view, widget)
             }
-            (CommitMode::Unmount, WidgetState::Pending(mut widget, view, pending_view)) => {
+            (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut widget)) => {
                 let result = view.lifecycle(
                     Lifecycle::Unmounted,
                     &mut widget,
@@ -143,7 +143,7 @@ where
                     env,
                 );
                 context.process_result(result);
-                WidgetState::Pending(widget, view, pending_view)
+                ViewNodeState::Pending(view, pending_view, widget)
             }
         }
         .into();

@@ -23,7 +23,7 @@ use local_event_visitor::LocalEventVisitor;
 use update_visitor::UpdateVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
-pub trait WidgetNodeSeq<S: State, E>:
+pub trait ViewNodeSeq<S: State, E>:
     Traversable<CommitVisitor, EffectContext<S>, S, E>
     + Traversable<UpdateVisitor, RenderContext, S, E>
     + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, S, E>
@@ -37,16 +37,16 @@ pub trait WidgetNodeSeq<S: State, E>:
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
 }
 
-pub struct WidgetNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
+pub struct ViewNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     pub(crate) id: Id,
-    pub(crate) state: Option<WidgetState<V, V::Widget>>,
+    pub(crate) state: Option<ViewNodeState<V, V::Widget>>,
     pub(crate) children: <V::Children as ElementSeq<S, E>>::Store,
     pub(crate) components: CS,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
 
-impl<V, CS, S, E> WidgetNode<V, CS, S, E>
+impl<V, CS, S, E> ViewNode<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -60,7 +60,7 @@ where
     ) -> Self {
         Self {
             id,
-            state: Some(WidgetState::Uninitialized(view)),
+            state: Some(ViewNodeState::Uninitialized(view)),
             children,
             components,
             event_mask: <V::Children as ElementSeq<S, E>>::Store::event_mask(),
@@ -68,8 +68,8 @@ where
         }
     }
 
-    pub(crate) fn scope(&mut self) -> WidgetNodeScope<V, CS, S, E> {
-        WidgetNodeScope {
+    pub(crate) fn scope(&mut self) -> ViewNodeScope<V, CS, S, E> {
+        ViewNodeScope {
             id: self.id,
             state: &mut self.state,
             children: &mut self.children,
@@ -82,14 +82,16 @@ where
         self.id
     }
 
-    pub fn state(&self) -> &WidgetState<V, <V as View<S, E>>::Widget> {
+    pub fn state(&self) -> &ViewNodeState<V, V::Widget> {
         self.state.as_ref().unwrap()
     }
 
-    pub fn as_widget(&self) -> Option<&<V as View<S, E>>::Widget> {
+    pub fn as_widget(&self) -> Option<&V::Widget> {
         match self.state.as_ref().unwrap() {
-            WidgetState::Prepared(widget, _) | WidgetState::Pending(widget, _, _) => Some(widget),
-            WidgetState::Uninitialized(_) => None,
+            ViewNodeState::Prepared(_, widget) | ViewNodeState::Pending(_, _, widget) => {
+                Some(widget)
+            }
+            ViewNodeState::Uninitialized(_) => None,
         }
     }
 
@@ -200,7 +202,7 @@ where
     }
 }
 
-impl<V, CS, S, E> WidgetNodeSeq<S, E> for WidgetNode<V, CS, S, E>
+impl<V, CS, S, E> ViewNodeSeq<S, E> for ViewNode<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -229,13 +231,13 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        context.begin_widget(self.id);
+        context.begin_view(self.id);
         self.commit(mode, state, env, context);
-        context.end_widget();
+        context.end_view();
     }
 }
 
-impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for WidgetNode<V, CS, S, E>
+impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for ViewNode<V, CS, S, E>
 where
     V: View<S, E>,
     <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
@@ -245,9 +247,9 @@ where
     S: State,
 {
     fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
-        context.begin_widget(self.id);
+        context.begin_view(self.id);
         visitor.visit(self, state, env, context);
-        context.end_widget();
+        context.end_view();
     }
 
     fn search(
@@ -258,14 +260,14 @@ where
         env: &E,
         context: &mut Context,
     ) -> bool {
-        context.begin_widget(self.id);
+        context.begin_view(self.id);
         let result = self.search(id_path, visitor, state, env, context);
-        context.end_widget();
+        context.end_view();
         result
     }
 }
 
-impl<V, CS, S, E> fmt::Debug for WidgetNode<V, CS, S, E>
+impl<V, CS, S, E> fmt::Debug for ViewNode<V, CS, S, E>
 where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
@@ -274,7 +276,7 @@ where
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WidgetNode")
+        f.debug_struct("ViewNode")
             .field("id", &self.id)
             .field("state", &self.state)
             .field("children", &self.children)
@@ -285,31 +287,31 @@ where
     }
 }
 
-pub struct WidgetNodeScope<'a, V: View<S, E>, CS, S: State, E> {
+pub struct ViewNodeScope<'a, V: View<S, E>, CS, S: State, E> {
     pub id: Id,
-    pub state: &'a mut Option<WidgetState<V, V::Widget>>,
+    pub state: &'a mut Option<ViewNodeState<V, V::Widget>>,
     pub children: &'a mut <V::Children as ElementSeq<S, E>>::Store,
     pub components: &'a mut CS,
     pub dirty: &'a mut bool,
 }
 
 #[derive(Debug)]
-pub enum WidgetState<V, W> {
+pub enum ViewNodeState<V, W> {
     Uninitialized(V),
-    Prepared(W, V),
-    Pending(W, V, V),
+    Prepared(V, W),
+    Pending(V, V, W),
 }
 
-impl<V, W> WidgetState<V, W> {
-    pub fn map_view<F, NV>(self, f: F) -> WidgetState<NV, W>
+impl<V, W> ViewNodeState<V, W> {
+    pub fn map_view<F, NV>(self, f: F) -> ViewNodeState<NV, W>
     where
         F: Fn(V) -> NV,
     {
         match self {
-            Self::Uninitialized(view) => WidgetState::Uninitialized(f(view)),
-            Self::Prepared(widget, view) => WidgetState::Prepared(widget, f(view)),
-            Self::Pending(widget, view, pending_view) => {
-                WidgetState::Pending(widget, f(view), f(pending_view))
+            Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
+            Self::Prepared(view, widget) => ViewNodeState::Prepared(f(view), widget),
+            Self::Pending(view, pending_view, widget) => {
+                ViewNodeState::Pending(f(view), f(pending_view), widget)
             }
         }
     }

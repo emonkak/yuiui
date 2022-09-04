@@ -9,7 +9,7 @@ use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{CommitMode, WidgetNodeScope};
+use crate::view_node::{CommitMode, ViewNodeScope};
 
 pub struct ComponentNode<C: Component<S, E>, S: State, E> {
     pub(crate) component: C,
@@ -91,7 +91,7 @@ pub trait ComponentStack<S: State, E>: Sized {
     type View: View<S, E>;
 
     fn force_update<'a>(
-        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
+        scope: ViewNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
@@ -121,7 +121,7 @@ where
     type View = <C::Element as Element<S, E>>::View;
 
     fn force_update<'a>(
-        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
+        scope: ViewNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
@@ -129,7 +129,7 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = scope.components;
-        let scope = WidgetNodeScope {
+        let scope = ViewNodeScope {
             id: scope.id,
             state: scope.state,
             children: scope.children,
@@ -175,7 +175,7 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
     type View = V;
 
     fn force_update<'a>(
-        _scope: WidgetNodeScope<'a, V, Self, S, E>,
+        _scope: ViewNodeScope<'a, V, Self, S, E>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
         _state: &S,

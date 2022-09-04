@@ -11,7 +11,7 @@ use crate::component_node::ComponentStack;
 use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
-use crate::widget_node::{WidgetNode, WidgetNodeScope, WidgetNodeSeq};
+use crate::view_node::{ViewNode, ViewNodeScope, ViewNodeSeq};
 
 pub trait Element<S: State, E> {
     type View: View<S, E>;
@@ -23,11 +23,11 @@ pub trait Element<S: State, E> {
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S, E>;
+    ) -> ViewNode<Self::View, Self::Components, S, E>;
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
+        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -43,7 +43,7 @@ pub trait Element<S: State, E> {
 }
 
 pub trait ElementSeq<S: State, E> {
-    type Store: WidgetNodeSeq<S, E>;
+    type Store: ViewNodeSeq<S, E>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store;
 
@@ -70,7 +70,7 @@ pub trait DebuggableElement<S: State, E>:
 
     type Children: ElementSeq<S, E, Store = Self::Store> + fmt::Debug;
 
-    type Store: WidgetNodeSeq<S, E> + fmt::Debug;
+    type Store: ViewNodeSeq<S, E> + fmt::Debug;
 
     type Components: ComponentStack<S, E, View = <Self as DebuggableElement<S, E>>::View>
         + fmt::Debug;

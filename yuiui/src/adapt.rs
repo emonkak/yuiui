@@ -11,7 +11,7 @@ use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 use crate::traversable::Traversable;
 use crate::view::View;
-use crate::widget_node::{CommitMode, WidgetNode, WidgetNodeScope, WidgetNodeSeq};
+use crate::view_node::{CommitMode, ViewNode, ViewNodeScope, ViewNodeSeq};
 
 pub struct Adapt<T, F, SS> {
     target: T,
@@ -54,10 +54,10 @@ where
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) -> WidgetNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, E> {
         let sub_state = (self.selector_fn)(state);
         let sub_node = self.target.render(sub_state, env, context);
-        WidgetNode {
+        ViewNode {
             id: sub_node.id,
             state: sub_node
                 .state
@@ -71,25 +71,25 @@ where
 
     fn update(
         self,
-        scope: WidgetNodeScope<Self::View, Self::Components, S, E>,
+        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_widget_state = scope
+        let mut sub_view_node_state = scope
             .state
             .take()
             .map(|state| state.map_view(|view| view.target));
-        let sub_scope = WidgetNodeScope {
+        let sub_scope = ViewNodeScope {
             id: scope.id,
-            state: &mut sub_widget_state,
+            state: &mut sub_view_node_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
             dirty: scope.dirty,
         };
         let sub_state = (self.selector_fn)(state);
         let has_changed = self.target.update(sub_scope, sub_state, env, context);
-        *scope.state = sub_widget_state
+        *scope.state = sub_view_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone())));
         has_changed
     }
@@ -125,9 +125,9 @@ where
     }
 }
 
-impl<T, F, SS, S, E> WidgetNodeSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, S, E> ViewNodeSeq<S, E> for Adapt<T, F, SS>
 where
-    T: WidgetNodeSeq<SS, E>,
+    T: ViewNodeSeq<SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -238,21 +238,21 @@ where
     }
 
     fn force_update<'a>(
-        scope: WidgetNodeScope<'a, Self::View, Self, S, E>,
+        scope: ViewNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_widget_state = scope
+        let mut sub_view_node_state = scope
             .state
             .take()
             .map(|state| state.map_view(|view| view.target));
         let selector_fn = &scope.components.selector_fn;
-        let sub_scope = WidgetNodeScope {
+        let sub_scope = ViewNodeScope {
             id: scope.id,
-            state: &mut sub_widget_state,
+            state: &mut sub_view_node_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
             dirty: scope.dirty,
@@ -266,7 +266,7 @@ where
             env,
             context,
         );
-        *scope.state = sub_widget_state
+        *scope.state = sub_view_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, selector_fn.clone())));
         has_changed
     }

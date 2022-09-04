@@ -4,7 +4,7 @@ use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::Traversable;
-use crate::widget_node::{CommitMode, WidgetNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStore<T, const N: usize> {
@@ -49,9 +49,9 @@ where
     }
 }
 
-impl<T, S, E, const N: usize> WidgetNodeSeq<S, E> for ArrayStore<T, N>
+impl<T, S, E, const N: usize> ViewNodeSeq<S, E> for ArrayStore<T, N>
 where
-    T: WidgetNodeSeq<S, E>,
+    T: ViewNodeSeq<S, E>,
     S: State,
 {
     fn event_mask() -> &'static EventMask {

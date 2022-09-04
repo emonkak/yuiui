@@ -13,7 +13,7 @@ mod state;
 mod stores;
 mod traversable;
 mod view;
-mod widget_node;
+mod view_node;
 
 pub use cancellation_token::{CancellationToken, RawToken, RawTokenVTable};
 pub use command::Command;
@@ -28,4 +28,4 @@ pub use render_loop::{Deadline, Forever, RenderFlow, RenderLoop, RenderLoopConte
 pub use state::{Data, State};
 pub use traversable::{Traversable, TraversableVisitor};
 pub use view::View;
-pub use widget_node::{CommitMode, WidgetNode, WidgetNodeSeq};
+pub use view_node::{CommitMode, ViewNode, ViewNodeSeq};

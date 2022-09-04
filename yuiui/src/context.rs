@@ -8,9 +8,9 @@ use crate::state::State;
 pub trait IdContext {
     fn id_path(&self) -> &IdPath;
 
-    fn begin_widget(&mut self, id: Id);
+    fn begin_view(&mut self, id: Id);
 
-    fn end_widget(&mut self) -> Id;
+    fn end_view(&mut self) -> Id;
 }
 
 #[derive(Debug)]
@@ -39,11 +39,11 @@ impl IdContext for RenderContext {
         &self.id_path
     }
 
-    fn begin_widget(&mut self, id: Id) {
+    fn begin_view(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
-    fn end_widget(&mut self) -> Id {
+    fn end_view(&mut self) -> Id {
         self.id_path.pop().unwrap()
     }
 }
@@ -113,12 +113,12 @@ impl<S: State> IdContext for EffectContext<S> {
         &self.effect_path.id_path
     }
 
-    fn begin_widget(&mut self, id: Id) {
+    fn begin_view(&mut self, id: Id) {
         self.effect_path.id_path.push(id);
         self.effect_path.component_index = 0;
     }
 
-    fn end_widget(&mut self) -> Id {
+    fn end_view(&mut self) -> Id {
         self.effect_path.id_path.pop().unwrap()
     }
 }
