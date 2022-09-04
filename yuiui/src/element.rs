@@ -7,7 +7,7 @@ pub use view_element::ViewElement;
 use std::fmt;
 
 use crate::adapt::Adapt;
-use crate::component_node::ComponentStack;
+use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;

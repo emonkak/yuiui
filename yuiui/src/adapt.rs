@@ -2,7 +2,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::component_node::ComponentStack;
+use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::EffectPath;
 use crate::element::{Element, ElementSeq};

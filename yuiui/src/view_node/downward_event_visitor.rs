@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::component_node::ComponentStack;
+use crate::component_stack::ComponentStack;
 use crate::context::EffectContext;
 use crate::event::{Event, HasEvent};
 use crate::state::State;

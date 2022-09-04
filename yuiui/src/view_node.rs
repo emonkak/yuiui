@@ -8,7 +8,7 @@ use std::any::Any;
 use std::fmt;
 use std::sync::Once;
 
-use crate::component_node::ComponentStack;
+use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, HasEvent};

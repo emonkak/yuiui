@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::component_node::ComponentStack;
+use crate::component_stack::ComponentStack;
 use crate::context::EffectContext;
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;

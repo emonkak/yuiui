@@ -92,7 +92,8 @@ where
     C: Component<S, E>,
     S: State,
 {
-    type Storage = ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+    type Storage =
+        ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
     fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         Element::render(self, state, env, context)
