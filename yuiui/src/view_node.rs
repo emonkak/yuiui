@@ -40,7 +40,7 @@ pub trait ViewNodeSeq<S: State, E>:
 pub struct ViewNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     pub(crate) id: Id,
     pub(crate) state: Option<ViewNodeState<V, V::Widget>>,
-    pub(crate) children: <V::Children as ElementSeq<S, E>>::Store,
+    pub(crate) children: <V::Children as ElementSeq<S, E>>::Storage,
     pub(crate) components: CS,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
@@ -55,7 +55,7 @@ where
     pub(crate) fn new(
         id: Id,
         view: V,
-        children: <V::Children as ElementSeq<S, E>>::Store,
+        children: <V::Children as ElementSeq<S, E>>::Storage,
         components: CS,
     ) -> Self {
         Self {
@@ -63,7 +63,7 @@ where
             state: Some(ViewNodeState::Uninitialized(view)),
             children,
             components,
-            event_mask: <V::Children as ElementSeq<S, E>>::Store::event_mask(),
+            event_mask: <V::Children as ElementSeq<S, E>>::Storage::event_mask(),
             dirty: true,
         }
     }
@@ -95,7 +95,7 @@ where
         }
     }
 
-    pub fn children(&self) -> &<V::Children as ElementSeq<S, E>>::Store {
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, E>>::Storage {
         &self.children
     }
 
@@ -187,7 +187,7 @@ where
         context: &mut Context,
     ) -> bool
     where
-        <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
+        <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, Context, S, E>,
         Visitor: TraversableVisitor<Self, Context, S, E>,
         Context: IdContext,
     {
@@ -213,7 +213,7 @@ where
         static mut EVENT_MASK: EventMask = EventMask::new();
 
         if !INIT.is_completed() {
-            let children_mask = <V::Children as ElementSeq<S, E>>::Store::event_mask();
+            let children_mask = <V::Children as ElementSeq<S, E>>::Storage::event_mask();
 
             INIT.call_once(|| unsafe {
                 EVENT_MASK.merge(children_mask);
@@ -240,7 +240,7 @@ where
 impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for ViewNode<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
     Visitor: TraversableVisitor<Self, Context, S, E>,
     Context: IdContext,
@@ -271,7 +271,7 @@ impl<V, CS, S, E> fmt::Debug for ViewNode<V, CS, S, E>
 where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Children as ElementSeq<S, E>>::Store: fmt::Debug,
+    <V::Children as ElementSeq<S, E>>::Storage: fmt::Debug,
     CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
@@ -290,7 +290,7 @@ where
 pub struct ViewNodeScope<'a, V: View<S, E>, CS, S: State, E> {
     pub id: Id,
     pub state: &'a mut Option<ViewNodeState<V, V::Widget>>,
-    pub children: &'a mut <V::Children as ElementSeq<S, E>>::Store,
+    pub children: &'a mut <V::Children as ElementSeq<S, E>>::Storage,
     pub components: &'a mut CS,
     pub dirty: &'a mut bool,
 }

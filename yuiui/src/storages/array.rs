@@ -7,12 +7,12 @@ use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 #[derive(Debug)]
-pub struct ArrayStore<T, const N: usize> {
+pub struct ArrayStorage<T, const N: usize> {
     nodes: [T; N],
     dirty: bool,
 }
 
-impl<T, const N: usize> ArrayStore<T, N> {
+impl<T, const N: usize> ArrayStorage<T, N> {
     fn new(nodes: [T; N]) -> Self {
         Self { nodes, dirty: true }
     }
@@ -23,15 +23,15 @@ where
     T: ElementSeq<S, E>,
     S: State,
 {
-    type Store = ArrayStore<T::Store, N>;
+    type Storage = ArrayStorage<T::Storage, N>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
-        ArrayStore::new(self.map(|element| element.render(state, env, context)))
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        ArrayStorage::new(self.map(|element| element.render(state, env, context)))
     }
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -39,17 +39,17 @@ where
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
-            let node = &mut store.nodes[i];
+            let node = &mut storage.nodes[i];
             has_changed |= element.update(node, state, env, context);
         }
 
-        store.dirty |= has_changed;
+        storage.dirty |= has_changed;
 
         has_changed
     }
 }
 
-impl<T, S, E, const N: usize> ViewNodeSeq<S, E> for ArrayStore<T, N>
+impl<T, S, E, const N: usize> ViewNodeSeq<S, E> for ArrayStorage<T, N>
 where
     T: ViewNodeSeq<S, E>,
     S: State,
@@ -73,7 +73,7 @@ where
 }
 
 impl<T, Visitor, Context, S, E, const N: usize> Traversable<Visitor, Context, S, E>
-    for ArrayStore<T, N>
+    for ArrayStorage<T, N>
 where
     T: Traversable<Visitor, Context, S, E>,
     S: State,

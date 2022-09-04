@@ -13,14 +13,14 @@ use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
 
-pub struct VecStore<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
+pub struct VecStorage<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     active: Vec<ViewNode<V, CS, S, E>>,
     staging: VecDeque<ViewNode<V, CS, S, E>>,
     new_len: usize,
     dirty: bool,
 }
 
-impl<V, CS, S, E> VecStore<V, CS, S, E>
+impl<V, CS, S, E> VecStorage<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -36,16 +36,16 @@ where
     }
 }
 
-impl<V, CS, S, E> fmt::Debug for VecStore<V, CS, S, E>
+impl<V, CS, S, E> fmt::Debug for VecStorage<V, CS, S, E>
 where
     V: View<S, E> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Children as ElementSeq<S, E>>::Store: fmt::Debug,
+    <V::Children as ElementSeq<S, E>>::Storage: fmt::Debug,
     CS: ComponentStack<S, E, View = V> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("VecStore")
+        f.debug_struct("VecStorage")
             .field("active", &self.active)
             .field("staging", &self.staging)
             .field("new_len", &self.new_len)
@@ -59,10 +59,10 @@ where
     El: Element<S, E>,
     S: State,
 {
-    type Store = VecStore<El::View, El::Components, S, E>;
+    type Storage = VecStorage<El::View, El::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
-        VecStore::new(
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        VecStorage::new(
             self.into_iter()
                 .map(|element| element.render(state, env, context))
                 .collect(),
@@ -71,42 +71,42 @@ where
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
 
-        store
+        storage
             .staging
-            .reserve_exact(self.len().saturating_sub(store.active.len()));
-        store.new_len = self.len();
+            .reserve_exact(self.len().saturating_sub(storage.active.len()));
+        storage.new_len = self.len();
 
         for (i, element) in self.into_iter().enumerate() {
-            if i < store.active.len() {
-                let node = &mut store.active[i];
+            if i < storage.active.len() {
+                let node = &mut storage.active[i];
                 has_changed |= element.update(node.scope(), state, env, context);
             } else {
-                let j = i - store.active.len();
-                if j < store.staging.len() {
-                    let node = &mut store.staging[j];
+                let j = i - storage.active.len();
+                if j < storage.staging.len() {
+                    let node = &mut storage.staging[j];
                     has_changed |= element.update(node.scope(), state, env, context);
                 } else {
                     let node = element.render(state, env, context);
-                    store.staging.push_back(node);
+                    storage.staging.push_back(node);
                     has_changed = true;
                 }
             }
         }
 
-        store.dirty |= has_changed;
+        storage.dirty |= has_changed;
 
         has_changed
     }
 }
 
-impl<V, CS, S, E> ViewNodeSeq<S, E> for VecStore<V, CS, S, E>
+impl<V, CS, S, E> ViewNodeSeq<S, E> for VecStorage<V, CS, S, E>
 where
     V: View<S, E>,
     CS: ComponentStack<S, E, View = V>,
@@ -167,10 +167,10 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for VecStore<V, CS, S, E>
+impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for VecStorage<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, Context, S, E>,
     CS: ComponentStack<S, E, View = V>,
     Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, Context, S, E>,
     Context: IdContext,

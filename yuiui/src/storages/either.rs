@@ -13,13 +13,13 @@ use crate::view_node::{CommitMode, ViewNodeSeq};
 use super::RenderFlags;
 
 #[derive(Debug)]
-pub struct EitherStore<L, R> {
+pub struct EitherStorage<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
     flags: RenderFlags,
 }
 
-impl<L, R> EitherStore<L, R> {
+impl<L, R> EitherStorage<L, R> {
     fn new(active: Either<L, R>) -> Self {
         Self {
             active,
@@ -35,30 +35,30 @@ where
     R: ElementSeq<S, E>,
     S: State,
 {
-    type Store = EitherStore<L::Store, R::Store>;
+    type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         match self {
             Either::Left(element) => {
-                EitherStore::new(Either::Left(element.render(state, env, context)))
+                EitherStorage::new(Either::Left(element.render(state, env, context)))
             }
             Either::Right(element) => {
-                EitherStore::new(Either::Right(element.render(state, env, context)))
+                EitherStorage::new(Either::Right(element.render(state, env, context)))
             }
         }
     }
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        match (&mut store.active, self) {
+        match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
                 if element.update(node, state, env, context) {
-                    store.flags |= RenderFlags::UPDATED;
+                    storage.flags |= RenderFlags::UPDATED;
                     true
                 } else {
                     false
@@ -66,43 +66,43 @@ where
             }
             (Either::Right(node), Either::Right(element)) => {
                 if element.update(node, state, env, context) {
-                    store.flags |= RenderFlags::UPDATED;
+                    storage.flags |= RenderFlags::UPDATED;
                     true
                 } else {
                     false
                 }
             }
             (Either::Left(_), Either::Right(element)) => {
-                match &mut store.staging {
+                match &mut storage.staging {
                     Some(Either::Right(node)) => {
                         element.update(node, state, env, context);
                     }
                     None => {
-                        store.staging = Some(Either::Right(element.render(state, env, context)));
+                        storage.staging = Some(Either::Right(element.render(state, env, context)));
                     }
                     _ => unreachable!(),
                 };
-                store.flags |= RenderFlags::SWAPPED;
+                storage.flags |= RenderFlags::SWAPPED;
                 true
             }
             (Either::Right(_), Either::Left(element)) => {
-                match &mut store.staging {
+                match &mut storage.staging {
                     Some(Either::Left(node)) => {
                         element.update(node, state, env, context);
                     }
                     None => {
-                        store.staging = Some(Either::Left(element.render(state, env, context)));
+                        storage.staging = Some(Either::Left(element.render(state, env, context)));
                     }
                     _ => unreachable!(),
                 }
-                store.flags |= RenderFlags::SWAPPED;
+                storage.flags |= RenderFlags::SWAPPED;
                 true
             }
         }
     }
 }
 
-impl<L, R, S, E> ViewNodeSeq<S, E> for EitherStore<L, R>
+impl<L, R, S, E> ViewNodeSeq<S, E> for EitherStorage<L, R>
 where
     L: ViewNodeSeq<S, E>,
     R: ViewNodeSeq<S, E>,
@@ -158,7 +158,7 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for EitherStore<L, R>
+impl<L, R, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for EitherStorage<L, R>
 where
     L: Traversable<Visitor, Context, S, E>,
     R: Traversable<Visitor, Context, S, E>,

@@ -89,7 +89,7 @@ where
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, E>>::Store,
+        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
         _state: &S,
         _env: &E,
     ) -> Self::Widget {
@@ -128,7 +128,7 @@ where
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, E>>::Store,
+        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
         _state: &S,
         _env: &E,
     ) -> Self::Widget {

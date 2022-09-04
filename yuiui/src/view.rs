@@ -14,7 +14,7 @@ pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
         &self,
         _lifecycle: Lifecycle<&Self>,
         _widget: &mut Self::Widget,
-        _children: &<Self::Children as ElementSeq<S, E>>::Store,
+        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
         _effect_path: &EffectPath,
         _state: &S,
         _env: &E,
@@ -26,7 +26,7 @@ pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
         &self,
         _event: <Self as HasEvent>::Event,
         _widget: &mut Self::Widget,
-        _children: &<Self::Children as ElementSeq<S, E>>::Store,
+        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
         _effect_path: &EffectPath,
         _state: &S,
         _env: &E,
@@ -36,7 +36,7 @@ pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
+        children: &<Self::Children as ElementSeq<S, E>>::Storage,
         state: &S,
         env: &E,
     ) -> Self::Widget;

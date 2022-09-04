@@ -176,7 +176,7 @@ where
     El: Element<S, E>,
     El::View: fmt::Debug,
     <El::View as View<S, E>>::Widget: fmt::Debug,
-    <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store: fmt::Debug,
+    <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Storage: fmt::Debug,
     El::Components: fmt::Debug,
     S: State,
     S::Message: fmt::Debug,

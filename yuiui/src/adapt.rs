@@ -102,9 +102,9 @@ where
     SS: State,
     S: State,
 {
-    type Store = Adapt<T::Store, F, SS>;
+    type Storage = Adapt<T::Storage, F, SS>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
             self.target.render(sub_state, env, context),
@@ -114,14 +114,14 @@ where
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .update(&mut store.target, sub_state, env, context)
+            .update(&mut storage.target, sub_state, env, context)
     }
 }
 
@@ -287,7 +287,7 @@ where
         &self,
         lifecycle: Lifecycle<&Self>,
         widget: &mut Self::Widget,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
+        children: &<Self::Children as ElementSeq<S, E>>::Storage,
         effect_path: &EffectPath,
         state: &S,
         env: &E,
@@ -310,7 +310,7 @@ where
         &self,
         event: <Self as HasEvent>::Event,
         widget: &mut Self::Widget,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
+        children: &<Self::Children as ElementSeq<S, E>>::Storage,
         effect_path: &EffectPath,
         state: &S,
         env: &E,
@@ -323,7 +323,7 @@ where
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Store,
+        children: &<Self::Children as ElementSeq<S, E>>::Storage,
         state: &S,
         env: &E,
     ) -> Self::Widget {

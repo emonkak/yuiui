@@ -10,7 +10,7 @@ mod event;
 mod id;
 mod render_loop;
 mod state;
-mod stores;
+mod storages;
 mod traversable;
 mod view;
 mod view_node;

@@ -13,15 +13,15 @@ impl<S, E> ElementSeq<S, E> for HNil
 where
     S: State,
 {
-    type Store = HNil;
+    type Storage = HNil;
 
-    fn render(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Store {
+    fn render(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Storage {
         HNil
     }
 
     fn update(
         self,
-        _nodes: &mut Self::Store,
+        _nodes: &mut Self::Storage,
         _state: &S,
         _env: &E,
         _context: &mut RenderContext,
@@ -69,12 +69,12 @@ impl<H, T, S, E> ElementSeq<S, E> for HCons<H, T>
 where
     H: ElementSeq<S, E>,
     T: ElementSeq<S, E> + HList,
-    T::Store: HList,
+    T::Storage: HList,
     S: State,
 {
-    type Store = HCons<H::Store, T::Store>;
+    type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         HCons {
             head: self.head.render(state, env, context),
             tail: self.tail.render(state, env, context),
@@ -83,14 +83,14 @@ where
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
-        has_changed |= self.head.update(&mut store.head, state, env, context);
-        has_changed |= self.tail.update(&mut store.tail, state, env, context);
+        has_changed |= self.head.update(&mut storage.head, state, env, context);
+        has_changed |= self.tail.update(&mut storage.tail, state, env, context);
         has_changed
     }
 }

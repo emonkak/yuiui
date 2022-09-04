@@ -11,13 +11,13 @@ use crate::view_node::{CommitMode, ViewNodeSeq};
 use super::RenderFlags;
 
 #[derive(Debug)]
-pub struct OptionStore<T> {
+pub struct OptionStorage<T> {
     active: Option<T>,
     staging: Option<T>,
     flags: RenderFlags,
 }
 
-impl<T> OptionStore<T> {
+impl<T> OptionStorage<T> {
     fn new(active: Option<T>) -> Self {
         Self {
             active,
@@ -32,40 +32,40 @@ where
     T: ElementSeq<S, E>,
     S: State,
 {
-    type Store = OptionStore<T::Store>;
+    type Storage = OptionStorage<T::Storage>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
-        OptionStore::new(self.map(|element| element.render(state, env, context)))
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        OptionStorage::new(self.map(|element| element.render(state, env, context)))
     }
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        match (&mut store.active, self) {
+        match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
                 if element.update(node, state, env, context) {
-                    store.flags |= RenderFlags::UPDATED;
+                    storage.flags |= RenderFlags::UPDATED;
                     true
                 } else {
                     false
                 }
             }
             (None, Some(element)) => {
-                if let Some(node) = &mut store.staging {
+                if let Some(node) = &mut storage.staging {
                     element.update(node, state, env, context);
                 } else {
-                    store.staging = Some(element.render(state, env, context));
+                    storage.staging = Some(element.render(state, env, context));
                 }
-                store.flags |= RenderFlags::SWAPPED;
+                storage.flags |= RenderFlags::SWAPPED;
                 true
             }
             (Some(_), None) => {
-                assert!(store.staging.is_none());
-                store.flags |= RenderFlags::SWAPPED;
+                assert!(storage.staging.is_none());
+                storage.flags |= RenderFlags::SWAPPED;
                 true
             }
             (None, None) => false,
@@ -73,7 +73,7 @@ where
     }
 }
 
-impl<T, S, E> ViewNodeSeq<S, E> for OptionStore<T>
+impl<T, S, E> ViewNodeSeq<S, E> for OptionStorage<T>
 where
     T: ViewNodeSeq<S, E>,
     S: State,
@@ -113,7 +113,7 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for OptionStore<T>
+impl<T, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for OptionStorage<T>
 where
     T: Traversable<Visitor, Context, S, E>,
     S: State,

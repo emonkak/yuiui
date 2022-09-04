@@ -92,20 +92,20 @@ where
     C: Component<S, E>,
     S: State,
 {
-    type Store = ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+    type Storage = ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store {
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         Element::render(self, state, env, context)
     }
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        Element::update(self, store.scope(), state, env, context)
+        Element::update(self, storage.scope(), state, env, context)
     }
 }
 

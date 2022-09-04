@@ -43,13 +43,13 @@ pub trait Element<S: State, E> {
 }
 
 pub trait ElementSeq<S: State, E> {
-    type Store: ViewNodeSeq<S, E>;
+    type Storage: ViewNodeSeq<S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Store;
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage;
 
     fn update(
         self,
-        store: &mut Self::Store,
+        storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -68,9 +68,9 @@ pub trait DebuggableElement<S: State, E>:
 
     type Widget: fmt::Debug;
 
-    type Children: ElementSeq<S, E, Store = Self::Store> + fmt::Debug;
+    type Children: ElementSeq<S, E, Storage = Self::Storage> + fmt::Debug;
 
-    type Store: ViewNodeSeq<S, E> + fmt::Debug;
+    type Storage: ViewNodeSeq<S, E> + fmt::Debug;
 
     type Components: ComponentStack<S, E, View = <Self as DebuggableElement<S, E>>::View>
         + fmt::Debug;
@@ -82,7 +82,7 @@ where
     El::View: fmt::Debug,
     <El::View as View<S, E>>::Widget: fmt::Debug,
     <El::View as View<S, E>>::Children: fmt::Debug,
-    <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store: fmt::Debug,
+    <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Storage: fmt::Debug,
     El::Components: fmt::Debug,
     S: State,
 {
@@ -92,7 +92,7 @@ where
 
     type Children = <El::View as View<S, E>>::Children;
 
-    type Store = <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Store;
+    type Storage = <<El::View as View<S, E>>::Children as ElementSeq<S, E>>::Storage;
 
     type Components = El::Components;
 }
