@@ -10,29 +10,78 @@ impl Id {
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct IdPath {
+pub struct IdPathBuf {
     path: Vec<Id>,
 }
 
-impl IdPath {
+impl IdPathBuf {
     pub const fn new() -> Self {
         Self { path: Vec::new() }
     }
 
-    pub fn top_id(&self) -> Id {
-        self.path.first().copied().unwrap_or(Id::ROOT)
-    }
-
-    pub fn bottom_id(&self) -> Id {
-        self.path.last().copied().unwrap_or(Id::ROOT)
-    }
-
+    #[inline]
     pub fn push(&mut self, id: Id) {
         self.path.push(id);
     }
 
+    #[inline]
     pub fn pop(&mut self) -> Option<Id> {
         self.path.pop()
+    }
+}
+
+impl Deref for IdPathBuf {
+    type Target = IdPath;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        IdPath::from_slice(self.path.as_slice())
+    }
+}
+
+impl FromIterator<Id> for IdPathBuf {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Id>,
+    {
+        Self {
+            path: Vec::from_iter(iter),
+        }
+    }
+}
+
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct IdPath {
+    path: [Id],
+}
+
+impl IdPath {
+    pub const fn from_slice(slice: &[Id]) -> &Self {
+        unsafe { &*(slice as *const [Id] as *const IdPath) }
+    }
+
+    #[inline]
+    pub fn top_id(&self) -> Id {
+        self.path.first().copied().unwrap_or(Id::ROOT)
+    }
+
+    #[inline]
+    pub fn bottom_id(&self) -> Id {
+        self.path.last().copied().unwrap_or(Id::ROOT)
+    }
+
+    #[inline]
+    pub fn starts_with(&self, other: &Self) -> bool {
+        self.path.starts_with(&other.path)
+    }
+
+    #[inline]
+    pub fn strip_next(&self, other: &Self) -> Option<&Self> {
+        if self.path.starts_with(&other.path) {
+            Some(Self::from_slice(&self.path[..other.path.len() + 1]))
+        } else {
+            None
+        }
     }
 
     fn strip_intersection<'other>(&self, other: &'other Self) -> (&[Id], &'other [Id]) {
@@ -48,28 +97,9 @@ impl IdPath {
     }
 }
 
-impl Deref for IdPath {
-    type Target = [Id];
-
-    fn deref(&self) -> &Self::Target {
-        self.path.as_slice()
-    }
-}
-
-impl FromIterator<Id> for IdPath {
-    fn from_iter<T>(iter: T) -> Self
-    where
-        T: IntoIterator<Item = Id>,
-    {
-        Self {
-            path: Vec::from_iter(iter),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct IdSelection {
-    items: VecDeque<(IdPath, ComponentIndex)>,
+    items: VecDeque<(IdPathBuf, ComponentIndex)>,
 }
 
 impl IdSelection {
@@ -83,7 +113,7 @@ impl IdSelection {
         self.items.is_empty()
     }
 
-    pub fn select(&mut self, id_path: IdPath, component_index: ComponentIndex) {
+    pub fn select(&mut self, id_path: IdPathBuf, component_index: ComponentIndex) {
         let mut should_push = true;
         self.items
             .retain_mut(|(selection_id_path, selection_component_index)| {
@@ -107,15 +137,15 @@ impl IdSelection {
         }
     }
 
-    pub fn pop(&mut self) -> Option<(IdPath, ComponentIndex)> {
+    pub fn pop(&mut self) -> Option<(IdPathBuf, ComponentIndex)> {
         self.items.pop_front()
     }
 }
 
 impl IntoIterator for IdSelection {
-    type Item = (IdPath, ComponentIndex);
+    type Item = (IdPathBuf, ComponentIndex);
 
-    type IntoIter = IntoIter<(IdPath, ComponentIndex)>;
+    type IntoIter = IntoIter<(IdPathBuf, ComponentIndex)>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.items.into_iter()
@@ -131,77 +161,77 @@ mod tests {
     #[test]
     fn test_id_selection() {
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([]), 0);
-        id_selection.select(IdPath::from_iter([]), 0);
+        id_selection.select(IdPathBuf::from_iter([]), 0);
+        id_selection.select(IdPathBuf::from_iter([]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([]), 0)]
+            vec![(IdPathBuf::from_iter([]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([]), 1);
-        id_selection.select(IdPath::from_iter([]), 0);
+        id_selection.select(IdPathBuf::from_iter([]), 1);
+        id_selection.select(IdPathBuf::from_iter([]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([]), 0)]
+            vec![(IdPathBuf::from_iter([]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([]), 0);
-        id_selection.select(IdPath::from_iter([]), 1);
+        id_selection.select(IdPathBuf::from_iter([]), 0);
+        id_selection.select(IdPathBuf::from_iter([]), 1);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([]), 0)]
+            vec![(IdPathBuf::from_iter([]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([Id(0)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([Id(0)]), 0)]
+            vec![(IdPathBuf::from_iter([Id(0)]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0)]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([Id(0)]), 0)]
+            vec![(IdPathBuf::from_iter([Id(0)]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 1);
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 1);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([Id(0), Id(1)]), 0)]
+            vec![(IdPathBuf::from_iter([Id(0), Id(1)]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 1);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 1);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([Id(0), Id(1)]), 0)]
+            vec![(IdPathBuf::from_iter([Id(0), Id(1)]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0), Id(2)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(2)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0)]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([Id(0)]), 0)]
+            vec![(IdPathBuf::from_iter([Id(0)]), 0)]
         );
 
         let mut id_selection = IdSelection::new();
-        id_selection.select(IdPath::from_iter([Id(0)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0), Id(1)]), 0);
-        id_selection.select(IdPath::from_iter([Id(0), Id(2)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(1)]), 0);
+        id_selection.select(IdPathBuf::from_iter([Id(0), Id(2)]), 0);
         assert_eq!(
             id_selection.into_iter().collect::<Vec<_>>(),
-            vec![(IdPath::from_iter([Id(0)]), 0)]
+            vec![(IdPathBuf::from_iter([Id(0)]), 0)]
         );
     }
 }

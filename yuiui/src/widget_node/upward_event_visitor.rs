@@ -49,11 +49,10 @@ where
             WidgetState::Prepared(widget, view)
             | WidgetState::Dirty(widget, view)
             | WidgetState::Pending(widget, view, _) => {
-                let last_index = self.id_path.len().saturating_sub(1);
-                if self.id_path[..last_index].starts_with(&context.effect_path().id_path)
-                    && node.event_mask.contains(&self.event.type_id())
-                {
-                    node.children.for_each(self, state, env, context);
+                if self.id_path.bottom_id() != context.effect_path().id_path.bottom_id() {
+                    if let Some(id_path) = self.id_path.strip_next(&context.effect_path().id_path) {
+                        node.children.search(id_path, self, state, env, context);
+                    }
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     let result = view.event(

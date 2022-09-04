@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::effect::{Effect, EffectPath};
 use crate::event::EventResult;
-use crate::id::{ComponentIndex, Id, IdPath};
+use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf};
 use crate::state::State;
 
 pub trait IdContext {
@@ -15,14 +15,14 @@ pub trait IdContext {
 
 #[derive(Debug)]
 pub struct RenderContext {
-    id_path: IdPath,
+    id_path: IdPathBuf,
     id_counter: u64,
 }
 
 impl RenderContext {
     pub fn new() -> Self {
         Self {
-            id_path: IdPath::new(),
+            id_path: IdPathBuf::new(),
             id_counter: 0,
         }
     }

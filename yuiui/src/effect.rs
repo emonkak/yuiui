@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::id::{ComponentIndex, IdPath};
+use crate::id::{ComponentIndex, IdPathBuf};
 use crate::state::State;
 
 pub enum Effect<S: State> {
@@ -74,10 +74,10 @@ where
 
 #[derive(Debug, Clone)]
 pub struct EffectPath {
-    pub(crate) id_path: IdPath,
-    pub(crate) component_index: ComponentIndex,
-    pub(crate) state_id_path: IdPath,
-    pub(crate) state_component_index: ComponentIndex,
+    pub id_path: IdPathBuf,
+    pub component_index: ComponentIndex,
+    pub state_id_path: IdPathBuf,
+    pub state_component_index: ComponentIndex,
 }
 
 impl EffectPath {
@@ -85,9 +85,9 @@ impl EffectPath {
 
     pub(crate) const fn new() -> Self {
         Self {
-            id_path: IdPath::new(),
+            id_path: IdPathBuf::new(),
             component_index: 0,
-            state_id_path: IdPath::new(),
+            state_id_path: IdPathBuf::new(),
             state_component_index: 0,
         }
     }
@@ -99,9 +99,5 @@ impl EffectPath {
             state_id_path: self.id_path.clone(),
             state_component_index: self.component_index,
         }
-    }
-
-    pub fn id_path(&self) -> &IdPath {
-        &self.id_path
     }
 }
