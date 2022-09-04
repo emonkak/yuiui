@@ -90,7 +90,7 @@ pub trait ComponentStack<S: State, E>: Sized {
 
     type View: View<S, E>;
 
-    fn force_update<'a>(
+    fn update<'a>(
         scope: ViewNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
@@ -120,7 +120,7 @@ where
 
     type View = <C::Element as Element<S, E>>::View;
 
-    fn force_update<'a>(
+    fn update<'a>(
         scope: ViewNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
@@ -140,7 +140,7 @@ where
             let element = head.render(state, env);
             element.update(scope, state, env, context)
         } else {
-            CS::force_update(scope, target_index, current_index + 1, state, env, context)
+            CS::update(scope, target_index, current_index + 1, state, env, context)
         }
     }
 
@@ -174,7 +174,7 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
 
     type View = V;
 
-    fn force_update<'a>(
+    fn update<'a>(
         _scope: ViewNodeScope<'a, V, Self, S, E>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,

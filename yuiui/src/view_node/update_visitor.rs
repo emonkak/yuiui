@@ -43,7 +43,7 @@ where
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
             let scope = node.scope();
-            self.result |= CS::force_update(scope, component_index, 0, state, env, context);
+            self.result |= CS::update(scope, component_index, 0, state, env, context);
         } else {
             self.result = true;
             node.dirty = true;

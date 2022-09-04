@@ -237,7 +237,7 @@ where
         context.merge_sub_context(sub_context, &self.selector_fn);
     }
 
-    fn force_update<'a>(
+    fn update<'a>(
         scope: ViewNodeScope<'a, Self::View, Self, S, E>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
@@ -258,7 +258,7 @@ where
             dirty: scope.dirty,
         };
         let sub_state = selector_fn(state);
-        let has_changed = T::force_update(
+        let has_changed = T::update(
             sub_scope,
             target_index,
             current_index,
