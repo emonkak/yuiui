@@ -111,6 +111,14 @@ where
         visitor.result()
     }
 
+    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+        if self.dirty || mode.is_propagatable() {
+            let mut visitor = CommitVisitor::new(mode, 0);
+            visitor.visit(self, state, env, context);
+            self.dirty = false;
+        }
+    }
+
     pub fn commit_subtree(
         &mut self,
         id_path: &IdPath,
@@ -145,9 +153,7 @@ where
         context: &mut EffectContext<S>,
     ) -> bool {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
-        context.begin_widget(self.id);
         visitor.visit(self, state, env, context);
-        context.end_widget();
         visitor.result()
     }
 
@@ -161,6 +167,29 @@ where
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, env, context)
+    }
+
+    pub fn search<Visitor, Context>(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool
+    where
+        <V::Children as ElementSeq<S, E>>::Store: Traversable<Visitor, Context, S, E>,
+        Visitor: TraversableVisitor<Self, Context, S, E>,
+        Context: IdContext,
+    {
+        if self.id == id_path.bottom_id() {
+            visitor.visit(self, state, env, context);
+            true
+        } else if id_path.starts_with(context.id_path()) {
+            self.children.search(id_path, visitor, state, env, context)
+        } else {
+            false
+        }
     }
 }
 
@@ -191,13 +220,9 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        if self.dirty || mode.is_propagatable() {
-            let mut visitor = CommitVisitor::new(mode, 0);
-            context.begin_widget(self.id);
-            visitor.visit(self, state, env, context);
-            context.end_widget();
-            self.dirty = false;
-        }
+        context.begin_widget(self.id);
+        self.commit(mode, state, env, context);
+        context.end_widget();
     }
 }
 
@@ -225,14 +250,7 @@ where
         context: &mut Context,
     ) -> bool {
         context.begin_widget(self.id);
-        let result = if self.id == id_path.bottom_id() {
-            visitor.visit(self, state, env, context);
-            true
-        } else if id_path.starts_with(context.id_path()) {
-            self.children.search(id_path, visitor, state, env, context)
-        } else {
-            false
-        };
+        let result = self.search(id_path, visitor, state, env, context);
         context.end_widget();
         result
     }
