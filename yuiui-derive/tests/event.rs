@@ -28,21 +28,21 @@ enum EnumEvent<'event> {
 
 #[test]
 fn test_struct_event() {
-    assert_eq!(StructEvent::allowed_types(), vec![TypeId::of::<Foo>(),]);
+    let mut types = Vec::new();
+    StructEvent::collect_types(&mut types);
+    assert_eq!(types, vec![TypeId::of::<Foo>(),]);
 
     assert_eq!(StructEvent::from_any(&Foo), Some(StructEvent(&Foo)));
     assert_eq!(StructEvent::from_any(&Bar), None);
     assert_eq!(StructEvent::from_any(&Baz), None);
-
-    assert_eq!(StructEvent::from_static(&Foo), Some(StructEvent(&Foo)));
-    assert_eq!(StructEvent::from_static(&Bar), None);
-    assert_eq!(StructEvent::from_static(&Baz), None);
 }
 
 #[test]
 fn test_named_struct_event() {
+    let mut types = Vec::new();
+    NamedStructEvent::collect_types(&mut types);
     assert_eq!(
-        NamedStructEvent::allowed_types(),
+        types,
         vec![TypeId::of::<Foo>(),]
     );
 
@@ -52,19 +52,14 @@ fn test_named_struct_event() {
     );
     assert_eq!(NamedStructEvent::from_any(&Bar), None);
     assert_eq!(NamedStructEvent::from_any(&Baz), None);
-
-    assert_eq!(
-        NamedStructEvent::from_static(&Foo),
-        Some(NamedStructEvent { foo: &Foo })
-    );
-    assert_eq!(NamedStructEvent::from_static(&Bar), None);
-    assert_eq!(NamedStructEvent::from_static(&Baz), None);
 }
 
 #[test]
 fn test_enum_event() {
+    let mut types = Vec::new();
+    EnumEvent::collect_types(&mut types);
     assert_eq!(
-        EnumEvent::allowed_types(),
+        types,
         vec![
             TypeId::of::<Foo>(),
             TypeId::of::<Bar>(),
@@ -79,12 +74,4 @@ fn test_enum_event() {
         Some(EnumEvent::Baz { baz: &Baz })
     );
     assert_eq!(EnumEvent::from_any(&()), None);
-
-    assert_eq!(EnumEvent::from_static(&Foo), Some(EnumEvent::Foo(&Foo)));
-    assert_eq!(EnumEvent::from_static(&Bar), Some(EnumEvent::Bar(&Bar)));
-    assert_eq!(
-        EnumEvent::from_static(&Baz),
-        Some(EnumEvent::Baz { baz: &Baz })
-    );
-    assert_eq!(EnumEvent::from_static(&()), None);
 }

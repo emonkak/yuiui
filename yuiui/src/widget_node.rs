@@ -215,7 +215,9 @@ where
 
             INIT.call_once(|| unsafe {
                 EVENT_MASK.merge(children_mask);
-                EVENT_MASK.add_all(&<V as HasEvent>::Event::allowed_types());
+                let mut types = Vec::new();
+                <V as HasEvent>::Event::collect_types(&mut types);
+                EVENT_MASK.add_all(&types);
             });
         }
 

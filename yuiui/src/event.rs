@@ -8,34 +8,28 @@ use crate::effect::Effect;
 use crate::state::State;
 
 pub trait Event<'event> {
-    fn allowed_types() -> Vec<TypeId>;
+    fn collect_types(type_ids: &mut Vec<TypeId>);
 
-    fn from_any(value: &'event dyn Any) -> Option<Self>
-    where
-        Self: Sized;
-
-    fn from_static<T: 'static>(value: &'event T) -> Option<Self>
+    fn from_any(event: &'event dyn Any) -> Option<Self>
     where
         Self: Sized;
 }
 
 impl<'event> Event<'event> for () {
-    fn allowed_types() -> Vec<TypeId> {
-        Vec::new()
-    }
+    fn collect_types(_type_ids: &mut Vec<TypeId>) {}
 
-    fn from_any(_value: &'event dyn Any) -> Option<Self>
-    where
-        Self: Sized,
-    {
+    fn from_any(_event: &'event dyn Any) -> Option<Self> {
         None
     }
+}
 
-    fn from_static<T: 'static>(_value: &'event T) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        None
+impl<'event, T: 'static> Event<'event> for &'event T {
+    fn collect_types(type_ids: &mut Vec<TypeId>) {
+        type_ids.push(TypeId::of::<T>())
+    }
+
+    fn from_any(event: &'event dyn Any) -> Option<Self> {
+        event.downcast_ref()
     }
 }
 

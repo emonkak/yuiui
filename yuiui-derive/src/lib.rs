@@ -24,30 +24,21 @@ struct EventImpl {
 impl ToTokens for EventImpl {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name = &self.name;
-        let type_ids = self
+        let collect_types = self
             .variants
             .iter()
-            .map(|(ty, _)| quote!(::std::any::TypeId::of::<#ty>()))
-            .collect::<Vec<_>>();
-        let downcasts = self
-            .variants
-            .iter()
-            .map(|(ty, construct)| {
+            .map(|(ty, _)| {
                 quote!(
-                    if value.type_id() == ::std::any::TypeId::of::<#ty>() {
-                        let value = value.downcast_ref().unwrap();
-                        return Some(#construct);
-                    }
+                    <#ty as ::yuiui::Event>::collect_types(type_ids);
                 )
             })
             .collect::<Vec<_>>();
-        let transmutes = self
+        let from_any = self
             .variants
             .iter()
             .map(|(ty, construct)| {
                 quote!(
-                    if ::std::any::TypeId::of::<T>() == ::std::any::TypeId::of::<#ty>() {
-                        let value = unsafe { std::mem::transmute(value) };
+                    if let Some(event) = <#ty as ::yuiui::Event>::from_any(event) {
                         return Some(#construct);
                     }
                 )
@@ -56,17 +47,12 @@ impl ToTokens for EventImpl {
 
         tokens.append_all(quote! {
             impl<'event> ::yuiui::Event<'event> for #name<'event> {
-                fn allowed_types() -> Vec<::std::any::TypeId> {
-                    vec![#(#type_ids),*]
+                fn collect_types(type_ids: &mut Vec<::std::any::TypeId>) {
+                    #(#collect_types)*
                 }
 
-                fn from_any(value: &'event dyn ::std::any::Any) -> Option<Self> {
-                    #(#downcasts)*
-                    None
-                }
-
-                fn from_static<T: 'static>(value: &'event T) -> Option<Self> {
-                    #(#transmutes)*
+                fn from_any(event: &'event dyn ::std::any::Any) -> Option<Self> {
+                    #(#from_any)*
                     None
                 }
             }
@@ -80,12 +66,11 @@ fn impl_from_struct(name: syn::Ident, data: syn::DataStruct) -> EventImpl {
     assert_eq!(data.fields.len(), 1, "struct must have only one field");
 
     for field in data.fields {
-        let ty = unreference(field.ty);
         let construct = match &field.ident {
-            Some(field_name) => quote!(#name { #field_name: value }),
-            None => quote!(#name(value)),
+            Some(field_name) => quote!(#name { #field_name: event }),
+            None => quote!(#name(event)),
         };
-        variants.push((ty, construct));
+        variants.push((field.ty, construct));
     }
 
     EventImpl { name, variants }
@@ -102,24 +87,16 @@ fn impl_from_enum(name: syn::Ident, data: syn::DataEnum) -> EventImpl {
         );
 
         for field in variant.fields {
-            let ty = unreference(field.ty);
             let variant_name = &variant.ident;
             let construct = match &field.ident {
                 Some(field_name) => {
-                    quote!(#name::#variant_name { #field_name: value })
+                    quote!(#name::#variant_name { #field_name: event })
                 }
-                None => quote!(#name::#variant_name(value)),
+                None => quote!(#name::#variant_name(event)),
             };
-            variants.push((ty, construct));
+            variants.push((field.ty, construct));
         }
     }
 
     EventImpl { name, variants }
-}
-
-fn unreference(ty: syn::Type) -> syn::Type {
-    match ty {
-        syn::Type::Reference(reference) => unreference(*reference.elem),
-        _ => ty,
-    }
 }
