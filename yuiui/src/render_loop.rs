@@ -42,11 +42,11 @@ where
         }
     }
 
-    pub fn run(&mut self, deadline: &Instant, env: &E) -> RenderFlow {
+    pub fn run(&mut self, deadline: &impl Deadline, env: &E) -> RenderFlow {
         loop {
             while let Some((path, effect)) = self.effect_queue.pop_front() {
                 self.apply_effect(path, effect, env);
-                if deadline_did_timeout(&deadline) {
+                if deadline.did_timeout() {
                     return self.render_status();
                 }
             }
@@ -62,7 +62,7 @@ where
                 if self.is_mounted {
                     self.commit_selection.select(id_path, component_index);
                 }
-                if deadline_did_timeout(&deadline) {
+                if deadline.did_timeout() {
                     return self.render_status();
                 }
             }
@@ -78,7 +78,7 @@ where
                         &mut effect_context,
                     );
                     self.effect_queue.extend(effect_context.into_effects());
-                    if deadline_did_timeout(&deadline) {
+                    if deadline.did_timeout() {
                         return self.render_status();
                     }
                 }
@@ -88,7 +88,7 @@ where
                     .commit(CommitMode::Mount, &self.state, env, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
                 self.is_mounted = true;
-                if deadline_did_timeout(&deadline) {
+                if deadline.did_timeout() {
                     return self.render_status();
                 }
             }
@@ -206,12 +206,26 @@ pub trait RenderLoopContext<S: State> {
     );
 }
 
-fn deadline_did_timeout(deadline: &Instant) -> bool {
-    deadline.saturating_duration_since(Instant::now()) <= Duration::from_millis(1)
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RenderFlow {
     Suspended,
     Done,
+}
+
+pub trait Deadline {
+    fn did_timeout(&self) -> bool;
+}
+
+impl Deadline for Instant {
+    fn did_timeout(&self) -> bool {
+        self.saturating_duration_since(Instant::now()) <= Duration::from_millis(1)
+    }
+}
+
+pub struct Forever;
+
+impl Deadline for Forever {
+    fn did_timeout(&self) -> bool {
+        false
+    }
 }
