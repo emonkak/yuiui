@@ -6,7 +6,6 @@ members = [
     "observable",
     "yuiui",
     "yuiui-derive",
-    "yuiui-legacy",
-    "yuiui-support",
+    "yuiui-gtk",
 ]
 resolver = "2"

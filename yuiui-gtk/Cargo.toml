@@ -1,0 +1,18 @@
+[package]
+name = "yuiui-gtk"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+either = { path = "../either" }
+either-macro = { path = "../either-macro" }
+futures = "0.3"
+glib = "0.15"
+gtk = { package = "gtk4", version = "0.4" }
+hlist = { path = "../hlist" }
+yuiui = { path = "../yuiui" }
+
+[[example]]
+name = "counter"
