@@ -19,8 +19,8 @@ impl<C> ComponentElement<C> {
         }
     }
 
-    pub fn memoize(self) -> MemoizedElement<C> {
-        MemoizedElement::new(self)
+    pub fn memoize(self) -> MemoizedElement<C, fn(&C, &C) -> bool> where C: PartialEq {
+        MemoizedElement::new(self, PartialEq::eq)
     }
 }
 
@@ -114,21 +114,24 @@ where
     }
 }
 
-pub struct MemoizedElement<C> {
+pub struct MemoizedElement<C, F> {
     element: ComponentElement<C>,
+    compare_components: F,
 }
 
-impl<C> MemoizedElement<C> {
-    pub const fn new(element: ComponentElement<C>) -> Self {
+impl<C, F> MemoizedElement<C, F> {
+    pub const fn new(element: ComponentElement<C>, compare_components: F) -> Self {
         Self {
-            element
+            element,
+            compare_components,
         }
     }
 }
 
-impl<C, S, E> Element<S, E> for MemoizedElement<C>
+impl<C, F, S, E> Element<S, E> for MemoizedElement<C, F>
 where
-    C: Component<S, E> + PartialEq,
+    C: Component<S, E>,
+    F: Fn(&C, &C) -> bool,
     S: State,
 {
     type View = <C::Element as Element<S, E>>::View;
@@ -154,8 +157,9 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        let (head_node, _) = &scope.components;
-        if head_node.component != self.element.component {
+        let (head_node, _) = scope.components;
+        let should_update = !(self.compare_components)(&head_node.component, &self.element.component);
+        if should_update {
             Element::update(self.element, scope, state, env, context)
         } else {
             head_node.pending_component = Some(self.element.component);
@@ -164,9 +168,10 @@ where
     }
 }
 
-impl<C, S, E> ElementSeq<S, E> for MemoizedElement<C>
+impl<C, F, S, E> ElementSeq<S, E> for MemoizedElement<C, F>
 where
-    C: Component<S, E> + PartialEq,
+    C: Component<S, E>,
+    F: Fn(&C, &C) -> bool,
     S: State,
 {
     type Storage =
