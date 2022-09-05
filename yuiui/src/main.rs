@@ -168,7 +168,6 @@ pub fn Button<S: State, E>(
     FunctionComponent {
         props,
         initial_state,
-        should_update: None,
         lifecycle: None,
         render,
     }
@@ -193,7 +192,6 @@ pub fn Counter<E>() -> FunctionComponent<(), (), impl DebuggableElement<Data<i64
     FunctionComponent {
         props: (),
         initial_state,
-        should_update: None,
         lifecycle: None,
         render,
     }

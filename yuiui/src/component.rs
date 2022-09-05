@@ -12,16 +12,6 @@ pub trait Component<S: State, E>: Sized {
 
     fn initial_state(&self, state: &S, env: &E) -> Self::LocalState;
 
-    fn should_update(
-        &self,
-        _other: &Self,
-        _local_state: &Self::LocalState,
-        _state: &S,
-        _env: &E,
-    ) -> bool {
-        true
-    }
-
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<&Self>,
@@ -45,7 +35,6 @@ pub trait Component<S: State, E>: Sized {
 pub struct FunctionComponent<Props, LocalState, El, S: State, E> {
     pub props: Props,
     pub initial_state: fn(&Props, &S, &E) -> LocalState,
-    pub should_update: Option<fn(&Props, &Props, &LocalState, &S, &E) -> bool>,
     pub lifecycle: Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &S, &E) -> EventResult<S>>,
     pub render: fn(&Props, &LocalState, &S, &E) -> El,
 }
@@ -62,20 +51,6 @@ where
 
     fn initial_state(&self, state: &S, env: &E) -> Self::LocalState {
         (self.initial_state)(&self.props, state, env)
-    }
-
-    fn should_update(
-        &self,
-        other: &Self,
-        local_state: &Self::LocalState,
-        state: &S,
-        env: &E,
-    ) -> bool {
-        if let Some(should_update_fn) = &self.should_update {
-            should_update_fn(&self.props, &other.props, local_state, state, env)
-        } else {
-            true
-        }
     }
 
     fn lifecycle(
@@ -145,16 +120,6 @@ where
 
     fn initial_state(&self, _state: &S, _env: &E) -> Self::LocalState {
         ()
-    }
-
-    fn should_update(
-        &self,
-        other: &Self,
-        _local_state: &Self::LocalState,
-        _state: &S,
-        _env: &E,
-    ) -> bool {
-        self.dependence != other.dependence
     }
 
     fn render(&self, _local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {

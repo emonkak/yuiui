@@ -1,7 +1,7 @@
 mod component_element;
 mod view_element;
 
-pub use component_element::ComponentElement;
+pub use component_element::{ComponentElement, MemoizedElement};
 pub use view_element::ViewElement;
 
 use std::fmt;

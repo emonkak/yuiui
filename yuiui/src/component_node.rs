@@ -33,11 +33,6 @@ where
         self.component.render(&self.local_state, state, env)
     }
 
-    pub(crate) fn should_update(&self, other: &C, state: &S, env: &E) -> bool {
-        self.component
-            .should_update(other, &self.local_state, state, env)
-    }
-
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,

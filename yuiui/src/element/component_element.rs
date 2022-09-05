@@ -13,10 +13,14 @@ pub struct ComponentElement<C> {
 }
 
 impl<C> ComponentElement<C> {
-    pub fn new(component: C) -> ComponentElement<C> {
+    pub const fn new(component: C) -> ComponentElement<C> {
         Self {
             component,
         }
+    }
+
+    pub fn memoize(self) -> MemoizedElement<C> {
+        MemoizedElement::new(self)
     }
 }
 
@@ -60,23 +64,19 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
-        if head_node.should_update(&self.component, state, env) {
-            let element = self
-                .component
-                .render(&mut head_node.local_state, state, env);
-            head_node.pending_component = Some(self.component);
-            *scope.dirty = true;
-            let scope = ViewNodeScope {
-                id: scope.id,
-                state: scope.state,
-                children: scope.children,
-                components: tail_nodes,
-                dirty: scope.dirty,
-            };
-            element.update(scope, state, env, context)
-        } else {
-            false
-        }
+        let element = self
+            .component
+            .render(&mut head_node.local_state, state, env);
+        head_node.pending_component = Some(self.component);
+        *scope.dirty = true;
+        let scope = ViewNodeScope {
+            id: scope.id,
+            state: scope.state,
+            children: scope.children,
+            components: tail_nodes,
+            dirty: scope.dirty,
+        };
+        element.update(scope, state, env, context)
     }
 }
 
@@ -111,5 +111,78 @@ where
         f.debug_struct("ComponentElement")
             .field("component", &self.component)
             .finish()
+    }
+}
+
+pub struct MemoizedElement<C> {
+    element: ComponentElement<C>,
+}
+
+impl<C> MemoizedElement<C> {
+    pub const fn new(element: ComponentElement<C>) -> Self {
+        Self {
+            element
+        }
+    }
+}
+
+impl<C, S, E> Element<S, E> for MemoizedElement<C>
+where
+    C: Component<S, E> + PartialEq,
+    S: State,
+{
+    type View = <C::Element as Element<S, E>>::View;
+
+    type Components = (
+        ComponentNode<C, S, E>,
+        <C::Element as Element<S, E>>::Components,
+    );
+
+    fn render(
+        self,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> ViewNode<Self::View, Self::Components, S, E> {
+        Element::render(self.element, state, env, context)
+    }
+
+    fn update(
+        self,
+        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        let (head_node, _) = &scope.components;
+        if head_node.component != self.element.component {
+            Element::update(self.element, scope, state, env, context)
+        } else {
+            head_node.pending_component = Some(self.element.component);
+            false
+        }
+    }
+}
+
+impl<C, S, E> ElementSeq<S, E> for MemoizedElement<C>
+where
+    C: Component<S, E> + PartialEq,
+    S: State,
+{
+    type Storage =
+        ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+
+    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        Element::render(self, state, env, context)
+    }
+
+    fn update(
+        self,
+        storage: &mut Self::Storage,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        Element::update(self, storage.scope(), state, env, context)
     }
 }
