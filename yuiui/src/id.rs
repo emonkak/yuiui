@@ -76,7 +76,7 @@ impl IdPath {
     }
 
     #[inline]
-    pub fn strip_next(&self, other: &Self) -> Option<&Self> {
+    pub fn strip_init(&self, other: &Self) -> Option<&Self> {
         if self.path.starts_with(&other.path) {
             Some(Self::from_slice(&self.path[..other.path.len() + 1]))
         } else {

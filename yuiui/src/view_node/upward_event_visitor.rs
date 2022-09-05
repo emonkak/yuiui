@@ -48,7 +48,7 @@ where
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 if self.id_path.bottom_id() != context.effect_path().id_path.bottom_id() {
-                    if let Some(id_path) = self.id_path.strip_next(&context.effect_path().id_path) {
+                    if let Some(id_path) = self.id_path.strip_init(&context.effect_path().id_path) {
                         node.children.search(id_path, self, state, env, context);
                     }
                 }
