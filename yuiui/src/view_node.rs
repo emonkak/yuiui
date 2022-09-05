@@ -191,10 +191,12 @@ where
         Visitor: TraversableVisitor<Self, Context, S, E>,
         Context: IdContext,
     {
-        if self.id == id_path.bottom_id() {
+        if self.id == id_path.last().copied().unwrap_or(Id::ROOT) {
             visitor.visit(self, state, env, context);
             true
-        } else if id_path.starts_with(context.id_path()) {
+        } else if self.id == id_path.first().copied().unwrap_or(Id::ROOT) {
+            debug_assert!(id_path.len() > 0);
+            let id_path = &id_path[1..];
             self.children.search(id_path, visitor, state, env, context)
         } else {
             false

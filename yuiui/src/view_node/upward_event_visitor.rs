@@ -47,10 +47,9 @@ where
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
-                if self.id_path.bottom_id() != context.effect_path().id_path.bottom_id() {
-                    if let Some(id_path) = self.id_path.strip_init(&context.effect_path().id_path) {
-                        node.children.search(id_path, self, state, env, context);
-                    }
+                if let Some((head, tail)) = self.id_path.split_first() {
+                    self.id_path = tail;
+                    node.children.search(&[*head], self, state, env, context);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     let result = view.event(

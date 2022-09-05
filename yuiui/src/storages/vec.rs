@@ -7,7 +7,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
-use crate::id::IdPath;
+use crate::id::{Id, IdPath};
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
@@ -190,10 +190,8 @@ where
         env: &E,
         context: &mut Context,
     ) -> bool {
-        if let Ok(index) = self
-            .active
-            .binary_search_by_key(&id_path.top_id(), |node| node.id)
-        {
+        let id = id_path.last().copied().unwrap_or(Id::ROOT);
+        if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
             node.search(id_path, visitor, state, env, context);
             true
