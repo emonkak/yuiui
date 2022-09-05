@@ -38,11 +38,6 @@ where
         env: &E,
         context: &mut EffectContext<S>,
     ) {
-        let component_index = mem::replace(&mut self.component_index, 0);
-        if component_index < CS::LEN {
-            node.components
-                .commit(self.mode, component_index, state, env, context);
-        }
         node.children.commit(self.mode, state, env, context);
         node.state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
@@ -147,5 +142,10 @@ where
             }
         }
         .into();
+        let component_index = mem::replace(&mut self.component_index, 0);
+        if component_index < CS::LEN {
+            node.components
+                .commit(self.mode, component_index, state, env, context);
+        }
     }
 }
