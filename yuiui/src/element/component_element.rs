@@ -1,5 +1,4 @@
 use std::fmt;
-use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::component_node::ComponentNode;
@@ -9,25 +8,19 @@ use crate::view_node::{ViewNode, ViewNodeScope};
 
 use super::{Element, ElementSeq};
 
-pub struct ComponentElement<C: Component<S, E>, S: State, E> {
+pub struct ComponentElement<C> {
     component: C,
-    _phantom: PhantomData<(S, E)>,
 }
 
-impl<C, S, E> ComponentElement<C, S, E>
-where
-    C: Component<S, E>,
-    S: State,
-{
-    pub fn new(component: C) -> ComponentElement<C, S, E> {
+impl<C> ComponentElement<C> {
+    pub fn new(component: C) -> ComponentElement<C> {
         Self {
             component,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<C, S, E> Element<S, E> for ComponentElement<C, S, E>
+impl<C, S, E> Element<S, E> for ComponentElement<C>
 where
     C: Component<S, E>,
     S: State,
@@ -87,7 +80,7 @@ where
     }
 }
 
-impl<C, S, E> ElementSeq<S, E> for ComponentElement<C, S, E>
+impl<C, S, E> ElementSeq<S, E> for ComponentElement<C>
 where
     C: Component<S, E>,
     S: State,
@@ -110,10 +103,9 @@ where
     }
 }
 
-impl<C, S, E> fmt::Debug for ComponentElement<C, S, E>
+impl<C> fmt::Debug for ComponentElement<C>
 where
-    C: Component<S, E> + fmt::Debug,
-    S: State,
+    C: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ComponentElement")

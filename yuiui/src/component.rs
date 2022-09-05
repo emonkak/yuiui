@@ -34,7 +34,7 @@ pub trait Component<S: State, E>: Sized {
 
     fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element;
 
-    fn el(self) -> ComponentElement<Self, S, E>
+    fn el(self) -> ComponentElement<Self>
     where
         Self: Sized,
     {
