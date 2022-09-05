@@ -30,7 +30,7 @@ enum EnumEvent<'event> {
 fn test_struct_event() {
     let mut types = Vec::new();
     StructEvent::collect_types(&mut types);
-    assert_eq!(types, vec![TypeId::of::<Foo>(),]);
+    assert_eq!(types, vec![TypeId::of::<Foo>()]);
 
     assert_eq!(StructEvent::from_any(&Foo), Some(StructEvent(&Foo)));
     assert_eq!(StructEvent::from_any(&Bar), None);
@@ -41,10 +41,7 @@ fn test_struct_event() {
 fn test_named_struct_event() {
     let mut types = Vec::new();
     NamedStructEvent::collect_types(&mut types);
-    assert_eq!(
-        types,
-        vec![TypeId::of::<Foo>(),]
-    );
+    assert_eq!(types, vec![TypeId::of::<Foo>()]);
 
     assert_eq!(
         NamedStructEvent::from_any(&Foo),
