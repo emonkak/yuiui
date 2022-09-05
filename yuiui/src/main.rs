@@ -151,48 +151,15 @@ pub struct ButtonProps {
 #[allow(non_snake_case)]
 pub fn Button<S: State, E>(
     props: ButtonProps,
-) -> FunctionComponent<ButtonProps, (), impl DebuggableElement<S, E>, S, E> {
-    fn initial_state<S: State, E>(_props: &ButtonProps, _state: &S, _env: &E) -> () {
-        ()
-    }
-
-    fn render<S: State, E>(
-        props: &ButtonProps,
-        _local_state: &(),
-        _state: &S,
-        _env: &E,
-    ) -> impl DebuggableElement<S, E> {
+) -> FunctionComponent<ButtonProps, impl DebuggableElement<S, E>, S, E> {
+    FunctionComponent::new(props, |props, _state, _env| {
         Block::new().el_with(Text::new(props.label.clone()).el())
-    }
-
-    FunctionComponent {
-        props,
-        initial_state,
-        lifecycle: None,
-        render,
-    }
+    })
 }
 
 #[allow(non_snake_case)]
-pub fn Counter<E>() -> FunctionComponent<(), (), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>
-{
-    fn initial_state<S: State, E>(_props: &(), _state: &S, _env: &E) -> () {
-        ()
-    }
-
-    fn render<E>(
-        _props: &(),
-        _local_state: &(),
-        state: &Data<i64>,
-        _env: &E,
-    ) -> impl DebuggableElement<Data<i64>, E> {
+pub fn Counter<E>() -> FunctionComponent<(), impl DebuggableElement<Data<i64>, E>, Data<i64>, E> {
+    FunctionComponent::new((), |_props, state, _env| {
         Block::new().el_with(Text::new(format!("{}", state.value)).el())
-    }
-
-    FunctionComponent {
-        props: (),
-        initial_state,
-        lifecycle: None,
-        render,
-    }
+    })
 }

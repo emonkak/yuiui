@@ -18,7 +18,7 @@ mod view_node;
 
 pub use cancellation_token::{CancellationToken, RawToken, RawTokenVTable};
 pub use command::Command;
-pub use component::{Component, FunctionComponent, Memoize};
+pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
 pub use context::{EffectContext, IdContext, RenderContext};

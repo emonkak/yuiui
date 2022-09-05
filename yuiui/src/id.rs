@@ -9,7 +9,7 @@ impl Id {
     pub const ROOT: Self = Self(0);
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct IdPathBuf {
     path: Vec<Id>,
 }

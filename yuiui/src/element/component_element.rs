@@ -14,13 +14,11 @@ pub struct ComponentElement<C> {
 
 impl<C> ComponentElement<C> {
     pub const fn new(component: C) -> ComponentElement<C> {
-        Self {
-            component,
-        }
+        Self { component }
     }
 
-    pub fn memoize(self) -> MemoizedElement<C, fn(&C, &C) -> bool> where C: PartialEq {
-        MemoizedElement::new(self, PartialEq::eq)
+    pub fn memoize(self) -> MemoizedElement<C> {
+        MemoizedElement::new(self)
     }
 }
 
@@ -42,8 +40,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, E> {
-        let initial_state = self.component.initial_state(state, env);
-        let component_node = ComponentNode::new(self.component, initial_state);
+        let component_node = ComponentNode::new(self.component);
         let element = component_node.render(state, env);
         let view_node = element.render(state, env, context);
         ViewNode {
@@ -64,9 +61,7 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
-        let element = self
-            .component
-            .render(&mut head_node.local_state, state, env);
+        let element = self.component.render(state, env);
         head_node.pending_component = Some(self.component);
         *scope.dirty = true;
         let scope = ViewNodeScope {
@@ -114,24 +109,19 @@ where
     }
 }
 
-pub struct MemoizedElement<C, F> {
+pub struct MemoizedElement<C> {
     element: ComponentElement<C>,
-    compare_components: F,
 }
 
-impl<C, F> MemoizedElement<C, F> {
-    pub const fn new(element: ComponentElement<C>, compare_components: F) -> Self {
-        Self {
-            element,
-            compare_components,
-        }
+impl<C> MemoizedElement<C> {
+    pub const fn new(element: ComponentElement<C>) -> Self {
+        Self { element }
     }
 }
 
-impl<C, F, S, E> Element<S, E> for MemoizedElement<C, F>
+impl<C, S, E> Element<S, E> for MemoizedElement<C>
 where
-    C: Component<S, E>,
-    F: Fn(&C, &C) -> bool,
+    C: Component<S, E> + PartialEq,
     S: State,
 {
     type View = <C::Element as Element<S, E>>::View;
@@ -158,8 +148,7 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, _) = scope.components;
-        let should_update = !(self.compare_components)(&head_node.component, &self.element.component);
-        if should_update {
+        if head_node.component != self.element.component {
             Element::update(self.element, scope, state, env, context)
         } else {
             head_node.pending_component = Some(self.element.component);
@@ -168,10 +157,9 @@ where
     }
 }
 
-impl<C, F, S, E> ElementSeq<S, E> for MemoizedElement<C, F>
+impl<C, S, E> ElementSeq<S, E> for MemoizedElement<C>
 where
-    C: Component<S, E>,
-    F: Fn(&C, &C) -> bool,
+    C: Component<S, E> + PartialEq,
     S: State,
 {
     type Storage =

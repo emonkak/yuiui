@@ -1,28 +1,17 @@
 use std::fmt;
-use std::marker::PhantomData;
 
 use crate::element::{ComponentElement, Element};
 use crate::event::{EventResult, Lifecycle};
 use crate::state::State;
 
 pub trait Component<S: State, E>: Sized {
-    type LocalState;
-
     type Element: Element<S, E>;
 
-    fn initial_state(&self, state: &S, env: &E) -> Self::LocalState;
-
-    fn lifecycle(
-        &self,
-        _lifecycle: Lifecycle<&Self>,
-        _local_state: &mut Self::LocalState,
-        _state: &S,
-        _env: &E,
-    ) -> EventResult<S> {
+    fn lifecycle(&self, _lifecycle: Lifecycle<&Self>, _state: &S, _env: &E) -> EventResult<S> {
         EventResult::nop()
     }
 
-    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element;
+    fn render(&self, state: &S, env: &E) -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -32,48 +21,67 @@ pub trait Component<S: State, E>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, LocalState, El, S: State, E> {
-    pub props: Props,
-    pub initial_state: fn(&Props, &S, &E) -> LocalState,
-    pub lifecycle: Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &S, &E) -> EventResult<S>>,
-    pub render: fn(&Props, &LocalState, &S, &E) -> El,
+pub struct FunctionComponent<Props, El, S: State, E> {
+    props: Props,
+    render: fn(&Props, &S, &E) -> El,
+    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &S, &E) -> EventResult<S>>,
 }
 
-impl<Props, LocalState, El, S, E> Component<S, E> for FunctionComponent<Props, LocalState, El, S, E>
+impl<Props, El, S, E> FunctionComponent<Props, El, S, E>
 where
-    LocalState: Default,
+    S: State,
+{
+    pub fn new(props: Props, render: fn(&Props, &S, &E) -> El) -> Self {
+        Self {
+            props,
+            render,
+            lifecycle: None,
+        }
+    }
+
+    pub fn lifecycle(
+        mut self,
+        lifecycle: impl Into<Option<fn(&Props, Lifecycle<&Props>, &S, &E) -> EventResult<S>>>,
+    ) -> Self {
+        self.lifecycle = lifecycle.into();
+        self
+    }
+}
+
+impl<Props, El, S, E> Component<S, E> for FunctionComponent<Props, El, S, E>
+where
     El: Element<S, E>,
     S: State,
 {
     type Element = El;
 
-    type LocalState = LocalState;
-
-    fn initial_state(&self, state: &S, env: &E) -> Self::LocalState {
-        (self.initial_state)(&self.props, state, env)
-    }
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<&Self>,
-        local_state: &mut Self::LocalState,
-        state: &S,
-        env: &E,
-    ) -> EventResult<S> {
+    fn lifecycle(&self, lifecycle: Lifecycle<&Self>, state: &S, env: &E) -> EventResult<S> {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let sub_lifecycle = lifecycle.map(|component| &component.props);
-            lifecycle_fn(&self.props, sub_lifecycle, local_state, state, env)
+            lifecycle_fn(&self.props, sub_lifecycle, state, env)
         } else {
             EventResult::nop()
         }
     }
 
-    fn render(&self, local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
-        (self.render)(&self.props, local_state, state, env)
+    fn render(&self, state: &S, env: &E) -> Self::Element {
+        (self.render)(&self.props, state, env)
     }
 }
 
-impl<Props, LocalState, El, S, E> fmt::Debug for FunctionComponent<Props, LocalState, El, S, E>
+impl<Props, El, S, E> PartialEq for FunctionComponent<Props, El, S, E>
+where
+    Props: PartialEq,
+    S: State,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.props == other.props
+            && &self.render as *const _ == &other.render as *const _
+            && self.lifecycle.map(|x| &x as *const _) == other.lifecycle.map(|y| &y as *const _)
+    }
+}
+
+impl<Props, El, S, E> fmt::Debug for FunctionComponent<Props, El, S, E>
 where
     Props: fmt::Debug,
     S: State,
@@ -82,58 +90,5 @@ where
         f.debug_tuple("FunctionComponent")
             .field(&self.props)
             .finish()
-    }
-}
-
-pub struct Memoize<Render, Dependence, El, S, E> {
-    render: Render,
-    dependence: Dependence,
-    _phantom: PhantomData<(El, S, E)>,
-}
-
-impl<Render, Dependence, El, S, E> Memoize<Render, Dependence, El, S, E>
-where
-    Render: Fn(&S, &E) -> El,
-    Dependence: PartialEq,
-    El: Element<S, E>,
-    S: State,
-{
-    pub fn new(render: Render, dependence: Dependence) -> Self {
-        Self {
-            render,
-            dependence,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<Render, Dependence, El, S, E> Component<S, E> for Memoize<Render, Dependence, El, S, E>
-where
-    Render: Fn(&S, &E) -> El,
-    Dependence: PartialEq,
-    El: Element<S, E>,
-    S: State,
-{
-    type Element = El;
-
-    type LocalState = ();
-
-    fn initial_state(&self, _state: &S, _env: &E) -> Self::LocalState {
-        ()
-    }
-
-    fn render(&self, _local_state: &Self::LocalState, state: &S, env: &E) -> Self::Element {
-        (self.render)(state, env)
-    }
-}
-
-impl<Render, Dependence, El, S, E> fmt::Debug for Memoize<Render, Dependence, El, S, E>
-where
-    Dependence: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Memoize")
-            .field("dependence", &self.dependence)
-            .finish_non_exhaustive()
     }
 }
