@@ -32,7 +32,7 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) {
+    ) -> bool {
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
@@ -47,8 +47,9 @@ where
                     env,
                 );
                 context.process_result(result);
+                true
             }
-            ViewNodeState::Uninitialized(_) => {}
+            ViewNodeState::Uninitialized(_) => false,
         }
     }
 }

@@ -1,7 +1,13 @@
 use crate::id::IdPath;
 
 pub trait Traversable<Visitor, Context, S, E> {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context);
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool;
 
     fn search(
         &mut self,
@@ -14,5 +20,5 @@ pub trait Traversable<Visitor, Context, S, E> {
 }
 
 pub trait TraversableVisitor<Node, Context, S, E> {
-    fn visit(&mut self, node: &mut Node, state: &S, env: &E, context: &mut Context);
+    fn visit(&mut self, node: &mut Node, state: &S, env: &E, context: &mut Context) -> bool;
 }

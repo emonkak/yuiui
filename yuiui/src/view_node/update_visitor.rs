@@ -11,19 +11,11 @@ use super::ViewNode;
 
 pub struct UpdateVisitor {
     component_index: ComponentIndex,
-    result: bool,
 }
 
 impl<'a> UpdateVisitor {
     pub fn new(component_index: ComponentIndex) -> Self {
-        Self {
-            component_index,
-            result: false,
-        }
-    }
-
-    pub fn result(&self) -> bool {
-        self.result
+        Self { component_index }
     }
 }
 
@@ -39,15 +31,15 @@ where
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) {
+    ) -> bool {
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
             let scope = node.scope();
-            self.result |= CS::update(scope, component_index, 0, state, env, context);
+            CS::update(scope, component_index, 0, state, env, context)
         } else {
-            self.result = true;
             node.dirty = true;
             node.children.for_each(self, state, env, context);
+            true
         }
     }
 }

@@ -132,29 +132,37 @@ where
         }
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let mut has_changed = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
-                match &mut self.active {
+                has_changed |= match &mut self.active {
                     Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
                     Either::Right(node) => node.commit(CommitMode::Unmount, state, env, context),
-                }
+                };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
-                match &mut self.active {
+                has_changed |= match &mut self.active {
                     Either::Left(node) => node.commit(CommitMode::Mount, state, env, context),
                     Either::Right(node) => node.commit(CommitMode::Mount, state, env, context),
-                }
+                };
             }
             self.flags = RenderFlags::COMMITED;
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
-            match &mut self.active {
+            has_changed |= match &mut self.active {
                 Either::Left(node) => node.commit(mode, state, env, context),
                 Either::Right(node) => node.commit(mode, state, env, context),
-            }
+            };
             self.flags = RenderFlags::COMMITED;
         }
+        has_changed
     }
 }
 
@@ -164,7 +172,13 @@ where
     R: Traversable<Visitor, Context, S, E>,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool {
         match &mut self.active {
             Either::Left(node) => node.for_each(visitor, state, env, context),
             Either::Right(node) => node.for_each(visitor, state, env, context),

@@ -43,7 +43,14 @@ where
         0
     }
 
-    fn commit(&mut self, _mode: CommitMode, _state: &S, _env: &E, _context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        _mode: CommitMode,
+        _state: &S,
+        _env: &E,
+        _context: &mut EffectContext<S>,
+    ) -> bool {
+        false
     }
 }
 
@@ -51,7 +58,15 @@ impl<Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for HNil
 where
     S: State,
 {
-    fn for_each(&mut self, _visitor: &mut Visitor, _state: &S, _env: &E, _context: &mut Context) {}
+    fn for_each(
+        &mut self,
+        _visitor: &mut Visitor,
+        _state: &S,
+        _env: &E,
+        _context: &mut Context,
+    ) -> bool {
+        false
+    }
 
     fn search(
         &mut self,
@@ -122,9 +137,17 @@ where
         self.head.len() + self.tail.len()
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
-        self.head.commit(mode, state, env, context);
-        self.tail.commit(mode, state, env, context);
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let mut has_changed = false;
+        has_changed |= self.head.commit(mode, state, env, context);
+        has_changed |= self.tail.commit(mode, state, env, context);
+        has_changed
     }
 }
 
@@ -134,9 +157,17 @@ where
     T: Traversable<Visitor, Context, S, E> + HList,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
-        self.head.for_each(visitor, state, env, context);
-        self.tail.for_each(visitor, state, env, context);
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool {
+        let mut result = false;
+        result |= self.head.for_each(visitor, state, env, context);
+        result |= self.tail.for_each(visitor, state, env, context);
+        result
     }
 
     fn search(

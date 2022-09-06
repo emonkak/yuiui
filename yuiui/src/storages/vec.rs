@@ -129,40 +129,50 @@ where
         self.active.len()
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
         if self.dirty || mode.is_propagatable() {
+            let mut has_changed = false;
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        node.commit(mode, state, env, context);
+                        has_changed |= node.commit(mode, state, env, context);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        node.commit(mode, state, env, context);
+                        has_changed |= node.commit(mode, state, env, context);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        node.commit(CommitMode::Unmount, state, env, context);
+                        has_changed |= node.commit(CommitMode::Unmount, state, env, context);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        node.commit(mode, state, env, context);
+                        has_changed |= node.commit(mode, state, env, context);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
-                            node.commit(CommitMode::Mount, state, env, context);
+                            has_changed |= node.commit(CommitMode::Mount, state, env, context);
                             self.active.push(node);
                         }
                     }
                 }
             }
             self.dirty = false;
+            has_changed
+        } else {
+            false
         }
     }
 }
@@ -176,10 +186,18 @@ where
     Context: IdContext,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool {
+        let mut result = false;
         for node in &mut self.active {
-            node.for_each(visitor, state, env, context);
+            result |= node.for_each(visitor, state, env, context);
         }
+        result
     }
 
     fn search(

@@ -1,3 +1,4 @@
+mod batch_visitor;
 mod commit_visitor;
 mod downward_event_visitor;
 mod local_event_visitor;
@@ -12,11 +13,12 @@ use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, HasEvent};
-use crate::id::{ComponentIndex, Id, IdPath};
+use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::State;
 use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
 
+use batch_visitor::BatchVisitor;
 use commit_visitor::CommitVisitor;
 use downward_event_visitor::DownwardEventVisitor;
 use local_event_visitor::LocalEventVisitor;
@@ -26,6 +28,8 @@ use upward_event_visitor::UpwardEventVisitor;
 pub trait ViewNodeSeq<S: State, E>:
     Traversable<CommitVisitor, EffectContext<S>, S, E>
     + Traversable<UpdateVisitor, RenderContext, S, E>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext<S>, S, E>
+    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, E>
     + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, S, E>
     + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext<S>, S, E>
     + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, S, E>
@@ -34,7 +38,13 @@ pub trait ViewNodeSeq<S: State, E>:
 
     fn len(&self) -> usize;
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>);
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool;
 }
 
 pub struct ViewNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
@@ -109,35 +119,46 @@ where
 
     pub fn update_subtree(
         &mut self,
-        id_path: &IdPath,
-        component_index: ComponentIndex,
+        id_tree: &IdTree<ComponentIndex>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
-    ) -> bool {
-        let mut visitor = UpdateVisitor::new(component_index);
-        self.search(id_path, &mut visitor, state, env, context);
-        visitor.result()
+    ) -> Vec<(IdPathBuf, ComponentIndex)> {
+        let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
+            UpdateVisitor::new(component_index)
+        });
+        visitor.visit(self, state, env, context);
+        visitor.into_changed_nodes()
     }
 
-    pub fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    pub fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
             visitor.visit(self, state, env, context);
             self.dirty = false;
+            true
+        } else {
+            false
         }
     }
 
     pub fn commit_subtree(
         &mut self,
-        id_path: &IdPath,
-        component_index: ComponentIndex,
+        id_tree: &IdTree<ComponentIndex>,
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) {
-        let mut visitor = CommitVisitor::new(CommitMode::Update, component_index);
-        self.search(id_path, &mut visitor, state, env, context);
+    ) -> bool {
+        let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
+            CommitVisitor::new(CommitMode::Update, component_index)
+        });
+        visitor.visit(self, state, env, context)
     }
 
     pub fn downward_event(
@@ -149,8 +170,7 @@ where
         context: &mut EffectContext<S>,
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
-        self.search(id_path, &mut visitor, state, env, context);
-        visitor.result()
+        self.search(id_path, &mut visitor, state, env, context)
     }
 
     pub fn upward_event(
@@ -162,8 +182,7 @@ where
         context: &mut EffectContext<S>,
     ) -> bool {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
-        visitor.visit(self, state, env, context);
-        visitor.result()
+        visitor.visit(self, state, env, context)
     }
 
     pub fn local_event(
@@ -192,8 +211,7 @@ where
         Context: IdContext,
     {
         if self.id == id_path.last().copied().unwrap_or(Id::ROOT) {
-            visitor.visit(self, state, env, context);
-            true
+            visitor.visit(self, state, env, context)
         } else if self.id == id_path.first().copied().unwrap_or(Id::ROOT) {
             debug_assert!(id_path.len() > 0);
             let id_path = &id_path[1..];
@@ -232,10 +250,17 @@ where
         1
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
         context.begin_view(self.id);
-        self.commit(mode, state, env, context);
+        let has_changed = self.commit(mode, state, env, context);
         context.end_view();
+        has_changed
     }
 }
 
@@ -248,10 +273,17 @@ where
     Context: IdContext,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool {
         context.begin_view(self.id);
-        visitor.visit(self, state, env, context);
+        let result = visitor.visit(self, state, env, context);
         context.end_view();
+        result
     }
 
     fn search(

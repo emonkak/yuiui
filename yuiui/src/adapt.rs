@@ -140,11 +140,18 @@ where
         self.target.len()
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        self.target.commit(mode, sub_state, env, &mut sub_context);
+        let has_changed = self.target.commit(mode, sub_state, env, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
+        has_changed
     }
 }
 
@@ -153,9 +160,15 @@ where
     T: Traversable<Visitor, RenderContext, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut RenderContext) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
         let sub_state = (self.selector_fn)(state);
-        self.target.for_each(visitor, sub_state, env, context);
+        self.target.for_each(visitor, sub_state, env, context)
     }
 
     fn search(
@@ -185,12 +198,14 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) {
+    ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        self.target
+        let result = self
+            .target
             .for_each(visitor, sub_state, env, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
+        result
     }
 
     fn search(

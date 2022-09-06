@@ -13,20 +13,11 @@ use super::{ViewNode, ViewNodeState};
 pub struct UpwardEventVisitor<'a> {
     event: &'a dyn Any,
     id_path: &'a IdPath,
-    result: bool,
 }
 
 impl<'a> UpwardEventVisitor<'a> {
     pub fn new(event: &'a dyn Any, id_path: &'a IdPath) -> Self {
-        Self {
-            event,
-            id_path,
-            result: false,
-        }
-    }
-
-    pub fn result(&self) -> bool {
-        self.result
+        Self { event, id_path }
     }
 }
 
@@ -43,13 +34,14 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) {
+    ) -> bool {
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+                let mut captured = false;
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
-                    node.children.search(&[*head], self, state, env, context);
+                    captured |= node.children.search(&[*head], self, state, env, context);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     let result = view.event(
@@ -61,10 +53,11 @@ where
                         env,
                     );
                     context.process_result(result);
-                    self.result = true;
+                    captured = true;
                 }
+                captured
             }
-            _ => {}
+            _ => false,
         }
     }
 }

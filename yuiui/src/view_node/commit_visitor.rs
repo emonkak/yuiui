@@ -37,8 +37,8 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) {
-        node.children.commit(self.mode, state, env, context);
+    ) -> bool {
+        let has_changed = node.children.commit(self.mode, state, env, context);
         node.state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut widget = view.build(&node.children, state, env);
@@ -147,5 +147,6 @@ where
             node.components
                 .commit(self.mode, component_index, state, env, context);
         }
+        has_changed
     }
 }

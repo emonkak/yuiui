@@ -62,12 +62,21 @@ where
         N
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
                 node.commit(mode, state, env, context);
             }
             self.dirty = false;
+            true
+        } else {
+            false
         }
     }
 }
@@ -78,10 +87,18 @@ where
     T: Traversable<Visitor, Context, S, E>,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool {
+        let mut result = false;
         for node in &mut self.nodes {
-            node.for_each(visitor, state, env, context);
+            result |= node.for_each(visitor, state, env, context);
         }
+        result
     }
 
     fn search(

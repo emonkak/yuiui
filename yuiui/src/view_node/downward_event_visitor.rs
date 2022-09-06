@@ -11,19 +11,11 @@ use super::{ViewNode, ViewNodeState};
 
 pub struct DownwardEventVisitor<'a> {
     event: &'a dyn Any,
-    result: bool,
 }
 
 impl<'a> DownwardEventVisitor<'a> {
     pub fn new(event: &'a dyn Any) -> Self {
-        Self {
-            event,
-            result: false,
-        }
-    }
-
-    pub fn result(&self) -> bool {
-        self.result
+        Self { event }
     }
 }
 
@@ -40,12 +32,13 @@ where
         state: &S,
         env: &E,
         context: &mut EffectContext<S>,
-    ) {
+    ) -> bool {
         context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+                let mut captured = false;
                 if node.event_mask.contains(&self.event.type_id()) {
-                    node.children.for_each(self, state, env, context);
+                    captured |= node.children.for_each(self, state, env, context);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     let result = view.event(
@@ -57,10 +50,11 @@ where
                         env,
                     );
                     context.process_result(result);
-                    self.result = true;
+                    captured = true;
                 }
+                captured
             }
-            _ => {}
+            _ => false,
         }
     }
 }

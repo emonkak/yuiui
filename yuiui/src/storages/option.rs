@@ -89,27 +89,35 @@ where
         }
     }
 
-    fn commit(&mut self, mode: CommitMode, state: &S, env: &E, context: &mut EffectContext<S>) {
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut EffectContext<S>,
+    ) -> bool {
+        let mut has_changed = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    node.commit(CommitMode::Unmount, state, env, context);
+                    has_changed |= node.commit(CommitMode::Unmount, state, env, context);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    node.commit(CommitMode::Mount, state, env, context);
+                    has_changed |= node.commit(CommitMode::Mount, state, env, context);
                 }
             }
             self.flags = RenderFlags::COMMITED;
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                node.commit(mode, state, env, context);
+                has_changed |= node.commit(mode, state, env, context);
             }
             self.flags = RenderFlags::COMMITED;
         }
         self.flags |= RenderFlags::COMMITED;
+        has_changed
     }
 }
 
@@ -118,9 +126,17 @@ where
     T: Traversable<Visitor, Context, S, E>,
     S: State,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, state: &S, env: &E, context: &mut Context) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut Context,
+    ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, state, env, context);
+            node.for_each(visitor, state, env, context)
+        } else {
+            false
         }
     }
 
