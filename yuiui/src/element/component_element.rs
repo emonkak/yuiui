@@ -16,10 +16,6 @@ impl<C> ComponentElement<C> {
     pub const fn new(component: C) -> ComponentElement<C> {
         Self { component }
     }
-
-    pub fn memoize(self) -> MemoizedElement<C> {
-        MemoizedElement::new(self)
-    }
 }
 
 impl<C, S, E> Element<S, E> for ComponentElement<C>
@@ -106,76 +102,5 @@ where
         f.debug_struct("ComponentElement")
             .field("component", &self.component)
             .finish()
-    }
-}
-
-pub struct MemoizedElement<C> {
-    element: ComponentElement<C>,
-}
-
-impl<C> MemoizedElement<C> {
-    pub const fn new(element: ComponentElement<C>) -> Self {
-        Self { element }
-    }
-}
-
-impl<C, S, E> Element<S, E> for MemoizedElement<C>
-where
-    C: Component<S, E> + PartialEq,
-    S: State,
-{
-    type View = <C::Element as Element<S, E>>::View;
-
-    type Components = (
-        ComponentNode<C, S, E>,
-        <C::Element as Element<S, E>>::Components,
-    );
-
-    fn render(
-        self,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
-        Element::render(self.element, state, env, context)
-    }
-
-    fn update(
-        self,
-        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
-        let (head_node, _) = scope.components;
-        if head_node.component != self.element.component {
-            Element::update(self.element, scope, state, env, context)
-        } else {
-            head_node.pending_component = Some(self.element.component);
-            false
-        }
-    }
-}
-
-impl<C, S, E> ElementSeq<S, E> for MemoizedElement<C>
-where
-    C: Component<S, E> + PartialEq,
-    S: State,
-{
-    type Storage =
-        ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
-
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        Element::render(self, state, env, context)
-    }
-
-    fn update(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        env: &E,
-        context: &mut RenderContext,
-    ) -> bool {
-        Element::update(self, storage.scope(), state, env, context)
     }
 }
