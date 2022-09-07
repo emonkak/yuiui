@@ -55,7 +55,7 @@ where
             }
             (CommitMode::Mount, ViewNodeState::Prepared(view, mut widget)) => {
                 let result = view.lifecycle(
-                    Lifecycle::Remounted,
+                    Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
                     context.id_path(),
@@ -67,7 +67,7 @@ where
             }
             (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut widget)) => {
                 let result = view.lifecycle(
-                    Lifecycle::Remounted,
+                    Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
                     context.id_path(),

@@ -61,7 +61,7 @@ where
         _backend: &Backend<S>,
     ) -> EventResult<S> {
         match lifecycle {
-            Lifecycle::Mounted | Lifecycle::Remounted => {
+            Lifecycle::Mounted => {
                 widget.show();
             }
             Lifecycle::Updated(old_view) => {
