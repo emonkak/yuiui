@@ -2,8 +2,6 @@ use std::any::{Any, TypeId};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::cancellation_token::CancellationToken;
-use crate::command::Command;
 use crate::effect::Effect;
 use crate::state::State;
 
@@ -130,12 +128,6 @@ impl<S: State> EventResult<S> {
     }
 }
 
-impl<S: State> From<Vec<Effect<S>>> for EventResult<S> {
-    fn from(effects: Vec<Effect<S>>) -> Self {
-        EventResult { effects }
-    }
-}
-
 impl<S: State> From<Effect<S>> for EventResult<S> {
     fn from(effect: Effect<S>) -> Self {
         EventResult {
@@ -144,18 +136,8 @@ impl<S: State> From<Effect<S>> for EventResult<S> {
     }
 }
 
-impl<S: State> From<Command<S>> for EventResult<S> {
-    fn from(command: Command<S>) -> Self {
-        EventResult {
-            effects: vec![Effect::Command(command, None)],
-        }
-    }
-}
-
-impl<S: State> From<(Command<S>, CancellationToken)> for EventResult<S> {
-    fn from((command, cancellation_token): (Command<S>, CancellationToken)) -> Self {
-        EventResult {
-            effects: vec![Effect::Command(command, Some(cancellation_token))],
-        }
+impl<S: State> From<Vec<Effect<S>>> for EventResult<S> {
+    fn from(effects: Vec<Effect<S>>) -> Self {
+        EventResult { effects }
     }
 }

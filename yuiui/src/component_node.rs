@@ -5,6 +5,7 @@ use std::mem;
 use crate::component::Component;
 use crate::context::CommitContext;
 use crate::event::Lifecycle;
+use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view_node::CommitMode;
 
@@ -27,13 +28,14 @@ where
         }
     }
 
-    pub(crate) fn render(&self, state: &S, env: &E) -> C::Element {
-        self.component.render(state, env)
+    pub(crate) fn render(&self) -> C::Element {
+        self.component.render()
     }
 
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,
+        component_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut CommitContext<S>,
@@ -52,7 +54,7 @@ where
             }
             CommitMode::Unmount => self.component.lifecycle(Lifecycle::Unmounted, state, env),
         };
-        context.process_result(result);
+        context.process_result(result, component_index);
     }
 }
 

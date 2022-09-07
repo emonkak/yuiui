@@ -11,7 +11,7 @@ pub trait Component<S: State, E>: Sized {
         EventResult::nop()
     }
 
-    fn render(&self, state: &S, env: &E) -> Self::Element;
+    fn render(&self) -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -23,7 +23,7 @@ pub trait Component<S: State, E>: Sized {
 
 pub struct FunctionComponent<Props, El, S: State, E> {
     props: Props,
-    render: fn(&Props, &S, &E) -> El,
+    render: fn(&Props) -> El,
     lifecycle: Option<fn(&Props, Lifecycle<&Props>, &S, &E) -> EventResult<S>>,
 }
 
@@ -31,7 +31,7 @@ impl<Props, El, S, E> FunctionComponent<Props, El, S, E>
 where
     S: State,
 {
-    pub fn new(props: Props, render: fn(&Props, &S, &E) -> El) -> Self {
+    pub fn new(props: Props, render: fn(&Props) -> El) -> Self {
         Self {
             props,
             render,
@@ -64,8 +64,8 @@ where
         }
     }
 
-    fn render(&self, state: &S, env: &E) -> Self::Element {
-        (self.render)(&self.props, state, env)
+    fn render(&self) -> Self::Element {
+        (self.render)(&self.props)
     }
 }
 

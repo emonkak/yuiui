@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::context::{CommitContext, RenderContext};
-use crate::effect::{Effect, EffectPath};
+use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
-use crate::id::{ComponentIndex, IdPathBuf, IdTree};
+use crate::id::{ComponentIndex, Id, IdPathBuf, IdTree};
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
@@ -16,9 +16,10 @@ use crate::view_node::{CommitMode, ViewNode};
 pub struct RenderLoop<El: Element<S, E>, S: State, E> {
     node: ViewNode<El::View, El::Components, S, E>,
     render_context: RenderContext,
-    effect_queue: VecDeque<(EffectPath, Effect<S>)>,
+    effect_queue: VecDeque<(IdPathBuf, ComponentIndex, Effect<S>)>,
     update_selections: BTreeMap<IdPathBuf, ComponentIndex>,
     commit_selections: BTreeMap<IdPathBuf, ComponentIndex>,
+    state_subscribers: BTreeMap<(Id, ComponentIndex), (IdPathBuf, ComponentIndex)>,
     is_mounted: bool,
 }
 
@@ -37,14 +38,15 @@ where
             effect_queue: VecDeque::new(),
             update_selections: BTreeMap::new(),
             commit_selections: BTreeMap::new(),
+            state_subscribers: BTreeMap::new(),
             is_mounted: false,
         }
     }
 
     pub fn run(&mut self, deadline: &impl Deadline, state: &mut S, env: &E) -> RenderFlow {
         loop {
-            while let Some((path, effect)) = self.effect_queue.pop_front() {
-                self.apply_effect(path, effect, state, env);
+            while let Some((id_path, component_index, effect)) = self.effect_queue.pop_front() {
+                self.apply_effect(id_path, component_index, effect, state, env);
                 if deadline.did_timeout() {
                     return self.render_status();
                 }
@@ -93,8 +95,14 @@ where
         }
     }
 
-    pub fn push_effect(&mut self, effect_path: EffectPath, effect: Effect<S>) {
-        self.effect_queue.push_back((effect_path, effect));
+    pub fn push_effect(
+        &mut self,
+        id_path: IdPathBuf,
+        component_index: ComponentIndex,
+        effect: Effect<S>,
+    ) {
+        self.effect_queue
+            .push_back((id_path, component_index, effect));
     }
 
     fn render_status(&self) -> RenderFlow {
@@ -109,68 +117,69 @@ where
         }
     }
 
-    fn apply_effect(&mut self, effect_path: EffectPath, effect: Effect<S>, state: &mut S, env: &E) {
+    fn apply_effect(
+        &mut self,
+        id_path: IdPathBuf,
+        component_index: ComponentIndex,
+        effect: Effect<S>,
+        state: &mut S,
+        env: &E,
+    ) {
         match effect {
             Effect::Message(message) => {
                 if state.reduce(message) {
-                    schedule(
-                        &mut self.update_selections,
-                        effect_path.state_id_path,
-                        effect_path.state_component_index,
-                    );
+                    for (id_path, component_index) in self.state_subscribers.values() {
+                        schedule(
+                            &mut self.update_selections,
+                            id_path.clone(),
+                            *component_index,
+                        );
+                    }
                 }
             }
             Effect::Mutation(mutation) => {
                 if mutation(state) {
-                    schedule(
-                        &mut self.update_selections,
-                        effect_path.state_id_path,
-                        effect_path.state_component_index,
-                    );
+                    for (id_path, component_index) in self.state_subscribers.values() {
+                        schedule(
+                            &mut self.update_selections,
+                            id_path.clone(),
+                            *component_index,
+                        );
+                    }
                 }
             }
             Effect::Command(command, cancellation_token) => {
-                env.invoke_command(effect_path, command, cancellation_token);
+                env.invoke_command(id_path, component_index, command, cancellation_token);
             }
             Effect::DownwardEvent(event) => {
                 let mut effect_context = CommitContext::new();
-                self.node.downward_event(
-                    &event,
-                    &effect_path.id_path,
-                    state,
-                    env,
-                    &mut effect_context,
-                );
+                self.node
+                    .downward_event(&event, &id_path, state, env, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
             }
             Effect::UpwardEvent(event) => {
                 let mut effect_context = CommitContext::new();
-                self.node.upward_event(
-                    &event,
-                    &effect_path.id_path,
-                    state,
-                    env,
-                    &mut effect_context,
-                );
+                self.node
+                    .upward_event(&event, &id_path, state, env, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
             }
             Effect::LocalEvent(event) => {
                 let mut effect_context = CommitContext::new();
-                self.node.local_event(
-                    &event,
-                    &effect_path.id_path,
-                    state,
-                    env,
-                    &mut effect_context,
-                );
+                self.node
+                    .local_event(&event, &id_path, state, env, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
             }
+            Effect::SubscribeState => {
+                let id = Id::from_bottom(&id_path);
+                self.state_subscribers
+                    .insert((id, component_index), (id_path, component_index));
+            }
+            Effect::UnsubscribeState => {
+                let id = Id::from_bottom(&id_path);
+                self.state_subscribers.remove(&(id, component_index));
+            }
             Effect::RequestUpdate => {
-                schedule(
-                    &mut self.update_selections,
-                    effect_path.id_path,
-                    effect_path.component_index,
-                );
+                schedule(&mut self.update_selections, id_path, component_index);
             }
         }
     }
@@ -202,7 +211,8 @@ where
 pub trait RenderLoopContext<S: State> {
     fn invoke_command(
         &self,
-        effect_path: EffectPath,
+        id_path: IdPathBuf,
+        component_index: ComponentIndex,
         command: Command<S>,
         cancellation_token: Option<CancellationToken>,
     );

@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::id::{ComponentIndex, IdPathBuf};
 use crate::state::State;
 
 pub enum Effect<S: State> {
@@ -15,6 +14,8 @@ pub enum Effect<S: State> {
     UpwardEvent(Box<dyn Any + Send>),
     LocalEvent(Box<dyn Any + Send>),
     RequestUpdate,
+    SubscribeState,
+    UnsubscribeState,
 }
 
 impl<S: State> Effect<S> {
@@ -47,6 +48,8 @@ impl<S: State> Effect<S> {
             Self::UpwardEvent(event) => Effect::UpwardEvent(event),
             Self::LocalEvent(event) => Effect::LocalEvent(event),
             Self::RequestUpdate => Effect::RequestUpdate,
+            Self::SubscribeState => Effect::SubscribeState,
+            Self::UnsubscribeState => Effect::UnsubscribeState,
         }
     }
 }
@@ -67,37 +70,9 @@ where
             Self::DownwardEvent(event) => f.debug_tuple("DownwardEvent").field(event).finish(),
             Self::UpwardEvent(event) => f.debug_tuple("UpwardEvent").field(event).finish(),
             Self::LocalEvent(event) => f.debug_tuple("LocalEvent").field(event).finish(),
+            Self::SubscribeState => f.write_str("SubscribeState"),
+            Self::UnsubscribeState => f.write_str("UnsubscribeState"),
             Self::RequestUpdate => f.write_str("RequestUpdate"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct EffectPath {
-    pub id_path: IdPathBuf,
-    pub component_index: ComponentIndex,
-    pub state_id_path: IdPathBuf,
-    pub state_component_index: ComponentIndex,
-}
-
-impl EffectPath {
-    pub const ROOT: Self = Self::new();
-
-    pub(crate) const fn new() -> Self {
-        Self {
-            id_path: IdPathBuf::new(),
-            component_index: 0,
-            state_id_path: IdPathBuf::new(),
-            state_component_index: 0,
-        }
-    }
-
-    pub(crate) fn new_sub_path(&self) -> Self {
-        Self {
-            id_path: self.id_path.clone(),
-            component_index: self.component_index,
-            state_id_path: self.id_path.clone(),
-            state_component_index: self.component_index,
         }
     }
 }

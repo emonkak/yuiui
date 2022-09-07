@@ -27,6 +27,7 @@ pub trait ComponentStack<S: State, E>: Sized {
         &mut self,
         mode: CommitMode,
         target_index: ComponentIndex,
+        current_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut CommitContext<S>,
@@ -61,7 +62,7 @@ where
             dirty: scope.dirty,
         };
         if target_index <= current_index {
-            let element = head.render(state, env);
+            let element = head.render();
             element.update(scope, state, env, context)
         } else {
             CS::update(scope, target_index, current_index + 1, state, env, context)
@@ -72,15 +73,17 @@ where
         &mut self,
         mode: CommitMode,
         target_index: ComponentIndex,
+        current_index: ComponentIndex,
         state: &S,
         env: &E,
         context: &mut CommitContext<S>,
     ) {
-        if target_index <= context.effect_path().component_index {
-            self.0.commit(mode, state, env, context);
+        if target_index <= current_index {
+            self.0.commit(mode, target_index, state, env, context);
+        } else {
+            self.1
+                .commit(mode, target_index, current_index + 1, state, env, context);
         }
-        context.increment_component_index();
-        self.1.commit(mode, target_index, state, env, context);
     }
 }
 
@@ -112,7 +115,8 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _component_index: ComponentIndex,
+        _target_index: ComponentIndex,
+        _current_index: ComponentIndex,
         _state: &S,
         _env: &E,
         _context: &mut CommitContext<S>,

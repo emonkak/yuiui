@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::component_stack::ComponentStack;
-use crate::context::CommitContext;
+use crate::context::{CommitContext, IdContext};
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
 use crate::state::State;
@@ -35,7 +35,6 @@ where
         env: &E,
         context: &mut CommitContext<S>,
     ) -> bool {
-        context.set_component_index(CS::LEN);
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let mut captured = false;
@@ -44,15 +43,9 @@ where
                     captured |= node.children.search(&[*head], self, state, env, context);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
-                    let result = view.event(
-                        event,
-                        widget,
-                        &node.children,
-                        context.effect_path(),
-                        state,
-                        env,
-                    );
-                    context.process_result(result);
+                    let result =
+                        view.event(event, widget, &node.children, context.id_path(), state, env);
+                    context.process_result(result, CS::LEN);
                     captured = true;
                 }
                 captured

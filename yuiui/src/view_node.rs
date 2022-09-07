@@ -25,28 +25,6 @@ use local_event_visitor::LocalEventVisitor;
 use update_visitor::UpdateVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
-pub trait ViewNodeSeq<S: State, E>:
-    Traversable<CommitVisitor, CommitContext<S>, S, E>
-    + Traversable<UpdateVisitor, RenderContext, S, E>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, CommitContext<S>, S, E>
-    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, E>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, CommitContext<S>, S, E>
-    + for<'a> Traversable<LocalEventVisitor<'a>, CommitContext<S>, S, E>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, CommitContext<S>, S, E>
-{
-    fn event_mask() -> &'static EventMask;
-
-    fn len(&self) -> usize;
-
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        env: &E,
-        context: &mut CommitContext<S>,
-    ) -> bool;
-}
-
 pub struct ViewNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
     pub(crate) id: Id,
     pub(crate) state: Option<ViewNodeState<V, V::Widget>>,
@@ -210,9 +188,9 @@ where
         Visitor: TraversableVisitor<Self, Context, S, E>,
         Context: IdContext,
     {
-        if self.id == id_path.last().copied().unwrap_or(Id::ROOT) {
+        if self.id == Id::from_top(id_path) {
             visitor.visit(self, state, env, context)
-        } else if self.id == id_path.first().copied().unwrap_or(Id::ROOT) {
+        } else if self.id == Id::from_bottom(id_path) {
             debug_assert!(id_path.len() > 0);
             let id_path = &id_path[1..];
             self.children.search(id_path, visitor, state, env, context)
@@ -220,6 +198,28 @@ where
             false
         }
     }
+}
+
+pub trait ViewNodeSeq<S: State, E>:
+    Traversable<CommitVisitor, CommitContext<S>, S, E>
+    + Traversable<UpdateVisitor, RenderContext, S, E>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, CommitContext<S>, S, E>
+    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, E>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, CommitContext<S>, S, E>
+    + for<'a> Traversable<LocalEventVisitor<'a>, CommitContext<S>, S, E>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, CommitContext<S>, S, E>
+{
+    fn event_mask() -> &'static EventMask;
+
+    fn len(&self) -> usize;
+
+    fn commit(
+        &mut self,
+        mode: CommitMode,
+        state: &S,
+        env: &E,
+        context: &mut CommitContext<S>,
+    ) -> bool;
 }
 
 impl<V, CS, S, E> ViewNodeSeq<S, E> for ViewNode<V, CS, S, E>

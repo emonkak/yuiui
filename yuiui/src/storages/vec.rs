@@ -208,7 +208,7 @@ where
         env: &E,
         context: &mut Context,
     ) -> bool {
-        let id = id_path.last().copied().unwrap_or(Id::ROOT);
+        let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
             node.search(id_path, visitor, state, env, context);

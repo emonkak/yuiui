@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::component_stack::ComponentStack;
-use crate::context::CommitContext;
+use crate::context::{CommitContext, IdContext};
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
@@ -46,11 +46,11 @@ where
                     Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
             }
             (CommitMode::Mount, ViewNodeState::Prepared(view, mut widget)) => {
@@ -58,11 +58,11 @@ where
                     Lifecycle::Remounted,
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
             }
             (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut widget)) => {
@@ -70,20 +70,20 @@ where
                     Lifecycle::Remounted,
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 let result = pending_view.lifecycle(
                     Lifecycle::Updated(&view),
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(pending_view, widget)
             }
             (CommitMode::Update, ViewNodeState::Uninitialized(_)) => {
@@ -94,11 +94,11 @@ where
                     Lifecycle::Updated(&view),
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut widget)) => {
@@ -106,11 +106,11 @@ where
                     Lifecycle::Updated(&view),
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(pending_view, widget)
             }
             (CommitMode::Unmount, ViewNodeState::Uninitialized(_)) => {
@@ -121,11 +121,11 @@ where
                     Lifecycle::Unmounted,
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
             }
             (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut widget)) => {
@@ -133,11 +133,11 @@ where
                     Lifecycle::Unmounted,
                     &mut widget,
                     &node.children,
-                    context.effect_path(),
+                    context.id_path(),
                     state,
                     env,
                 );
-                context.process_result(result);
+                context.process_result(result, CS::LEN);
                 ViewNodeState::Pending(view, pending_view, widget)
             }
         }
@@ -145,7 +145,7 @@ where
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
             node.components
-                .commit(self.mode, component_index, state, env, context);
+                .commit(self.mode, component_index, 0, state, env, context);
         }
         has_changed
     }

@@ -37,7 +37,7 @@ where
         context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, E> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.render(state, env);
+        let element = component_node.render();
         let view_node = element.render(state, env, context);
         ViewNode {
             id: view_node.id,
@@ -57,7 +57,7 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
-        let element = self.component.render(state, env);
+        let element = self.component.render();
         head_node.pending_component = Some(self.component);
         *scope.dirty = true;
         let scope = ViewNodeScope {

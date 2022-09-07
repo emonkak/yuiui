@@ -32,7 +32,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, E> {
-        let element = ComponentElement::new(AsComponent { inner: self });
+        let element = ComponentElement::new(AsComponent::new(self));
         Element::render(element, state, env, context)
     }
 
@@ -45,10 +45,10 @@ where
     ) -> bool {
         let (head_node, _) = scope.components;
         if head_node.component.inner.deps != self.deps {
-            let element = ComponentElement::new(AsComponent { inner: self });
+            let element = ComponentElement::new(AsComponent::new(self));
             Element::update(element, scope, state, env, context)
         } else {
-            head_node.pending_component = Some(AsComponent { inner: self });
+            head_node.pending_component = Some(AsComponent::new(self));
             false
         }
     }
@@ -82,6 +82,12 @@ pub struct AsComponent<T> {
     inner: T,
 }
 
+impl<T> AsComponent<T> {
+    fn new(inner: T) -> Self {
+        Self { inner }
+    }
+}
+
 impl<El, Deps, S, E> Component<S, E> for AsComponent<Memoize<El, Deps>>
 where
     El: Element<S, E>,
@@ -90,7 +96,7 @@ where
 {
     type Element = El;
 
-    fn render(&self, _state: &S, _env: &E) -> Self::Element {
+    fn render(&self) -> Self::Element {
         (self.inner.render)(&self.inner.deps)
     }
 }

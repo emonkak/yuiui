@@ -50,7 +50,6 @@ fn app() -> impl DebuggableElement<AppState, AppEnv> {
             label: "click me!".into(),
         })
         .el(),
-        Counter().el().adapt(|state: &AppState| &state.count),
     ])
 }
 
@@ -152,14 +151,7 @@ pub struct ButtonProps {
 pub fn Button<S: State, E>(
     props: ButtonProps,
 ) -> FunctionComponent<ButtonProps, impl DebuggableElement<S, E>, S, E> {
-    FunctionComponent::new(props, |props, _state, _env| {
+    FunctionComponent::new(props, |props| {
         Block::new().el_with(Text::new(props.label.clone()).el())
-    })
-}
-
-#[allow(non_snake_case)]
-pub fn Counter<E>() -> FunctionComponent<(), impl DebuggableElement<Data<i64>, E>, Data<i64>, E> {
-    FunctionComponent::new((), |_props, state, _env| {
-        Block::new().el_with(Text::new(format!("{}", state.value)).el())
     })
 }

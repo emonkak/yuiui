@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::effect::{Effect, EffectPath};
+use crate::effect::Effect;
 use crate::event::EventResult;
 use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf};
 use crate::state::State;
@@ -49,35 +49,23 @@ impl IdContext for RenderContext {
 }
 
 pub struct CommitContext<S: State> {
-    effect_path: EffectPath,
-    effects: Vec<(EffectPath, Effect<S>)>,
+    id_path: IdPathBuf,
+    effects: Vec<(IdPathBuf, ComponentIndex, Effect<S>)>,
 }
 
 impl<S: State> CommitContext<S> {
     pub fn new() -> Self {
         Self {
-            effect_path: EffectPath::new(),
+            id_path: IdPathBuf::new(),
             effects: Vec::new(),
         }
-    }
-
-    pub fn effect_path(&self) -> &EffectPath {
-        &self.effect_path
     }
 
     pub fn new_sub_context<SS: State>(&self) -> CommitContext<SS> {
         CommitContext {
-            effect_path: self.effect_path.new_sub_path(),
+            id_path: self.id_path.clone(),
             effects: Vec::new(),
         }
-    }
-
-    pub fn set_component_index(&mut self, component_index: ComponentIndex) {
-        self.effect_path.component_index = component_index;
-    }
-
-    pub fn increment_component_index(&mut self) {
-        self.effect_path.component_index += 1;
     }
 
     pub fn merge_sub_context<F, SS>(&mut self, sub_context: CommitContext<SS>, f: &Arc<F>)
@@ -85,40 +73,36 @@ impl<S: State> CommitContext<S> {
         F: Fn(&S) -> &SS + Sync + Send + 'static,
         SS: State,
     {
-        assert!(sub_context
-            .effect_path
-            .id_path
-            .starts_with(&self.effect_path.id_path));
+        assert!(sub_context.id_path.starts_with(&self.id_path));
         let sub_effects = sub_context
             .effects
             .into_iter()
-            .map(|(effect_path, effect)| (effect_path, effect.lift(f)));
+            .map(|(id_path, component_index, effect)| (id_path, component_index, effect.lift(f)));
         self.effects.extend(sub_effects);
     }
 
-    pub fn process_result(&mut self, result: EventResult<S>) {
+    pub fn process_result(&mut self, result: EventResult<S>, component_index: ComponentIndex) {
         for effect in result.into_effects() {
-            let effect_path = self.effect_path.clone();
-            self.effects.push((effect_path, effect));
+            self.effects
+                .push((self.id_path.clone(), component_index, effect));
         }
     }
 
-    pub fn into_effects(self) -> Vec<(EffectPath, Effect<S>)> {
+    pub fn into_effects(self) -> Vec<(IdPathBuf, ComponentIndex, Effect<S>)> {
         self.effects
     }
 }
 
 impl<S: State> IdContext for CommitContext<S> {
     fn id_path(&self) -> &IdPath {
-        &self.effect_path.id_path
+        &self.id_path
     }
 
     fn begin_view(&mut self, id: Id) {
-        self.effect_path.id_path.push(id);
-        self.effect_path.component_index = 0;
+        self.id_path.push(id);
     }
 
     fn end_view(&mut self) -> Id {
-        self.effect_path.id_path.pop().unwrap()
+        self.id_path.pop().unwrap()
     }
 }
