@@ -1,12 +1,19 @@
-mod component_element;
-mod view_element;
+mod adapt;
+mod component;
+mod connect;
+mod env;
+mod memoize;
+mod view;
 
-pub use component_element::ComponentElement;
-pub use view_element::ViewElement;
+pub use adapt::Adapt;
+pub use component::ComponentElement;
+pub use connect::Connect;
+pub use env::{Consume, Provide};
+pub use memoize::Memoize;
+pub use view::ViewElement;
 
 use std::fmt;
 
-use crate::adapt::Adapt;
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::state::State;
@@ -39,6 +46,14 @@ pub trait Element<S: State, E> {
         F: Fn(&OriginState) -> &S + Sync + Send + 'static,
     {
         Adapt::new(self, f.into())
+    }
+
+    fn provide<F, T>(self, value: T) -> Provide<Self, T>
+    where
+        Self: Sized,
+        T: 'static,
+    {
+        Provide::new(self, value)
     }
 }
 

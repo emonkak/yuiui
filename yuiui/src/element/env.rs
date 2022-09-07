@@ -3,9 +3,10 @@ use std::rc::Rc;
 
 use crate::component::Component;
 use crate::context::RenderContext;
-use crate::element::{ComponentElement, Element, ElementSeq};
 use crate::state::State;
 use crate::view_node::{ViewNode, ViewNodeScope};
+
+use super::{ComponentElement, Element, ElementSeq};
 
 pub struct Provide<El, T> {
     element: El,
@@ -58,8 +59,7 @@ where
     T: 'static,
     S: State,
 {
-    type Storage =
-        ViewNode<El::View, El::Components, S, E>;
+    type Storage = ViewNode<El::View, El::Components, S, E>;
 
     fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         self.render(state, env, context)

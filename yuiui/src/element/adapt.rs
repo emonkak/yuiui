@@ -4,13 +4,14 @@ use std::sync::Arc;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
-use crate::element::{Element, ElementSeq};
 use crate::event::{EventMask, EventResult, HasEvent, Lifecycle};
 use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 use crate::traversable::Traversable;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeScope, ViewNodeSeq};
+
+use super::{Element, ElementSeq};
 
 pub struct Adapt<T, F, SS> {
     target: T,

@@ -2,11 +2,12 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::context::RenderContext;
-use crate::element::{ComponentElement, Element, ElementSeq};
 use crate::event::{EventResult, Lifecycle};
 use crate::state::State;
 use crate::view_node::{ViewNode, ViewNodeScope};
 use crate::Effect;
+
+use super::{ComponentElement, Element, ElementSeq};
 
 pub struct Connect<El, S> {
     render: fn(&S) -> El,

@@ -40,14 +40,15 @@ impl RenderContext {
     pub fn get_env<T: 'static>(&self) -> Option<&T> {
         for (_, env) in self.env_stack.iter().rev() {
             if let Some(value) = env.downcast_ref() {
-                return Some(value)
+                return Some(value);
             }
         }
         None
     }
 
     pub fn push_env(&mut self, env: Rc<dyn Any>) {
-        self.env_stack.push((Id::from_bottom(self.id_path.as_slice()), env))
+        self.env_stack
+            .push((Id::from_bottom(self.id_path.as_slice()), env))
     }
 }
 

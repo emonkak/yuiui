@@ -1,9 +1,10 @@
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
-use crate::element::{ComponentElement, Element, ElementSeq};
 use crate::state::State;
 use crate::view_node::{ViewNode, ViewNodeScope};
+
+use super::{ComponentElement, Element, ElementSeq};
 
 pub struct Memoize<El, Deps> {
     render: fn(&Deps) -> El,
