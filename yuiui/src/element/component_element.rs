@@ -38,20 +38,21 @@ where
     ) -> ViewNode<Self::View, Self::Components, S, E> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.render();
-        let view_node = element.render(state, env, context);
+        let node = element.render(state, env, context);
         ViewNode {
-            id: view_node.id,
-            state: view_node.state,
-            children: view_node.children,
-            components: (component_node, view_node.components),
-            event_mask: view_node.event_mask,
+            id: node.id,
+            state: node.state,
+            children: node.children,
+            components: (component_node, node.components),
+            env: node.env,
+            event_mask: node.event_mask,
             dirty: true,
         }
     }
 
     fn update(
         self,
-        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -60,14 +61,15 @@ where
         let element = self.component.render();
         head_node.pending_component = Some(self.component);
         *scope.dirty = true;
-        let scope = ViewNodeScope {
+        let mut scope = ViewNodeScope {
             id: scope.id,
             state: scope.state,
             children: scope.children,
             components: tail_nodes,
+            env: scope.env,
             dirty: scope.dirty,
         };
-        element.update(scope, state, env, context)
+        element.update(&mut scope, state, env, context)
     }
 }
 
@@ -90,7 +92,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, env, context)
     }
 }
 

@@ -54,16 +54,17 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = scope.components;
-        let scope = ViewNodeScope {
+        let mut scope = ViewNodeScope {
             id: scope.id,
             state: scope.state,
             children: scope.children,
             components: tail,
+            env: scope.env,
             dirty: scope.dirty,
         };
         if target_index <= current_index {
             let element = head.render();
-            element.update(scope, state, env, context)
+            element.update(&mut scope, state, env, context)
         } else {
             CS::update(scope, target_index, current_index + 1, state, env, context)
         }

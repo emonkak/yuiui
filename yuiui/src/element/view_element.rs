@@ -48,7 +48,7 @@ where
 
     fn update(
         self,
-        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
@@ -86,7 +86,7 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, env, context)
     }
 }
 

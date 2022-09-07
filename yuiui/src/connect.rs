@@ -10,14 +10,14 @@ use crate::Effect;
 
 pub struct Connect<El, S> {
     render: fn(&S) -> El,
-    state_type: PhantomData<S>,
+    _phantom: PhantomData<S>,
 }
 
 impl<El, S> Connect<El, S> {
     pub const fn new(render: fn(&S) -> El) -> ComponentElement<Self> {
         let connect = Self {
             render,
-            state_type: PhantomData,
+            _phantom: PhantomData,
         };
         ComponentElement::new(connect)
     }
@@ -27,7 +27,7 @@ impl<El, S> Clone for Connect<El, S> {
     fn clone(&self) -> Self {
         Self {
             render: self.render.clone(),
-            state_type: PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
@@ -78,18 +78,18 @@ where
         context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, E> {
         let element = (self.inner.render)(state);
-        Element::render(element, state, env, context)
+        element.render(state, env, context)
     }
 
     fn update(
         self,
-        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
         let element = (self.inner.render)(state);
-        Element::update(element, scope, state, env, context)
+        element.update(scope, state, env, context)
     }
 }
 
@@ -111,6 +111,6 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, env, context)
     }
 }

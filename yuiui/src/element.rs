@@ -27,7 +27,7 @@ pub trait Element<S: State, E> {
 
     fn update(
         self,
-        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,

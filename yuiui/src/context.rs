@@ -1,3 +1,5 @@
+use std::any::Any;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::effect::Effect;
@@ -17,6 +19,7 @@ pub trait IdContext {
 pub struct RenderContext {
     id_path: IdPathBuf,
     id_counter: u64,
+    env_stack: Vec<(Id, Rc<dyn Any>)>,
 }
 
 impl RenderContext {
@@ -24,6 +27,7 @@ impl RenderContext {
         Self {
             id_path: IdPathBuf::new(),
             id_counter: 0,
+            env_stack: Vec::new(),
         }
     }
 
@@ -31,6 +35,19 @@ impl RenderContext {
         let id = self.id_counter;
         self.id_counter += 1;
         Id(id)
+    }
+
+    pub fn get_env<T: 'static>(&self) -> Option<&T> {
+        for (_, env) in self.env_stack.iter().rev() {
+            if let Some(value) = env.downcast_ref() {
+                return Some(value)
+            }
+        }
+        None
+    }
+
+    pub fn push_env(&mut self, env: Rc<dyn Any>) {
+        self.env_stack.push((Id::from_bottom(self.id_path.as_slice()), env))
     }
 }
 
@@ -44,7 +61,17 @@ impl IdContext for RenderContext {
     }
 
     fn end_view(&mut self) -> Id {
-        self.id_path.pop().unwrap()
+        let previous_id = self.id_path.pop().unwrap();
+
+        while let Some((id, _)) = self.env_stack.last() {
+            if *id == previous_id {
+                self.env_stack.pop();
+            } else {
+                break;
+            }
+        }
+
+        previous_id
     }
 }
 

@@ -7,6 +7,7 @@ mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
+use std::rc::Rc;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
@@ -30,6 +31,7 @@ pub struct ViewNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State,
     pub(crate) state: Option<ViewNodeState<V, V::Widget>>,
     pub(crate) children: <V::Children as ElementSeq<S, E>>::Storage,
     pub(crate) components: CS,
+    pub(crate) env: Option<Rc<dyn Any>>,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
@@ -51,6 +53,7 @@ where
             state: Some(ViewNodeState::Uninitialized(view)),
             children,
             components,
+            env: None,
             event_mask: <V::Children as ElementSeq<S, E>>::Storage::event_mask(),
             dirty: true,
         }
@@ -62,6 +65,7 @@ where
             state: &mut self.state,
             children: &mut self.children,
             components: &mut self.components,
+            env: &mut self.env,
             dirty: &mut self.dirty,
         }
     }
@@ -200,6 +204,15 @@ where
     }
 }
 
+pub struct ViewNodeScope<'a, V: View<S, E>, CS, S: State, E> {
+    pub(crate) id: Id,
+    pub(crate) state: &'a mut Option<ViewNodeState<V, V::Widget>>,
+    pub(crate) children: &'a mut <V::Children as ElementSeq<S, E>>::Storage,
+    pub(crate) components: &'a mut CS,
+    pub(crate) env: &'a mut Option<Rc<dyn Any>>,
+    pub(crate) dirty: &'a mut bool,
+}
+
 pub trait ViewNodeSeq<S: State, E>:
     Traversable<CommitVisitor, CommitContext<S>, S, E>
     + Traversable<UpdateVisitor, RenderContext, S, E>
@@ -264,13 +277,12 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for ViewNode<V, CS, S, E>
+impl<V, CS, Visitor, S, E> Traversable<Visitor, RenderContext, S, E> for ViewNode<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, RenderContext, S, E>,
     CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<Self, Context, S, E>,
-    Context: IdContext,
+    Visitor: TraversableVisitor<Self, RenderContext, S, E>,
     S: State,
 {
     fn for_each(
@@ -278,7 +290,49 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut Context,
+        context: &mut RenderContext,
+    ) -> bool {
+        context.begin_view(self.id);
+        if let Some(env) = &self.env {
+            context.push_env(env.clone());
+        }
+        let result = visitor.visit(self, state, env, context);
+        context.end_view();
+        result
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut RenderContext,
+    ) -> bool {
+        context.begin_view(self.id);
+        if let Some(env) = &self.env {
+            context.push_env(env.clone());
+        }
+        let result = self.search(id_path, visitor, state, env, context);
+        context.end_view();
+        result
+    }
+}
+
+impl<V, CS, Visitor, S, E> Traversable<Visitor, CommitContext<S>, S, E> for ViewNode<V, CS, S, E>
+where
+    V: View<S, E>,
+    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, CommitContext<S>, S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    Visitor: TraversableVisitor<Self, CommitContext<S>, S, E>,
+    S: State,
+{
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut CommitContext<S>,
     ) -> bool {
         context.begin_view(self.id);
         let result = visitor.visit(self, state, env, context);
@@ -292,7 +346,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut Context,
+        context: &mut CommitContext<S>,
     ) -> bool {
         context.begin_view(self.id);
         let result = self.search(id_path, visitor, state, env, context);
@@ -319,14 +373,6 @@ where
             .field("dirty", &self.dirty)
             .finish()
     }
-}
-
-pub struct ViewNodeScope<'a, V: View<S, E>, CS, S: State, E> {
-    pub id: Id,
-    pub state: &'a mut Option<ViewNodeState<V, V::Widget>>,
-    pub children: &'a mut <V::Children as ElementSeq<S, E>>::Storage,
-    pub components: &'a mut CS,
-    pub dirty: &'a mut bool,
 }
 
 #[derive(Debug)]

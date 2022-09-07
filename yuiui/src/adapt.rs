@@ -63,6 +63,7 @@ where
                 .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone()))),
             children: Adapt::new(sub_node.children, self.selector_fn.clone()),
             components: Adapt::new(sub_node.components, self.selector_fn),
+            env: sub_node.env,
             event_mask: sub_node.event_mask,
             dirty: true,
         }
@@ -70,25 +71,26 @@ where
 
     fn update(
         self,
-        scope: ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_view_node_state = scope
+        let mut sub_node_state = scope
             .state
             .take()
             .map(|state| state.map_view(|view| view.target));
-        let sub_scope = ViewNodeScope {
+        let mut sub_scope = ViewNodeScope {
             id: scope.id,
-            state: &mut sub_view_node_state,
+            state: &mut sub_node_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
+            env: scope.env,
             dirty: scope.dirty,
         };
         let sub_state = (self.selector_fn)(state);
-        let has_changed = self.target.update(sub_scope, sub_state, env, context);
-        *scope.state = sub_view_node_state
+        let has_changed = self.target.update(&mut sub_scope, sub_state, env, context);
+        *scope.state = sub_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone())));
         has_changed
     }
@@ -266,16 +268,17 @@ where
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_view_node_state = scope
+        let mut sub_node_state = scope
             .state
             .take()
             .map(|state| state.map_view(|view| view.target));
         let selector_fn = &scope.components.selector_fn;
         let sub_scope = ViewNodeScope {
             id: scope.id,
-            state: &mut sub_view_node_state,
+            state: &mut sub_node_state,
             children: &mut scope.children.target,
             components: &mut scope.components.target,
+            env: scope.env,
             dirty: scope.dirty,
         };
         let sub_state = selector_fn(state);
@@ -287,7 +290,7 @@ where
             env,
             context,
         );
-        *scope.state = sub_view_node_state
+        *scope.state = sub_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, selector_fn.clone())));
         has_changed
     }

@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{CommitContext, IdContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
@@ -86,12 +86,12 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(node.scope(), state, env, context);
+                has_changed |= element.update(&mut node.scope(), state, env, context);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(node.scope(), state, env, context);
+                    has_changed |= element.update(&mut node.scope(), state, env, context);
                 } else {
                     let node = element.render(state, env, context);
                     storage.staging.push_back(node);
@@ -177,13 +177,12 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for VecStorage<V, CS, S, E>
+impl<V, CS, Visitor, S, E> Traversable<Visitor, RenderContext, S, E> for VecStorage<V, CS, S, E>
 where
     V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, Context, S, E>,
+    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, RenderContext, S, E>,
     CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, Context, S, E>,
-    Context: IdContext,
+    Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, RenderContext, S, E>,
     S: State,
 {
     fn for_each(
@@ -191,7 +190,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool {
         let mut result = false;
         for node in &mut self.active {
@@ -206,7 +205,48 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut Context,
+        context: &mut RenderContext,
+    ) -> bool {
+        let id = Id::from_bottom(id_path);
+        if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
+            let node = &mut self.active[index];
+            node.search(id_path, visitor, state, env, context);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<V, CS, Visitor, S, E> Traversable<Visitor, CommitContext<S>, S, E> for VecStorage<V, CS, S, E>
+where
+    V: View<S, E>,
+    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, CommitContext<S>, S, E>,
+    CS: ComponentStack<S, E, View = V>,
+    Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, CommitContext<S>, S, E>,
+    S: State,
+{
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut CommitContext<S>,
+    ) -> bool {
+        let mut result = false;
+        for node in &mut self.active {
+            result |= node.for_each(visitor, state, env, context);
+        }
+        result
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        env: &E,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
