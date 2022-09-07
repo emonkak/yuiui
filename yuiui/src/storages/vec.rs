@@ -87,12 +87,12 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(&mut node.scope(), state, backend, context);
+                has_changed |= element.update(&mut node.borrow_mut(), state, backend, context);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(&mut node.scope(), state, backend, context);
+                    has_changed |= element.update(&mut node.borrow_mut(), state, backend, context);
                 } else {
                     let node = element.render(state, backend, context);
                     storage.staging.push_back(node);

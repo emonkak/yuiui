@@ -7,7 +7,7 @@ use crate::element::Element;
 use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view::View;
-use crate::view_node::{CommitMode, ViewNodeScope};
+use crate::view_node::{CommitMode, ViewNodeMut};
 
 pub trait ComponentStack<S: State, B>: Sized {
     const LEN: usize;
@@ -15,7 +15,7 @@ pub trait ComponentStack<S: State, B>: Sized {
     type View: View<S, B>;
 
     fn update<'a>(
-        scope: ViewNodeScope<'a, Self::View, Self, S, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
@@ -46,28 +46,28 @@ where
     type View = <C::Element as Element<S, B>>::View;
 
     fn update<'a>(
-        scope: ViewNodeScope<'a, Self::View, Self, S, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let (head, tail) = scope.components;
-        let mut scope = ViewNodeScope {
-            id: scope.id,
-            state: scope.state,
-            children: scope.children,
+        let (head, tail) = node.components;
+        let mut node = ViewNodeMut {
+            id: node.id,
+            state: node.state,
+            children: node.children,
             components: tail,
-            env: scope.env,
-            dirty: scope.dirty,
+            env: node.env,
+            dirty: node.dirty,
         };
         if target_index <= current_index {
             let element = head.render(state, backend);
-            element.update(&mut scope, state, backend, context)
+            element.update(&mut node, state, backend, context)
         } else {
             CS::update(
-                scope,
+                node,
                 target_index,
                 current_index + 1,
                 state,
@@ -116,7 +116,7 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
     type View = V;
 
     fn update<'a>(
-        _scope: ViewNodeScope<'a, V, Self, S, B>,
+        _node: ViewNodeMut<'a, V, Self, S, B>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
         _state: &S,

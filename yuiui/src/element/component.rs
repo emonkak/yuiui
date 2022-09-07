@@ -4,7 +4,7 @@ use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
 use crate::state::State;
-use crate::view_node::{ViewNode, ViewNodeScope};
+use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
@@ -52,7 +52,7 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
+        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
@@ -61,7 +61,7 @@ where
         let element = self.component.render(state, backend);
         head_node.pending_component = Some(self.component);
         *scope.dirty = true;
-        let mut scope = ViewNodeScope {
+        let mut scope = ViewNodeMut {
             id: scope.id,
             state: scope.state,
             children: scope.children,
@@ -92,7 +92,7 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, backend, context)
+        self.update(&mut storage.borrow_mut(), state, backend, context)
     }
 }
 

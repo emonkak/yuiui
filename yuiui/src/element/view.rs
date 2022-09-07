@@ -4,7 +4,7 @@ use crate::component_stack::ComponentEnd;
 use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
-use crate::view_node::{ViewNode, ViewNodeScope, ViewNodeState};
+use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
 
 use super::{Element, ElementSeq};
 
@@ -46,7 +46,7 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
+        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
@@ -84,7 +84,7 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, backend, context)
+        self.update(&mut storage.borrow_mut(), state, backend, context)
     }
 }
 

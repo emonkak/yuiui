@@ -16,7 +16,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
-use crate::view_node::{ViewNode, ViewNodeScope, ViewNodeSeq};
+use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
 pub trait Element<S: State, B> {
     type View: View<S, B>;
@@ -32,7 +32,7 @@ pub trait Element<S: State, B> {
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
+        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,

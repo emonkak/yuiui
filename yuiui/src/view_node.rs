@@ -59,8 +59,8 @@ where
         }
     }
 
-    pub(crate) fn scope(&mut self) -> ViewNodeScope<V, CS, S, B> {
-        ViewNodeScope {
+    pub(crate) fn borrow_mut(&mut self) -> ViewNodeMut<V, CS, S, B> {
+        ViewNodeMut {
             id: self.id,
             state: &mut self.state,
             children: &mut self.children,
@@ -205,7 +205,7 @@ where
     }
 }
 
-pub struct ViewNodeScope<'a, V: View<S, B>, CS, S: State, B> {
+pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
     pub(crate) id: Id,
     pub(crate) state: &'a mut Option<ViewNodeState<V, V::Widget>>,
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, B>>::Storage,

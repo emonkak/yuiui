@@ -9,7 +9,7 @@ use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
 use crate::traversable::Traversable;
 use crate::view::View;
-use crate::view_node::{CommitMode, ViewNode, ViewNodeScope, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
 
 use super::{Element, ElementSeq};
 
@@ -72,28 +72,28 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_node_state = scope
+        let mut sub_node_state = node
             .state
             .take()
             .map(|state| state.map_view(|view| view.target));
-        let mut sub_scope = ViewNodeScope {
-            id: scope.id,
+        let mut sub_node = ViewNodeMut {
+            id: node.id,
             state: &mut sub_node_state,
-            children: &mut scope.children.target,
-            components: &mut scope.components.target,
-            env: scope.env,
-            dirty: scope.dirty,
+            children: &mut node.children.target,
+            components: &mut node.components.target,
+            env: node.env,
+            dirty: node.dirty,
         };
         let sub_state = (self.selector_fn)(state);
         let has_changed = self
             .target
-            .update(&mut sub_scope, sub_state, backend, context);
-        *scope.state = sub_node_state
+            .update(&mut sub_node, sub_state, backend, context);
+        *node.state = sub_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone())));
         has_changed
     }
@@ -266,36 +266,36 @@ where
     }
 
     fn update<'a>(
-        scope: ViewNodeScope<'a, Self::View, Self, S, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_node_state = scope
+        let mut sub_node_state = node
             .state
             .take()
             .map(|state| state.map_view(|view| view.target));
-        let selector_fn = &scope.components.selector_fn;
-        let sub_scope = ViewNodeScope {
-            id: scope.id,
+        let selector_fn = &node.components.selector_fn;
+        let sub_node = ViewNodeMut {
+            id: node.id,
             state: &mut sub_node_state,
-            children: &mut scope.children.target,
-            components: &mut scope.components.target,
-            env: scope.env,
-            dirty: scope.dirty,
+            children: &mut node.children.target,
+            components: &mut node.components.target,
+            env: node.env,
+            dirty: node.dirty,
         };
         let sub_state = selector_fn(state);
         let has_changed = T::update(
-            sub_scope,
+            sub_node,
             target_index,
             current_index,
             sub_state,
             backend,
             context,
         );
-        *scope.state = sub_node_state
+        *node.state = sub_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, selector_fn.clone())));
         has_changed
     }
