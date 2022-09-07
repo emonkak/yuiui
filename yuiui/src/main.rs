@@ -46,7 +46,7 @@ fn app() -> impl DebuggableElement<AppState, ()> {
         button(ButtonProps {
             label: "click me!".into(),
         }),
-        counter().adapt(|state: &AppState| &state.count),
+        counter().scope(|state: &AppState| &state.count),
     ])
 }
 

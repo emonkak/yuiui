@@ -13,13 +13,13 @@ use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
 
 use super::{Element, ElementSeq};
 
-pub struct Adapt<T, F, SS> {
+pub struct Scope<T, F, SS> {
     target: T,
     selector_fn: Arc<F>,
     sub_state: PhantomData<SS>,
 }
 
-impl<T, F, SS> Adapt<T, F, SS> {
+impl<T, F, SS> Scope<T, F, SS> {
     pub fn new(target: T, selector_fn: Arc<F>) -> Self {
         Self {
             target,
@@ -29,25 +29,25 @@ impl<T, F, SS> Adapt<T, F, SS> {
     }
 }
 
-impl<T, F, SS> fmt::Debug for Adapt<T, F, SS>
+impl<T, F, SS> fmt::Debug for Scope<T, F, SS>
 where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Adapt").field(&self.target).finish()
+        f.debug_tuple("Scope").field(&self.target).finish()
     }
 }
 
-impl<T, F, SS, S, B> Element<S, B> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> Element<S, B> for Scope<T, F, SS>
 where
     T: Element<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
 {
-    type View = Adapt<T::View, F, SS>;
+    type View = Scope<T::View, F, SS>;
 
-    type Components = Adapt<T::Components, F, SS>;
+    type Components = Scope<T::Components, F, SS>;
 
     fn render(
         self,
@@ -61,9 +61,9 @@ where
             id: sub_node.id,
             state: sub_node
                 .state
-                .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone()))),
-            children: Adapt::new(sub_node.children, self.selector_fn.clone()),
-            components: Adapt::new(sub_node.components, self.selector_fn),
+                .map(|state| state.map_view(|view| Scope::new(view, self.selector_fn.clone()))),
+            children: Scope::new(sub_node.children, self.selector_fn.clone()),
+            components: Scope::new(sub_node.components, self.selector_fn),
             env: sub_node.env,
             event_mask: sub_node.event_mask,
             dirty: true,
@@ -94,23 +94,23 @@ where
             .target
             .update(&mut sub_node, sub_state, backend, context);
         *node.state = sub_node_state
-            .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone())));
+            .map(|state| state.map_view(|view| Scope::new(view, self.selector_fn.clone())));
         has_changed
     }
 }
 
-impl<T, F, SS, S, B> ElementSeq<S, B> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> ElementSeq<S, B> for Scope<T, F, SS>
 where
     T: ElementSeq<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
 {
-    type Storage = Adapt<T::Storage, F, SS>;
+    type Storage = Scope<T::Storage, F, SS>;
 
     fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
         let sub_state = (self.selector_fn)(state);
-        Adapt::new(
+        Scope::new(
             self.target.render_children(sub_state, backend, context),
             self.selector_fn.clone(),
         )
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<T, F, SS, S, B> ViewNodeSeq<S, B> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> ViewNodeSeq<S, B> for Scope<T, F, SS>
 where
     T: ViewNodeSeq<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for Scope<T, F, SS>
 where
     T: Traversable<Visitor, RenderContext, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -191,7 +191,7 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for Scope<T, F, SS>
 where
     T: Traversable<Visitor, CommitContext<SS>, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -232,7 +232,7 @@ where
     }
 }
 
-impl<T, F, SS, S, B> ComponentStack<S, B> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> ComponentStack<S, B> for Scope<T, F, SS>
 where
     T: ComponentStack<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -241,7 +241,7 @@ where
 {
     const LEN: usize = T::LEN;
 
-    type View = Adapt<T::View, F, SS>;
+    type View = Scope<T::View, F, SS>;
 
     fn commit(
         &mut self,
@@ -296,12 +296,12 @@ where
             context,
         );
         *node.state = sub_node_state
-            .map(|state| state.map_view(|view| Adapt::new(view, selector_fn.clone())));
+            .map(|state| state.map_view(|view| Scope::new(view, selector_fn.clone())));
         has_changed
     }
 }
 
-impl<T, F, SS, S, B> View<S, B> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> View<S, B> for Scope<T, F, SS>
 where
     T: View<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
@@ -310,7 +310,7 @@ where
 {
     type Widget = T::Widget;
 
-    type Children = Adapt<T::Children, F, SS>;
+    type Children = Scope<T::Children, F, SS>;
 
     fn lifecycle(
         &self,
@@ -361,7 +361,7 @@ where
     }
 }
 
-impl<'event, T, F, SS> HasEvent<'event> for Adapt<T, F, SS>
+impl<'event, T, F, SS> HasEvent<'event> for Scope<T, F, SS>
 where
     T: HasEvent<'event>,
 {

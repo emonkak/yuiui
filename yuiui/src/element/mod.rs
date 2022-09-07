@@ -1,10 +1,10 @@
-mod adapt;
 mod component;
 mod env;
 mod memoize;
+mod scope;
 mod view;
 
-pub use adapt::Adapt;
+pub use scope::Scope;
 pub use component::ComponentElement;
 pub use env::{Consume, Provide};
 pub use memoize::Memoize;
@@ -38,12 +38,12 @@ pub trait Element<S: State, B> {
         context: &mut RenderContext,
     ) -> bool;
 
-    fn adapt<F, OriginState>(self, f: F) -> Adapt<Self, F, S>
+    fn scope<F, OriginState>(self, f: F) -> Scope<Self, F, S>
     where
         Self: Sized,
         F: Fn(&OriginState) -> &S + Sync + Send + 'static,
     {
-        Adapt::new(self, f.into())
+        Scope::new(self, f.into())
     }
 
     fn provide<F, T>(self, value: T) -> Provide<Self, T>
