@@ -9,15 +9,15 @@ use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view_node::CommitMode;
 
-pub struct ComponentNode<C: Component<S, E>, S: State, E> {
+pub struct ComponentNode<C: Component<S, B>, S: State, B> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
-    _phantom: PhantomData<(S, E)>,
+    _phantom: PhantomData<(S, B)>,
 }
 
-impl<C, S, E> ComponentNode<C, S, E>
+impl<C, S, B> ComponentNode<C, S, B>
 where
-    C: Component<S, E>,
+    C: Component<S, B>,
     S: State,
 {
     pub(crate) fn new(component: C) -> Self {
@@ -28,8 +28,8 @@ where
         }
     }
 
-    pub(crate) fn render(&self) -> C::Element {
-        self.component.render()
+    pub(crate) fn render(&self, state: &S, backend: &B) -> C::Element {
+        self.component.render(state, backend)
     }
 
     pub(crate) fn commit(
@@ -37,11 +37,11 @@ where
         mode: CommitMode,
         component_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) {
         let result = match mode {
-            CommitMode::Mount => self.component.lifecycle(Lifecycle::Mounted, state, env),
+            CommitMode::Mount => self.component.lifecycle(Lifecycle::Mounted, state, backend),
             CommitMode::Update => {
                 let old_component = mem::replace(
                     &mut self.component,
@@ -50,17 +50,19 @@ where
                         .expect("take pending component"),
                 );
                 self.component
-                    .lifecycle(Lifecycle::Updated(&old_component), state, env)
+                    .lifecycle(Lifecycle::Updated(&old_component), state, backend)
             }
-            CommitMode::Unmount => self.component.lifecycle(Lifecycle::Unmounted, state, env),
+            CommitMode::Unmount => self
+                .component
+                .lifecycle(Lifecycle::Unmounted, state, backend),
         };
         context.process_result(result, component_index);
     }
 }
 
-impl<C, S, E> fmt::Debug for ComponentNode<C, S, E>
+impl<C, S, B> fmt::Debug for ComponentNode<C, S, B>
 where
-    C: Component<S, E> + fmt::Debug,
+    C: Component<S, B> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

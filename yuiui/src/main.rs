@@ -11,9 +11,6 @@ struct AppState {
     count: Data<i64>,
 }
 
-#[derive(Debug)]
-struct AppEnv {}
-
 #[allow(dead_code)]
 #[derive(Debug)]
 enum AppMessage {
@@ -33,7 +30,7 @@ impl State for AppState {
     }
 }
 
-fn app() -> impl DebuggableElement<AppState, AppEnv> {
+fn app() -> impl DebuggableElement<AppState, ()> {
     Block::new().el_with(hlist![
         Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
         Block::new().el_with(Text::new("hello world!").el()),
@@ -57,10 +54,9 @@ fn main() {
     let state = AppState {
         count: Data::from(0),
     };
-    let env = AppEnv {};
     let element = app();
     let mut context = RenderContext::new();
-    let node = element.render(&state, &env, &mut context);
+    let node = element.render(&state, &(), &mut context);
     println!("{:#?}", node);
 }
 
@@ -78,7 +74,7 @@ impl Text {
     }
 }
 
-impl<S, E> View<S, E> for Text
+impl<S, B> View<S, B> for Text
 where
     S: State,
 {
@@ -88,9 +84,9 @@ where
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
         _state: &S,
-        _env: &E,
+        _backend: &B,
     ) -> Self::Widget {
         TextWidget
     }
@@ -116,9 +112,9 @@ impl<C> Block<C> {
     }
 }
 
-impl<C, S, E> View<S, E> for Block<C>
+impl<C, S, B> View<S, B> for Block<C>
 where
-    C: ElementSeq<S, E>,
+    C: ElementSeq<S, B>,
     S: State,
 {
     type Widget = BlockWidget;
@@ -127,9 +123,9 @@ where
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
         _state: &S,
-        _env: &E,
+        _backend: &B,
     ) -> Self::Widget {
         BlockWidget
     }
@@ -148,10 +144,10 @@ pub struct ButtonProps {
 }
 
 #[allow(non_snake_case)]
-pub fn Button<S: State, E>(
+pub fn Button<S: State, B>(
     props: ButtonProps,
-) -> FunctionComponent<ButtonProps, impl DebuggableElement<S, E>, S, E> {
-    FunctionComponent::new(props, |props| {
+) -> FunctionComponent<ButtonProps, impl DebuggableElement<S, B>, S, B> {
+    FunctionComponent::new(props, |props, _state, _backend| {
         Block::new().el_with(Text::new(props.label.clone()).el())
     })
 }

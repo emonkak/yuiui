@@ -13,20 +13,20 @@ use crate::traversable::{Traversable, TraversableVisitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
 
-pub struct VecStorage<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
-    active: Vec<ViewNode<V, CS, S, E>>,
-    staging: VecDeque<ViewNode<V, CS, S, E>>,
+pub struct VecStorage<V: View<S, B>, CS: ComponentStack<S, B, View = V>, S: State, B> {
+    active: Vec<ViewNode<V, CS, S, B>>,
+    staging: VecDeque<ViewNode<V, CS, S, B>>,
     new_len: usize,
     dirty: bool,
 }
 
-impl<V, CS, S, E> VecStorage<V, CS, S, E>
+impl<V, CS, S, B> VecStorage<V, CS, S, B>
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
-    fn new(active: Vec<ViewNode<V, CS, S, E>>) -> Self {
+    fn new(active: Vec<ViewNode<V, CS, S, B>>) -> Self {
         Self {
             staging: VecDeque::with_capacity(active.len()),
             new_len: active.len(),
@@ -36,12 +36,12 @@ where
     }
 }
 
-impl<V, CS, S, E> fmt::Debug for VecStorage<V, CS, S, E>
+impl<V, CS, S, B> fmt::Debug for VecStorage<V, CS, S, B>
 where
-    V: View<S, E> + fmt::Debug,
+    V: View<S, B> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Children as ElementSeq<S, E>>::Storage: fmt::Debug,
-    CS: ComponentStack<S, E, View = V> + fmt::Debug,
+    <V::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
+    CS: ComponentStack<S, B, View = V> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -54,17 +54,17 @@ where
     }
 }
 
-impl<El, S, E> ElementSeq<S, E> for Vec<El>
+impl<E, S, B> ElementSeq<S, B> for Vec<E>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     S: State,
 {
-    type Storage = VecStorage<El::View, El::Components, S, E>;
+    type Storage = VecStorage<E::View, E::Components, S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(state, env, context))
+                .map(|element| element.render(state, backend, context))
                 .collect(),
         )
     }
@@ -73,7 +73,7 @@ where
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
@@ -86,14 +86,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(&mut node.scope(), state, env, context);
+                has_changed |= element.update(&mut node.scope(), state, backend, context);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(&mut node.scope(), state, env, context);
+                    has_changed |= element.update(&mut node.scope(), state, backend, context);
                 } else {
-                    let node = element.render(state, env, context);
+                    let node = element.render(state, backend, context);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -106,10 +106,10 @@ where
     }
 }
 
-impl<V, CS, S, E> ViewNodeSeq<S, E> for VecStorage<V, CS, S, E>
+impl<V, CS, S, B> ViewNodeSeq<S, B> for VecStorage<V, CS, S, B>
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
     fn event_mask() -> &'static EventMask {
@@ -133,7 +133,7 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         if self.dirty || mode.is_propagatable() {
@@ -142,28 +142,28 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        has_changed |= node.commit(mode, state, env, context);
+                        has_changed |= node.commit(mode, state, backend, context);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        has_changed |= node.commit(mode, state, env, context);
+                        has_changed |= node.commit(mode, state, backend, context);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        has_changed |= node.commit(CommitMode::Unmount, state, env, context);
+                        has_changed |= node.commit(CommitMode::Unmount, state, backend, context);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        has_changed |= node.commit(mode, state, env, context);
+                        has_changed |= node.commit(mode, state, backend, context);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
-                            has_changed |= node.commit(CommitMode::Mount, state, env, context);
+                            has_changed |= node.commit(CommitMode::Mount, state, backend, context);
                             self.active.push(node);
                         }
                     }
@@ -177,24 +177,24 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, E> Traversable<Visitor, RenderContext, S, E> for VecStorage<V, CS, S, E>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for VecStorage<V, CS, S, B>
 where
-    V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, RenderContext, S, E>,
-    CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, RenderContext, S, E>,
+    V: View<S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, RenderContext, S, B>,
+    CS: ComponentStack<S, B, View = V>,
+    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, RenderContext, S, B>,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let mut result = false;
         for node in &mut self.active {
-            result |= node.for_each(visitor, state, env, context);
+            result |= node.for_each(visitor, state, backend, context);
         }
         result
     }
@@ -204,13 +204,13 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            node.search(id_path, visitor, state, env, context);
+            node.search(id_path, visitor, state, backend, context);
             true
         } else {
             false
@@ -218,24 +218,24 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, E> Traversable<Visitor, CommitContext<S>, S, E> for VecStorage<V, CS, S, E>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for VecStorage<V, CS, S, B>
 where
-    V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, CommitContext<S>, S, E>,
-    CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, E>, CommitContext<S>, S, E>,
+    V: View<S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, CommitContext<S>, S, B>,
+    CS: ComponentStack<S, B, View = V>,
+    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, CommitContext<S>, S, B>,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut result = false;
         for node in &mut self.active {
-            result |= node.for_each(visitor, state, env, context);
+            result |= node.for_each(visitor, state, backend, context);
         }
         result
     }
@@ -245,13 +245,13 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            node.search(id_path, visitor, state, env, context);
+            node.search(id_path, visitor, state, backend, context);
             true
         } else {
             false

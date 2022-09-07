@@ -5,19 +5,19 @@ use crate::event::{EventResult, HasEvent, Lifecycle};
 use crate::id::IdPath;
 use crate::state::State;
 
-pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
+pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
     type Widget;
 
-    type Children: ElementSeq<S, E>;
+    type Children: ElementSeq<S, B>;
 
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<&Self>,
         _widget: &mut Self::Widget,
-        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
         _id_path: &IdPath,
         _state: &S,
-        _env: &E,
+        _backend: &B,
     ) -> EventResult<S> {
         EventResult::nop()
     }
@@ -26,29 +26,29 @@ pub trait View<S: State, E>: Sized + for<'event> HasEvent<'event> {
         &self,
         _event: <Self as HasEvent>::Event,
         _widget: &mut Self::Widget,
-        _children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
         _id_path: &IdPath,
         _state: &S,
-        _env: &E,
+        _backend: &B,
     ) -> EventResult<S> {
         EventResult::nop()
     }
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        children: &<Self::Children as ElementSeq<S, B>>::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
     ) -> Self::Widget;
 
-    fn el(self) -> ViewElement<Self, S, E>
+    fn el(self) -> ViewElement<Self, S, B>
     where
-        Self: View<S, E, Children = HNil>,
+        Self: View<S, B, Children = HNil>,
     {
         ViewElement::new(self, HNil)
     }
 
-    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, E> {
+    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, B> {
         ViewElement::new(self, children)
     }
 }

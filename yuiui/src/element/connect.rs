@@ -9,13 +9,13 @@ use crate::Effect;
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Connect<El, S> {
-    render: fn(&S) -> El,
+pub struct Connect<E, S> {
+    render: fn(&S) -> E,
     _phantom: PhantomData<S>,
 }
 
-impl<El, S> Connect<El, S> {
-    pub const fn new(render: fn(&S) -> El) -> ComponentElement<Self> {
+impl<E, S> Connect<E, S> {
+    pub const fn new(render: fn(&S) -> E) -> ComponentElement<Self> {
         let connect = Self {
             render,
             _phantom: PhantomData,
@@ -24,7 +24,7 @@ impl<El, S> Connect<El, S> {
     }
 }
 
-impl<El, S> Clone for Connect<El, S> {
+impl<E, S> Clone for Connect<E, S> {
     fn clone(&self) -> Self {
         Self {
             render: self.render.clone(),
@@ -33,14 +33,14 @@ impl<El, S> Clone for Connect<El, S> {
     }
 }
 
-impl<El, S, E> Component<S, E> for Connect<El, S>
+impl<E, S, B> Component<S, B> for Connect<E, S>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     S: State,
 {
     type Element = AsElement<Self>;
 
-    fn lifecycle(&self, lifecycle: Lifecycle<&Self>, _state: &S, _env: &E) -> EventResult<S> {
+    fn lifecycle(&self, lifecycle: Lifecycle<&Self>, _state: &S, _backend: &B) -> EventResult<S> {
         match lifecycle {
             Lifecycle::Mounted => EventResult::from(Effect::SubscribeState),
             Lifecycle::Unmounted => EventResult::from(Effect::UnsubscribeState),
@@ -48,7 +48,7 @@ where
         }
     }
 
-    fn render(&self) -> Self::Element {
+    fn render(&self, _state: &S, _backend: &B) -> Self::Element {
         AsElement::new(self.clone())
     }
 }
@@ -63,55 +63,55 @@ impl<T> AsElement<T> {
     }
 }
 
-impl<El, S, E> Element<S, E> for AsElement<Connect<El, S>>
+impl<E, S, B> Element<S, B> for AsElement<Connect<E, S>>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     S: State,
 {
-    type View = El::View;
+    type View = E::View;
 
-    type Components = El::Components;
+    type Components = E::Components;
 
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
         let element = (self.inner.render)(state);
-        element.render(state, env, context)
+        element.render(state, backend, context)
     }
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let element = (self.inner.render)(state);
-        element.update(scope, state, env, context)
+        element.update(scope, state, backend, context)
     }
 }
 
-impl<El, S, E> ElementSeq<S, E> for AsElement<Connect<El, S>>
+impl<E, S, B> ElementSeq<S, B> for AsElement<Connect<E, S>>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     S: State,
 {
-    type Storage = ViewNode<El::View, El::Components, S, E>;
+    type Storage = ViewNode<E::View, E::Components, S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, env, context)
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, backend, context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, backend, context)
     }
 }

@@ -9,13 +9,18 @@ use crate::state::State;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
-impl<S, E> ElementSeq<S, E> for HNil
+impl<S, B> ElementSeq<S, B> for HNil
 where
     S: State,
 {
     type Storage = HNil;
 
-    fn render_children(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Storage {
+    fn render_children(
+        self,
+        _state: &S,
+        _backend: &B,
+        _context: &mut RenderContext,
+    ) -> Self::Storage {
         HNil
     }
 
@@ -23,14 +28,14 @@ where
         self,
         _nodes: &mut Self::Storage,
         _state: &S,
-        _env: &E,
+        _backend: &B,
         _context: &mut RenderContext,
     ) -> bool {
         false
     }
 }
 
-impl<S, E> ViewNodeSeq<S, E> for HNil
+impl<S, B> ViewNodeSeq<S, B> for HNil
 where
     S: State,
 {
@@ -47,14 +52,14 @@ where
         &mut self,
         _mode: CommitMode,
         _state: &S,
-        _env: &E,
+        _backend: &B,
         _context: &mut CommitContext<S>,
     ) -> bool {
         false
     }
 }
 
-impl<Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for HNil
+impl<Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for HNil
 where
     S: State,
 {
@@ -62,7 +67,7 @@ where
         &mut self,
         _visitor: &mut Visitor,
         _state: &S,
-        _env: &E,
+        _backend: &B,
         _context: &mut Context,
     ) -> bool {
         false
@@ -73,26 +78,26 @@ where
         _id_path: &IdPath,
         _visitor: &mut Visitor,
         _state: &S,
-        _env: &E,
+        _backend: &B,
         _context: &mut Context,
     ) -> bool {
         false
     }
 }
 
-impl<H, T, S, E> ElementSeq<S, E> for HCons<H, T>
+impl<H, T, S, B> ElementSeq<S, B> for HCons<H, T>
 where
-    H: ElementSeq<S, E>,
-    T: ElementSeq<S, E> + HList,
+    H: ElementSeq<S, B>,
+    T: ElementSeq<S, B> + HList,
     T::Storage: HList,
     S: State,
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
         HCons {
-            head: self.head.render_children(state, env, context),
-            tail: self.tail.render_children(state, env, context),
+            head: self.head.render_children(state, backend, context),
+            tail: self.tail.render_children(state, backend, context),
         }
     }
 
@@ -100,24 +105,24 @@ where
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self
             .head
-            .update_children(&mut storage.head, state, env, context);
+            .update_children(&mut storage.head, state, backend, context);
         has_changed |= self
             .tail
-            .update_children(&mut storage.tail, state, env, context);
+            .update_children(&mut storage.tail, state, backend, context);
         has_changed
     }
 }
 
-impl<H, T, S, E> ViewNodeSeq<S, E> for HCons<H, T>
+impl<H, T, S, B> ViewNodeSeq<S, B> for HCons<H, T>
 where
-    H: ViewNodeSeq<S, E>,
-    T: ViewNodeSeq<S, E> + HList,
+    H: ViewNodeSeq<S, B>,
+    T: ViewNodeSeq<S, B> + HList,
     S: State,
 {
     fn event_mask() -> &'static EventMask {
@@ -145,32 +150,32 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut has_changed = false;
-        has_changed |= self.head.commit(mode, state, env, context);
-        has_changed |= self.tail.commit(mode, state, env, context);
+        has_changed |= self.head.commit(mode, state, backend, context);
+        has_changed |= self.tail.commit(mode, state, backend, context);
         has_changed
     }
 }
 
-impl<H, T, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for HCons<H, T>
+impl<H, T, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for HCons<H, T>
 where
-    H: Traversable<Visitor, Context, S, E>,
-    T: Traversable<Visitor, Context, S, E> + HList,
+    H: Traversable<Visitor, Context, S, B>,
+    T: Traversable<Visitor, Context, S, B> + HList,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool {
         let mut result = false;
-        result |= self.head.for_each(visitor, state, env, context);
-        result |= self.tail.for_each(visitor, state, env, context);
+        result |= self.head.for_each(visitor, state, backend, context);
+        result |= self.tail.for_each(visitor, state, backend, context);
         result
     }
 
@@ -179,10 +184,10 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool {
-        self.head.search(id_path, visitor, state, env, context)
-            || self.tail.search(id_path, visitor, state, env, context)
+        self.head.search(id_path, visitor, state, backend, context)
+            || self.tail.search(id_path, visitor, state, backend, context)
     }
 }

@@ -1,3 +1,4 @@
+use std::any;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -8,81 +9,81 @@ use crate::view_node::{ViewNode, ViewNodeScope};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Provide<El, T> {
-    element: El,
+pub struct Provide<E, T> {
+    element: E,
     value: T,
 }
 
-impl<El, T> Provide<El, T> {
-    pub const fn new(element: El, value: T) -> Self {
+impl<E, T> Provide<E, T> {
+    pub const fn new(element: E, value: T) -> Self {
         Self { element, value }
     }
 }
 
-impl<El, T, S, E> Element<S, E> for Provide<El, T>
+impl<E, T, S, B> Element<S, B> for Provide<E, T>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     T: 'static,
     S: State,
 {
-    type View = El::View;
+    type View = E::View;
 
-    type Components = El::Components;
+    type Components = E::Components;
 
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
-        let mut node = self.element.render(state, env, context);
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
+        let mut node = self.element.render(state, backend, context);
         node.env = Some(Rc::new(self.value));
         node
     }
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let result = self.element.update(scope, state, env, context);
+        let result = self.element.update(scope, state, backend, context);
         *scope.env = Some(Rc::new(self.value));
         result
     }
 }
 
-impl<El, T, S, E> ElementSeq<S, E> for Provide<El, T>
+impl<E, T, S, B> ElementSeq<S, B> for Provide<E, T>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     T: 'static,
     S: State,
 {
-    type Storage = ViewNode<El::View, El::Components, S, E>;
+    type Storage = ViewNode<E::View, E::Components, S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, env, context)
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, backend, context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, backend, context)
     }
 }
 
-pub struct Consume<El, T> {
-    render: fn(&T) -> El,
+pub struct Consume<E, T, S, B> {
+    render: fn(&T, &S, &B) -> E,
     _phantom: PhantomData<T>,
 }
 
-impl<El, T> Consume<El, T> {
-    pub const fn new(render: fn(&T) -> El) -> ComponentElement<Self> {
+impl<E, T, S, B> Consume<E, T, S, B> {
+    pub const fn new(render: fn(&T, &S, &B) -> E) -> ComponentElement<Self> {
         let connect = Self {
             render,
             _phantom: PhantomData,
@@ -91,7 +92,7 @@ impl<El, T> Consume<El, T> {
     }
 }
 
-impl<El, T> Clone for Consume<El, T> {
+impl<E, T, S, B> Clone for Consume<E, T, S, B> {
     fn clone(&self) -> Self {
         Self {
             render: self.render.clone(),
@@ -100,15 +101,15 @@ impl<El, T> Clone for Consume<El, T> {
     }
 }
 
-impl<El, T, S, E> Component<S, E> for Consume<El, T>
+impl<E, T, S, B> Component<S, B> for Consume<E, T, S, B>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     T: 'static,
     S: State,
 {
     type Element = AsElement<Self>;
 
-    fn render(&self) -> Self::Element {
+    fn render(&self, _state: &S, _backend: &B) -> Self::Element {
         AsElement::new(self.clone())
     }
 }
@@ -123,59 +124,63 @@ impl<T> AsElement<T> {
     }
 }
 
-impl<El, T, S, E> Element<S, E> for AsElement<Consume<El, T>>
+impl<E, T, S, B> Element<S, B> for AsElement<Consume<E, T, S, B>>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     T: 'static,
     S: State,
 {
-    type View = El::View;
+    type View = E::View;
 
-    type Components = El::Components;
+    type Components = E::Components;
 
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
-        let value = context.get_env::<T>().unwrap();
-        let element = (self.inner.render)(value);
-        element.render(state, env, context)
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
+        let value = context
+            .get_env::<T>()
+            .unwrap_or_else(|| panic!("get env {}", any::type_name::<T>()));
+        let element = (self.inner.render)(value, state, backend);
+        element.render(state, backend, context)
     }
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let value = context.get_env::<T>().unwrap();
-        let element = (self.inner.render)(value);
-        element.update(scope, state, env, context)
+        let value = context
+            .get_env::<T>()
+            .unwrap_or_else(|| panic!("get env {}", any::type_name::<T>()));
+        let element = (self.inner.render)(value, state, backend);
+        element.update(scope, state, backend, context)
     }
 }
 
-impl<El, T, S, E> ElementSeq<S, E> for AsElement<Consume<El, T>>
+impl<E, T, S, B> ElementSeq<S, B> for AsElement<Consume<E, T, S, B>>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     T: 'static,
     S: State,
 {
-    type Storage = ViewNode<El::View, El::Components, S, E>;
+    type Storage = ViewNode<E::View, E::Components, S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, env, context)
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, backend, context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, backend, context)
     }
 }

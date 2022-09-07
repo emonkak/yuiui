@@ -38,9 +38,9 @@ where
     }
 }
 
-impl<T, F, SS, S, E> Element<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> Element<S, B> for Adapt<T, F, SS>
 where
-    T: Element<SS, E>,
+    T: Element<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -52,11 +52,11 @@ where
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
         let sub_state = (self.selector_fn)(state);
-        let sub_node = self.target.render(sub_state, env, context);
+        let sub_node = self.target.render(sub_state, backend, context);
         ViewNode {
             id: sub_node.id,
             state: sub_node
@@ -72,9 +72,9 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let mut sub_node_state = scope
@@ -90,26 +90,28 @@ where
             dirty: scope.dirty,
         };
         let sub_state = (self.selector_fn)(state);
-        let has_changed = self.target.update(&mut sub_scope, sub_state, env, context);
+        let has_changed = self
+            .target
+            .update(&mut sub_scope, sub_state, backend, context);
         *scope.state = sub_node_state
             .map(|state| state.map_view(|view| Adapt::new(view, self.selector_fn.clone())));
         has_changed
     }
 }
 
-impl<T, F, SS, S, E> ElementSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> ElementSeq<S, B> for Adapt<T, F, SS>
 where
-    T: ElementSeq<SS, E>,
+    T: ElementSeq<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
 {
     type Storage = Adapt<T::Storage, F, SS>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
-            self.target.render_children(sub_state, env, context),
+            self.target.render_children(sub_state, backend, context),
             self.selector_fn.clone(),
         )
     }
@@ -118,18 +120,18 @@ where
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .update_children(&mut storage.target, sub_state, env, context)
+            .update_children(&mut storage.target, sub_state, backend, context)
     }
 }
 
-impl<T, F, SS, S, E> ViewNodeSeq<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> ViewNodeSeq<S, B> for Adapt<T, F, SS>
 where
-    T: ViewNodeSeq<SS, E>,
+    T: ViewNodeSeq<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -146,31 +148,33 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let has_changed = self.target.commit(mode, sub_state, env, &mut sub_context);
+        let has_changed = self
+            .target
+            .commit(mode, sub_state, backend, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
         has_changed
     }
 }
 
-impl<T, F, SS, Visitor, S, E> Traversable<Visitor, RenderContext, S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for Adapt<T, F, SS>
 where
-    T: Traversable<Visitor, RenderContext, SS, E>,
+    T: Traversable<Visitor, RenderContext, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
-        self.target.for_each(visitor, sub_state, env, context)
+        self.target.for_each(visitor, sub_state, backend, context)
     }
 
     fn search(
@@ -178,18 +182,18 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .search(id_path, visitor, sub_state, env, context)
+            .search(id_path, visitor, sub_state, backend, context)
     }
 }
 
-impl<T, F, SS, Visitor, S, E> Traversable<Visitor, CommitContext<S>, S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for Adapt<T, F, SS>
 where
-    T: Traversable<Visitor, CommitContext<SS>, SS, E>,
+    T: Traversable<Visitor, CommitContext<SS>, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -198,14 +202,14 @@ where
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
-            .for_each(visitor, sub_state, env, &mut sub_context);
+            .for_each(visitor, sub_state, backend, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
         result
     }
@@ -215,22 +219,22 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let found = self
             .target
-            .search(id_path, visitor, sub_state, env, &mut sub_context);
+            .search(id_path, visitor, sub_state, backend, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
         found
     }
 }
 
-impl<T, F, SS, S, E> ComponentStack<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> ComponentStack<S, B> for Adapt<T, F, SS>
 where
-    T: ComponentStack<SS, E>,
+    T: ComponentStack<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -245,7 +249,7 @@ where
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) {
         let sub_state = (self.selector_fn)(state);
@@ -255,18 +259,18 @@ where
             target_index,
             current_index,
             sub_state,
-            env,
+            backend,
             &mut sub_context,
         );
         context.merge_sub_context(sub_context, &self.selector_fn);
     }
 
     fn update<'a>(
-        scope: ViewNodeScope<'a, Self::View, Self, S, E>,
+        scope: ViewNodeScope<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let mut sub_node_state = scope
@@ -288,7 +292,7 @@ where
             target_index,
             current_index,
             sub_state,
-            env,
+            backend,
             context,
         );
         *scope.state = sub_node_state
@@ -297,9 +301,9 @@ where
     }
 }
 
-impl<T, F, SS, S, E> View<S, E> for Adapt<T, F, SS>
+impl<T, F, SS, S, B> View<S, B> for Adapt<T, F, SS>
 where
-    T: View<SS, E>,
+    T: View<SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -312,10 +316,10 @@ where
         &self,
         lifecycle: Lifecycle<&Self>,
         widget: &mut Self::Widget,
-        children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        children: &<Self::Children as ElementSeq<S, B>>::Storage,
         id_path: &IdPath,
         state: &S,
-        env: &E,
+        backend: &B,
     ) -> EventResult<S> {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
         let sub_state = (self.selector_fn)(state);
@@ -326,7 +330,7 @@ where
                 &children.target,
                 id_path,
                 sub_state,
-                env,
+                backend,
             )
             .lift(&self.selector_fn)
     }
@@ -335,25 +339,25 @@ where
         &self,
         event: <Self as HasEvent>::Event,
         widget: &mut Self::Widget,
-        children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        children: &<Self::Children as ElementSeq<S, B>>::Storage,
         id_path: &IdPath,
         state: &S,
-        env: &E,
+        backend: &B,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .event(event, widget, &children.target, id_path, sub_state, env)
+            .event(event, widget, &children.target, id_path, sub_state, backend)
             .lift(&self.selector_fn)
     }
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, E>>::Storage,
+        children: &<Self::Children as ElementSeq<S, B>>::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
     ) -> Self::Widget {
         let sub_state = (self.selector_fn)(state);
-        self.target.build(&children.target, sub_state, env)
+        self.target.build(&children.target, sub_state, backend)
     }
 }
 

@@ -9,17 +9,17 @@ use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeScope};
 
-pub trait ComponentStack<S: State, E>: Sized {
+pub trait ComponentStack<S: State, B>: Sized {
     const LEN: usize;
 
-    type View: View<S, E>;
+    type View: View<S, B>;
 
     fn update<'a>(
-        scope: ViewNodeScope<'a, Self::View, Self, S, E>,
+        scope: ViewNodeScope<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool;
 
@@ -29,28 +29,28 @@ pub trait ComponentStack<S: State, E>: Sized {
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     );
 }
 
-impl<C, CS, S, E> ComponentStack<S, E> for (ComponentNode<C, S, E>, CS)
+impl<C, CS, S, B> ComponentStack<S, B> for (ComponentNode<C, S, B>, CS)
 where
-    C: Component<S, E>,
-    C::Element: Element<S, E, Components = CS>,
-    CS: ComponentStack<S, E, View = <C::Element as Element<S, E>>::View>,
+    C: Component<S, B>,
+    C::Element: Element<S, B, Components = CS>,
+    CS: ComponentStack<S, B, View = <C::Element as Element<S, B>>::View>,
     S: State,
 {
     const LEN: usize = 1 + CS::LEN;
 
-    type View = <C::Element as Element<S, E>>::View;
+    type View = <C::Element as Element<S, B>>::View;
 
     fn update<'a>(
-        scope: ViewNodeScope<'a, Self::View, Self, S, E>,
+        scope: ViewNodeScope<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = scope.components;
@@ -63,10 +63,17 @@ where
             dirty: scope.dirty,
         };
         if target_index <= current_index {
-            let element = head.render();
-            element.update(&mut scope, state, env, context)
+            let element = head.render(state, backend);
+            element.update(&mut scope, state, backend, context)
         } else {
-            CS::update(scope, target_index, current_index + 1, state, env, context)
+            CS::update(
+                scope,
+                target_index,
+                current_index + 1,
+                state,
+                backend,
+                context,
+            )
         }
     }
 
@@ -76,14 +83,20 @@ where
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) {
         if target_index <= current_index {
-            self.0.commit(mode, target_index, state, env, context);
+            self.0.commit(mode, current_index, state, backend, context);
         } else {
-            self.1
-                .commit(mode, target_index, current_index + 1, state, env, context);
+            self.1.commit(
+                mode,
+                target_index,
+                current_index + 1,
+                state,
+                backend,
+                context,
+            );
         }
     }
 }
@@ -97,17 +110,17 @@ impl<V> ComponentEnd<V> {
     }
 }
 
-impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
+impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
     const LEN: usize = 0;
 
     type View = V;
 
     fn update<'a>(
-        _scope: ViewNodeScope<'a, V, Self, S, E>,
+        _scope: ViewNodeScope<'a, V, Self, S, B>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
         _state: &S,
-        _env: &E,
+        _backend: &B,
         _context: &mut RenderContext,
     ) -> bool {
         false
@@ -119,7 +132,7 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
         _state: &S,
-        _env: &E,
+        _backend: &B,
         _context: &mut CommitContext<S>,
     ) {
     }

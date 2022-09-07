@@ -27,27 +27,27 @@ impl<T> OptionStorage<T> {
     }
 }
 
-impl<T, S, E> ElementSeq<S, E> for Option<T>
+impl<T, S, B> ElementSeq<S, B> for Option<T>
 where
-    T: ElementSeq<S, E>,
+    T: ElementSeq<S, B>,
     S: State,
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        OptionStorage::new(self.map(|element| element.render_children(state, env, context)))
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        OptionStorage::new(self.map(|element| element.render_children(state, backend, context)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, state, env, context) {
+                if element.update_children(node, state, backend, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -57,9 +57,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, state, env, context);
+                    element.update_children(node, state, backend, context);
                 } else {
-                    storage.staging = Some(element.render_children(state, env, context));
+                    storage.staging = Some(element.render_children(state, backend, context));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true
@@ -74,9 +74,9 @@ where
     }
 }
 
-impl<T, S, E> ViewNodeSeq<S, E> for OptionStorage<T>
+impl<T, S, B> ViewNodeSeq<S, B> for OptionStorage<T>
 where
-    T: ViewNodeSeq<S, E>,
+    T: ViewNodeSeq<S, B>,
     S: State,
 {
     fn event_mask() -> &'static EventMask {
@@ -94,25 +94,25 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut has_changed = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    has_changed |= node.commit(CommitMode::Unmount, state, env, context);
+                    has_changed |= node.commit(CommitMode::Unmount, state, backend, context);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    has_changed |= node.commit(CommitMode::Mount, state, env, context);
+                    has_changed |= node.commit(CommitMode::Mount, state, backend, context);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                has_changed |= node.commit(mode, state, env, context);
+                has_changed |= node.commit(mode, state, backend, context);
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -120,20 +120,20 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for OptionStorage<T>
+impl<T, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for OptionStorage<T>
 where
-    T: Traversable<Visitor, Context, S, E>,
+    T: Traversable<Visitor, Context, S, B>,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, state, env, context)
+            node.for_each(visitor, state, backend, context)
         } else {
             false
         }
@@ -144,11 +144,11 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool {
         if let Some(node) = &mut self.active {
-            node.search(id_path, visitor, state, env, context)
+            node.search(id_path, visitor, state, backend, context)
         } else {
             false
         }

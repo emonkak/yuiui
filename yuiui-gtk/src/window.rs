@@ -58,7 +58,7 @@ where
         _children: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
         _id_path: &IdPath,
         _state: &S,
-        _env: &Backend<S>,
+        _backend: &Backend<S>,
     ) -> EventResult<S> {
         match lifecycle {
             Lifecycle::Mounted | Lifecycle::Remounted => {

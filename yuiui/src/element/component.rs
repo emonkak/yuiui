@@ -18,27 +18,27 @@ impl<C> ComponentElement<C> {
     }
 }
 
-impl<C, S, E> Element<S, E> for ComponentElement<C>
+impl<C, S, B> Element<S, B> for ComponentElement<C>
 where
-    C: Component<S, E>,
+    C: Component<S, B>,
     S: State,
 {
-    type View = <C::Element as Element<S, E>>::View;
+    type View = <C::Element as Element<S, B>>::View;
 
     type Components = (
-        ComponentNode<C, S, E>,
-        <C::Element as Element<S, E>>::Components,
+        ComponentNode<C, S, B>,
+        <C::Element as Element<S, B>>::Components,
     );
 
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.render();
-        let node = element.render(state, env, context);
+        let element = component_node.render(state, backend);
+        let node = element.render(state, backend, context);
         ViewNode {
             id: node.id,
             state: node.state,
@@ -52,13 +52,13 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = scope.components;
-        let element = self.component.render();
+        let element = self.component.render(state, backend);
         head_node.pending_component = Some(self.component);
         *scope.dirty = true;
         let mut scope = ViewNodeScope {
@@ -69,30 +69,30 @@ where
             env: scope.env,
             dirty: scope.dirty,
         };
-        element.update(&mut scope, state, env, context)
+        element.update(&mut scope, state, backend, context)
     }
 }
 
-impl<C, S, E> ElementSeq<S, E> for ComponentElement<C>
+impl<C, S, B> ElementSeq<S, B> for ComponentElement<C>
 where
-    C: Component<S, E>,
+    C: Component<S, B>,
     S: State,
 {
     type Storage =
-        ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+        ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, env, context)
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, backend, context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, backend, context)
     }
 }
 

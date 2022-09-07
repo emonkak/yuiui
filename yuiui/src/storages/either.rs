@@ -29,22 +29,22 @@ impl<L, R> EitherStorage<L, R> {
     }
 }
 
-impl<L, R, S, E> ElementSeq<S, E> for Either<L, R>
+impl<L, R, S, B> ElementSeq<S, B> for Either<L, R>
 where
-    L: ElementSeq<S, E>,
-    R: ElementSeq<S, E>,
+    L: ElementSeq<S, B>,
+    R: ElementSeq<S, B>,
     S: State,
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
         match self {
-            Either::Left(element) => {
-                EitherStorage::new(Either::Left(element.render_children(state, env, context)))
-            }
-            Either::Right(element) => {
-                EitherStorage::new(Either::Right(element.render_children(state, env, context)))
-            }
+            Either::Left(element) => EitherStorage::new(Either::Left(
+                element.render_children(state, backend, context),
+            )),
+            Either::Right(element) => EitherStorage::new(Either::Right(
+                element.render_children(state, backend, context),
+            )),
         }
     }
 
@@ -52,12 +52,12 @@ where
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update_children(node, state, env, context) {
+                if element.update_children(node, state, backend, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -66,7 +66,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update_children(node, state, env, context) {
+                if element.update_children(node, state, backend, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -77,11 +77,12 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update_children(node, state, env, context);
+                        element.update_children(node, state, backend, context);
                     }
                     None => {
-                        storage.staging =
-                            Some(Either::Right(element.render_children(state, env, context)));
+                        storage.staging = Some(Either::Right(
+                            element.render_children(state, backend, context),
+                        ));
                     }
                     _ => unreachable!(),
                 };
@@ -91,11 +92,12 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update_children(node, state, env, context);
+                        element.update_children(node, state, backend, context);
                     }
                     None => {
-                        storage.staging =
-                            Some(Either::Left(element.render_children(state, env, context)));
+                        storage.staging = Some(Either::Left(
+                            element.render_children(state, backend, context),
+                        ));
                     }
                     _ => unreachable!(),
                 }
@@ -106,10 +108,10 @@ where
     }
 }
 
-impl<L, R, S, E> ViewNodeSeq<S, E> for EitherStorage<L, R>
+impl<L, R, S, B> ViewNodeSeq<S, B> for EitherStorage<L, R>
 where
-    L: ViewNodeSeq<S, E>,
-    R: ViewNodeSeq<S, E>,
+    L: ViewNodeSeq<S, B>,
+    R: ViewNodeSeq<S, B>,
     S: State,
 {
     fn event_mask() -> &'static EventMask {
@@ -140,28 +142,30 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut has_changed = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 has_changed |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Unmount, state, env, context),
-                    Either::Right(node) => node.commit(CommitMode::Unmount, state, env, context),
+                    Either::Left(node) => node.commit(CommitMode::Unmount, state, backend, context),
+                    Either::Right(node) => {
+                        node.commit(CommitMode::Unmount, state, backend, context)
+                    }
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 has_changed |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Mount, state, env, context),
-                    Either::Right(node) => node.commit(CommitMode::Mount, state, env, context),
+                    Either::Left(node) => node.commit(CommitMode::Mount, state, backend, context),
+                    Either::Right(node) => node.commit(CommitMode::Mount, state, backend, context),
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             has_changed |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, state, env, context),
-                Either::Right(node) => node.commit(mode, state, env, context),
+                Either::Left(node) => node.commit(mode, state, backend, context),
+                Either::Right(node) => node.commit(mode, state, backend, context),
             };
         }
         self.flags = RenderFlags::COMMITED;
@@ -169,22 +173,22 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, S, E> Traversable<Visitor, Context, S, E> for EitherStorage<L, R>
+impl<L, R, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, S, E>,
-    R: Traversable<Visitor, Context, S, E>,
+    L: Traversable<Visitor, Context, S, B>,
+    R: Traversable<Visitor, Context, S, B>,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, state, env, context),
-            Either::Right(node) => node.for_each(visitor, state, env, context),
+            Either::Left(node) => node.for_each(visitor, state, backend, context),
+            Either::Right(node) => node.for_each(visitor, state, backend, context),
         }
     }
 
@@ -193,12 +197,12 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.search(id_path, visitor, state, env, context),
-            Either::Right(node) => node.search(id_path, visitor, state, env, context),
+            Either::Left(node) => node.search(id_path, visitor, state, backend, context),
+            Either::Right(node) => node.search(id_path, visitor, state, backend, context),
         }
     }
 }

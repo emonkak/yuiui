@@ -21,18 +21,18 @@ impl<'a> UpwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, E> TraversableVisitor<ViewNode<V, CS, S, E>, CommitContext<S>, S, E>
+impl<'a, V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, CommitContext<S>, S, B>
     for UpwardEventVisitor<'a>
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, E>,
+        node: &mut ViewNode<V, CS, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         match node.state.as_mut().unwrap() {
@@ -40,11 +40,19 @@ where
                 let mut captured = false;
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
-                    captured |= node.children.search(&[*head], self, state, env, context);
+                    captured |= node
+                        .children
+                        .search(&[*head], self, state, backend, context);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
-                    let result =
-                        view.event(event, widget, &node.children, context.id_path(), state, env);
+                    let result = view.event(
+                        event,
+                        widget,
+                        &node.children,
+                        context.id_path(),
+                        state,
+                        backend,
+                    );
                     context.process_result(result, CS::LEN);
                     captured = true;
                 }

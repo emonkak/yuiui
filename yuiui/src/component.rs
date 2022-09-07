@@ -4,14 +4,14 @@ use crate::element::{ComponentElement, Element};
 use crate::event::{EventResult, Lifecycle};
 use crate::state::State;
 
-pub trait Component<S: State, E>: Sized {
-    type Element: Element<S, E>;
+pub trait Component<S: State, B>: Sized {
+    type Element: Element<S, B>;
 
-    fn lifecycle(&self, _lifecycle: Lifecycle<&Self>, _state: &S, _env: &E) -> EventResult<S> {
+    fn lifecycle(&self, _lifecycle: Lifecycle<&Self>, _state: &S, _backend: &B) -> EventResult<S> {
         EventResult::nop()
     }
 
-    fn render(&self) -> Self::Element;
+    fn render(&self, state: &S, backend: &B) -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -21,17 +21,17 @@ pub trait Component<S: State, E>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, El, S: State, E> {
+pub struct FunctionComponent<Props, E, S: State, B> {
     props: Props,
-    render: fn(&Props) -> El,
-    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &S, &E) -> EventResult<S>>,
+    render: fn(&Props, &S, &B) -> E,
+    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &S, &B) -> EventResult<S>>,
 }
 
-impl<Props, El, S, E> FunctionComponent<Props, El, S, E>
+impl<Props, E, S, B> FunctionComponent<Props, E, S, B>
 where
     S: State,
 {
-    pub fn new(props: Props, render: fn(&Props) -> El) -> Self {
+    pub fn new(props: Props, render: fn(&Props, &S, &B) -> E) -> Self {
         Self {
             props,
             render,
@@ -41,47 +41,35 @@ where
 
     pub fn lifecycle(
         mut self,
-        lifecycle: impl Into<Option<fn(&Props, Lifecycle<&Props>, &S, &E) -> EventResult<S>>>,
+        lifecycle: impl Into<Option<fn(&Props, Lifecycle<&Props>, &S, &B) -> EventResult<S>>>,
     ) -> Self {
         self.lifecycle = lifecycle.into();
         self
     }
 }
 
-impl<Props, El, S, E> Component<S, E> for FunctionComponent<Props, El, S, E>
+impl<Props, E, S, B> Component<S, B> for FunctionComponent<Props, E, S, B>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     S: State,
 {
-    type Element = El;
+    type Element = E;
 
-    fn lifecycle(&self, lifecycle: Lifecycle<&Self>, state: &S, env: &E) -> EventResult<S> {
+    fn lifecycle(&self, lifecycle: Lifecycle<&Self>, state: &S, backend: &B) -> EventResult<S> {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let sub_lifecycle = lifecycle.map(|component| &component.props);
-            lifecycle_fn(&self.props, sub_lifecycle, state, env)
+            lifecycle_fn(&self.props, sub_lifecycle, state, backend)
         } else {
             EventResult::nop()
         }
     }
 
-    fn render(&self) -> Self::Element {
-        (self.render)(&self.props)
+    fn render(&self, state: &S, backend: &B) -> Self::Element {
+        (self.render)(&self.props, state, backend)
     }
 }
 
-impl<Props, El, S, E> PartialEq for FunctionComponent<Props, El, S, E>
-where
-    Props: PartialEq,
-    S: State,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.props == other.props
-            && &self.render as *const _ == &other.render as *const _
-            && self.lifecycle.map(|x| &x as *const _) == other.lifecycle.map(|y| &y as *const _)
-    }
-}
-
-impl<Props, El, S, E> fmt::Debug for FunctionComponent<Props, El, S, E>
+impl<Props, E, S, B> fmt::Debug for FunctionComponent<Props, E, S, B>
 where
     Props: fmt::Debug,
     S: State,

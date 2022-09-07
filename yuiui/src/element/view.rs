@@ -8,14 +8,14 @@ use crate::view_node::{ViewNode, ViewNodeScope, ViewNodeState};
 
 use super::{Element, ElementSeq};
 
-pub struct ViewElement<V: View<S, E>, S: State, E> {
+pub struct ViewElement<V: View<S, B>, S: State, B> {
     view: V,
     children: V::Children,
 }
 
-impl<V, S, E> ViewElement<V, S, E>
+impl<V, S, B> ViewElement<V, S, B>
 where
-    V: View<S, E>,
+    V: View<S, B>,
     S: State,
 {
     pub fn new(view: V, children: V::Children) -> Self {
@@ -23,9 +23,9 @@ where
     }
 }
 
-impl<V, S, E> Element<S, E> for ViewElement<V, S, E>
+impl<V, S, B> Element<S, B> for ViewElement<V, S, B>
 where
-    V: View<S, E>,
+    V: View<S, B>,
     S: State,
 {
     type View = V;
@@ -35,12 +35,12 @@ where
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
         let id = context.next_identity();
         context.begin_view(id);
-        let children = self.children.render_children(state, env, context);
+        let children = self.children.render_children(state, backend, context);
         let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
         context.end_view();
         node
@@ -48,9 +48,9 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         *scope.state = match scope.state.take().unwrap() {
@@ -62,37 +62,37 @@ where
         .into();
         *scope.dirty = true;
         self.children
-            .update_children(scope.children, state, env, context);
+            .update_children(scope.children, state, backend, context);
         true
     }
 }
 
-impl<V, S, E> ElementSeq<S, E> for ViewElement<V, S, E>
+impl<V, S, B> ElementSeq<S, B> for ViewElement<V, S, B>
 where
-    V: View<S, E>,
+    V: View<S, B>,
     S: State,
 {
     type Storage =
-        ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
+        ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, env, context)
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, backend, context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, backend, context)
     }
 }
 
-impl<V, S, E> fmt::Debug for ViewElement<V, S, E>
+impl<V, S, B> fmt::Debug for ViewElement<V, S, B>
 where
-    V: View<S, E> + fmt::Debug,
+    V: View<S, B> + fmt::Debug,
     V::Children: fmt::Debug,
     S: State,
 {

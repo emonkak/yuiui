@@ -19,26 +19,26 @@ impl<'a> UpdateVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableVisitor<ViewNode<V, CS, S, E>, RenderContext, S, E> for UpdateVisitor
+impl<V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, RenderContext, S, B> for UpdateVisitor
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, E>,
+        node: &mut ViewNode<V, CS, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
             let scope = node.scope();
-            CS::update(scope, component_index, 0, state, env, context)
+            CS::update(scope, component_index, 0, state, backend, context)
         } else {
             node.dirty = true;
-            node.children.for_each(self, state, env, context);
+            node.children.for_each(self, state, backend, context);
             true
         }
     }

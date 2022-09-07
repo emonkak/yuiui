@@ -26,26 +26,26 @@ use local_event_visitor::LocalEventVisitor;
 use update_visitor::UpdateVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
-pub struct ViewNode<V: View<S, E>, CS: ComponentStack<S, E, View = V>, S: State, E> {
+pub struct ViewNode<V: View<S, B>, CS: ComponentStack<S, B, View = V>, S: State, B> {
     pub(crate) id: Id,
     pub(crate) state: Option<ViewNodeState<V, V::Widget>>,
-    pub(crate) children: <V::Children as ElementSeq<S, E>>::Storage,
+    pub(crate) children: <V::Children as ElementSeq<S, B>>::Storage,
     pub(crate) components: CS,
     pub(crate) env: Option<Rc<dyn Any>>,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
 
-impl<V, CS, S, E> ViewNode<V, CS, S, E>
+impl<V, CS, S, B> ViewNode<V, CS, S, B>
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
     pub(crate) fn new(
         id: Id,
         view: V,
-        children: <V::Children as ElementSeq<S, E>>::Storage,
+        children: <V::Children as ElementSeq<S, B>>::Storage,
         components: CS,
     ) -> Self {
         Self {
@@ -54,12 +54,12 @@ where
             children,
             components,
             env: None,
-            event_mask: <V::Children as ElementSeq<S, E>>::Storage::event_mask(),
+            event_mask: <V::Children as ElementSeq<S, B>>::Storage::event_mask(),
             dirty: true,
         }
     }
 
-    pub(crate) fn scope(&mut self) -> ViewNodeScope<V, CS, S, E> {
+    pub(crate) fn scope(&mut self) -> ViewNodeScope<V, CS, S, B> {
         ViewNodeScope {
             id: self.id,
             state: &mut self.state,
@@ -87,7 +87,7 @@ where
         }
     }
 
-    pub fn children(&self) -> &<V::Children as ElementSeq<S, E>>::Storage {
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, B>>::Storage {
         &self.children
     }
 
@@ -103,13 +103,13 @@ where
         &mut self,
         id_tree: &IdTree<ComponentIndex>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> Vec<(IdPathBuf, ComponentIndex)> {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
             UpdateVisitor::new(component_index)
         });
-        visitor.visit(self, state, env, context);
+        visitor.visit(self, state, backend, context);
         visitor.into_changed_nodes()
     }
 
@@ -117,12 +117,12 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
-            visitor.visit(self, state, env, context);
+            visitor.visit(self, state, backend, context);
             self.dirty = false;
             true
         } else {
@@ -134,13 +134,13 @@ where
         &mut self,
         id_tree: &IdTree<ComponentIndex>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
             CommitVisitor::new(CommitMode::Update, component_index)
         });
-        visitor.visit(self, state, env, context)
+        visitor.visit(self, state, backend, context)
     }
 
     pub fn downward_event(
@@ -148,11 +148,11 @@ where
         event: &dyn Any,
         id_path: &IdPath,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
-        self.search(id_path, &mut visitor, state, env, context)
+        self.search(id_path, &mut visitor, state, backend, context)
     }
 
     pub fn upward_event(
@@ -160,11 +160,11 @@ where
         event: &dyn Any,
         id_path: &IdPath,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
-        visitor.visit(self, state, env, context)
+        visitor.visit(self, state, backend, context)
     }
 
     pub fn local_event(
@@ -172,11 +172,11 @@ where
         event: &dyn Any,
         id_path: &IdPath,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event);
-        self.search(id_path, &mut visitor, state, env, context)
+        self.search(id_path, &mut visitor, state, backend, context)
     }
 
     pub fn search<Visitor, Context>(
@@ -184,43 +184,44 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut Context,
     ) -> bool
     where
-        <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, Context, S, E>,
-        Visitor: TraversableVisitor<Self, Context, S, E>,
+        <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, Context, S, B>,
+        Visitor: TraversableVisitor<Self, Context, S, B>,
         Context: IdContext,
     {
         if self.id == Id::from_top(id_path) {
-            visitor.visit(self, state, env, context)
+            visitor.visit(self, state, backend, context)
         } else if self.id == Id::from_bottom(id_path) {
             debug_assert!(id_path.len() > 0);
             let id_path = &id_path[1..];
-            self.children.search(id_path, visitor, state, env, context)
+            self.children
+                .search(id_path, visitor, state, backend, context)
         } else {
             false
         }
     }
 }
 
-pub struct ViewNodeScope<'a, V: View<S, E>, CS, S: State, E> {
+pub struct ViewNodeScope<'a, V: View<S, B>, CS, S: State, B> {
     pub(crate) id: Id,
     pub(crate) state: &'a mut Option<ViewNodeState<V, V::Widget>>,
-    pub(crate) children: &'a mut <V::Children as ElementSeq<S, E>>::Storage,
+    pub(crate) children: &'a mut <V::Children as ElementSeq<S, B>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) env: &'a mut Option<Rc<dyn Any>>,
     pub(crate) dirty: &'a mut bool,
 }
 
-pub trait ViewNodeSeq<S: State, E>:
-    Traversable<CommitVisitor, CommitContext<S>, S, E>
-    + Traversable<UpdateVisitor, RenderContext, S, E>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, CommitContext<S>, S, E>
-    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, E>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, CommitContext<S>, S, E>
-    + for<'a> Traversable<LocalEventVisitor<'a>, CommitContext<S>, S, E>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, CommitContext<S>, S, E>
+pub trait ViewNodeSeq<S: State, B>:
+    Traversable<CommitVisitor, CommitContext<S>, S, B>
+    + Traversable<UpdateVisitor, RenderContext, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, CommitContext<S>, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, CommitContext<S>, S, B>
+    + for<'a> Traversable<LocalEventVisitor<'a>, CommitContext<S>, S, B>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, CommitContext<S>, S, B>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -230,15 +231,15 @@ pub trait ViewNodeSeq<S: State, E>:
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool;
 }
 
-impl<V, CS, S, E> ViewNodeSeq<S, E> for ViewNode<V, CS, S, E>
+impl<V, CS, S, B> ViewNodeSeq<S, B> for ViewNode<V, CS, S, B>
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
     fn event_mask() -> &'static EventMask {
@@ -246,7 +247,7 @@ where
         static mut EVENT_MASK: EventMask = EventMask::new();
 
         if !INIT.is_completed() {
-            let children_mask = <V::Children as ElementSeq<S, E>>::Storage::event_mask();
+            let children_mask = <V::Children as ElementSeq<S, B>>::Storage::event_mask();
 
             INIT.call_once(|| unsafe {
                 EVENT_MASK.merge(children_mask);
@@ -267,36 +268,36 @@ where
         &mut self,
         mode: CommitMode,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         context.begin_view(self.id);
-        let has_changed = self.commit(mode, state, env, context);
+        let has_changed = self.commit(mode, state, backend, context);
         context.end_view();
         has_changed
     }
 }
 
-impl<V, CS, Visitor, S, E> Traversable<Visitor, RenderContext, S, E> for ViewNode<V, CS, S, E>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for ViewNode<V, CS, S, B>
 where
-    V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, RenderContext, S, E>,
-    CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<Self, RenderContext, S, E>,
+    V: View<S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, RenderContext, S, B>,
+    CS: ComponentStack<S, B, View = V>,
+    Visitor: TraversableVisitor<Self, RenderContext, S, B>,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         context.begin_view(self.id);
         if let Some(env) = &self.env {
             context.push_env(env.clone());
         }
-        let result = visitor.visit(self, state, env, context);
+        let result = visitor.visit(self, state, backend, context);
         context.end_view();
         result
     }
@@ -306,36 +307,36 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         context.begin_view(self.id);
         if let Some(env) = &self.env {
             context.push_env(env.clone());
         }
-        let result = self.search(id_path, visitor, state, env, context);
+        let result = self.search(id_path, visitor, state, backend, context);
         context.end_view();
         result
     }
 }
 
-impl<V, CS, Visitor, S, E> Traversable<Visitor, CommitContext<S>, S, E> for ViewNode<V, CS, S, E>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for ViewNode<V, CS, S, B>
 where
-    V: View<S, E>,
-    <V::Children as ElementSeq<S, E>>::Storage: Traversable<Visitor, CommitContext<S>, S, E>,
-    CS: ComponentStack<S, E, View = V>,
-    Visitor: TraversableVisitor<Self, CommitContext<S>, S, E>,
+    V: View<S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, CommitContext<S>, S, B>,
+    CS: ComponentStack<S, B, View = V>,
+    Visitor: TraversableVisitor<Self, CommitContext<S>, S, B>,
     S: State,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         context.begin_view(self.id);
-        let result = visitor.visit(self, state, env, context);
+        let result = visitor.visit(self, state, backend, context);
         context.end_view();
         result
     }
@@ -345,22 +346,22 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
         context.begin_view(self.id);
-        let result = self.search(id_path, visitor, state, env, context);
+        let result = self.search(id_path, visitor, state, backend, context);
         context.end_view();
         result
     }
 }
 
-impl<V, CS, S, E> fmt::Debug for ViewNode<V, CS, S, E>
+impl<V, CS, S, B> fmt::Debug for ViewNode<V, CS, S, B>
 where
-    V: View<S, E> + fmt::Debug,
+    V: View<S, B> + fmt::Debug,
     V::Widget: fmt::Debug,
-    <V::Children as ElementSeq<S, E>>::Storage: fmt::Debug,
-    CS: ComponentStack<S, E, View = V> + fmt::Debug,
+    <V::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
+    CS: ComponentStack<S, B, View = V> + fmt::Debug,
     S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

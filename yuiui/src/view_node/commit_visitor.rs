@@ -24,31 +24,31 @@ impl CommitVisitor {
     }
 }
 
-impl<V, CS, S, E> TraversableVisitor<ViewNode<V, CS, S, E>, CommitContext<S>, S, E>
+impl<V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, CommitContext<S>, S, B>
     for CommitVisitor
 where
-    V: View<S, E>,
-    CS: ComponentStack<S, E, View = V>,
+    V: View<S, B>,
+    CS: ComponentStack<S, B, View = V>,
     S: State,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, E>,
+        node: &mut ViewNode<V, CS, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
-        let has_changed = node.children.commit(self.mode, state, env, context);
+        let has_changed = node.children.commit(self.mode, state, backend, context);
         node.state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut widget = view.build(&node.children, state, env);
+                let mut widget = view.build(&node.children, state, backend);
                 let result = view.lifecycle(
                     Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
@@ -60,7 +60,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
@@ -72,7 +72,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 let result = pending_view.lifecycle(
@@ -81,7 +81,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(pending_view, widget)
@@ -96,7 +96,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
@@ -108,7 +108,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(pending_view, widget)
@@ -123,7 +123,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Prepared(view, widget)
@@ -135,7 +135,7 @@ where
                     &node.children,
                     context.id_path(),
                     state,
-                    env,
+                    backend,
                 );
                 context.process_result(result, CS::LEN);
                 ViewNodeState::Pending(view, pending_view, widget)
@@ -145,7 +145,7 @@ where
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
             node.components
-                .commit(self.mode, component_index, 0, state, env, context);
+                .commit(self.mode, component_index, 0, state, backend, context);
         }
         has_changed
     }

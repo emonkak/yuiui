@@ -6,48 +6,48 @@ use crate::view_node::{ViewNode, ViewNodeScope};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<El, Deps> {
-    render: fn(&Deps) -> El,
+pub struct Memoize<E, Deps, S, B> {
+    render: fn(&Deps, &S, &B) -> E,
     deps: Deps,
 }
 
-impl<El, Deps> Memoize<El, Deps> {
-    pub const fn new(render: fn(&Deps) -> El, deps: Deps) -> Self {
+impl<E, Deps, S, B> Memoize<E, Deps, S, B> {
+    pub const fn new(render: fn(&Deps, &S, &B) -> E, deps: Deps) -> Self {
         Self { render, deps }
     }
 }
 
-impl<El, Deps, S, E> Element<S, E> for Memoize<El, Deps>
+impl<E, Deps, S, B> Element<S, B> for Memoize<E, Deps, S, B>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     Deps: PartialEq,
     S: State,
 {
-    type View = El::View;
+    type View = E::View;
 
-    type Components = (ComponentNode<AsComponent<Self>, S, E>, El::Components);
+    type Components = (ComponentNode<AsComponent<Self>, S, B>, E::Components);
 
     fn render(
         self,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
-    ) -> ViewNode<Self::View, Self::Components, S, E> {
+    ) -> ViewNode<Self::View, Self::Components, S, B> {
         let element = ComponentElement::new(AsComponent::new(self));
-        element.render(state, env, context)
+        element.render(state, backend, context)
     }
 
     fn update(
         self,
-        scope: &mut ViewNodeScope<Self::View, Self::Components, S, E>,
+        scope: &mut ViewNodeScope<Self::View, Self::Components, S, B>,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
         let (head_node, _) = scope.components;
         if head_node.component.inner.deps != self.deps {
             let element = ComponentElement::new(AsComponent::new(self));
-            Element::update(element, scope, state, env, context)
+            Element::update(element, scope, state, backend, context)
         } else {
             head_node.pending_component = Some(AsComponent::new(self));
             false
@@ -55,27 +55,26 @@ where
     }
 }
 
-impl<El, Deps, S, E> ElementSeq<S, E> for Memoize<El, Deps>
+impl<E, Deps, S, B> ElementSeq<S, B> for Memoize<E, Deps, S, B>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     Deps: PartialEq,
     S: State,
 {
-    type Storage =
-        ViewNode<El::View, (ComponentNode<AsComponent<Self>, S, E>, El::Components), S, E>;
+    type Storage = ViewNode<E::View, (ComponentNode<AsComponent<Self>, S, B>, E::Components), S, B>;
 
-    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, env, context)
+    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, backend, context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
-        env: &E,
+        backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.scope(), state, env, context)
+        self.update(&mut storage.scope(), state, backend, context)
     }
 }
 
@@ -89,15 +88,15 @@ impl<T> AsComponent<T> {
     }
 }
 
-impl<El, Deps, S, E> Component<S, E> for AsComponent<Memoize<El, Deps>>
+impl<E, Deps, S, B> Component<S, B> for AsComponent<Memoize<E, Deps, S, B>>
 where
-    El: Element<S, E>,
+    E: Element<S, B>,
     Deps: PartialEq,
     S: State,
 {
-    type Element = El;
+    type Element = E;
 
-    fn render(&self) -> Self::Element {
-        (self.inner.render)(&self.inner.deps)
+    fn render(&self, state: &S, backend: &B) -> Self::Element {
+        (self.inner.render)(&self.inner.deps, state, backend)
     }
 }
