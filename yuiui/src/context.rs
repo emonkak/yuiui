@@ -136,7 +136,7 @@ impl<S: State> CommitContext<S> {
                 Effect::Message(_) | Effect::Mutation(_) | Effect::Command(_, _) => {
                     self.state_scope.clone().normalize()
                 }
-                Effect::RequestUpdate => (self.id_path.clone(), self.component_index),
+                Effect::RequestUpdate => (self.id_path.clone(), component_index),
             };
             self.effects.push((id_path, component_index, effect));
         }
