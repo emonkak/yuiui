@@ -41,7 +41,7 @@ where
         let has_changed = node.children.commit(self.mode, state, backend, context);
         node.state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut widget = view.build(&node.children, state, backend);
+                let mut widget = view.build(&node.children, context.id_path(), state, backend);
                 let result = view.lifecycle(
                     Lifecycle::Mounted,
                     &mut widget,

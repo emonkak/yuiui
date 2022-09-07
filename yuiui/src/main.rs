@@ -85,6 +85,7 @@ where
     fn build(
         &self,
         _children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        _id_path: &IdPath,
         _state: &S,
         _backend: &B,
     ) -> Self::Widget {
@@ -124,6 +125,7 @@ where
     fn build(
         &self,
         _children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        _id_path: &IdPath,
         _state: &S,
         _backend: &B,
     ) -> Self::Widget {

@@ -353,11 +353,12 @@ where
     fn build(
         &self,
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        id_path: &IdPath,
         state: &S,
         backend: &B,
     ) -> Self::Widget {
         let sub_state = (self.selector_fn)(state);
-        self.target.build(&children.target, sub_state, backend)
+        self.target.build(&children.target, id_path, sub_state, backend)
     }
 }
 

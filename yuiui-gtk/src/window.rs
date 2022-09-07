@@ -79,6 +79,7 @@ where
     fn build(
         &self,
         child: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
+        _id_path: &IdPath,
         _state: &S,
         env: &Backend<S>,
     ) -> Self::Widget {

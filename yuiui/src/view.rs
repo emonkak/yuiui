@@ -37,6 +37,7 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
     fn build(
         &self,
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        id_path: &IdPath,
         state: &S,
         backend: &B,
     ) -> Self::Widget;
