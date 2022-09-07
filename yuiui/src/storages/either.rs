@@ -59,6 +59,7 @@ where
             (Either::Left(node), Either::Left(element)) => {
                 if element.update(node, state, env, context) {
                     storage.flags |= RenderFlags::UPDATED;
+                    storage.flags -= RenderFlags::SWAPPED;
                     true
                 } else {
                     false
@@ -67,6 +68,7 @@ where
             (Either::Right(node), Either::Right(element)) => {
                 if element.update(node, state, env, context) {
                     storage.flags |= RenderFlags::UPDATED;
+                    storage.flags -= RenderFlags::SWAPPED;
                     true
                 } else {
                     false
@@ -154,14 +156,13 @@ where
                     Either::Right(node) => node.commit(CommitMode::Mount, state, env, context),
                 };
             }
-            self.flags = RenderFlags::COMMITED;
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             has_changed |= match &mut self.active {
                 Either::Left(node) => node.commit(mode, state, env, context),
                 Either::Right(node) => node.commit(mode, state, env, context),
             };
-            self.flags = RenderFlags::COMMITED;
         }
+        self.flags = RenderFlags::COMMITED;
         has_changed
     }
 }

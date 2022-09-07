@@ -49,6 +49,7 @@ where
             (Some(node), Some(element)) => {
                 if element.update(node, state, env, context) {
                     storage.flags |= RenderFlags::UPDATED;
+                    storage.flags -= RenderFlags::SWAPPED;
                     true
                 } else {
                     false
@@ -109,14 +110,12 @@ where
                     has_changed |= node.commit(CommitMode::Mount, state, env, context);
                 }
             }
-            self.flags = RenderFlags::COMMITED;
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
                 has_changed |= node.commit(mode, state, env, context);
             }
-            self.flags = RenderFlags::COMMITED;
         }
-        self.flags |= RenderFlags::COMMITED;
+        self.flags = RenderFlags::COMMITED;
         has_changed
     }
 }
