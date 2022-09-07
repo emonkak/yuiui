@@ -22,7 +22,7 @@ pub use command::Command;
 pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
-pub use context::{EffectContext, IdContext, RenderContext};
+pub use context::{CommitContext, IdContext, RenderContext};
 pub use effect::{Effect, EffectPath};
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, ViewElement};
 pub use event::{Event, EventMask, EventResult, HasEvent, Lifecycle};

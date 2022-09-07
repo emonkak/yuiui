@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::effect::EffectPath;
 use crate::element::{Element, ElementSeq};
 use crate::event::{EventMask, EventResult, HasEvent, Lifecycle};
@@ -145,7 +145,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -185,9 +185,9 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, E> Traversable<Visitor, EffectContext<S>, S, E> for Adapt<T, F, SS>
+impl<T, F, SS, Visitor, S, E> Traversable<Visitor, CommitContext<S>, S, E> for Adapt<T, F, SS>
 where
-    T: Traversable<Visitor, EffectContext<SS>, SS, E>,
+    T: Traversable<Visitor, CommitContext<SS>, SS, E>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -197,7 +197,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -214,7 +214,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -243,7 +243,7 @@ where
         component_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();

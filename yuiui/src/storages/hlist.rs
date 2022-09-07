@@ -1,7 +1,7 @@
 use hlist::{HCons, HList, HNil};
 use std::sync::Once;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
@@ -48,7 +48,7 @@ where
         _mode: CommitMode,
         _state: &S,
         _env: &E,
-        _context: &mut EffectContext<S>,
+        _context: &mut CommitContext<S>,
     ) -> bool {
         false
     }
@@ -146,7 +146,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self.head.commit(mode, state, env, context);

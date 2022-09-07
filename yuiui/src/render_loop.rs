@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::context::{EffectContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::effect::{Effect, EffectPath};
 use crate::element::{Element, ElementSeq};
 use crate::id::{ComponentIndex, IdPathBuf, IdTree};
@@ -68,7 +68,7 @@ where
             if self.is_mounted {
                 if !self.commit_selections.is_empty() {
                     let id_tree = IdTree::from_iter(mem::take(&mut self.commit_selections));
-                    let mut effect_context = EffectContext::new();
+                    let mut effect_context = CommitContext::new();
                     self.node
                         .commit_subtree(&id_tree, state, env, &mut effect_context);
                     self.effect_queue.extend(effect_context.into_effects());
@@ -77,7 +77,7 @@ where
                     }
                 }
             } else {
-                let mut effect_context = EffectContext::new();
+                let mut effect_context = CommitContext::new();
                 self.node
                     .commit(CommitMode::Mount, state, env, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
@@ -133,7 +133,7 @@ where
                 env.invoke_command(effect_path, command, cancellation_token);
             }
             Effect::DownwardEvent(event) => {
-                let mut effect_context = EffectContext::new();
+                let mut effect_context = CommitContext::new();
                 self.node.downward_event(
                     &event,
                     &effect_path.id_path,
@@ -144,7 +144,7 @@ where
                 self.effect_queue.extend(effect_context.into_effects());
             }
             Effect::UpwardEvent(event) => {
-                let mut effect_context = EffectContext::new();
+                let mut effect_context = CommitContext::new();
                 self.node.upward_event(
                     &event,
                     &effect_path.id_path,
@@ -155,7 +155,7 @@ where
                 self.effect_queue.extend(effect_context.into_effects());
             }
             Effect::LocalEvent(event) => {
-                let mut effect_context = EffectContext::new();
+                let mut effect_context = CommitContext::new();
                 self.node.local_event(
                     &event,
                     &effect_path.id_path,

@@ -2,7 +2,7 @@ use either::Either;
 use std::mem;
 use std::sync::Once;
 
-use crate::context::{EffectContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
@@ -141,7 +141,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let mut has_changed = false;
         if self.flags.contains(RenderFlags::SWAPPED) {

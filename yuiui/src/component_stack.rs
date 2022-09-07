@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::component_node::ComponentNode;
-use crate::context::{EffectContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::element::Element;
 use crate::id::ComponentIndex;
 use crate::state::State;
@@ -29,7 +29,7 @@ pub trait ComponentStack<S: State, E>: Sized {
         target_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     );
 }
 
@@ -74,7 +74,7 @@ where
         target_index: ComponentIndex,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) {
         if target_index <= context.effect_path().component_index {
             self.0.commit(mode, state, env, context);
@@ -115,7 +115,7 @@ impl<V: View<S, E>, S: State, E> ComponentStack<S, E> for ComponentEnd<V> {
         _component_index: ComponentIndex,
         _state: &S,
         _env: &E,
-        _context: &mut EffectContext<S>,
+        _context: &mut CommitContext<S>,
     ) {
     }
 }

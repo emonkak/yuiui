@@ -10,7 +10,7 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, IdContext, RenderContext};
+use crate::context::{CommitContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf, IdTree};
@@ -26,13 +26,13 @@ use update_visitor::UpdateVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
 pub trait ViewNodeSeq<S: State, E>:
-    Traversable<CommitVisitor, EffectContext<S>, S, E>
+    Traversable<CommitVisitor, CommitContext<S>, S, E>
     + Traversable<UpdateVisitor, RenderContext, S, E>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext<S>, S, E>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, CommitContext<S>, S, E>
     + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, E>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, S, E>
-    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext<S>, S, E>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, S, E>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, CommitContext<S>, S, E>
+    + for<'a> Traversable<LocalEventVisitor<'a>, CommitContext<S>, S, E>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, CommitContext<S>, S, E>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -43,7 +43,7 @@ pub trait ViewNodeSeq<S: State, E>:
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool;
 }
 
@@ -136,7 +136,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
@@ -153,7 +153,7 @@ where
         id_tree: &IdTree<ComponentIndex>,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
             CommitVisitor::new(CommitMode::Update, component_index)
@@ -167,7 +167,7 @@ where
         id_path: &IdPath,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, env, context)
@@ -179,7 +179,7 @@ where
         id_path: &IdPath,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
         visitor.visit(self, state, env, context)
@@ -191,7 +191,7 @@ where
         id_path: &IdPath,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, env, context)
@@ -255,7 +255,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         context.begin_view(self.id);
         let has_changed = self.commit(mode, state, env, context);

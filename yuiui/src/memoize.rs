@@ -90,7 +90,7 @@ where
 {
     type Element = El;
 
-    fn render(&self) -> Self::Element {
+    fn render(&self, _state: &S, _env: &E) -> Self::Element {
         (self.inner.render)(&self.inner.deps)
     }
 }

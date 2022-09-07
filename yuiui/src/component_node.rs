@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::mem;
 
 use crate::component::Component;
-use crate::context::EffectContext;
+use crate::context::CommitContext;
 use crate::event::Lifecycle;
 use crate::state::State;
 use crate::view_node::CommitMode;
@@ -36,7 +36,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) {
         let result = match mode {
             CommitMode::Mount => self.component.lifecycle(Lifecycle::Mounted, state, env),

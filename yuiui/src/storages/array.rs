@@ -1,4 +1,4 @@
-use crate::context::{EffectContext, RenderContext};
+use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
@@ -67,7 +67,7 @@ where
         mode: CommitMode,
         state: &S,
         env: &E,
-        context: &mut EffectContext<S>,
+        context: &mut CommitContext<S>,
     ) -> bool {
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
