@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{CommitContext, IdContext};
+use crate::context::{EffectContext, IdContext};
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
@@ -24,7 +24,7 @@ impl CommitVisitor {
     }
 }
 
-impl<V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, CommitContext<S>, S, B>
+impl<V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
     for CommitVisitor
 where
     V: View<S, B>,
@@ -36,7 +36,7 @@ where
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         let has_changed = node.children.commit(self.mode, state, backend, context);
         node.state = match (self.mode, node.state.take().unwrap()) {

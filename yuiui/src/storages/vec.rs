@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{CommitContext, RenderContext};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
@@ -134,7 +134,7 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         if self.dirty || mode.is_propagatable() {
             let mut has_changed = false;

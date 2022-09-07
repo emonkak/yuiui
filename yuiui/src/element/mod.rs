@@ -7,8 +7,8 @@ mod view;
 
 pub use component::ComponentElement;
 pub use consume::Consume;
-pub use provide::Provide;
 pub use memoize::Memoize;
+pub use provide::Provide;
 pub use scope::Scope;
 pub use view::ViewElement;
 

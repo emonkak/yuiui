@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{CommitContext, IdContext};
+use crate::context::{EffectContext, IdContext};
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
 use crate::state::State;
@@ -21,7 +21,7 @@ impl<'a> UpwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, CommitContext<S>, S, B>
+impl<'a, V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
     for UpwardEventVisitor<'a>
 where
     V: View<S, B>,
@@ -33,7 +33,7 @@ where
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {

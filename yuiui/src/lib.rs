@@ -20,7 +20,7 @@ pub use command::Command;
 pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
-pub use context::{CommitContext, IdContext, RenderContext};
+pub use context::{EffectContext, IdContext, RenderContext};
 pub use effect::Effect;
 pub use element::{
     ComponentElement, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,

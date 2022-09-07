@@ -2,7 +2,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::component::Component;
-use crate::context::CommitContext;
+use crate::context::EffectContext;
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
@@ -37,18 +37,21 @@ where
         component_index: ComponentIndex,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         match mode {
             CommitMode::Mount => {
                 let result = self.component.lifecycle(Lifecycle::Mounted, state, backend);
                 context.process_result(result, component_index);
                 true
-            },
+            }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
-                    let result = pending_component
-                        .lifecycle(Lifecycle::Updated(&self.component), state, backend);
+                    let result = pending_component.lifecycle(
+                        Lifecycle::Updated(&self.component),
+                        state,
+                        backend,
+                    );
                     self.component = pending_component;
                     context.process_result(result, component_index);
                     true

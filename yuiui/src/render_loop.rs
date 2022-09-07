@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::context::{CommitContext, RenderContext};
+use crate::context::{EffectContext, RenderContext};
 use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
@@ -70,7 +70,7 @@ where
             if self.is_mounted {
                 if !self.commit_selection.is_empty() {
                     let id_tree = IdTree::from_iter(mem::take(&mut self.commit_selection));
-                    let mut effect_context = CommitContext::new();
+                    let mut effect_context = EffectContext::new();
                     self.node
                         .commit_subtree(&id_tree, state, backend, &mut effect_context);
                     self.effect_queue.extend(effect_context.into_effects());
@@ -79,7 +79,7 @@ where
                     }
                 }
             } else {
-                let mut effect_context = CommitContext::new();
+                let mut effect_context = EffectContext::new();
                 self.node
                     .commit(CommitMode::Mount, state, backend, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
@@ -102,7 +102,7 @@ where
         state: &S,
         backend: &B,
     ) {
-        let mut context = CommitContext::new();
+        let mut context = EffectContext::new();
         match destination {
             EventDestination::Global => {
                 self.node.global_event(&event, state, backend, &mut context);

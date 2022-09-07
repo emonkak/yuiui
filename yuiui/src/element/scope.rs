@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{CommitContext, RenderContext};
+use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, HasEvent, Lifecycle};
 use crate::id::{ComponentIndex, IdPath};
 use crate::state::State;
@@ -66,7 +66,7 @@ where
             components: Scope::new(sub_node.components, self.selector_fn),
             env: sub_node.env,
             event_mask: sub_node.event_mask,
-            dirty: true,
+            dirty: sub_node.dirty,
         }
     }
 
@@ -79,9 +79,7 @@ where
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         with_sub_node(node, |sub_node| {
-            self
-                .target
-                .update(sub_node, sub_state, backend, context)
+            self.target.update(sub_node, sub_state, backend, context)
         })
     }
 }
@@ -136,7 +134,7 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -178,9 +176,9 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for Scope<T, F, SS>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, EffectContext<S>, S, B> for Scope<T, F, SS>
 where
-    T: Traversable<Visitor, CommitContext<SS>, SS, B>,
+    T: Traversable<Visitor, EffectContext<SS>, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -190,7 +188,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -207,7 +205,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -237,7 +235,7 @@ where
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut EffectContext<S>,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -332,7 +330,8 @@ where
         backend: &B,
     ) -> Self::Widget {
         let sub_state = (self.selector_fn)(state);
-        self.target.build(&children.target, id_path, sub_state, backend)
+        self.target
+            .build(&children.target, id_path, sub_state, backend)
     }
 }
 

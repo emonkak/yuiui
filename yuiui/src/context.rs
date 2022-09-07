@@ -91,14 +91,14 @@ impl IdContext for RenderContext {
     }
 }
 
-pub struct CommitContext<S: State> {
+pub struct EffectContext<S: State> {
     id_path: IdPathBuf,
     component_index: ComponentIndex,
     state_scope: StateScope,
     effects: Vec<(IdPathBuf, ComponentIndex, Effect<S>)>,
 }
 
-impl<S: State> CommitContext<S> {
+impl<S: State> EffectContext<S> {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
@@ -108,8 +108,8 @@ impl<S: State> CommitContext<S> {
         }
     }
 
-    pub fn new_sub_context<SS: State>(&self) -> CommitContext<SS> {
-        CommitContext {
+    pub fn new_sub_context<SS: State>(&self) -> EffectContext<SS> {
+        EffectContext {
             id_path: self.id_path.clone(),
             component_index: self.component_index,
             state_scope: StateScope::Partial(self.id_path.clone(), self.component_index),
@@ -117,7 +117,7 @@ impl<S: State> CommitContext<S> {
         }
     }
 
-    pub fn merge_sub_context<F, SS>(&mut self, sub_context: CommitContext<SS>, f: &Arc<F>)
+    pub fn merge_sub_context<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
     where
         F: Fn(&S) -> &SS + Sync + Send + 'static,
         SS: State,
@@ -148,7 +148,7 @@ impl<S: State> CommitContext<S> {
     }
 }
 
-impl<S: State> IdContext for CommitContext<S> {
+impl<S: State> IdContext for EffectContext<S> {
     fn id_path(&self) -> &IdPath {
         &self.id_path
     }
