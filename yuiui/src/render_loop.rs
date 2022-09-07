@@ -8,7 +8,7 @@ use crate::command::Command;
 use crate::context::{CommitContext, RenderContext};
 use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
-use crate::id::{ComponentIndex, Id, IdPathBuf, IdTree};
+use crate::id::{ComponentIndex, IdPathBuf, IdTree, StateScope};
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
@@ -16,10 +16,9 @@ use crate::view_node::{CommitMode, ViewNode};
 pub struct RenderLoop<E: Element<S, B>, S: State, B> {
     node: ViewNode<E::View, E::Components, S, B>,
     render_context: RenderContext,
-    effect_queue: VecDeque<(IdPathBuf, ComponentIndex, Effect<S>)>,
+    effect_queue: VecDeque<(IdPathBuf, ComponentIndex, StateScope, Effect<S>)>,
     update_selections: BTreeMap<IdPathBuf, ComponentIndex>,
     commit_selections: BTreeMap<IdPathBuf, ComponentIndex>,
-    state_subscribers: BTreeMap<(Id, ComponentIndex), (IdPathBuf, ComponentIndex)>,
     is_mounted: bool,
 }
 
@@ -38,15 +37,16 @@ where
             effect_queue: VecDeque::new(),
             update_selections: BTreeMap::new(),
             commit_selections: BTreeMap::new(),
-            state_subscribers: BTreeMap::new(),
             is_mounted: false,
         }
     }
 
     pub fn run(&mut self, deadline: &impl Deadline, state: &mut S, backend: &B) -> RenderFlow {
         loop {
-            while let Some((id_path, component_index, effect)) = self.effect_queue.pop_front() {
-                self.apply_effect(id_path, component_index, effect, state, backend);
+            while let Some((id_path, component_index, scope, effect)) =
+                self.effect_queue.pop_front()
+            {
+                self.apply_effect(id_path, component_index, scope, effect, state, backend);
                 if deadline.did_timeout() {
                     return self.render_status();
                 }
@@ -99,10 +99,11 @@ where
         &mut self,
         id_path: IdPathBuf,
         component_index: ComponentIndex,
+        scope: StateScope,
         effect: Effect<S>,
     ) {
         self.effect_queue
-            .push_back((id_path, component_index, effect));
+            .push_back((id_path, component_index, scope, effect));
     }
 
     fn render_status(&self) -> RenderFlow {
@@ -121,6 +122,7 @@ where
         &mut self,
         id_path: IdPathBuf,
         component_index: ComponentIndex,
+        scope: StateScope,
         effect: Effect<S>,
         state: &mut S,
         backend: &B,
@@ -128,28 +130,34 @@ where
         match effect {
             Effect::Message(message) => {
                 if state.reduce(message) {
-                    for (id_path, component_index) in self.state_subscribers.values() {
-                        schedule(
-                            &mut self.update_selections,
-                            id_path.clone(),
-                            *component_index,
-                        );
-                    }
+                    let (id_path, component_index) = match scope {
+                        StateScope::Global => (id_path.clone(), component_index),
+                        StateScope::Partial(id_path, component_index) => {
+                            (id_path.clone(), component_index)
+                        }
+                    };
+                    schedule(&mut self.update_selections, id_path, component_index);
                 }
             }
             Effect::Mutation(mutation) => {
                 if mutation(state) {
-                    for (id_path, component_index) in self.state_subscribers.values() {
-                        schedule(
-                            &mut self.update_selections,
-                            id_path.clone(),
-                            *component_index,
-                        );
-                    }
+                    let (id_path, component_index) = match scope {
+                        StateScope::Global => (id_path.clone(), component_index),
+                        StateScope::Partial(id_path, component_index) => {
+                            (id_path.clone(), component_index)
+                        }
+                    };
+                    schedule(&mut self.update_selections, id_path, component_index);
                 }
             }
             Effect::Command(command, cancellation_token) => {
-                backend.invoke_command(id_path, component_index, command, cancellation_token);
+                backend.invoke_command(
+                    id_path,
+                    component_index,
+                    scope,
+                    command,
+                    cancellation_token,
+                );
             }
             Effect::DownwardEvent(event) => {
                 let mut effect_context = CommitContext::new();
@@ -168,15 +176,6 @@ where
                 self.node
                     .local_event(&event, &id_path, state, backend, &mut effect_context);
                 self.effect_queue.extend(effect_context.into_effects());
-            }
-            Effect::SubscribeState => {
-                let id = Id::from_bottom(&id_path);
-                self.state_subscribers
-                    .insert((id, component_index), (id_path, component_index));
-            }
-            Effect::UnsubscribeState => {
-                let id = Id::from_bottom(&id_path);
-                self.state_subscribers.remove(&(id, component_index));
             }
             Effect::RequestUpdate => {
                 schedule(&mut self.update_selections, id_path, component_index);
@@ -213,6 +212,7 @@ pub trait RenderLoopContext<S: State> {
         &self,
         id_path: IdPathBuf,
         component_index: ComponentIndex,
+        scope: StateScope,
         command: Command<S>,
         cancellation_token: Option<CancellationToken>,
     );

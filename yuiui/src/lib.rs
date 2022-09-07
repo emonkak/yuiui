@@ -23,11 +23,11 @@ pub use component_stack::ComponentStack;
 pub use context::{CommitContext, IdContext, RenderContext};
 pub use effect::Effect;
 pub use element::{
-    ComponentElement, Connect, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,
+    ComponentElement, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,
     ViewElement,
 };
 pub use event::{Event, EventMask, EventResult, HasEvent, Lifecycle};
-pub use id::{ComponentIndex, Id, IdPath, IdPathBuf};
+pub use id::{ComponentIndex, Id, IdPath, IdPathBuf, StateScope};
 pub use render_loop::{Deadline, Forever, RenderFlow, RenderLoop, RenderLoopContext};
 pub use state::{Data, State};
 pub use traversable::{Traversable, TraversableVisitor};

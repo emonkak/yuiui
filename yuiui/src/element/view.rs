@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentEnd;
-use crate::context::{IdContext, RenderContext};
+use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeScope, ViewNodeState};
@@ -38,12 +38,10 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
-        let id = context.next_identity();
-        context.begin_view(id);
-        let children = self.children.render_children(state, backend, context);
-        let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
-        context.end_view();
-        node
+        context.with_identity(|id, context| {
+            let children = self.children.render_children(state, backend, context);
+            ViewNode::new(id, self.view, children, ComponentEnd::new())
+        })
     }
 
     fn update(

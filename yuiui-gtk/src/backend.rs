@@ -3,7 +3,7 @@ use glib::{MainContext, Sender, SourceId};
 use gtk::Application;
 use yuiui::{
     CancellationToken, Command, ComponentIndex, Effect, IdPathBuf, RawToken, RawTokenVTable,
-    RenderLoopContext, State,
+    RenderLoopContext, State, StateScope,
 };
 
 #[derive(Debug)]
@@ -47,6 +47,7 @@ impl<S: State> RenderLoopContext<S> for Backend<S> {
         &self,
         id_path: IdPathBuf,
         component_index: ComponentIndex,
+        scope: StateScope,
         command: Command<S>,
         cancellation_token: Option<CancellationToken>,
     ) {
@@ -55,26 +56,36 @@ impl<S: State> RenderLoopContext<S> for Backend<S> {
             Command::Future(future) => self.main_context.spawn_local(async move {
                 let effect = future.await;
                 message_sender
-                    .send(Action::PushEffect(id_path, component_index, effect))
+                    .send(Action::PushEffect(id_path, component_index, scope, effect))
                     .unwrap();
             }),
             Command::Stream(mut stream) => self.main_context.spawn_local(async move {
                 while let Some(effect) = stream.next().await {
                     message_sender
-                        .send(Action::PushEffect(id_path.clone(), component_index, effect))
+                        .send(Action::PushEffect(
+                            id_path.clone(),
+                            component_index,
+                            scope.clone(),
+                            effect,
+                        ))
                         .unwrap();
                 }
             }),
             Command::Timeout(duration, callback) => glib::timeout_add_once(duration, move || {
                 let effect = callback();
                 message_sender
-                    .send(Action::PushEffect(id_path, component_index, effect))
+                    .send(Action::PushEffect(id_path, component_index, scope, effect))
                     .unwrap();
             }),
             Command::Interval(period, callback) => glib::timeout_add(period, move || {
                 let effect = callback();
                 message_sender
-                    .send(Action::PushEffect(id_path.clone(), component_index, effect))
+                    .send(Action::PushEffect(
+                        id_path.clone(),
+                        component_index,
+                        scope.clone(),
+                        effect,
+                    ))
                     .unwrap();
                 glib::Continue(true)
             }),
@@ -100,17 +111,23 @@ impl<S: State> BackendProxy<S> {
         &self,
         id_path: IdPathBuf,
         component_index: ComponentIndex,
+        state_scope: StateScope,
         effect: Effect<S>,
     ) {
         self.sender
-            .send(Action::PushEffect(id_path, component_index, effect))
+            .send(Action::PushEffect(
+                id_path,
+                component_index,
+                state_scope,
+                effect,
+            ))
             .unwrap();
     }
 }
 
 pub(super) enum Action<S: State> {
     RequestRender,
-    PushEffect(IdPathBuf, ComponentIndex, Effect<S>),
+    PushEffect(IdPathBuf, ComponentIndex, StateScope, Effect<S>),
 }
 
 fn create_token(source_id: SourceId) -> RawToken {

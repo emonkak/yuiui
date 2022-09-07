@@ -33,8 +33,8 @@ where
 
         match action {
             Action::RequestRender => {}
-            Action::PushEffect(id_path, component_index, effect) => {
-                render_loop.push_effect(id_path, component_index, effect);
+            Action::PushEffect(id_path, component_index, scope, effect) => {
+                render_loop.push_effect(id_path, component_index, scope, effect);
             }
         }
 

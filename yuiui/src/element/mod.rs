@@ -1,13 +1,11 @@
 mod adapt;
 mod component;
-mod connect;
 mod env;
 mod memoize;
 mod view;
 
 pub use adapt::Adapt;
 pub use component::ComponentElement;
-pub use connect::Connect;
 pub use env::{Consume, Provide};
 pub use memoize::Memoize;
 pub use view::ViewElement;

@@ -43,10 +43,10 @@ fn app() -> impl DebuggableElement<AppState, ()> {
             }
         }),
         Text::new("!").el(),
-        Button(ButtonProps {
+        button(ButtonProps {
             label: "click me!".into(),
-        })
-        .el(),
+        }),
+        counter().adapt(|state: &AppState| &state.count),
     ])
 }
 
@@ -143,11 +143,16 @@ pub struct ButtonProps {
     pub label: Cow<'static, str>,
 }
 
-#[allow(non_snake_case)]
-pub fn Button<S: State, B>(
+pub fn button<S: State, B>(
     props: ButtonProps,
-) -> FunctionComponent<ButtonProps, impl DebuggableElement<S, B>, S, B> {
+) -> ComponentElement<FunctionComponent<ButtonProps, impl DebuggableElement<S, B>, S, B>> {
     FunctionComponent::new(props, |props, _state, _backend| {
         Block::new().el_with(Text::new(props.label.clone()).el())
-    })
+    }).el()
+}
+
+pub fn counter<E>() -> ComponentElement<FunctionComponent<(), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>> {
+    FunctionComponent::new((), |_props, state: &Data<i64>, _backend| {
+        Block::new().el_with(Text::new(format!("{}", state.value)).el())
+    }).el()
 }

@@ -271,19 +271,20 @@ where
         backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
-        context.begin_view(self.id);
-        let has_changed = self.commit(mode, state, backend, context);
+        context.begin_view(self.id, &self.env);
+        let result = self.commit(mode, state, backend, context);
         context.end_view();
-        has_changed
+        result
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for ViewNode<V, CS, S, B>
+impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for ViewNode<V, CS, S, B>
 where
     V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, RenderContext, S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, Context, S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<Self, RenderContext, S, B>,
+    Visitor: TraversableVisitor<Self, Context, S, B>,
+    Context: IdContext,
     S: State,
 {
     fn for_each(
@@ -291,12 +292,9 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
+        context: &mut Context,
     ) -> bool {
-        context.begin_view(self.id);
-        if let Some(env) = &self.env {
-            context.push_env(env.clone());
-        }
+        context.begin_view(self.id, &self.env);
         let result = visitor.visit(self, state, backend, context);
         context.end_view();
         result
@@ -308,48 +306,9 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
+        context: &mut Context,
     ) -> bool {
-        context.begin_view(self.id);
-        if let Some(env) = &self.env {
-            context.push_env(env.clone());
-        }
-        let result = self.search(id_path, visitor, state, backend, context);
-        context.end_view();
-        result
-    }
-}
-
-impl<V, CS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for ViewNode<V, CS, S, B>
-where
-    V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, CommitContext<S>, S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<Self, CommitContext<S>, S, B>,
-    S: State,
-{
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        backend: &B,
-        context: &mut CommitContext<S>,
-    ) -> bool {
-        context.begin_view(self.id);
-        let result = visitor.visit(self, state, backend, context);
-        context.end_view();
-        result
-    }
-
-    fn search(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        backend: &B,
-        context: &mut CommitContext<S>,
-    ) -> bool {
-        context.begin_view(self.id);
+        context.begin_view(self.id, &self.env);
         let result = self.search(id_path, visitor, state, backend, context);
         context.end_view();
         result

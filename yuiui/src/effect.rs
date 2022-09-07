@@ -14,8 +14,6 @@ pub enum Effect<S: State> {
     UpwardEvent(Box<dyn Any + Send>),
     LocalEvent(Box<dyn Any + Send>),
     RequestUpdate,
-    SubscribeState,
-    UnsubscribeState,
 }
 
 impl<S: State> Effect<S> {
@@ -48,8 +46,6 @@ impl<S: State> Effect<S> {
             Self::UpwardEvent(event) => Effect::UpwardEvent(event),
             Self::LocalEvent(event) => Effect::LocalEvent(event),
             Self::RequestUpdate => Effect::RequestUpdate,
-            Self::SubscribeState => Effect::SubscribeState,
-            Self::UnsubscribeState => Effect::UnsubscribeState,
         }
     }
 }
@@ -70,8 +66,6 @@ where
             Self::DownwardEvent(event) => f.debug_tuple("DownwardEvent").field(event).finish(),
             Self::UpwardEvent(event) => f.debug_tuple("UpwardEvent").field(event).finish(),
             Self::LocalEvent(event) => f.debug_tuple("LocalEvent").field(event).finish(),
-            Self::SubscribeState => f.write_str("SubscribeState"),
-            Self::UnsubscribeState => f.write_str("UnsubscribeState"),
             Self::RequestUpdate => f.write_str("RequestUpdate"),
         }
     }

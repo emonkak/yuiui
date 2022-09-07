@@ -4,6 +4,7 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
+use crate::context::IdContext;
 use crate::context::{CommitContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
@@ -177,12 +178,13 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for VecStorage<V, CS, S, B>
+impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for VecStorage<V, CS, S, B>
 where
     V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, RenderContext, S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, Context, S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, RenderContext, S, B>,
+    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, Context, S, B>,
+    Context: IdContext,
     S: State,
 {
     fn for_each(
@@ -190,7 +192,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
+        context: &mut Context,
     ) -> bool {
         let mut result = false;
         for node in &mut self.active {
@@ -205,48 +207,7 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
-    ) -> bool {
-        let id = Id::from_bottom(id_path);
-        if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
-            let node = &mut self.active[index];
-            node.search(id_path, visitor, state, backend, context);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl<V, CS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for VecStorage<V, CS, S, B>
-where
-    V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, CommitContext<S>, S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, CommitContext<S>, S, B>,
-    S: State,
-{
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        state: &S,
-        backend: &B,
-        context: &mut CommitContext<S>,
-    ) -> bool {
-        let mut result = false;
-        for node in &mut self.active {
-            result |= node.for_each(visitor, state, backend, context);
-        }
-        result
-    }
-
-    fn search(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        backend: &B,
-        context: &mut CommitContext<S>,
+        context: &mut Context,
     ) -> bool {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
