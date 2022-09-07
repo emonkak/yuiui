@@ -4,7 +4,6 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::IdContext;
 use crate::context::{CommitContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
@@ -180,11 +179,10 @@ where
 
 impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for VecStorage<V, CS, S, B>
 where
+    ViewNode<V, CS, S, B>: Traversable<Visitor, Context, S, B>,
     V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, Context, S, B>,
     CS: ComponentStack<S, B, View = V>,
     Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, Context, S, B>,
-    Context: IdContext,
     S: State,
 {
     fn for_each(

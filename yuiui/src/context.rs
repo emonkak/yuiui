@@ -10,21 +10,16 @@ use crate::state::State;
 pub trait IdContext {
     fn id_path(&self) -> &IdPath;
 
-    fn with_view<F: FnOnce(&mut Self) -> T, T>(
-        &mut self,
-        id: Id,
-        env: &Option<Rc<dyn Any>>,
-        f: F,
-    ) -> T {
-        self.begin_view(id, env);
+    fn begin_view(&mut self, id: Id);
+
+    fn end_view(&mut self) -> Id;
+
+    fn with_view<F: FnOnce(&mut Self) -> T, T>(&mut self, id: Id, f: F) -> T {
+        self.begin_view(id);
         let result = f(self);
         self.end_view();
         result
     }
-
-    fn begin_view(&mut self, id: Id, env: &Option<Rc<dyn Any>>);
-
-    fn end_view(&mut self) -> Id;
 }
 
 #[derive(Debug)]
@@ -65,6 +60,11 @@ impl RenderContext {
         }
         None
     }
+
+    pub fn push_env(&mut self, value: Rc<dyn Any>) {
+        self.env_stack
+            .push((Id::from_bottom(self.id_path.as_slice()), value))
+    }
 }
 
 impl IdContext for RenderContext {
@@ -72,12 +72,8 @@ impl IdContext for RenderContext {
         &self.id_path
     }
 
-    fn begin_view(&mut self, id: Id, env: &Option<Rc<dyn Any>>) {
+    fn begin_view(&mut self, id: Id) {
         self.id_path.push(id);
-        if let Some(value) = env {
-            self.env_stack
-                .push((Id::from_bottom(self.id_path.as_slice()), value.clone()))
-        }
     }
 
     fn end_view(&mut self) -> Id {
@@ -157,7 +153,7 @@ impl<S: State> IdContext for CommitContext<S> {
         &self.id_path
     }
 
-    fn begin_view(&mut self, id: Id, _env: &Option<Rc<dyn Any>>) {
+    fn begin_view(&mut self, id: Id) {
         self.id_path.push(id);
         self.component_index = 0;
     }

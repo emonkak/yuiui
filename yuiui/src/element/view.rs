@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentEnd;
-use crate::context::RenderContext;
+use crate::context::{IdContext, RenderContext};
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
@@ -46,21 +46,23 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        *scope.state = match scope.state.take().unwrap() {
-            ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
-            ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
-                ViewNodeState::Pending(view, self.view, widget)
+        context.with_view(node.id, |context| {
+            *node.state = match node.state.take().unwrap() {
+                ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
+                ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+                    ViewNodeState::Pending(view, self.view, widget)
+                }
             }
-        }
-        .into();
-        *scope.dirty = true;
-        self.children
-            .update_children(scope.children, state, backend, context);
+            .into();
+            *node.dirty = true;
+            self.children
+                .update_children(node.children, state, backend, context);
+        });
         true
     }
 }

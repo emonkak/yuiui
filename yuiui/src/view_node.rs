@@ -189,31 +189,6 @@ where
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, backend, context)
     }
-
-    pub fn search<Visitor, Context>(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        state: &S,
-        backend: &B,
-        context: &mut Context,
-    ) -> bool
-    where
-        <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, Context, S, B>,
-        Visitor: TraversableVisitor<Self, Context, S, B>,
-        Context: IdContext,
-    {
-        if self.id == Id::from_top(id_path) {
-            visitor.visit(self, state, backend, context)
-        } else if self.id == Id::from_bottom(id_path) {
-            debug_assert!(id_path.len() > 0);
-            let id_path = &id_path[1..];
-            self.children
-                .search(id_path, visitor, state, backend, context)
-        } else {
-            false
-        }
-    }
 }
 
 pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
@@ -282,20 +257,18 @@ where
         backend: &B,
         context: &mut CommitContext<S>,
     ) -> bool {
-        context.begin_view(self.id, &self.env);
-        let result = self.commit(mode, state, backend, context);
-        context.end_view();
-        result
+        context.with_view(self.id, |context| {
+            self.commit(mode, state, backend, context)
+        })
     }
 }
 
-impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for ViewNode<V, CS, S, B>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for ViewNode<V, CS, S, B>
 where
     V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, Context, S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, RenderContext, S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<Self, Context, S, B>,
-    Context: IdContext,
+    Visitor: TraversableVisitor<Self, RenderContext, S, B>,
     S: State,
 {
     fn for_each(
@@ -303,12 +276,14 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool {
-        context.begin_view(self.id, &self.env);
-        let result = visitor.visit(self, state, backend, context);
-        context.end_view();
-        result
+        context.with_view(self.id, |context| {
+            if let Some(value) = &self.env {
+                context.push_env(value.clone());
+            }
+            visitor.visit(self, state, backend, context)
+        })
     }
 
     fn search(
@@ -317,12 +292,66 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut Context,
+        context: &mut RenderContext,
     ) -> bool {
-        context.begin_view(self.id, &self.env);
-        let result = self.search(id_path, visitor, state, backend, context);
-        context.end_view();
-        result
+        context.with_view(self.id, |context| {
+            if let Some(value) = &self.env {
+                context.push_env(value.clone());
+            }
+            if self.id == Id::from_top(id_path) {
+                visitor.visit(self, state, backend, context)
+            } else if self.id == Id::from_bottom(id_path) {
+                debug_assert!(id_path.len() > 0);
+                let id_path = &id_path[1..];
+                self.children
+                    .search(id_path, visitor, state, backend, context)
+            } else {
+                false
+            }
+        })
+    }
+}
+
+impl<V, CS, Visitor, S, B> Traversable<Visitor, CommitContext<S>, S, B> for ViewNode<V, CS, S, B>
+where
+    V: View<S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, CommitContext<S>, S, B>,
+    CS: ComponentStack<S, B, View = V>,
+    Visitor: TraversableVisitor<Self, CommitContext<S>, S, B>,
+    S: State,
+{
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        state: &S,
+        backend: &B,
+        context: &mut CommitContext<S>,
+    ) -> bool {
+        context.with_view(self.id, |context| {
+            visitor.visit(self, state, backend, context)
+        })
+    }
+
+    fn search(
+        &mut self,
+        id_path: &IdPath,
+        visitor: &mut Visitor,
+        state: &S,
+        backend: &B,
+        context: &mut CommitContext<S>,
+    ) -> bool {
+        context.with_view(self.id, |context| {
+            if self.id == Id::from_top(id_path) {
+                visitor.visit(self, state, backend, context)
+            } else if self.id == Id::from_bottom(id_path) {
+                debug_assert!(id_path.len() > 0);
+                let id_path = &id_path[1..];
+                self.children
+                    .search(id_path, visitor, state, backend, context)
+            } else {
+                false
+            }
+        })
     }
 }
 
