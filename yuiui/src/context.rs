@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::effect::Effect;
 use crate::event::EventResult;
-use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf, StateScope};
+use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf};
 use crate::state::State;
 
 pub trait IdContext {
@@ -98,8 +98,8 @@ impl IdContext for RenderContext {
 pub struct CommitContext<S: State> {
     id_path: IdPathBuf,
     component_index: ComponentIndex,
-    scope: StateScope,
-    effects: Vec<(IdPathBuf, ComponentIndex, StateScope, Effect<S>)>,
+    state_scope: StateScope,
+    effects: Vec<(IdPathBuf, ComponentIndex, Effect<S>)>,
 }
 
 impl<S: State> CommitContext<S> {
@@ -107,7 +107,7 @@ impl<S: State> CommitContext<S> {
         Self {
             id_path: IdPathBuf::new(),
             component_index: 0,
-            scope: StateScope::Global,
+            state_scope: StateScope::Global,
             effects: Vec::new(),
         }
     }
@@ -116,7 +116,7 @@ impl<S: State> CommitContext<S> {
         CommitContext {
             id_path: self.id_path.clone(),
             component_index: self.component_index,
-            scope: StateScope::Partial(self.id_path.clone(), self.component_index),
+            state_scope: StateScope::Partial(self.id_path.clone(), self.component_index),
             effects: Vec::new(),
         }
     }
@@ -127,29 +127,27 @@ impl<S: State> CommitContext<S> {
         SS: State,
     {
         assert!(sub_context.id_path.starts_with(&self.id_path));
-        let sub_effects =
-            sub_context
-                .effects
-                .into_iter()
-                .map(|(id_path, component_index, scope, effect)| {
-                    (id_path, component_index, scope, effect.lift(f))
-                });
+        let sub_effects = sub_context
+            .effects
+            .into_iter()
+            .map(|(id_path, component_index, effect)| (id_path, component_index, effect.lift(f)));
         self.effects.extend(sub_effects);
     }
 
     pub fn process_result(&mut self, result: EventResult<S>, component_index: ComponentIndex) {
         for effect in result.into_effects() {
-            self.effects.push((
-                self.id_path.clone(),
-                component_index,
-                self.scope.clone(),
-                effect,
-            ));
+            let (id_path, component_index) = match effect {
+                Effect::Message(_) | Effect::Mutation(_) | Effect::Command(_, _) => {
+                    self.state_scope.clone().normalize()
+                }
+                Effect::RequestUpdate => (self.id_path.clone(), self.component_index),
+            };
+            self.effects.push((id_path, component_index, effect));
         }
         self.component_index = component_index;
     }
 
-    pub fn into_effects(self) -> Vec<(IdPathBuf, ComponentIndex, StateScope, Effect<S>)> {
+    pub fn into_effects(self) -> Vec<(IdPathBuf, ComponentIndex, Effect<S>)> {
         self.effects
     }
 }
@@ -166,5 +164,20 @@ impl<S: State> IdContext for CommitContext<S> {
 
     fn end_view(&mut self) -> Id {
         self.id_path.pop().unwrap()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StateScope {
+    Global,
+    Partial(IdPathBuf, ComponentIndex),
+}
+
+impl StateScope {
+    pub fn normalize(self) -> (IdPathBuf, ComponentIndex) {
+        match self {
+            StateScope::Global => (IdPathBuf::new(), 0),
+            StateScope::Partial(id_path, component_index) => (id_path, component_index),
+        }
     }
 }

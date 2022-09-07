@@ -7,7 +7,7 @@ pub use window::ApplicationWindow;
 use glib::MainContext;
 use gtk::Application;
 use std::time::{Duration, Instant};
-use yuiui::{Element, Forever, RenderFlow, RenderLoop, State};
+use yuiui::{Deadline, Element, Forever, RenderFlow, RenderLoop, State};
 
 use backend::Action;
 
@@ -33,13 +33,21 @@ where
 
         match action {
             Action::RequestRender => {}
-            Action::PushEffect(id_path, component_index, scope, effect) => {
-                render_loop.push_effect(id_path, component_index, scope, effect);
+            Action::DispatchEvent(event, destination) => {
+                render_loop.dispatch_event(event, destination, &state, &backend);
+
+                if deadline.did_timeout() {
+                    backend.request_render();
+                    return glib::Continue(true);
+                }
+            }
+            Action::PushEffect(id_path, component_index, effect) => {
+                render_loop.push_effect(id_path, component_index, effect);
             }
         }
 
         if render_loop.run(&deadline, &mut state, &backend) == RenderFlow::Suspended {
-            backend.schedule_render();
+            backend.request_render();
         }
 
         glib::Continue(true)

@@ -26,8 +26,8 @@ pub use element::{
     ComponentElement, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,
     ViewElement,
 };
-pub use event::{Event, EventMask, EventResult, HasEvent, Lifecycle};
-pub use id::{ComponentIndex, Id, IdPath, IdPathBuf, StateScope};
+pub use event::{Event, EventDestination, EventMask, EventResult, HasEvent, Lifecycle};
+pub use id::{ComponentIndex, Id, IdPath, IdPathBuf};
 pub use render_loop::{Deadline, Forever, RenderFlow, RenderLoop, RenderLoopContext};
 pub use state::{Data, State};
 pub use traversable::{Traversable, TraversableVisitor};

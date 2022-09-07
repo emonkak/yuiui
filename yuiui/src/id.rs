@@ -22,12 +22,6 @@ pub type IdPathBuf = Vec<Id>;
 pub type ComponentIndex = usize;
 
 #[derive(Debug, Clone)]
-pub enum StateScope {
-    Global,
-    Partial(IdPathBuf, ComponentIndex),
-}
-
-#[derive(Debug, Clone)]
 pub struct IdTree<T> {
     arena: Vec<Node<T>>,
 }

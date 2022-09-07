@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::effect::Effect;
+use crate::id::IdPathBuf;
 use crate::state::State;
 
 pub trait Event<'event> {
@@ -76,28 +77,6 @@ impl EventMask {
     }
 }
 
-#[derive(Debug)]
-pub enum Lifecycle<T> {
-    Mounted,
-    Remounted,
-    Updated(T),
-    Unmounted,
-}
-
-impl<T> Lifecycle<T> {
-    pub fn map<F, U>(self, f: F) -> Lifecycle<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        match self {
-            Self::Mounted => Lifecycle::Mounted,
-            Self::Remounted => Lifecycle::Remounted,
-            Self::Updated(value) => Lifecycle::Updated(f(value)),
-            Self::Unmounted => Lifecycle::Unmounted,
-        }
-    }
-}
-
 #[must_use]
 pub struct EventResult<S: State> {
     effects: Vec<Effect<S>>,
@@ -139,5 +118,35 @@ impl<S: State> From<Effect<S>> for EventResult<S> {
 impl<S: State> From<Vec<Effect<S>>> for EventResult<S> {
     fn from(effects: Vec<Effect<S>>) -> Self {
         EventResult { effects }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum EventDestination {
+    Global,
+    Local(IdPathBuf),
+    Upward(IdPathBuf),
+    Downward(IdPathBuf),
+}
+
+#[derive(Debug)]
+pub enum Lifecycle<T> {
+    Mounted,
+    Remounted,
+    Updated(T),
+    Unmounted,
+}
+
+impl<T> Lifecycle<T> {
+    pub fn map<F, U>(self, f: F) -> Lifecycle<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Mounted => Lifecycle::Mounted,
+            Self::Remounted => Lifecycle::Remounted,
+            Self::Updated(value) => Lifecycle::Updated(f(value)),
+            Self::Unmounted => Lifecycle::Unmounted,
+        }
     }
 }

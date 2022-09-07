@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
@@ -10,9 +9,6 @@ pub enum Effect<S: State> {
     Message(S::Message),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
     Command(Command<S>, Option<CancellationToken>),
-    DownwardEvent(Box<dyn Any + Send>),
-    UpwardEvent(Box<dyn Any + Send>),
-    LocalEvent(Box<dyn Any + Send>),
     RequestUpdate,
 }
 
@@ -42,9 +38,6 @@ impl<S: State> Effect<S> {
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command, cancellation_token)
             }
-            Self::DownwardEvent(event) => Effect::DownwardEvent(event),
-            Self::UpwardEvent(event) => Effect::UpwardEvent(event),
-            Self::LocalEvent(event) => Effect::LocalEvent(event),
             Self::RequestUpdate => Effect::RequestUpdate,
         }
     }
@@ -63,9 +56,6 @@ where
                 .field(command)
                 .field(cancellation_token)
                 .finish(),
-            Self::DownwardEvent(event) => f.debug_tuple("DownwardEvent").field(event).finish(),
-            Self::UpwardEvent(event) => f.debug_tuple("UpwardEvent").field(event).finish(),
-            Self::LocalEvent(event) => f.debug_tuple("LocalEvent").field(event).finish(),
             Self::RequestUpdate => f.write_str("RequestUpdate"),
         }
     }

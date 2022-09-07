@@ -143,6 +143,17 @@ where
         visitor.visit(self, state, backend, context)
     }
 
+    pub fn global_event(
+        &mut self,
+        event: &dyn Any,
+        state: &S,
+        backend: &B,
+        context: &mut CommitContext<S>,
+    ) -> bool {
+        let mut visitor = DownwardEventVisitor::new(event);
+        visitor.visit(self, state, backend, context)
+    }
+
     pub fn downward_event(
         &mut self,
         event: &dyn Any,

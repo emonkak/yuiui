@@ -4,10 +4,10 @@ mod memoize;
 mod scope;
 mod view;
 
-pub use scope::Scope;
 pub use component::ComponentElement;
 pub use env::{Consume, Provide};
 pub use memoize::Memoize;
+pub use scope::Scope;
 pub use view::ViewElement;
 
 use std::fmt;
