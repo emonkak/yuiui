@@ -39,15 +39,15 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let (head_node, _) = scope.components;
+        let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
             let element = ComponentElement::new(AsComponent::new(self));
-            Element::update(element, scope, state, backend, context)
+            Element::update(element, node, state, backend, context)
         } else {
             head_node.pending_component = Some(AsComponent::new(self));
             false

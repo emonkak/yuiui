@@ -80,7 +80,7 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
@@ -89,7 +89,7 @@ where
             .get_env::<T>()
             .unwrap_or_else(|| panic!("get env {}", any::type_name::<T>()));
         let element = (self.inner.render)(value, state, backend);
-        element.update(scope, state, backend, context)
+        element.update(node, state, backend, context)
     }
 }
 

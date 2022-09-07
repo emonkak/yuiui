@@ -15,7 +15,7 @@ pub trait ComponentStack<S: State, B>: Sized {
     type View: View<S, B>;
 
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, B>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
@@ -31,7 +31,7 @@ pub trait ComponentStack<S: State, B>: Sized {
         state: &S,
         backend: &B,
         context: &mut CommitContext<S>,
-    );
+    ) -> bool;
 }
 
 impl<C, CS, S, B> ComponentStack<S, B> for (ComponentNode<C, S, B>, CS)
@@ -46,7 +46,7 @@ where
     type View = <C::Element as Element<S, B>>::View;
 
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, B>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
@@ -67,7 +67,7 @@ where
             element.update(&mut node, state, backend, context)
         } else {
             CS::update(
-                node,
+                &mut node,
                 target_index,
                 current_index + 1,
                 state,
@@ -85,9 +85,9 @@ where
         state: &S,
         backend: &B,
         context: &mut CommitContext<S>,
-    ) {
+    ) -> bool {
         if target_index <= current_index {
-            self.0.commit(mode, current_index, state, backend, context);
+            self.0.commit(mode, current_index, state, backend, context)
         } else {
             self.1.commit(
                 mode,
@@ -96,7 +96,7 @@ where
                 state,
                 backend,
                 context,
-            );
+            )
         }
     }
 }
@@ -116,7 +116,7 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
     type View = V;
 
     fn update<'a>(
-        _node: ViewNodeMut<'a, V, Self, S, B>,
+        _node: &mut ViewNodeMut<'a, V, Self, S, B>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
         _state: &S,
@@ -134,6 +134,7 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
         _state: &S,
         _backend: &B,
         _context: &mut CommitContext<S>,
-    ) {
+    ) -> bool {
+        false
     }
 }

@@ -40,13 +40,13 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let result = self.element.update(scope, state, backend, context);
-        *scope.env = Some(Rc::new(self.value));
+        let result = self.element.update(node, state, backend, context);
+        *node.env = Some(Rc::new(self.value));
         result
     }
 }

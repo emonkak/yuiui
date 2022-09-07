@@ -34,8 +34,7 @@ where
     ) -> bool {
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
-            let scope = node.borrow_mut();
-            CS::update(scope, component_index, 0, state, backend, context)
+            CS::update(&mut node.borrow_mut(), component_index, 0, state, backend, context)
         } else {
             node.dirty = true;
             node.children.for_each(self, state, backend, context);

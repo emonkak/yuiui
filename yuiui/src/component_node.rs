@@ -1,6 +1,5 @@
 use std::fmt;
 use std::marker::PhantomData;
-use std::mem;
 
 use crate::component::Component;
 use crate::context::CommitContext;
@@ -39,24 +38,32 @@ where
         state: &S,
         backend: &B,
         context: &mut CommitContext<S>,
-    ) {
-        let result = match mode {
-            CommitMode::Mount => self.component.lifecycle(Lifecycle::Mounted, state, backend),
+    ) -> bool {
+        match mode {
+            CommitMode::Mount => {
+                let result = self.component.lifecycle(Lifecycle::Mounted, state, backend);
+                context.process_result(result, component_index);
+                true
+            },
             CommitMode::Update => {
-                let old_component = mem::replace(
-                    &mut self.component,
-                    self.pending_component
-                        .take()
-                        .expect("take pending component"),
-                );
-                self.component
-                    .lifecycle(Lifecycle::Updated(&old_component), state, backend)
+                if let Some(pending_component) = self.pending_component.take() {
+                    let result = pending_component
+                        .lifecycle(Lifecycle::Updated(&self.component), state, backend);
+                    self.component = pending_component;
+                    context.process_result(result, component_index);
+                    true
+                } else {
+                    false
+                }
             }
-            CommitMode::Unmount => self
-                .component
-                .lifecycle(Lifecycle::Unmounted, state, backend),
-        };
-        context.process_result(result, component_index);
+            CommitMode::Unmount => {
+                let result = self
+                    .component
+                    .lifecycle(Lifecycle::Unmounted, state, backend);
+                context.process_result(result, component_index);
+                true
+            }
+        }
     }
 }
 

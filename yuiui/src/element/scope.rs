@@ -77,25 +77,12 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_node_state = node
-            .state
-            .take()
-            .map(|state| state.map_view(|view| view.target));
-        let mut sub_node = ViewNodeMut {
-            id: node.id,
-            state: &mut sub_node_state,
-            children: &mut node.children.target,
-            components: &mut node.components.target,
-            env: node.env,
-            dirty: node.dirty,
-        };
         let sub_state = (self.selector_fn)(state);
-        let has_changed = self
-            .target
-            .update(&mut sub_node, sub_state, backend, context);
-        *node.state = sub_node_state
-            .map(|state| state.map_view(|view| Scope::new(view, self.selector_fn.clone())));
-        has_changed
+        with_sub_node(node, |sub_node| {
+            self
+                .target
+                .update(sub_node, sub_state, backend, context)
+        })
     }
 }
 
@@ -251,10 +238,10 @@ where
         state: &S,
         backend: &B,
         context: &mut CommitContext<S>,
-    ) {
+    ) -> bool {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        self.target.commit(
+        let has_changed = self.target.commit(
             mode,
             target_index,
             current_index,
@@ -263,41 +250,28 @@ where
             &mut sub_context,
         );
         context.merge_sub_context(sub_context, &self.selector_fn);
+        has_changed
     }
 
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, B>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let mut sub_node_state = node
-            .state
-            .take()
-            .map(|state| state.map_view(|view| view.target));
-        let selector_fn = &node.components.selector_fn;
-        let sub_node = ViewNodeMut {
-            id: node.id,
-            state: &mut sub_node_state,
-            children: &mut node.children.target,
-            components: &mut node.components.target,
-            env: node.env,
-            dirty: node.dirty,
-        };
-        let sub_state = selector_fn(state);
-        let has_changed = T::update(
-            sub_node,
-            target_index,
-            current_index,
-            sub_state,
-            backend,
-            context,
-        );
-        *node.state = sub_node_state
-            .map(|state| state.map_view(|view| Scope::new(view, selector_fn.clone())));
-        has_changed
+        let sub_state = (node.components.selector_fn)(state);
+        with_sub_node(node, |sub_node| {
+            T::update(
+                sub_node,
+                target_index,
+                current_index,
+                sub_state,
+                backend,
+                context,
+            )
+        })
     }
 }
 
@@ -367,4 +341,35 @@ where
     T: HasEvent<'event>,
 {
     type Event = T::Event;
+}
+
+fn with_sub_node<Callback, Output, F, SS, V, CS, S, B>(
+    node: &mut ViewNodeMut<Scope<V, F, SS>, Scope<CS, F, SS>, S, B>,
+    callback: Callback,
+) -> Output
+where
+    Callback: FnOnce(&mut ViewNodeMut<V, CS, SS, B>) -> Output,
+    F: Fn(&S) -> &SS + Sync + Send + 'static,
+    SS: State,
+    V: View<SS, B>,
+    CS: ComponentStack<SS, B, View = V>,
+    S: State,
+{
+    let selector_fn = &node.components.selector_fn;
+    let mut sub_node_state = node
+        .state
+        .take()
+        .map(|state| state.map_view(|view| view.target));
+    let mut sub_node = ViewNodeMut {
+        id: node.id,
+        state: &mut sub_node_state,
+        children: &mut node.children.target,
+        components: &mut node.components.target,
+        env: &mut node.env,
+        dirty: &mut node.dirty,
+    };
+    let result = callback(&mut sub_node);
+    *node.state =
+        sub_node_state.map(|state| state.map_view(|view| Scope::new(view, selector_fn.clone())));
+    result
 }

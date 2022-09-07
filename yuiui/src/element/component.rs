@@ -52,24 +52,24 @@ where
 
     fn update(
         self,
-        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        let (head_node, tail_nodes) = scope.components;
+        let (head_node, tail_nodes) = node.components;
         let element = self.component.render(state, backend);
         head_node.pending_component = Some(self.component);
-        *scope.dirty = true;
-        let mut scope = ViewNodeMut {
-            id: scope.id,
-            state: scope.state,
-            children: scope.children,
+        *node.dirty = true;
+        let mut node = ViewNodeMut {
+            id: node.id,
+            state: node.state,
+            children: node.children,
             components: tail_nodes,
-            env: scope.env,
-            dirty: scope.dirty,
+            env: node.env,
+            dirty: node.dirty,
         };
-        element.update(&mut scope, state, backend, context)
+        element.update(&mut node, state, backend, context)
     }
 }
 
