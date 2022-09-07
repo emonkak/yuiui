@@ -1,11 +1,13 @@
 mod component;
-mod env;
+mod consume;
 mod memoize;
+mod provide;
 mod scope;
 mod view;
 
 pub use component::ComponentElement;
-pub use env::{Consume, Provide};
+pub use consume::Consume;
+pub use provide::Provide;
 pub use memoize::Memoize;
 pub use scope::Scope;
 pub use view::ViewElement;
