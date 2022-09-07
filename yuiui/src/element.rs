@@ -45,9 +45,9 @@ pub trait Element<S: State, E> {
 pub trait ElementSeq<S: State, E> {
     type Storage: ViewNodeSeq<S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage;
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage;
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,

@@ -40,7 +40,7 @@ where
     ) -> ViewNode<Self::View, Self::Components, S, E> {
         let id = context.next_identity();
         context.begin_view(id);
-        let children = self.children.render(state, env, context);
+        let children = self.children.render_children(state, env, context);
         let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
         context.end_view();
         node
@@ -61,7 +61,8 @@ where
         }
         .into();
         *scope.dirty = true;
-        self.children.update(scope.children, state, env, context);
+        self.children
+            .update_children(scope.children, state, env, context);
         true
     }
 }
@@ -74,18 +75,18 @@ where
     type Storage =
         ViewNode<<Self as Element<S, E>>::View, <Self as Element<S, E>>::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        Element::render(self, state, env, context)
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        self.render(state, env, context)
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
         env: &E,
         context: &mut RenderContext,
     ) -> bool {
-        Element::update(self, storage.scope(), state, env, context)
+        self.update(storage.scope(), state, env, context)
     }
 }
 

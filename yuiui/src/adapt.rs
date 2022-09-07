@@ -104,15 +104,15 @@ where
 {
     type Storage = Adapt<T::Storage, F, SS>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         let sub_state = (self.selector_fn)(state);
         Adapt::new(
-            self.target.render(sub_state, env, context),
+            self.target.render_children(sub_state, env, context),
             self.selector_fn.clone(),
         )
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
@@ -121,7 +121,7 @@ where
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .update(&mut storage.target, sub_state, env, context)
+            .update_children(&mut storage.target, sub_state, env, context)
     }
 }
 

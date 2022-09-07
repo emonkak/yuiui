@@ -15,11 +15,11 @@ where
 {
     type Storage = HNil;
 
-    fn render(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, _state: &S, _env: &E, _context: &mut RenderContext) -> Self::Storage {
         HNil
     }
 
-    fn update(
+    fn update_children(
         self,
         _nodes: &mut Self::Storage,
         _state: &S,
@@ -89,14 +89,14 @@ where
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         HCons {
-            head: self.head.render(state, env, context),
-            tail: self.tail.render(state, env, context),
+            head: self.head.render_children(state, env, context),
+            tail: self.tail.render_children(state, env, context),
         }
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
@@ -104,8 +104,12 @@ where
         context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
-        has_changed |= self.head.update(&mut storage.head, state, env, context);
-        has_changed |= self.tail.update(&mut storage.tail, state, env, context);
+        has_changed |= self
+            .head
+            .update_children(&mut storage.head, state, env, context);
+        has_changed |= self
+            .tail
+            .update_children(&mut storage.tail, state, env, context);
         has_changed
     }
 }

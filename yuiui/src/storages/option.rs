@@ -34,11 +34,11 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        OptionStorage::new(self.map(|element| element.render(state, env, context)))
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        OptionStorage::new(self.map(|element| element.render_children(state, env, context)))
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
@@ -47,7 +47,7 @@ where
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update(node, state, env, context) {
+                if element.update_children(node, state, env, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -57,9 +57,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update(node, state, env, context);
+                    element.update_children(node, state, env, context);
                 } else {
-                    storage.staging = Some(element.render(state, env, context));
+                    storage.staging = Some(element.render_children(state, env, context));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true

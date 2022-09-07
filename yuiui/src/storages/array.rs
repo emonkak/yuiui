@@ -25,11 +25,11 @@ where
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render(state, env, context)))
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+        ArrayStorage::new(self.map(|element| element.render_children(state, env, context)))
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
@@ -40,7 +40,7 @@ where
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update(node, state, env, context);
+            has_changed |= element.update_children(node, state, env, context);
         }
 
         storage.dirty |= has_changed;

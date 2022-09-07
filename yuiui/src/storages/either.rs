@@ -37,18 +37,18 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         match self {
             Either::Left(element) => {
-                EitherStorage::new(Either::Left(element.render(state, env, context)))
+                EitherStorage::new(Either::Left(element.render_children(state, env, context)))
             }
             Either::Right(element) => {
-                EitherStorage::new(Either::Right(element.render(state, env, context)))
+                EitherStorage::new(Either::Right(element.render_children(state, env, context)))
             }
         }
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
@@ -57,7 +57,7 @@ where
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update(node, state, env, context) {
+                if element.update_children(node, state, env, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -66,7 +66,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update(node, state, env, context) {
+                if element.update_children(node, state, env, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -77,10 +77,11 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update(node, state, env, context);
+                        element.update_children(node, state, env, context);
                     }
                     None => {
-                        storage.staging = Some(Either::Right(element.render(state, env, context)));
+                        storage.staging =
+                            Some(Either::Right(element.render_children(state, env, context)));
                     }
                     _ => unreachable!(),
                 };
@@ -90,10 +91,11 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update(node, state, env, context);
+                        element.update_children(node, state, env, context);
                     }
                     None => {
-                        storage.staging = Some(Either::Left(element.render(state, env, context)));
+                        storage.staging =
+                            Some(Either::Left(element.render_children(state, env, context)));
                     }
                     _ => unreachable!(),
                 }

@@ -61,7 +61,7 @@ where
 {
     type Storage = VecStorage<El::View, El::Components, S, E>;
 
-    fn render(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, state: &S, env: &E, context: &mut RenderContext) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
                 .map(|element| element.render(state, env, context))
@@ -69,7 +69,7 @@ where
         )
     }
 
-    fn update(
+    fn update_children(
         self,
         storage: &mut Self::Storage,
         state: &S,
