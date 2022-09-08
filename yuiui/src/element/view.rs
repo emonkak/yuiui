@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentEnd;
-use crate::context::{IdContext, RenderContext};
+use crate::context::RenderContext;
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
@@ -51,18 +51,21 @@ where
         state: &S,
         backend: &B,
     ) -> bool {
-        context.id_guard(node.id, |context| {
-            *node.state = match node.state.take().unwrap() {
-                ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
-                ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
-                    ViewNodeState::Pending(view, self.view, widget)
-                }
+        context.begin_id(node.id);
+
+        self.children
+            .update_children(node.children, context, state, backend);
+
+        *node.state = Some(match node.state.take().unwrap() {
+            ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
+            ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+                ViewNodeState::Pending(view, self.view, widget)
             }
-            .into();
-            *node.dirty = true;
-            self.children
-                .update_children(node.children, context, state, backend);
         });
+        *node.dirty = true;
+
+        context.end_id();
+
         true
     }
 }

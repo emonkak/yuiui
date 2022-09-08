@@ -1,25 +1,6 @@
 use std::collections::VecDeque;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Id(pub(crate) u64);
-
-impl Id {
-    pub const ROOT: Self = Self(0);
-
-    pub fn from_top(id_path: &IdPath) -> Self {
-        id_path.first().copied().unwrap_or(Id::ROOT)
-    }
-
-    pub fn from_bottom(id_path: &IdPath) -> Self {
-        id_path.last().copied().unwrap_or(Id::ROOT)
-    }
-}
-
-pub type IdPath = [Id];
-
-pub type IdPathBuf = Vec<Id>;
-
-pub type Depth = usize;
+use super::{Id, IdPathBuf};
 
 #[derive(Debug, Clone)]
 pub struct IdTree<T> {

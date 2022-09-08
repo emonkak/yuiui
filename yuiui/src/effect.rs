@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
+use crate::context::StateScope;
 use crate::id::{Depth, IdPathBuf};
 use crate::state::State;
 
@@ -72,21 +73,6 @@ where
                 .field(id_path)
                 .field(depth)
                 .finish(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum StateScope {
-    Global,
-    Partial(IdPathBuf, Depth),
-}
-
-impl StateScope {
-    pub fn normalize(self) -> (IdPathBuf, Depth) {
-        match self {
-            StateScope::Global => (IdPathBuf::new(), 0),
-            StateScope::Partial(id_path, depth) => (id_path, depth),
         }
     }
 }

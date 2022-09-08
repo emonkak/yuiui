@@ -1,5 +1,4 @@
 use crate::component_stack::ComponentStack;
-use crate::context::IdContext;
 use crate::element::ElementSeq;
 use crate::id::{Cursor, Depth, Id};
 use crate::state::State;
@@ -25,7 +24,6 @@ impl<'a, Inner, Context, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, Context, S,
     for BatchVisitor<'a, Inner>
 where
     Inner: Visitor<ViewNode<V, CS, S, B>, Context, S, B>,
-    Context: IdContext,
     V: View<S, B>,
     <<V as View<S, B>>::Children as ElementSeq<S, B>>::Storage:
         Traversable<Self, Context, Inner::Output, S, B>,

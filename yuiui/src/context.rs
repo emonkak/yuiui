@@ -1,28 +1,12 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use crate::effect::StateScope;
-use crate::id::{Depth, Id, IdPath, IdPathBuf};
-
-pub trait IdContext {
-    fn id_path(&self) -> &IdPath;
-
-    fn begin_id(&mut self, id: Id);
-
-    fn end_id(&mut self) -> Id;
-
-    fn id_guard<F: FnOnce(&mut Self) -> T, T>(&mut self, id: Id, f: F) -> T {
-        self.begin_id(id);
-        let result = f(self);
-        self.end_id();
-        result
-    }
-}
+use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf};
 
 #[derive(Debug)]
 pub struct RenderContext {
     id_path: IdPathBuf,
-    id_counter: u64,
+    id_counter: IdCounter,
     env_stack: Vec<(Id, Rc<dyn Any>)>,
 }
 
@@ -30,19 +14,33 @@ impl RenderContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
-            id_counter: 0,
+            id_counter: IdCounter::new(),
             env_stack: Vec::new(),
         }
     }
 
-    pub fn next_id(&mut self) -> Id {
-        let id = self.id_counter;
-        self.id_counter += 1;
-        Id(id)
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
+    pub fn begin_id(&mut self, id: Id) {
+        self.id_path.push(id);
+    }
+
+    pub fn end_id(&mut self) {
+        let id = self.id_path.pop().unwrap();
+
+        while let Some((env_id, _)) = self.env_stack.last() {
+            if *env_id == id {
+                self.env_stack.pop();
+            } else {
+                break;
+            }
+        }
     }
 
     pub fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
-        let id = self.next_id();
+        let id = self.id_counter.next();
         self.id_path.push(id);
         let result = f(id, self);
         self.id_path.pop();
@@ -59,32 +57,7 @@ impl RenderContext {
     }
 
     pub fn push_env(&mut self, value: Rc<dyn Any>) {
-        self.env_stack
-            .push((Id::from_bottom(self.id_path.as_slice()), value))
-    }
-}
-
-impl IdContext for RenderContext {
-    fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
-
-    fn begin_id(&mut self, id: Id) {
-        self.id_path.push(id);
-    }
-
-    fn end_id(&mut self) -> Id {
-        let previous_id = self.id_path.pop().unwrap();
-
-        while let Some((id, _)) = self.env_stack.last() {
-            if *id == previous_id {
-                self.env_stack.pop();
-            } else {
-                break;
-            }
-        }
-
-        previous_id
+        self.env_stack.push((Id::from_bottom(&self.id_path), value))
     }
 }
 
@@ -112,8 +85,21 @@ impl EffectContext {
         }
     }
 
-    pub fn begin_depth(&mut self, depth: Depth) {
+    pub fn begin_id(&mut self, id: Id) {
+        self.id_path.push(id);
+        self.depth = 0;
+    }
+
+    pub fn end_id(&mut self) {
+        self.id_path.pop();
+    }
+
+    pub fn set_depth(&mut self, depth: Depth) {
         self.depth = depth;
+    }
+
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
     }
 
     pub fn depth(&self) -> Depth {
@@ -125,17 +111,17 @@ impl EffectContext {
     }
 }
 
-impl IdContext for EffectContext {
-    fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
+#[derive(Debug, Clone)]
+pub enum StateScope {
+    Global,
+    Partial(IdPathBuf, Depth),
+}
 
-    fn begin_id(&mut self, id: Id) {
-        self.id_path.push(id);
-        self.depth = 0;
-    }
-
-    fn end_id(&mut self) -> Id {
-        self.id_path.pop().unwrap()
+impl StateScope {
+    pub fn normalize(self) -> (IdPathBuf, Depth) {
+        match self {
+            StateScope::Global => (IdPathBuf::new(), 0),
+            StateScope::Partial(id_path, depth) => (id_path, depth),
+        }
     }
 }

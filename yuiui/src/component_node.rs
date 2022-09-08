@@ -39,7 +39,7 @@ where
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
-        context.begin_depth(depth);
+        context.set_depth(depth);
         match mode {
             CommitMode::Mount => {
                 self.component

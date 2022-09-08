@@ -37,7 +37,7 @@ where
         backend: &B,
     ) -> Self::Output {
         let mut result = node.children.commit(self.mode, context, state, backend);
-        context.begin_depth(CS::LEN);
+        context.set_depth(CS::LEN);
         let node_state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut widget = view.build(&node.children, state, backend);

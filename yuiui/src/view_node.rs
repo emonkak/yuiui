@@ -11,7 +11,7 @@ use std::rc::Rc;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, IdContext, RenderContext};
+use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, EventResult, HasEvent};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
@@ -256,9 +256,10 @@ where
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
-        context.id_guard(self.id, |context| {
-            self.commit(mode, context, state, backend)
-        })
+        context.begin_id(self.id);
+        let result = self.commit(mode, context, state, backend);
+        context.end_id();
+        result
     }
 }
 
@@ -279,12 +280,13 @@ where
         state: &S,
         backend: &B,
     ) -> Visitor::Output {
-        context.id_guard(self.id, |context| {
-            if let Some(value) = &self.env {
-                context.push_env(value.clone());
-            }
-            visitor.visit(self, context, state, backend)
-        })
+        context.begin_id(self.id);
+        if let Some(value) = &self.env {
+            context.push_env(value.clone());
+        }
+        let result = visitor.visit(self, context, state, backend);
+        context.end_id();
+        result
     }
 
     fn search(
@@ -295,21 +297,22 @@ where
         state: &S,
         backend: &B,
     ) -> Option<Visitor::Output> {
-        context.id_guard(self.id, |context| {
-            if let Some(value) = &self.env {
-                context.push_env(value.clone());
-            }
-            if self.id == Id::from_top(id_path) {
-                Some(visitor.visit(self, context, state, backend))
-            } else if self.id == Id::from_bottom(id_path) {
-                debug_assert!(id_path.len() > 0);
-                let id_path = &id_path[1..];
-                self.children
-                    .search(id_path, visitor, context, state, backend)
-            } else {
-                None
-            }
-        })
+        context.begin_id(self.id);
+        if let Some(value) = &self.env {
+            context.push_env(value.clone());
+        }
+        let result = if self.id == Id::from_top(id_path) {
+            Some(visitor.visit(self, context, state, backend))
+        } else if self.id == Id::from_bottom(id_path) {
+            debug_assert!(id_path.len() > 0);
+            let id_path = &id_path[1..];
+            self.children
+                .search(id_path, visitor, context, state, backend)
+        } else {
+            None
+        };
+        context.end_id();
+        result
     }
 }
 
@@ -330,9 +333,10 @@ where
         state: &S,
         backend: &B,
     ) -> Visitor::Output {
-        context.id_guard(self.id, |context| {
-            visitor.visit(self, context, state, backend)
-        })
+        context.begin_id(self.id);
+        let result = visitor.visit(self, context, state, backend);
+        context.end_id();
+        result
     }
 
     fn search(
@@ -343,18 +347,19 @@ where
         state: &S,
         backend: &B,
     ) -> Option<Visitor::Output> {
-        context.id_guard(self.id, |context| {
-            if self.id == Id::from_top(id_path) {
-                Some(visitor.visit(self, context, state, backend))
-            } else if self.id == Id::from_bottom(id_path) {
-                debug_assert!(id_path.len() > 0);
-                let id_path = &id_path[1..];
-                self.children
-                    .search(id_path, visitor, context, state, backend)
-            } else {
-                None
-            }
-        })
+        context.begin_id(self.id);
+        let result = if self.id == Id::from_top(id_path) {
+            Some(visitor.visit(self, context, state, backend))
+        } else if self.id == Id::from_bottom(id_path) {
+            debug_assert!(id_path.len() > 0);
+            let id_path = &id_path[1..];
+            self.children
+                .search(id_path, visitor, context, state, backend)
+        } else {
+            None
+        };
+        context.end_id();
+        result
     }
 }
 
