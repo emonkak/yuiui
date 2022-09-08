@@ -3,7 +3,8 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::context::EffectContext;
-use crate::event::{EventResult, Lifecycle};
+use crate::effect::EffectOps;
+use crate::event::Lifecycle;
 use crate::id::Depth;
 use crate::state::State;
 use crate::view_node::CommitMode;
@@ -38,7 +39,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         context.set_depth(depth);
         match mode {
             CommitMode::Mount => {
@@ -56,7 +57,7 @@ where
                     self.component = pending_component;
                     result
                 } else {
-                    EventResult::nop()
+                    EffectOps::nop()
                 }
             }
             CommitMode::Unmount => {

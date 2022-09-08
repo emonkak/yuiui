@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
-use crate::event::{EventMask, EventResult, HasEvent, Lifecycle};
+use crate::effect::EffectOps;
+use crate::event::{EventMask, HasEvent, Lifecycle};
 use crate::id::{Depth, IdPath};
 use crate::state::State;
 use crate::traversable::Traversable;
@@ -135,7 +136,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
@@ -175,10 +176,10 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, B> Traversable<Visitor, EffectContext, EventResult<S>, S, B>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, EffectContext, EffectOps<S>, S, B>
     for Scope<T, F, SS>
 where
-    T: Traversable<Visitor, EffectContext, EventResult<SS>, SS, B>,
+    T: Traversable<Visitor, EffectContext, EffectOps<SS>, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -189,7 +190,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
@@ -204,7 +205,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> Option<EventResult<S>> {
+    ) -> Option<EffectOps<S>> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
@@ -232,7 +233,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
@@ -288,7 +289,7 @@ where
         context: &EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
         let sub_context = context.new_sub_context();
         let sub_state = (self.selector_fn)(state);
@@ -312,7 +313,7 @@ where
         context: &EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let sub_context = context.new_sub_context();
         let sub_state = (self.selector_fn)(state);
         self.target

@@ -2,8 +2,9 @@ use hlist::{HCons, HList, HNil};
 use std::sync::Once;
 
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectOps;
 use crate::element::ElementSeq;
-use crate::event::{EventMask, EventResult};
+use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
@@ -54,8 +55,8 @@ where
         _context: &mut EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EventResult<S> {
-        EventResult::nop()
+    ) -> EffectOps<S> {
+        EffectOps::nop()
     }
 }
 
@@ -153,7 +154,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         self.head
             .commit(mode, context, state, backend)
             .combine(self.tail.commit(mode, context, state, backend))

@@ -3,8 +3,8 @@ use glib::{MainContext, Sender, SourceId};
 use gtk::Application;
 use std::any::Any;
 use yuiui::{
-    CancellationToken, Command, Effect, EventDestination, RawToken, RawTokenVTable,
-    RenderLoopContext, State,
+    CancellationToken, Command, DestinedEffect, EffectContext, EventDestination, RawToken,
+    RawTokenVTable, RenderLoopContext, State,
 };
 
 #[derive(Debug)]
@@ -44,24 +44,30 @@ impl<S: State> Backend<S> {
 }
 
 impl<S: State> RenderLoopContext<S> for Backend<S> {
-    fn invoke_command(&self, command: Command<S>, cancellation_token: Option<CancellationToken>) {
+    fn invoke_command(
+        &self,
+        command: Command<S>,
+        cancellation_token: Option<CancellationToken>,
+        context: EffectContext,
+    ) {
         let message_sender = self.proxy.sender.clone();
         let source_id = match command {
             Command::Future(future) => self.main_context.spawn_local(async move {
-                let effect = future.await;
+                let effect = future.await.destine(&context);
                 message_sender.send(Action::PushEffect(effect)).unwrap();
             }),
             Command::Stream(mut stream) => self.main_context.spawn_local(async move {
                 while let Some(effect) = stream.next().await {
+                    let effect = effect.destine(&context);
                     message_sender.send(Action::PushEffect(effect)).unwrap();
                 }
             }),
             Command::Timeout(duration, callback) => glib::timeout_add_once(duration, move || {
-                let effect = callback();
+                let effect = callback().destine(&context);
                 message_sender.send(Action::PushEffect(effect)).unwrap();
             }),
             Command::Interval(period, callback) => glib::timeout_add(period, move || {
-                let effect = callback();
+                let effect = callback().destine(&context);
                 message_sender.send(Action::PushEffect(effect)).unwrap();
                 glib::Continue(true)
             }),
@@ -83,7 +89,7 @@ impl<S: State> BackendProxy<S> {
         Self { sender }
     }
 
-    pub fn push_effect(&self, effect: Effect<S>) {
+    pub fn push_effect(&self, effect: DestinedEffect<S>) {
         self.sender.send(Action::PushEffect(effect)).unwrap();
     }
 
@@ -97,7 +103,7 @@ impl<S: State> BackendProxy<S> {
 pub(super) enum Action<S: State> {
     RequestRender,
     DispatchEvent(Box<dyn Any + Send>, EventDestination),
-    PushEffect(Effect<S>),
+    PushEffect(DestinedEffect<S>),
 }
 
 fn create_token(source_id: SourceId) -> RawToken {

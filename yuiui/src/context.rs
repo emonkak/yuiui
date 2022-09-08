@@ -73,7 +73,7 @@ impl EffectContext {
         Self {
             id_path: IdPathBuf::new(),
             depth: 0,
-            state_scope: StateScope::Global,
+            state_scope: StateScope::Whole,
         }
     }
 
@@ -81,7 +81,7 @@ impl EffectContext {
         EffectContext {
             id_path: self.id_path.clone(),
             depth: self.depth,
-            state_scope: StateScope::Partial(self.id_path.clone(), self.depth),
+            state_scope: StateScope::Subtree(self.id_path.clone(), self.depth),
         }
     }
 
@@ -113,15 +113,15 @@ impl EffectContext {
 
 #[derive(Debug, Clone)]
 pub enum StateScope {
-    Global,
-    Partial(IdPathBuf, Depth),
+    Whole,
+    Subtree(IdPathBuf, Depth),
 }
 
 impl StateScope {
     pub fn normalize(self) -> (IdPathBuf, Depth) {
         match self {
-            StateScope::Global => (IdPathBuf::new(), 0),
-            StateScope::Partial(id_path, depth) => (id_path, depth),
+            StateScope::Whole => (IdPathBuf::new(), 0),
+            StateScope::Subtree(id_path, depth) => (id_path, depth),
         }
     }
 }

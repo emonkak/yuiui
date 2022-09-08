@@ -21,12 +21,12 @@ pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
 pub use context::{EffectContext, RenderContext};
-pub use effect::Effect;
+pub use effect::{DestinedEffect, Effect, EffectOps};
 pub use element::{
     ComponentElement, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,
     ViewElement,
 };
-pub use event::{Event, EventDestination, EventMask, EventResult, HasEvent, Lifecycle};
+pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
 pub use id::{Depth, Id, IdPath, IdPathBuf};
 pub use render_loop::{Deadline, Forever, RenderFlow, RenderLoop, RenderLoopContext};
 pub use state::{Data, State};

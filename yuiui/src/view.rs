@@ -1,8 +1,9 @@
 use hlist::HNil;
 
 use crate::context::EffectContext;
+use crate::effect::EffectOps;
 use crate::element::{ElementSeq, ViewElement};
-use crate::event::{EventResult, HasEvent, Lifecycle};
+use crate::event::{HasEvent, Lifecycle};
 use crate::state::State;
 
 pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
@@ -18,8 +19,8 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         _context: &EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EventResult<S> {
-        EventResult::nop()
+    ) -> EffectOps<S> {
+        EffectOps::nop()
     }
 
     fn event(
@@ -30,8 +31,8 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         _context: &EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EventResult<S> {
-        EventResult::nop()
+    ) -> EffectOps<S> {
+        EffectOps::nop()
     }
 
     fn build(

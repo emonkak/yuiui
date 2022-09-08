@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::context::{EffectContext, RenderContext};
-use crate::effect::Effect;
+use crate::effect::DestinedEffect;
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
 use crate::id::{Depth, IdPathBuf, IdTree};
@@ -18,7 +18,7 @@ use crate::view_node::{CommitMode, ViewNode};
 pub struct RenderLoop<E: Element<S, B>, S: State, B> {
     node: ViewNode<E::View, E::Components, S, B>,
     render_context: RenderContext,
-    effect_queue: VecDeque<Effect<S>>,
+    effect_queue: VecDeque<DestinedEffect<S>>,
     update_selection: BTreeMap<IdPathBuf, Depth>,
     commit_selection: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
@@ -125,7 +125,7 @@ where
         self.effect_queue.extend(result.into_effects());
     }
 
-    pub fn push_effect(&mut self, effect: Effect<S>) {
+    pub fn push_effect(&mut self, effect: DestinedEffect<S>) {
         self.effect_queue.push_back(effect);
     }
 
@@ -141,24 +141,24 @@ where
         }
     }
 
-    fn run_effect(&mut self, effect: Effect<S>, state: &mut S, backend: &B) {
+    fn run_effect(&mut self, effect: DestinedEffect<S>, state: &mut S, backend: &B) {
         match effect {
-            Effect::Message(message, state_scope) => {
+            DestinedEffect::Message(message, state_scope) => {
                 if state.reduce(message) {
                     let (id_path, depth) = state_scope.normalize();
                     extend_selection(&mut self.update_selection, id_path, depth);
                 }
             }
-            Effect::Mutation(mutation, state_scope) => {
+            DestinedEffect::Mutation(mutation, state_scope) => {
                 if mutation(state) {
                     let (id_path, depth) = state_scope.normalize();
                     extend_selection(&mut self.update_selection, id_path, depth);
                 }
             }
-            Effect::Command(command, cancellation_token) => {
-                backend.invoke_command(command, cancellation_token);
+            DestinedEffect::Command(command, cancellation_token, context) => {
+                backend.invoke_command(command, cancellation_token, context);
             }
-            Effect::RequestUpdate(id_path, depth) => {
+            DestinedEffect::RequestUpdate(id_path, depth) => {
                 extend_selection(&mut self.update_selection, id_path, depth);
             }
         }
@@ -189,7 +189,12 @@ where
 }
 
 pub trait RenderLoopContext<S: State> {
-    fn invoke_command(&self, command: Command<S>, cancellation_token: Option<CancellationToken>);
+    fn invoke_command(
+        &self,
+        command: Command<S>,
+        cancellation_token: Option<CancellationToken>,
+        context: EffectContext,
+    );
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

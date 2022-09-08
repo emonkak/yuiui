@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::component_stack::ComponentStack;
 use crate::context::EffectContext;
-use crate::event::EventResult;
+use crate::effect::EffectOps;
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
 use crate::state::State;
@@ -28,7 +28,7 @@ where
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
-    type Output = EventResult<S>;
+    type Output = EffectOps<S>;
 
     fn visit(
         &mut self,
@@ -39,7 +39,7 @@ where
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
-                let mut result = EventResult::nop();
+                let mut result = EffectOps::nop();
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
                     if let Some(child_captured) =
@@ -62,7 +62,7 @@ where
                 }
                 result
             }
-            _ => EventResult::nop(),
+            _ => EffectOps::nop(),
         }
     }
 }

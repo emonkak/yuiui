@@ -3,8 +3,9 @@ use std::mem;
 use std::sync::Once;
 
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectOps;
 use crate::element::ElementSeq;
-use crate::event::{EventMask, EventResult};
+use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
@@ -144,8 +145,8 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
-        let mut result = EventResult::nop();
+    ) -> EffectOps<S> {
+        let mut result = EffectOps::nop();
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result = result.combine(match &mut self.active {

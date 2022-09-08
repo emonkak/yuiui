@@ -2,7 +2,8 @@ use std::any::Any;
 
 use crate::component_stack::ComponentStack;
 use crate::context::EffectContext;
-use crate::event::{Event, EventResult, HasEvent};
+use crate::effect::EffectOps;
+use crate::event::{Event, HasEvent};
 use crate::state::State;
 use crate::traversable::Visitor;
 use crate::view::View;
@@ -25,7 +26,7 @@ where
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
-    type Output = EventResult<S>;
+    type Output = EffectOps<S>;
 
     fn visit(
         &mut self,
@@ -41,7 +42,7 @@ where
                 context.set_depth(CS::LEN);
                 view.event(event, widget, &node.children, context, state, backend)
             }
-            ViewNodeState::Uninitialized(_) => EventResult::nop(),
+            ViewNodeState::Uninitialized(_) => EffectOps::nop(),
         }
     }
 }

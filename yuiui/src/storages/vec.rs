@@ -5,8 +5,9 @@ use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectOps;
 use crate::element::{Element, ElementSeq};
-use crate::event::{Event, EventMask, EventResult, HasEvent};
+use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
 use crate::state::State;
 use crate::traversable::{Monoid, Traversable, Visitor};
@@ -135,8 +136,8 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
-        let mut result = EventResult::nop();
+    ) -> EffectOps<S> {
+        let mut result = EffectOps::nop();
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {

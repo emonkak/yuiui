@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectOps;
 use crate::element::Element;
-use crate::event::EventResult;
 use crate::id::Depth;
 use crate::state::State;
 use crate::view::View;
@@ -32,7 +32,7 @@ pub trait ComponentStack<S: State, B>: Sized {
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S>;
+    ) -> EffectOps<S>;
 }
 
 impl<C, CS, S, B> ComponentStack<S, B> for (ComponentNode<C, S, B>, CS)
@@ -86,7 +86,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         if target_depth <= current_depth {
             self.0.commit(mode, current_depth, context, state, backend)
         } else {
@@ -135,7 +135,7 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
         _context: &mut EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EventResult<S> {
-        EventResult::nop()
+    ) -> EffectOps<S> {
+        EffectOps::nop()
     }
 }

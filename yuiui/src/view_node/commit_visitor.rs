@@ -2,7 +2,8 @@ use std::mem;
 
 use crate::component_stack::ComponentStack;
 use crate::context::EffectContext;
-use crate::event::{EventResult, Lifecycle};
+use crate::effect::EffectOps;
+use crate::event::Lifecycle;
 use crate::id::Depth;
 use crate::state::State;
 use crate::traversable::{Monoid, Visitor};
@@ -27,7 +28,7 @@ where
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
-    type Output = EventResult<S>;
+    type Output = EffectOps<S>;
 
     fn visit(
         &mut self,

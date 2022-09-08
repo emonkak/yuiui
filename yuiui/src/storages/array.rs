@@ -1,6 +1,7 @@
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectOps;
 use crate::element::ElementSeq;
-use crate::event::{EventMask, EventResult};
+use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
@@ -68,8 +69,8 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
-        let mut result = EventResult::nop();
+    ) -> EffectOps<S> {
+        let mut result = EffectOps::nop();
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
                 result = result.combine(node.commit(mode, context, state, backend));

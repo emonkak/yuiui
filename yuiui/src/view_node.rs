@@ -12,8 +12,9 @@ use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
+use crate::effect::EffectOps;
 use crate::element::ElementSeq;
-use crate::event::{Event, EventMask, EventResult, HasEvent};
+use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::State;
 use crate::traversable::{Traversable, Visitor};
@@ -118,12 +119,12 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
             visitor.visit(self, context, state, backend)
         } else {
-            EventResult::nop()
+            EffectOps::nop()
         }
     }
 
@@ -133,7 +134,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| {
             CommitVisitor::new(CommitMode::Update, depth)
         });
@@ -146,7 +147,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let mut visitor = DownwardEventVisitor::new(event);
         visitor.visit(self, context, state, backend)
     }
@@ -158,7 +159,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let mut visitor = DownwardEventVisitor::new(event);
         self.search(id_path, &mut visitor, context, state, backend)
             .unwrap_or_default()
@@ -171,7 +172,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
         visitor.visit(self, context, state, backend)
     }
@@ -183,7 +184,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, context, state, backend)
             .unwrap_or_default()
@@ -200,13 +201,13 @@ pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
 }
 
 pub trait ViewNodeSeq<S: State, B>:
-    Traversable<CommitVisitor, EffectContext, EventResult<S>, S, B>
+    Traversable<CommitVisitor, EffectContext, EffectOps<S>, S, B>
     + Traversable<UpdateVisitor, RenderContext, bool, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext, EventResult<S>, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext, EffectOps<S>, S, B>
     + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, bool, S, B>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext, EventResult<S>, S, B>
-    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext, EventResult<S>, S, B>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext, EventResult<S>, S, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext, EffectOps<S>, S, B>
+    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext, EffectOps<S>, S, B>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext, EffectOps<S>, S, B>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -218,7 +219,7 @@ pub trait ViewNodeSeq<S: State, B>:
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S>;
+    ) -> EffectOps<S>;
 }
 
 impl<V, CS, S, B> ViewNodeSeq<S, B> for ViewNode<V, CS, S, B>
@@ -255,7 +256,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         context.begin_id(self.id);
         let result = self.commit(mode, context, state, backend);
         context.end_id();

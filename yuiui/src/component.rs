@@ -1,8 +1,9 @@
 use std::fmt;
 
 use crate::context::EffectContext;
+use crate::effect::EffectOps;
 use crate::element::{ComponentElement, Element};
-use crate::event::{EventResult, Lifecycle};
+use crate::event::Lifecycle;
 use crate::state::State;
 
 pub trait Component<S: State, B>: Sized {
@@ -14,8 +15,8 @@ pub trait Component<S: State, B>: Sized {
         _context: &EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EventResult<S> {
-        EventResult::nop()
+    ) -> EffectOps<S> {
+        EffectOps::nop()
     }
 
     fn render(&self, state: &S, backend: &B) -> Self::Element;
@@ -31,7 +32,7 @@ pub trait Component<S: State, B>: Sized {
 pub struct FunctionComponent<Props, E, S: State, B> {
     props: Props,
     render: fn(&Props, &S, &B) -> E,
-    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &EffectContext, &S, &B) -> EventResult<S>>,
+    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &EffectContext, &S, &B) -> EffectOps<S>>,
 }
 
 impl<Props, E, S, B> FunctionComponent<Props, E, S, B>
@@ -49,7 +50,7 @@ where
     pub fn lifecycle(
         mut self,
         lifecycle: impl Into<
-            Option<fn(&Props, Lifecycle<&Props>, &EffectContext, &S, &B) -> EventResult<S>>,
+            Option<fn(&Props, Lifecycle<&Props>, &EffectContext, &S, &B) -> EffectOps<S>>,
         >,
     ) -> Self {
         self.lifecycle = lifecycle.into();
@@ -70,12 +71,12 @@ where
         context: &EffectContext,
         state: &S,
         backend: &B,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map(|component| &component.props);
             lifecycle_fn(&self.props, lifecycle, context, state, backend)
         } else {
-            EventResult::nop()
+            EffectOps::nop()
         }
     }
 

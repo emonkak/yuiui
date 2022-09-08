@@ -1,11 +1,7 @@
 use std::any::{Any, TypeId};
 use std::collections::HashSet;
-use std::sync::Arc;
 
-use crate::effect::Effect;
 use crate::id::IdPathBuf;
-use crate::state::State;
-use crate::traversable::Monoid;
 
 pub trait Event<'event> {
     fn collect_types(type_ids: &mut Vec<TypeId>);
@@ -75,63 +71,6 @@ impl EventMask {
                 self.mask.get_or_insert_with(|| HashSet::new()).extend(mask);
             }
         }
-    }
-}
-
-#[must_use]
-pub struct EventResult<S: State> {
-    effects: Vec<Effect<S>>,
-}
-
-impl<S: State> EventResult<S> {
-    pub fn nop() -> Self {
-        EventResult {
-            effects: Vec::new(),
-        }
-    }
-
-    pub fn into_effects(self) -> Vec<Effect<S>> {
-        self.effects
-    }
-
-    pub(crate) fn lift<F, NewState>(self, f: &Arc<F>) -> EventResult<NewState>
-    where
-        F: Fn(&NewState) -> &S + Sync + Send + 'static,
-        NewState: State,
-    {
-        let effects = self
-            .effects
-            .into_iter()
-            .map(|effect| effect.lift(f))
-            .collect();
-        EventResult { effects }
-    }
-}
-
-impl<S: State> Default for EventResult<S> {
-    fn default() -> Self {
-        EventResult::nop()
-    }
-}
-
-impl<S: State> Monoid for EventResult<S> {
-    fn combine(mut self, other: Self) -> Self {
-        self.effects.extend(other.effects);
-        self
-    }
-}
-
-impl<S: State> From<Effect<S>> for EventResult<S> {
-    fn from(effect: Effect<S>) -> Self {
-        EventResult {
-            effects: vec![effect],
-        }
-    }
-}
-
-impl<S: State> From<Vec<Effect<S>>> for EventResult<S> {
-    fn from(effects: Vec<Effect<S>>) -> Self {
-        EventResult { effects }
     }
 }
 
