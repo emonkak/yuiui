@@ -78,7 +78,7 @@ impl<S, B> View<S, B> for Text
 where
     S: State,
 {
-    type Widget = TextWidget;
+    type State = TextState;
 
     type Children = hlist::HNil;
 
@@ -87,8 +87,8 @@ where
         _children: &<Self::Children as ElementSeq<S, B>>::Storage,
         _state: &S,
         _backend: &B,
-    ) -> Self::Widget {
-        TextWidget
+    ) -> Self::State {
+        TextState
     }
 }
 
@@ -97,7 +97,7 @@ impl<'event> HasEvent<'event> for Text {
 }
 
 #[derive(Debug)]
-pub struct TextWidget;
+pub struct TextState;
 
 #[derive(Debug)]
 pub struct Block<C> {
@@ -117,7 +117,7 @@ where
     C: ElementSeq<S, B>,
     S: State,
 {
-    type Widget = BlockWidget;
+    type State = BlockState;
 
     type Children = C;
 
@@ -126,8 +126,8 @@ where
         _children: &<Self::Children as ElementSeq<S, B>>::Storage,
         _state: &S,
         _backend: &B,
-    ) -> Self::Widget {
-        BlockWidget
+    ) -> Self::State {
+        BlockState
     }
 }
 
@@ -136,7 +136,7 @@ impl<'event, C> HasEvent<'event> for Block<C> {
 }
 
 #[derive(Debug)]
-pub struct BlockWidget;
+pub struct BlockState;
 
 #[derive(Debug)]
 pub struct ButtonProps {
@@ -153,7 +153,8 @@ pub fn button<S: State, B>(
 }
 
 pub fn counter<E>(
-) -> ComponentElement<FunctionComponent<(), (), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>> {
+) -> ComponentElement<FunctionComponent<(), (), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>>
+{
     FunctionComponent::new((), |_props, _local_state, state: &Data<i64>, _backend| {
         Block::new().el_with(Text::new(format!("{}", state.value)).el())
     })

@@ -35,7 +35,9 @@ pub trait Component<S: State, B>: Sized {
 pub struct FunctionComponent<Props, LocalState, E, S: State, B> {
     props: Props,
     render: fn(&Props, &LocalState, &S, &B) -> E,
-    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &EffectContext, &S, &B) -> EffectOps<S>>,
+    lifecycle: Option<
+        fn(&Props, Lifecycle<&Props>, &mut LocalState, &EffectContext, &S, &B) -> EffectOps<S>,
+    >,
 }
 
 impl<Props, LocalState, E, S, B> FunctionComponent<Props, LocalState, E, S, B>
@@ -53,7 +55,16 @@ where
     pub fn lifecycle(
         mut self,
         lifecycle: impl Into<
-            Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &EffectContext, &S, &B) -> EffectOps<S>>,
+            Option<
+                fn(
+                    &Props,
+                    Lifecycle<&Props>,
+                    &mut LocalState,
+                    &EffectContext,
+                    &S,
+                    &B,
+                ) -> EffectOps<S>,
+            >,
         >,
     ) -> Self {
         self.lifecycle = lifecycle.into();

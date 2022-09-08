@@ -36,11 +36,19 @@ where
         backend: &B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
-            ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+            ViewNodeState::Prepared(view, view_state)
+            | ViewNodeState::Pending(view, _, view_state) => {
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
                 context.set_depth(CS::LEN);
-                view.event(event, widget, &mut node.children, context, state, backend)
+                view.event(
+                    event,
+                    view_state,
+                    &mut node.children,
+                    context,
+                    state,
+                    backend,
+                )
             }
             ViewNodeState::Uninitialized(_) => EffectOps::nop(),
         }

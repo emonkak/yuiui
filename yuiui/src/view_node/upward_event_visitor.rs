@@ -38,7 +38,8 @@ where
         backend: &B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
-            ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
+            ViewNodeState::Prepared(view, view_state)
+            | ViewNodeState::Pending(view, _, view_state) => {
                 let mut result = EffectOps::nop();
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
@@ -53,7 +54,7 @@ where
                     context.set_depth(CS::LEN);
                     result = result.combine(view.event(
                         event,
-                        widget,
+                        view_state,
                         &mut node.children,
                         context,
                         state,

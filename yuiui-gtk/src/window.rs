@@ -5,14 +5,9 @@ use yuiui::{EffectContext, EffectOps, ElementSeq, HasEvent, Lifecycle, State, Vi
 use crate::backend::Backend;
 
 pub trait GtkView<S: State>:
-    View<
-    S,
-    Backend<S>,
-    Widget = <Self as GtkView<S>>::Widget,
-    Children = <Self as GtkView<S>>::Children,
->
+    View<S, Backend<S>, State = <Self as GtkView<S>>::State, Children = <Self as GtkView<S>>::Children>
 {
-    type Widget: IsA<gtk::Widget>;
+    type State: IsA<gtk::Widget>;
 
     type Children: ElementSeq<S, Backend<S>>;
 }
@@ -20,12 +15,12 @@ pub trait GtkView<S: State>:
 impl<V, S> GtkView<S> for V
 where
     V: View<S, Backend<S>>,
-    V::Widget: IsA<gtk::Widget>,
+    V::State: IsA<gtk::Widget>,
     S: State,
 {
-    type Widget = V::Widget;
-
     type Children = V::Children;
+
+    type State = V::State;
 }
 
 pub struct ApplicationWindow<Child> {
@@ -47,14 +42,14 @@ where
     Child: GtkView<S>,
     S: State,
 {
-    type Widget = gtk::ApplicationWindow;
-
     type Children = ViewElement<Child, S, Backend<S>>;
+
+    type State = gtk::ApplicationWindow;
 
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<&Self>,
-        widget: &mut Self::Widget,
+        view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, Backend<S>>>::Storage,
         _context: &EffectContext,
         _state: &S,
@@ -62,15 +57,15 @@ where
     ) -> EffectOps<S> {
         match lifecycle {
             Lifecycle::Mounted => {
-                widget.show();
+                view_state.show();
             }
             Lifecycle::Updated(old_view) => {
                 if self.title != old_view.title {
-                    widget.set_title(self.title.as_deref());
+                    view_state.set_title(self.title.as_deref());
                 }
             }
             Lifecycle::Unmounted => {
-                widget.hide();
+                view_state.hide();
             }
         }
         EffectOps::nop()
@@ -81,7 +76,7 @@ where
         child: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
         _state: &S,
         env: &Backend<S>,
-    ) -> Self::Widget {
+    ) -> Self::State {
         let mut builder = gtk::ApplicationWindow::builder();
 
         if let Some(title) = &self.title {
@@ -90,7 +85,7 @@ where
 
         builder
             .application(env.application())
-            .child(child.as_widget().unwrap())
+            .child(child.as_view_state().unwrap())
             .build()
     }
 }

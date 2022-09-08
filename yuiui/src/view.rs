@@ -7,14 +7,14 @@ use crate::event::{HasEvent, Lifecycle};
 use crate::state::State;
 
 pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
-    type Widget;
-
     type Children: ElementSeq<S, B>;
+
+    type State;
 
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<&Self>,
-        _widget: &mut Self::Widget,
+        _view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, B>>::Storage,
         _context: &EffectContext,
         _state: &S,
@@ -26,7 +26,7 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
     fn event(
         &self,
         _event: <Self as HasEvent>::Event,
-        _widget: &mut Self::Widget,
+        _view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, B>>::Storage,
         _context: &EffectContext,
         _state: &S,
@@ -40,7 +40,7 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
         state: &S,
         backend: &B,
-    ) -> Self::Widget;
+    ) -> Self::State;
 
     fn el(self) -> ViewElement<Self, S, B>
     where

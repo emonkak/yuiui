@@ -79,9 +79,9 @@ pub trait DebuggableElement<S: State, B>:
         Components = <Self as DebuggableElement<S, B>>::Components,
     > + fmt::Debug
 {
-    type View: View<S, B, Widget = Self::Widget, Children = Self::Children> + fmt::Debug;
+    type View: View<S, B, State = Self::State, Children = Self::Children> + fmt::Debug;
 
-    type Widget: fmt::Debug;
+    type State: fmt::Debug;
 
     type Children: ElementSeq<S, B, Storage = Self::Storage> + fmt::Debug;
 
@@ -95,7 +95,7 @@ impl<E, S, B> DebuggableElement<S, B> for E
 where
     E: Element<S, B> + fmt::Debug,
     E::View: fmt::Debug,
-    <E::View as View<S, B>>::Widget: fmt::Debug,
+    <E::View as View<S, B>>::State: fmt::Debug,
     <E::View as View<S, B>>::Children: fmt::Debug,
     <<E::View as View<S, B>>::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
     E::Components: fmt::Debug,
@@ -103,7 +103,7 @@ where
 {
     type View = E::View;
 
-    type Widget = <E::View as View<S, B>>::Widget;
+    type State = <E::View as View<S, B>>::State;
 
     type Children = <E::View as View<S, B>>::Children;
 

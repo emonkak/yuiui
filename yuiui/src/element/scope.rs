@@ -277,14 +277,14 @@ where
     SS: State,
     S: State,
 {
-    type Widget = T::Widget;
-
     type Children = Scope<T::Children, F, SS>;
+
+    type State = T::State;
 
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<&Self>,
-        widget: &mut Self::Widget,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, B>>::Storage,
         context: &EffectContext,
         state: &S,
@@ -296,7 +296,7 @@ where
         self.target
             .lifecycle(
                 sub_lifecycle,
-                widget,
+                view_state,
                 &mut children.target,
                 &sub_context,
                 sub_state,
@@ -308,7 +308,7 @@ where
     fn event(
         &self,
         event: <Self as HasEvent>::Event,
-        widget: &mut Self::Widget,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, B>>::Storage,
         context: &EffectContext,
         state: &S,
@@ -319,7 +319,7 @@ where
         self.target
             .event(
                 event,
-                widget,
+                view_state,
                 &mut children.target,
                 &sub_context,
                 sub_state,
@@ -333,7 +333,7 @@ where
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
         state: &S,
         backend: &B,
-    ) -> Self::Widget {
+    ) -> Self::State {
         let sub_state = (self.selector_fn)(state);
         self.target.build(&children.target, sub_state, backend)
     }

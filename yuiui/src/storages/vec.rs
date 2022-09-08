@@ -40,7 +40,7 @@ where
 impl<V, CS, S, B> fmt::Debug for VecStorage<V, CS, S, B>
 where
     V: View<S, B> + fmt::Debug,
-    V::Widget: fmt::Debug,
+    V::State: fmt::Debug,
     <V::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
     CS: ComponentStack<S, B, View = V> + fmt::Debug,
     S: State,

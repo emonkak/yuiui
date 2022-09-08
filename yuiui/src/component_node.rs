@@ -44,10 +44,13 @@ where
     ) -> EffectOps<S> {
         context.set_depth(depth);
         match mode {
-            CommitMode::Mount => {
-                self.component
-                    .lifecycle(Lifecycle::Mounted, &mut self.state, context, state, backend)
-            }
+            CommitMode::Mount => self.component.lifecycle(
+                Lifecycle::Mounted,
+                &mut self.state,
+                context,
+                state,
+                backend,
+            ),
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     let result = pending_component.lifecycle(
@@ -63,10 +66,13 @@ where
                     EffectOps::nop()
                 }
             }
-            CommitMode::Unmount => {
-                self.component
-                    .lifecycle(Lifecycle::Unmounted, &mut self.state, context, state, backend)
-            }
+            CommitMode::Unmount => self.component.lifecycle(
+                Lifecycle::Unmounted,
+                &mut self.state,
+                context,
+                state,
+                backend,
+            ),
         }
     }
 }

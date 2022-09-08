@@ -29,7 +29,7 @@ use upward_event_visitor::UpwardEventVisitor;
 
 pub struct ViewNode<V: View<S, B>, CS: ComponentStack<S, B, View = V>, S: State, B> {
     pub(crate) id: Id,
-    pub(crate) state: Option<ViewNodeState<V, V::Widget>>,
+    pub(crate) state: Option<ViewNodeState<V, V::State>>,
     pub(crate) children: <V::Children as ElementSeq<S, B>>::Storage,
     pub(crate) components: CS,
     pub(crate) env: Option<Rc<dyn Any>>,
@@ -75,14 +75,14 @@ where
         self.id
     }
 
-    pub fn state(&self) -> &ViewNodeState<V, V::Widget> {
+    pub fn node_state(&self) -> &ViewNodeState<V, V::State> {
         self.state.as_ref().unwrap()
     }
 
-    pub fn as_widget(&self) -> Option<&V::Widget> {
+    pub fn as_view_state(&self) -> Option<&V::State> {
         match self.state.as_ref().unwrap() {
-            ViewNodeState::Prepared(_, widget) | ViewNodeState::Pending(_, _, widget) => {
-                Some(widget)
+            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
+                Some(view_state)
             }
             ViewNodeState::Uninitialized(_) => None,
         }
@@ -193,7 +193,7 @@ where
 
 pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
     pub(crate) id: Id,
-    pub(crate) state: &'a mut Option<ViewNodeState<V, V::Widget>>,
+    pub(crate) state: &'a mut Option<ViewNodeState<V, V::State>>,
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, B>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) env: &'a mut Option<Rc<dyn Any>>,
@@ -367,7 +367,7 @@ where
 impl<V, CS, S, B> fmt::Debug for ViewNode<V, CS, S, B>
 where
     V: View<S, B> + fmt::Debug,
-    V::Widget: fmt::Debug,
+    V::State: fmt::Debug,
     <V::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
     CS: ComponentStack<S, B, View = V> + fmt::Debug,
     S: State,
@@ -398,9 +398,9 @@ impl<V, W> ViewNodeState<V, W> {
     {
         match self {
             Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
-            Self::Prepared(view, widget) => ViewNodeState::Prepared(f(view), widget),
-            Self::Pending(view, pending_view, widget) => {
-                ViewNodeState::Pending(f(view), f(pending_view), widget)
+            Self::Prepared(view, view_state) => ViewNodeState::Prepared(f(view), view_state),
+            Self::Pending(view, pending_view, view_state) => {
+                ViewNodeState::Pending(f(view), f(pending_view), view_state)
             }
         }
     }

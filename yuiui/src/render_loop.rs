@@ -172,7 +172,7 @@ impl<E, S, B> fmt::Debug for RenderLoop<E, S, B>
 where
     E: Element<S, B>,
     E::View: fmt::Debug,
-    <E::View as View<S, B>>::Widget: fmt::Debug,
+    <E::View as View<S, B>>::State: fmt::Debug,
     <<E::View as View<S, B>>::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
     E::Components: fmt::Debug,
     S: State,
