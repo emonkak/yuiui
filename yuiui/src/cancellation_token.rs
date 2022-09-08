@@ -79,6 +79,12 @@ impl CancellationToken {
     }
 }
 
+impl Default for CancellationToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Debug for CancellationToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CancellationToken").finish_non_exhaustive()
