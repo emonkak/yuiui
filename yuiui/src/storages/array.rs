@@ -26,6 +26,8 @@ where
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
+    const DEPTH: usize = T::DEPTH;
+
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         ArrayStorage::new(self.map(|element| element.render_children(context, state, backend)))
     }

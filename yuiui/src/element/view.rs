@@ -32,6 +32,8 @@ where
 
     type Components = ComponentEnd<V>;
 
+    const DEPTH: usize = 1 + V::Children::DEPTH;
+
     fn render(
         self,
         context: &mut RenderContext,
@@ -78,6 +80,8 @@ where
 {
     type Storage =
         ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
+
+    const DEPTH: usize = 1 + V::Children::DEPTH;
 
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         self.render(context, state, backend)

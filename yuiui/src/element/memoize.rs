@@ -27,6 +27,8 @@ where
 
     type Components = (ComponentNode<AsComponent<Self>, S, B>, E::Components);
 
+    const DEPTH: usize = E::DEPTH;
+
     fn render(
         self,
         context: &mut RenderContext,
@@ -62,6 +64,8 @@ where
     S: State,
 {
     type Storage = ViewNode<E::View, (ComponentNode<AsComponent<Self>, S, B>, E::Components), S, B>;
+
+    const DEPTH: usize = E::DEPTH;
 
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         self.render(context, state, backend)

@@ -50,6 +50,8 @@ where
 
     type Components = Scope<T::Components, F, SS>;
 
+    const DEPTH: usize = T::DEPTH;
+
     fn render(
         self,
         context: &mut RenderContext,
@@ -93,6 +95,8 @@ where
     S: State,
 {
     type Storage = Scope<T::Storage, F, SS>;
+
+    const DEPTH: usize = T::DEPTH;
 
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         let sub_state = (self.selector_fn)(state);

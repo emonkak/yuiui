@@ -25,6 +25,8 @@ pub trait Element<S: State, B> {
 
     type Components: ComponentStack<S, B, View = Self::View>;
 
+    const DEPTH: usize;
+
     fn render(
         self,
         context: &mut RenderContext,
@@ -59,6 +61,8 @@ pub trait Element<S: State, B> {
 
 pub trait ElementSeq<S: State, B> {
     type Storage: ViewNodeSeq<S, B>;
+
+    const DEPTH: usize;
 
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage;
 

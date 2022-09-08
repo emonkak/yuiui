@@ -16,6 +16,8 @@ where
 {
     type Storage = HNil;
 
+    const DEPTH: usize = 0;
+
     fn render_children(
         self,
         _context: &mut RenderContext,
@@ -95,6 +97,8 @@ where
     S: State,
 {
     type Storage = HCons<H::Storage, T::Storage>;
+
+    const DEPTH: usize = [H::DEPTH, T::DEPTH][(H::DEPTH < T::DEPTH) as usize];
 
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         HCons {

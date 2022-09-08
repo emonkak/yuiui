@@ -37,14 +37,14 @@ impl<T> FromIterator<(IdPathBuf, T)> for IdTree<T> {
             let mut value = None;
             let mut children = Vec::new();
 
-            for (child_id_path, child_value) in iter {
-                if let Some((head, tail)) = split_first_vec(child_id_path) {
+            for (id_path, child_value) in iter {
+                if let Some(&head) = id_path.first() {
                     if head != last_head {
                         index += 1;
                         children.push(index);
                         last_head = head;
                     }
-                    queue.push_back((head, tail, child_value));
+                    queue.push_back((head, 1, id_path, child_value));
                 } else {
                     value = Some(child_value);
                 }
@@ -53,25 +53,25 @@ impl<T> FromIterator<(IdPathBuf, T)> for IdTree<T> {
             arena.push(Node::new(Id::ROOT, value, children));
         }
 
-        while let Some((head, tail, value)) = queue.pop_front() {
+        while let Some((head, tail, id_path, value)) = queue.pop_front() {
             let mut children = Vec::new();
 
-            let value = if let Some((tail_head, tail_tail)) = split_first_vec(tail) {
+            let value = if let Some(&tail_head) = id_path.get(tail) {
                 index += 1;
                 children.push(index);
-                queue.push_back((tail_head, tail_tail, value));
+                queue.push_back((tail_head, tail + 1, id_path, value));
                 None
             } else {
                 Some(value)
             };
 
-            while let Some((next_head, _, _)) = queue.front() {
+            while let Some((next_head, _, _, _)) = queue.front() {
                 if *next_head == head {
-                    let (_, next_tail, value) = queue.pop_front().unwrap();
+                    let (_, next_tail, id_path, value) = queue.pop_front().unwrap();
                     index += 1;
                     children.push(index);
-                    if let Some((next_tail_head, next_tail_tail)) = split_first_vec(next_tail) {
-                        queue.push_back((next_tail_head, next_tail_tail, value));
+                    if let Some(next_tail_head) = id_path.get(next_tail) {
+                        queue.push_back((*next_tail_head, next_tail + 1, id_path, value));
                     }
                 } else {
                     break;
@@ -175,15 +175,6 @@ impl<'a, T> Iterator for Children<'a, T> {
         } else {
             None
         }
-    }
-}
-
-fn split_first_vec<T>(mut xs: Vec<T>) -> Option<(T, Vec<T>)> {
-    if xs.len() > 0 {
-        let ys = xs.split_off(1);
-        Some((xs.remove(0), ys))
-    } else {
-        None
     }
 }
 

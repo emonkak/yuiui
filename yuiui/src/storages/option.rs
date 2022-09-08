@@ -35,6 +35,8 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
+    const DEPTH: usize = T::DEPTH;
+
     fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         OptionStorage::new(self.map(|element| element.render_children(context, state, backend)))
     }
