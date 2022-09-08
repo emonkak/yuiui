@@ -106,9 +106,7 @@ where
         context: &mut RenderContext,
     ) -> Vec<(IdPathBuf, Depth)> {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| UpdateVisitor::new(depth));
-        visitor.visit(self, context, state, backend);
-        // TODO:
-        Vec::new()
+        visitor.visit(self, context, state, backend)
     }
 
     pub fn commit(
@@ -200,9 +198,9 @@ pub struct ViewNodeMut<'a, V: View<S, M, B>, CS, S, M, B> {
 
 pub trait ViewNodeSeq<S, M, B>:
     Traversable<CommitVisitor, EffectContext, EffectOps<M>, S, B>
-    + Traversable<UpdateVisitor, RenderContext, bool, S, B>
+    + Traversable<UpdateVisitor, RenderContext, Vec<(IdPathBuf, Depth)>, S, B>
     + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext, EffectOps<M>, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, bool, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, Vec<(IdPathBuf, Depth)>, S, B>
     + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext, EffectOps<M>, S, B>
     + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext, EffectOps<M>, S, B>
     + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext, EffectOps<M>, S, B>
