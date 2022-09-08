@@ -2,10 +2,10 @@ use std::mem;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::EventMask;
+use crate::event::{EventMask, EventResult};
 use crate::id::IdPath;
 use crate::state::State;
-use crate::traversable::Traversable;
+use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::RenderFlags;
@@ -95,28 +95,30 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        let mut has_changed = false;
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
+        let mut result = EventResult::nop();
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    has_changed |= node.commit(CommitMode::Unmount, state, backend, context);
+                    result =
+                        result.combine(node.commit(CommitMode::Unmount, state, backend, context));
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    has_changed |= node.commit(CommitMode::Mount, state, backend, context);
+                    result =
+                        result.combine(node.commit(CommitMode::Mount, state, backend, context));
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                has_changed |= node.commit(mode, state, backend, context);
+                result = result.combine(node.commit(mode, state, backend, context));
             }
         }
         self.flags = RenderFlags::COMMITED;
-        has_changed
+        result
     }
 }
 

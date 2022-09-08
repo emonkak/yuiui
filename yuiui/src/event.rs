@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::effect::Effect;
 use crate::id::IdPathBuf;
 use crate::state::State;
+use crate::traversable::Monoid;
 
 pub trait Event<'event> {
     fn collect_types(type_ids: &mut Vec<TypeId>);
@@ -104,6 +105,19 @@ impl<S: State> EventResult<S> {
             .map(|effect| effect.lift(f))
             .collect();
         EventResult { effects }
+    }
+}
+
+impl<S: State> Default for EventResult<S> {
+    fn default() -> Self {
+        EventResult::nop()
+    }
+}
+
+impl<S: State> Monoid for EventResult<S> {
+    fn combine(mut self, other: Self) -> Self {
+        self.effects.extend(other.effects);
+        self
     }
 }
 

@@ -41,8 +41,8 @@ where
                     return glib::Continue(true);
                 }
             }
-            Action::PushEffect(id_path, component_index, effect) => {
-                render_loop.push_effect(id_path, component_index, effect);
+            Action::PushEffect(effect) => {
+                render_loop.push_effect(effect);
             }
         }
 

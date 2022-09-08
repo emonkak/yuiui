@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext};
-use crate::event::{Event, HasEvent};
+use crate::event::{Event, EventResult, HasEvent};
 use crate::state::State;
 use crate::traversable::Visitor;
 use crate::view::View;
@@ -19,38 +19,36 @@ impl<'a> LocalEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
-    for LocalEventVisitor<'a>
+impl<'a, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext, S, B> for LocalEventVisitor<'a>
 where
     V: View<S, B>,
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
-    type Output = bool;
+    type Output = EventResult<S>;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
+        context: &mut EffectContext,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
-                let result = view.event(
+                view.event(
                     event,
                     widget,
                     &node.children,
                     context.id_path(),
                     state,
                     backend,
-                );
-                context.process_result(result, CS::LEN);
-                true
+                )
+                // context.process_result(result, CS::LEN);
             }
-            ViewNodeState::Uninitialized(_) => false,
+            ViewNodeState::Uninitialized(_) => EventResult::nop(),
         }
     }
 }

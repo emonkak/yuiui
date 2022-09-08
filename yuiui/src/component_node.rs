@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::context::EffectContext;
-use crate::event::Lifecycle;
+use crate::event::{EventResult, Lifecycle};
 use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view_node::CommitMode;
@@ -37,14 +37,11 @@ where
         component_index: ComponentIndex,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
+        context.begin_effect(component_index);
         match mode {
-            CommitMode::Mount => {
-                let result = self.component.lifecycle(Lifecycle::Mounted, state, backend);
-                context.process_result(result, component_index);
-                true
-            }
+            CommitMode::Mount => self.component.lifecycle(Lifecycle::Mounted, state, backend),
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     let result = pending_component.lifecycle(
@@ -53,19 +50,14 @@ where
                         backend,
                     );
                     self.component = pending_component;
-                    context.process_result(result, component_index);
-                    true
+                    result
                 } else {
-                    false
+                    EventResult::nop()
                 }
             }
-            CommitMode::Unmount => {
-                let result = self
-                    .component
-                    .lifecycle(Lifecycle::Unmounted, state, backend);
-                context.process_result(result, component_index);
-                true
-            }
+            CommitMode::Unmount => self
+                .component
+                .lifecycle(Lifecycle::Unmounted, state, backend),
         }
     }
 }

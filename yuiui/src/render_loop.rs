@@ -18,7 +18,7 @@ use crate::view_node::{CommitMode, ViewNode};
 pub struct RenderLoop<E: Element<S, B>, S: State, B> {
     node: ViewNode<E::View, E::Components, S, B>,
     render_context: RenderContext,
-    effect_queue: VecDeque<(IdPathBuf, ComponentIndex, Effect<S>)>,
+    effect_queue: VecDeque<Effect<S>>,
     update_selection: BTreeMap<IdPathBuf, ComponentIndex>,
     commit_selection: BTreeMap<IdPathBuf, ComponentIndex>,
     is_mounted: bool,
@@ -45,8 +45,8 @@ where
 
     pub fn run(&mut self, deadline: &impl Deadline, state: &mut S, backend: &B) -> RenderFlow {
         loop {
-            while let Some((id_path, component_index, effect)) = self.effect_queue.pop_front() {
-                self.run_effect(id_path, component_index, effect, state, backend);
+            while let Some(effect) = self.effect_queue.pop_front() {
+                self.run_effect(effect, state, backend);
                 if deadline.did_timeout() {
                     return self.render_status();
                 }
@@ -71,18 +71,20 @@ where
                 if !self.commit_selection.is_empty() {
                     let id_tree = IdTree::from_iter(mem::take(&mut self.commit_selection));
                     let mut effect_context = EffectContext::new();
-                    self.node
-                        .commit_subtree(&id_tree, state, backend, &mut effect_context);
-                    self.effect_queue.extend(effect_context.into_effects());
+                    let result =
+                        self.node
+                            .commit_subtree(&id_tree, state, backend, &mut effect_context);
+                    self.effect_queue.extend(result.into_effects());
                     if deadline.did_timeout() {
                         return self.render_status();
                     }
                 }
             } else {
                 let mut effect_context = EffectContext::new();
-                self.node
-                    .commit(CommitMode::Mount, state, backend, &mut effect_context);
-                self.effect_queue.extend(effect_context.into_effects());
+                let result =
+                    self.node
+                        .commit(CommitMode::Mount, state, backend, &mut effect_context);
+                self.effect_queue.extend(result.into_effects());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
                     return self.render_status();
@@ -103,34 +105,28 @@ where
         backend: &B,
     ) {
         let mut context = EffectContext::new();
-        match destination {
+        let result = match destination {
             EventDestination::Global => {
-                self.node.global_event(&event, state, backend, &mut context);
+                self.node.global_event(&event, state, backend, &mut context)
             }
             EventDestination::Downward(id_path) => {
                 self.node
-                    .downward_event(&event, &id_path, state, backend, &mut context);
+                    .downward_event(&event, &id_path, state, backend, &mut context)
             }
             EventDestination::Upward(id_path) => {
                 self.node
-                    .upward_event(&event, &id_path, state, backend, &mut context);
+                    .upward_event(&event, &id_path, state, backend, &mut context)
             }
             EventDestination::Local(id_path) => {
                 self.node
-                    .local_event(&event, &id_path, state, backend, &mut context);
+                    .local_event(&event, &id_path, state, backend, &mut context)
             }
-        }
-        self.effect_queue.extend(context.into_effects());
+        };
+        self.effect_queue.extend(result.into_effects());
     }
 
-    pub fn push_effect(
-        &mut self,
-        id_path: IdPathBuf,
-        component_index: ComponentIndex,
-        effect: Effect<S>,
-    ) {
-        self.effect_queue
-            .push_back((id_path, component_index, effect));
+    pub fn push_effect(&mut self, effect: Effect<S>) {
+        self.effect_queue.push_back(effect);
     }
 
     fn render_status(&self) -> RenderFlow {
@@ -145,29 +141,24 @@ where
         }
     }
 
-    fn run_effect(
-        &mut self,
-        id_path: IdPathBuf,
-        component_index: ComponentIndex,
-        effect: Effect<S>,
-        state: &mut S,
-        backend: &B,
-    ) {
+    fn run_effect(&mut self, effect: Effect<S>, state: &mut S, backend: &B) {
         match effect {
-            Effect::Message(message) => {
+            Effect::Message(message, state_scope) => {
                 if state.reduce(message) {
+                    let (id_path, component_index) = state_scope.normalize();
                     extend_selection(&mut self.update_selection, id_path, component_index);
                 }
             }
-            Effect::Mutation(mutation) => {
+            Effect::Mutation(mutation, state_scope) => {
                 if mutation(state) {
+                    let (id_path, component_index) = state_scope.normalize();
                     extend_selection(&mut self.update_selection, id_path, component_index);
                 }
             }
             Effect::Command(command, cancellation_token) => {
-                backend.invoke_command(id_path, component_index, command, cancellation_token);
+                backend.invoke_command(command, cancellation_token);
             }
-            Effect::RequestUpdate => {
+            Effect::RequestUpdate(id_path, component_index) => {
                 extend_selection(&mut self.update_selection, id_path, component_index);
             }
         }
@@ -198,13 +189,7 @@ where
 }
 
 pub trait RenderLoopContext<S: State> {
-    fn invoke_command(
-        &self,
-        id_path: IdPathBuf,
-        component_index: ComponentIndex,
-        command: Command<S>,
-        cancellation_token: Option<CancellationToken>,
-    );
+    fn invoke_command(&self, command: Command<S>, cancellation_token: Option<CancellationToken>);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -1,23 +1,20 @@
 use std::any::Any;
 use std::rc::Rc;
-use std::sync::Arc;
 
-use crate::effect::Effect;
-use crate::event::EventResult;
+use crate::effect::StateScope;
 use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf};
-use crate::state::State;
 
 pub trait IdContext {
     fn id_path(&self) -> &IdPath;
 
-    fn begin_view(&mut self, id: Id);
+    fn begin_id(&mut self, id: Id);
 
-    fn end_view(&mut self) -> Id;
+    fn end_id(&mut self) -> Id;
 
-    fn with_view<F: FnOnce(&mut Self) -> T, T>(&mut self, id: Id, f: F) -> T {
-        self.begin_view(id);
+    fn in_id<F: FnOnce(&mut Self) -> T, T>(&mut self, id: Id, f: F) -> T {
+        self.begin_id(id);
         let result = f(self);
-        self.end_view();
+        self.end_id();
         result
     }
 }
@@ -72,11 +69,11 @@ impl IdContext for RenderContext {
         &self.id_path
     }
 
-    fn begin_view(&mut self, id: Id) {
+    fn begin_id(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
-    fn end_view(&mut self) -> Id {
+    fn end_id(&mut self) -> Id {
         let previous_id = self.id_path.pop().unwrap();
 
         while let Some((id, _)) = self.env_stack.last() {
@@ -91,89 +88,49 @@ impl IdContext for RenderContext {
     }
 }
 
-pub struct EffectContext<S: State> {
+pub struct EffectContext {
     id_path: IdPathBuf,
     component_index: ComponentIndex,
     state_scope: StateScope,
-    effects: Vec<(IdPathBuf, ComponentIndex, Effect<S>)>,
 }
 
-impl<S: State> EffectContext<S> {
+impl EffectContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
             component_index: 0,
             state_scope: StateScope::Global,
-            effects: Vec::new(),
         }
     }
 
-    pub fn new_sub_context<SS: State>(&self) -> EffectContext<SS> {
+    pub fn new_sub_context(&self) -> EffectContext {
         EffectContext {
             id_path: self.id_path.clone(),
             component_index: self.component_index,
             state_scope: StateScope::Partial(self.id_path.clone(), self.component_index),
-            effects: Vec::new(),
         }
     }
 
-    pub fn merge_sub_context<F, SS>(&mut self, sub_context: EffectContext<SS>, f: &Arc<F>)
-    where
-        F: Fn(&S) -> &SS + Sync + Send + 'static,
-        SS: State,
-    {
-        assert!(sub_context.id_path.starts_with(&self.id_path));
-        let sub_effects = sub_context
-            .effects
-            .into_iter()
-            .map(|(id_path, component_index, effect)| (id_path, component_index, effect.lift(f)));
-        self.effects.extend(sub_effects);
-    }
-
-    pub fn process_result(&mut self, result: EventResult<S>, component_index: ComponentIndex) {
-        for effect in result.into_effects() {
-            let (id_path, component_index) = match effect {
-                Effect::Message(_) | Effect::Mutation(_) | Effect::Command(_, _) => {
-                    self.state_scope.clone().normalize()
-                }
-                Effect::RequestUpdate => (self.id_path.clone(), component_index),
-            };
-            self.effects.push((id_path, component_index, effect));
-        }
+    pub fn begin_effect(&mut self, component_index: ComponentIndex) {
         self.component_index = component_index;
     }
 
-    pub fn into_effects(self) -> Vec<(IdPathBuf, ComponentIndex, Effect<S>)> {
-        self.effects
+    pub fn state_scope(&self) -> &StateScope {
+        &self.state_scope
     }
 }
 
-impl<S: State> IdContext for EffectContext<S> {
+impl IdContext for EffectContext {
     fn id_path(&self) -> &IdPath {
         &self.id_path
     }
 
-    fn begin_view(&mut self, id: Id) {
+    fn begin_id(&mut self, id: Id) {
         self.id_path.push(id);
         self.component_index = 0;
     }
 
-    fn end_view(&mut self) -> Id {
+    fn end_id(&mut self) -> Id {
         self.id_path.pop().unwrap()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum StateScope {
-    Global,
-    Partial(IdPathBuf, ComponentIndex),
-}
-
-impl StateScope {
-    pub fn normalize(self) -> (IdPathBuf, ComponentIndex) {
-        match self {
-            StateScope::Global => (IdPathBuf::new(), 0),
-            StateScope::Partial(id_path, component_index) => (id_path, component_index),
-        }
     }
 }

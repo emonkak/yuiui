@@ -3,7 +3,7 @@ use std::sync::Once;
 
 use crate::context::{EffectContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::EventMask;
+use crate::event::{EventMask, EventResult};
 use crate::id::IdPath;
 use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
@@ -53,9 +53,9 @@ where
         _mode: CommitMode,
         _state: &S,
         _backend: &B,
-        _context: &mut EffectContext<S>,
-    ) -> bool {
-        false
+        _context: &mut EffectContext,
+    ) -> EventResult<S> {
+        EventResult::nop()
     }
 }
 
@@ -152,12 +152,11 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        let mut has_changed = false;
-        has_changed |= self.head.commit(mode, state, backend, context);
-        has_changed |= self.tail.commit(mode, state, backend, context);
-        has_changed
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
+        self.head
+            .commit(mode, state, backend, context)
+            .combine(self.tail.commit(mode, state, backend, context))
     }
 }
 

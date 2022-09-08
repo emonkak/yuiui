@@ -13,7 +13,7 @@ use std::sync::Once;
 use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::{Event, EventMask, HasEvent};
+use crate::event::{Event, EventMask, EventResult, HasEvent};
 use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::State;
 use crate::traversable::{Traversable, Visitor};
@@ -119,15 +119,13 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
-            visitor.visit(self, state, backend, context);
-            self.dirty = false;
-            true
+            visitor.visit(self, state, backend, context)
         } else {
-            false
+            EventResult::nop()
         }
     }
 
@@ -136,8 +134,8 @@ where
         id_tree: &IdTree<ComponentIndex>,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
             CommitVisitor::new(CommitMode::Update, component_index)
         });
@@ -149,8 +147,8 @@ where
         event: &dyn Any,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let mut visitor = DownwardEventVisitor::new(event);
         visitor.visit(self, state, backend, context)
     }
@@ -161,11 +159,11 @@ where
         id_path: &IdPath,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let mut visitor = DownwardEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, backend, context)
-            .unwrap_or(false)
+            .unwrap_or_default()
     }
 
     pub fn upward_event(
@@ -174,8 +172,8 @@ where
         id_path: &IdPath,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
         visitor.visit(self, state, backend, context)
     }
@@ -186,11 +184,11 @@ where
         id_path: &IdPath,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, backend, context)
-            .unwrap_or(false)
+            .unwrap_or_default()
     }
 }
 
@@ -204,13 +202,13 @@ pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
 }
 
 pub trait ViewNodeSeq<S: State, B>:
-    Traversable<CommitVisitor, EffectContext<S>, bool, S, B>
+    Traversable<CommitVisitor, EffectContext, EventResult<S>, S, B>
     + Traversable<UpdateVisitor, RenderContext, bool, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext<S>, bool, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext, EventResult<S>, S, B>
     + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, bool, S, B>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, bool, S, B>
-    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext<S>, bool, S, B>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, bool, S, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext, EventResult<S>, S, B>
+    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext, EventResult<S>, S, B>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext, EventResult<S>, S, B>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -221,8 +219,8 @@ pub trait ViewNodeSeq<S: State, B>:
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool;
+        context: &mut EffectContext,
+    ) -> EventResult<S>;
 }
 
 impl<V, CS, S, B> ViewNodeSeq<S, B> for ViewNode<V, CS, S, B>
@@ -258,9 +256,9 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
-        context.with_view(self.id, |context| {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
+        context.in_id(self.id, |context| {
             self.commit(mode, state, backend, context)
         })
     }
@@ -283,7 +281,7 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> Visitor::Output {
-        context.with_view(self.id, |context| {
+        context.in_id(self.id, |context| {
             if let Some(value) = &self.env {
                 context.push_env(value.clone());
             }
@@ -299,7 +297,7 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> Option<Visitor::Output> {
-        context.with_view(self.id, |context| {
+        context.in_id(self.id, |context| {
             if let Some(value) = &self.env {
                 context.push_env(value.clone());
             }
@@ -317,14 +315,14 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, EffectContext<S>, Visitor::Output, S, B>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, EffectContext, Visitor::Output, S, B>
     for ViewNode<V, CS, S, B>
 where
     V: View<S, B>,
     <V::Children as ElementSeq<S, B>>::Storage:
-        Traversable<Visitor, EffectContext<S>, Visitor::Output, S, B>,
+        Traversable<Visitor, EffectContext, Visitor::Output, S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: self::Visitor<Self, EffectContext<S>, S, B>,
+    Visitor: self::Visitor<Self, EffectContext, S, B>,
     S: State,
 {
     fn for_each(
@@ -332,9 +330,9 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
+        context: &mut EffectContext,
     ) -> Visitor::Output {
-        context.with_view(self.id, |context| {
+        context.in_id(self.id, |context| {
             visitor.visit(self, state, backend, context)
         })
     }
@@ -345,9 +343,9 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
+        context: &mut EffectContext,
     ) -> Option<Visitor::Output> {
-        context.with_view(self.id, |context| {
+        context.in_id(self.id, |context| {
             if self.id == Id::from_top(id_path) {
                 Some(visitor.visit(self, state, backend, context))
             } else if self.id == Id::from_bottom(id_path) {

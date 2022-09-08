@@ -51,7 +51,7 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> bool {
-        context.with_view(node.id, |context| {
+        context.in_id(node.id, |context| {
             *node.state = match node.state.take().unwrap() {
                 ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
                 ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {

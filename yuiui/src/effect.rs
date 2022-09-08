@@ -3,13 +3,14 @@ use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
+use crate::id::{ComponentIndex, IdPathBuf};
 use crate::state::State;
 
 pub enum Effect<S: State> {
-    Message(S::Message),
-    Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
+    Message(S::Message, StateScope),
+    Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>, StateScope),
     Command(Command<S>, Option<CancellationToken>),
-    RequestUpdate,
+    RequestUpdate(IdPathBuf, ComponentIndex),
 }
 
 impl<S: State> Effect<S> {
@@ -19,26 +20,34 @@ impl<S: State> Effect<S> {
         NewState: State,
     {
         match self {
-            Self::Message(message) => {
+            Self::Message(message, state_scope) => {
                 let f = f.clone();
-                Effect::Mutation(Box::new(move |state| {
-                    let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
-                    sub_state.reduce(message)
-                }))
+                Effect::Mutation(
+                    Box::new(move |state| {
+                        let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
+                        sub_state.reduce(message)
+                    }),
+                    state_scope,
+                )
             }
-            Self::Mutation(mutation) => {
+            Self::Mutation(mutation, state_scope) => {
                 let f = f.clone();
-                Effect::Mutation(Box::new(move |state| {
-                    let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
-                    mutation(sub_state)
-                }))
+                Effect::Mutation(
+                    Box::new(move |state| {
+                        let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
+                        mutation(sub_state)
+                    }),
+                    state_scope,
+                )
             }
             Self::Command(command, cancellation_token) => {
                 let f = f.clone();
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command, cancellation_token)
             }
-            Self::RequestUpdate => Effect::RequestUpdate,
+            Self::RequestUpdate(id_path, component_index) => {
+                Effect::RequestUpdate(id_path, component_index)
+            }
         }
     }
 }
@@ -49,14 +58,37 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Message(message) => f.debug_tuple("Message").field(message).finish(),
-            Self::Mutation(_) => f.debug_struct("Mutation").finish_non_exhaustive(),
+            Self::Message(message, state_scope) => f
+                .debug_tuple("Message")
+                .field(message)
+                .field(state_scope)
+                .finish(),
+            Self::Mutation(_, state_scope) => f.debug_tuple("Mutation").field(state_scope).finish(),
             Self::Command(command, cancellation_token) => f
                 .debug_tuple("Command")
                 .field(command)
                 .field(cancellation_token)
                 .finish(),
-            Self::RequestUpdate => f.write_str("RequestUpdate"),
+            Self::RequestUpdate(id_path, component_index) => f
+                .debug_tuple("RequestUpdate")
+                .field(id_path)
+                .field(component_index)
+                .finish(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StateScope {
+    Global,
+    Partial(IdPathBuf, ComponentIndex),
+}
+
+impl StateScope {
+    pub fn normalize(self) -> (IdPathBuf, ComponentIndex) {
+        match self {
+            StateScope::Global => (IdPathBuf::new(), 0),
+            StateScope::Partial(id_path, component_index) => (id_path, component_index),
         }
     }
 }

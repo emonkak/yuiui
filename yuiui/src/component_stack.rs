@@ -4,6 +4,7 @@ use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
+use crate::event::EventResult;
 use crate::id::ComponentIndex;
 use crate::state::State;
 use crate::view::View;
@@ -30,8 +31,8 @@ pub trait ComponentStack<S: State, B>: Sized {
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool;
+        context: &mut EffectContext,
+    ) -> EventResult<S>;
 }
 
 impl<C, CS, S, B> ComponentStack<S, B> for (ComponentNode<C, S, B>, CS)
@@ -84,8 +85,8 @@ where
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         if target_index <= current_index {
             self.0.commit(mode, current_index, state, backend, context)
         } else {
@@ -133,8 +134,8 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
         _current_index: ComponentIndex,
         _state: &S,
         _backend: &B,
-        _context: &mut EffectContext<S>,
-    ) -> bool {
-        false
+        _context: &mut EffectContext,
+    ) -> EventResult<S> {
+        EventResult::nop()
     }
 }

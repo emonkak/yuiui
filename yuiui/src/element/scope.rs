@@ -134,15 +134,13 @@ where
         mode: CommitMode,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let has_changed = self
-            .target
-            .commit(mode, sub_state, backend, &mut sub_context);
-        context.merge_sub_context(sub_context, &self.selector_fn);
-        has_changed
+        self.target
+            .commit(mode, sub_state, backend, &mut sub_context)
+            .lift(&self.selector_fn)
     }
 }
 
@@ -177,10 +175,10 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, Output, S, B> Traversable<Visitor, EffectContext<S>, Output, S, B>
+impl<T, F, SS, Visitor, S, B> Traversable<Visitor, EffectContext, EventResult<S>, S, B>
     for Scope<T, F, SS>
 where
-    T: Traversable<Visitor, EffectContext<SS>, Output, SS, B>,
+    T: Traversable<Visitor, EffectContext, EventResult<SS>, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -190,15 +188,13 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> Output {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let result = self
-            .target
-            .for_each(visitor, sub_state, backend, &mut sub_context);
-        context.merge_sub_context(sub_context, &self.selector_fn);
-        result
+        self.target
+            .for_each(visitor, sub_state, backend, &mut sub_context)
+            .lift(&self.selector_fn)
     }
 
     fn search(
@@ -207,15 +203,13 @@ where
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> Option<Output> {
+        context: &mut EffectContext,
+    ) -> Option<EventResult<S>> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let result = self
-            .target
-            .search(id_path, visitor, sub_state, backend, &mut sub_context);
-        context.merge_sub_context(sub_context, &self.selector_fn);
-        result
+        self.target
+            .search(id_path, visitor, sub_state, backend, &mut sub_context)
+            .map(|result| result.lift(&self.selector_fn))
     }
 }
 
@@ -237,20 +231,20 @@ where
         current_index: ComponentIndex,
         state: &S,
         backend: &B,
-        context: &mut EffectContext<S>,
-    ) -> bool {
+        context: &mut EffectContext,
+    ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let has_changed = self.target.commit(
-            mode,
-            target_index,
-            current_index,
-            sub_state,
-            backend,
-            &mut sub_context,
-        );
-        context.merge_sub_context(sub_context, &self.selector_fn);
-        has_changed
+        self.target
+            .commit(
+                mode,
+                target_index,
+                current_index,
+                sub_state,
+                backend,
+                &mut sub_context,
+            )
+            .lift(&self.selector_fn)
     }
 
     fn update<'a>(
