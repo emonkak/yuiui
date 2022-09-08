@@ -45,7 +45,7 @@ where
                 result = result.combine(view.lifecycle(
                     Lifecycle::Mounted,
                     &mut widget,
-                    &node.children,
+                    &mut node.children,
                     context,
                     state,
                     backend,
@@ -56,7 +56,7 @@ where
                 result = result.combine(view.lifecycle(
                     Lifecycle::Mounted,
                     &mut widget,
-                    &node.children,
+                    &mut node.children,
                     context,
                     state,
                     backend,
@@ -68,7 +68,7 @@ where
                     .combine(view.lifecycle(
                         Lifecycle::Mounted,
                         &mut widget,
-                        &node.children,
+                        &mut node.children,
                         context,
                         state,
                         backend,
@@ -76,7 +76,7 @@ where
                     .combine(pending_view.lifecycle(
                         Lifecycle::Updated(&view),
                         &mut widget,
-                        &node.children,
+                        &mut node.children,
                         context,
                         state,
                         backend,
@@ -90,7 +90,7 @@ where
                 result = result.combine(view.lifecycle(
                     Lifecycle::Updated(&view),
                     &mut widget,
-                    &node.children,
+                    &mut node.children,
                     context,
                     state,
                     backend,
@@ -101,7 +101,7 @@ where
                 result = result.combine(pending_view.lifecycle(
                     Lifecycle::Updated(&view),
                     &mut widget,
-                    &node.children,
+                    &mut node.children,
                     context,
                     state,
                     backend,
@@ -115,7 +115,7 @@ where
                 result = result.combine(view.lifecycle(
                     Lifecycle::Unmounted,
                     &mut widget,
-                    &node.children,
+                    &mut node.children,
                     context,
                     state,
                     backend,
@@ -126,7 +126,7 @@ where
                 result = result.combine(view.lifecycle(
                     Lifecycle::Unmounted,
                     &mut widget,
-                    &node.children,
+                    &mut node.children,
                     context,
                     state,
                     backend,

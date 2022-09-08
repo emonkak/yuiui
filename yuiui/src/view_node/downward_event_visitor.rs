@@ -47,7 +47,7 @@ where
                     result = result.combine(view.event(
                         event,
                         widget,
-                        &node.children,
+                        &mut node.children,
                         context,
                         state,
                         backend,

@@ -40,7 +40,7 @@ where
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
                 context.set_depth(CS::LEN);
-                view.event(event, widget, &node.children, context, state, backend)
+                view.event(event, widget, &mut node.children, context, state, backend)
             }
             ViewNodeState::Uninitialized(_) => EffectOps::nop(),
         }

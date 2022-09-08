@@ -55,7 +55,7 @@ where
         &self,
         lifecycle: Lifecycle<&Self>,
         widget: &mut Self::Widget,
-        _children: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, Backend<S>>>::Storage,
         _context: &EffectContext,
         _state: &S,
         _backend: &Backend<S>,
