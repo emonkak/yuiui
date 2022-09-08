@@ -50,21 +50,21 @@ where
         &self,
         lifecycle: Lifecycle<&Self>,
         view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, Backend<S>>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
         _context: &EffectContext,
         _state: &S,
         _backend: &Backend<S>,
     ) -> EffectOps<S> {
         match lifecycle {
-            Lifecycle::Mounted => {
+            Lifecycle::Mount => {
                 view_state.show();
             }
-            Lifecycle::Updated(old_view) => {
+            Lifecycle::Update(old_view) => {
                 if self.title != old_view.title {
                     view_state.set_title(self.title.as_deref());
                 }
             }
-            Lifecycle::Unmounted => {
+            Lifecycle::Unmount => {
                 view_state.hide();
             }
         }

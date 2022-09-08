@@ -55,7 +55,7 @@ where
                     result = result.combine(view.event(
                         event,
                         view_state,
-                        &mut node.children,
+                        &node.children,
                         context,
                         state,
                         backend,

@@ -45,7 +45,7 @@ where
         context.set_depth(depth);
         match mode {
             CommitMode::Mount => self.component.lifecycle(
-                Lifecycle::Mounted,
+                Lifecycle::Mount,
                 &mut self.state,
                 context,
                 state,
@@ -54,7 +54,7 @@ where
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     let result = pending_component.lifecycle(
-                        Lifecycle::Updated(&self.component),
+                        Lifecycle::Update(&self.component),
                         &mut self.state,
                         context,
                         state,
@@ -67,7 +67,7 @@ where
                 }
             }
             CommitMode::Unmount => self.component.lifecycle(
-                Lifecycle::Unmounted,
+                Lifecycle::Unmount,
                 &mut self.state,
                 context,
                 state,

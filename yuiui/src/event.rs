@@ -84,9 +84,9 @@ pub enum EventDestination {
 
 #[derive(Debug)]
 pub enum Lifecycle<T> {
-    Mounted,
-    Updated(T),
-    Unmounted,
+    Mount,
+    Update(T),
+    Unmount,
 }
 
 impl<T> Lifecycle<T> {
@@ -95,9 +95,9 @@ impl<T> Lifecycle<T> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Self::Mounted => Lifecycle::Mounted,
-            Self::Updated(value) => Lifecycle::Updated(f(value)),
-            Self::Unmounted => Lifecycle::Unmounted,
+            Self::Mount => Lifecycle::Mount,
+            Self::Update(value) => Lifecycle::Update(f(value)),
+            Self::Unmount => Lifecycle::Unmount,
         }
     }
 }

@@ -40,19 +40,19 @@ where
             ViewNodeState::Prepared(view, view_state)
             | ViewNodeState::Pending(view, _, view_state) => {
                 let mut result = EffectOps::nop();
-                if node.event_mask.contains(&self.event.type_id()) {
-                    result = result.combine(node.children.for_each(self, context, state, backend));
-                }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     context.set_depth(CS::LEN);
                     result = result.combine(view.event(
                         event,
                         view_state,
-                        &mut node.children,
+                        &node.children,
                         context,
                         state,
                         backend,
                     ));
+                }
+                if node.event_mask.contains(&self.event.type_id()) {
+                    result = result.combine(node.children.for_each(self, context, state, backend));
                 }
                 result
             }

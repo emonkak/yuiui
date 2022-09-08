@@ -37,101 +37,109 @@ where
         state: &S,
         backend: &B,
     ) -> Self::Output {
-        let mut result = node.children.commit(self.mode, context, state, backend);
         context.set_depth(CS::LEN);
-        let node_state = match (self.mode, node.state.take().unwrap()) {
+        let (mut result, node_state) = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut view_state = view.build(&node.children, state, backend);
-                result = result.combine(view.lifecycle(
-                    Lifecycle::Mounted,
-                    &mut view_state,
-                    &mut node.children,
-                    context,
-                    state,
-                    backend,
-                ));
-                ViewNodeState::Prepared(view, view_state)
+                let result = node
+                    .children
+                    .commit(self.mode, context, state, backend)
+                    .combine(view.lifecycle(
+                        Lifecycle::Mount,
+                        &mut view_state,
+                        &node.children,
+                        context,
+                        state,
+                        backend,
+                    ));
+                (result, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Mount, ViewNodeState::Prepared(view, mut view_state)) => {
-                result = result.combine(view.lifecycle(
-                    Lifecycle::Mounted,
-                    &mut view_state,
-                    &mut node.children,
-                    context,
-                    state,
-                    backend,
-                ));
-                ViewNodeState::Prepared(view, view_state)
+                let result = node
+                    .children
+                    .commit(self.mode, context, state, backend)
+                    .combine(view.lifecycle(
+                        Lifecycle::Mount,
+                        &mut view_state,
+                        &node.children,
+                        context,
+                        state,
+                        backend,
+                    ));
+                (result, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                result = result
+                let result = node
+                    .children
+                    .commit(self.mode, context, state, backend)
                     .combine(view.lifecycle(
-                        Lifecycle::Mounted,
+                        Lifecycle::Mount,
                         &mut view_state,
-                        &mut node.children,
+                        &node.children,
                         context,
                         state,
                         backend,
                     ))
                     .combine(pending_view.lifecycle(
-                        Lifecycle::Updated(&view),
+                        Lifecycle::Update(&view),
                         &mut view_state,
-                        &mut node.children,
+                        &node.children,
                         context,
                         state,
                         backend,
                     ));
-                ViewNodeState::Prepared(pending_view, view_state)
+                (result, ViewNodeState::Prepared(pending_view, view_state))
             }
             (CommitMode::Update, ViewNodeState::Uninitialized(_)) => {
                 unreachable!()
             }
-            (CommitMode::Update, ViewNodeState::Prepared(view, mut view_state)) => {
-                result = result.combine(view.lifecycle(
-                    Lifecycle::Updated(&view),
-                    &mut view_state,
-                    &mut node.children,
-                    context,
-                    state,
-                    backend,
-                ));
-                ViewNodeState::Prepared(view, view_state)
+            (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
+                let result = node.children.commit(self.mode, context, state, backend);
+                (result, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                result = result.combine(pending_view.lifecycle(
-                    Lifecycle::Updated(&view),
-                    &mut view_state,
-                    &mut node.children,
-                    context,
-                    state,
-                    backend,
-                ));
-                ViewNodeState::Prepared(pending_view, view_state)
+                let result = node.children.commit(self.mode, context, state, backend)
+                    .combine(pending_view.lifecycle(
+                        Lifecycle::Update(&view),
+                        &mut view_state,
+                        &node.children,
+                        context,
+                        state,
+                        backend,
+                    ));
+                (result, ViewNodeState::Prepared(pending_view, view_state))
             }
             (CommitMode::Unmount, ViewNodeState::Uninitialized(_)) => {
                 unreachable!()
             }
             (CommitMode::Unmount, ViewNodeState::Prepared(view, mut view_state)) => {
-                result = result.combine(view.lifecycle(
-                    Lifecycle::Unmounted,
-                    &mut view_state,
-                    &mut node.children,
-                    context,
-                    state,
-                    backend,
-                ));
-                ViewNodeState::Prepared(view, view_state)
+                let result = view
+                    .lifecycle(
+                        Lifecycle::Unmount,
+                        &mut view_state,
+                        &node.children,
+                        context,
+                        state,
+                        backend,
+                    )
+                    .combine(node.children.commit(self.mode, context, state, backend));
+                (result, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                result = result.combine(view.lifecycle(
-                    Lifecycle::Unmounted,
-                    &mut view_state,
-                    &mut node.children,
-                    context,
-                    state,
-                    backend,
-                ));
-                ViewNodeState::Pending(view, pending_view, view_state)
+                let result = view
+                    .lifecycle(
+                        Lifecycle::Unmount,
+                        &mut view_state,
+                        &node.children,
+                        context,
+                        state,
+                        backend,
+                    )
+                    .combine(node.children.commit(self.mode, context, state, backend));
+                (
+                    result,
+                    ViewNodeState::Pending(view, pending_view, view_state),
+                )
             }
         };
         node.state = Some(node_state);
