@@ -38,7 +38,7 @@ where
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
-                context.begin_effect(CS::LEN);
+                context.begin_depth(CS::LEN);
                 view.event(event, widget, &node.children, context, state, backend)
             }
             ViewNodeState::Uninitialized(_) => EventResult::nop(),

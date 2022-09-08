@@ -14,7 +14,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, EventResult, HasEvent};
-use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf, IdTree};
+use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::State;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -101,14 +101,12 @@ where
 
     pub fn update_subtree(
         &mut self,
-        id_tree: &IdTree<ComponentIndex>,
+        id_tree: &IdTree<Depth>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
-    ) -> Vec<(IdPathBuf, ComponentIndex)> {
-        let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
-            UpdateVisitor::new(component_index)
-        });
+    ) -> Vec<(IdPathBuf, Depth)> {
+        let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| UpdateVisitor::new(depth));
         visitor.visit(self, context, state, backend);
         // TODO:
         Vec::new()
@@ -131,13 +129,13 @@ where
 
     pub fn commit_subtree(
         &mut self,
-        id_tree: &IdTree<ComponentIndex>,
+        id_tree: &IdTree<Depth>,
         context: &mut EffectContext,
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
-        let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
-            CommitVisitor::new(CommitMode::Update, component_index)
+        let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| {
+            CommitVisitor::new(CommitMode::Update, depth)
         });
         visitor.visit(self, context, state, backend)
     }

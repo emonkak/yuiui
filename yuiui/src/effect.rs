@@ -3,14 +3,14 @@ use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::id::{ComponentIndex, IdPathBuf};
+use crate::id::{Depth, IdPathBuf};
 use crate::state::State;
 
 pub enum Effect<S: State> {
     Message(S::Message, StateScope),
     Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>, StateScope),
     Command(Command<S>, Option<CancellationToken>),
-    RequestUpdate(IdPathBuf, ComponentIndex),
+    RequestUpdate(IdPathBuf, Depth),
 }
 
 impl<S: State> Effect<S> {
@@ -45,9 +45,7 @@ impl<S: State> Effect<S> {
                 let command = command.map(move |effect| effect.lift(&f));
                 Effect::Command(command, cancellation_token)
             }
-            Self::RequestUpdate(id_path, component_index) => {
-                Effect::RequestUpdate(id_path, component_index)
-            }
+            Self::RequestUpdate(id_path, depth) => Effect::RequestUpdate(id_path, depth),
         }
     }
 }
@@ -69,10 +67,10 @@ where
                 .field(command)
                 .field(cancellation_token)
                 .finish(),
-            Self::RequestUpdate(id_path, component_index) => f
+            Self::RequestUpdate(id_path, depth) => f
                 .debug_tuple("RequestUpdate")
                 .field(id_path)
-                .field(component_index)
+                .field(depth)
                 .finish(),
         }
     }
@@ -81,14 +79,14 @@ where
 #[derive(Debug, Clone)]
 pub enum StateScope {
     Global,
-    Partial(IdPathBuf, ComponentIndex),
+    Partial(IdPathBuf, Depth),
 }
 
 impl StateScope {
-    pub fn normalize(self) -> (IdPathBuf, ComponentIndex) {
+    pub fn normalize(self) -> (IdPathBuf, Depth) {
         match self {
             StateScope::Global => (IdPathBuf::new(), 0),
-            StateScope::Partial(id_path, component_index) => (id_path, component_index),
+            StateScope::Partial(id_path, depth) => (id_path, depth),
         }
     }
 }

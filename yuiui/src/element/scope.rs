@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, RenderContext};
 use crate::event::{EventMask, EventResult, HasEvent, Lifecycle};
-use crate::id::{ComponentIndex, IdPath};
+use crate::id::{Depth, IdPath};
 use crate::state::State;
 use crate::traversable::Traversable;
 use crate::view::View;
@@ -227,8 +227,8 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        target_index: ComponentIndex,
-        current_index: ComponentIndex,
+        target_depth: Depth,
+        current_depth: Depth,
         context: &mut EffectContext,
         state: &S,
         backend: &B,
@@ -238,8 +238,8 @@ where
         self.target
             .commit(
                 mode,
-                target_index,
-                current_index,
+                target_depth,
+                current_depth,
                 &mut sub_context,
                 sub_state,
                 backend,
@@ -249,8 +249,8 @@ where
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
-        target_index: ComponentIndex,
-        current_index: ComponentIndex,
+        target_depth: Depth,
+        current_depth: Depth,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -259,8 +259,8 @@ where
         with_sub_node(node, |sub_node| {
             T::update(
                 sub_node,
-                target_index,
-                current_index,
+                target_depth,
+                current_depth,
                 context,
                 sub_state,
                 backend,

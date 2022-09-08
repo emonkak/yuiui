@@ -3,7 +3,7 @@ use std::mem;
 use crate::component_stack::ComponentStack;
 use crate::context::EffectContext;
 use crate::event::{EventResult, Lifecycle};
-use crate::id::ComponentIndex;
+use crate::id::Depth;
 use crate::state::State;
 use crate::traversable::{Monoid, Visitor};
 use crate::view::View;
@@ -12,15 +12,12 @@ use super::{CommitMode, ViewNode, ViewNodeSeq, ViewNodeState};
 
 pub struct CommitVisitor {
     mode: CommitMode,
-    component_index: ComponentIndex,
+    depth: Depth,
 }
 
 impl CommitVisitor {
-    pub fn new(mode: CommitMode, component_index: ComponentIndex) -> Self {
-        Self {
-            mode,
-            component_index,
-        }
+    pub fn new(mode: CommitMode, depth: Depth) -> Self {
+        Self { mode, depth }
     }
 }
 
@@ -40,7 +37,7 @@ where
         backend: &B,
     ) -> Self::Output {
         let mut result = node.children.commit(self.mode, context, state, backend);
-        context.begin_effect(CS::LEN);
+        context.begin_depth(CS::LEN);
         let node_state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut widget = view.build(&node.children, state, backend);
@@ -137,16 +134,12 @@ where
             }
         };
         node.state = Some(node_state);
-        let component_index = mem::replace(&mut self.component_index, 0);
-        if component_index < CS::LEN {
-            result = result.combine(node.components.commit(
-                self.mode,
-                component_index,
-                0,
-                context,
-                state,
-                backend,
-            ));
+        let depth = mem::replace(&mut self.depth, 0);
+        if depth < CS::LEN {
+            result = result.combine(
+                node.components
+                    .commit(self.mode, depth, 0, context, state, backend),
+            );
         }
         result
     }

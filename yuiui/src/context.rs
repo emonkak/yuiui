@@ -2,7 +2,7 @@ use std::any::Any;
 use std::rc::Rc;
 
 use crate::effect::StateScope;
-use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf};
+use crate::id::{Depth, Id, IdPath, IdPathBuf};
 
 pub trait IdContext {
     fn id_path(&self) -> &IdPath;
@@ -91,7 +91,7 @@ impl IdContext for RenderContext {
 #[derive(Debug, Clone)]
 pub struct EffectContext {
     id_path: IdPathBuf,
-    component_index: ComponentIndex,
+    depth: Depth,
     state_scope: StateScope,
 }
 
@@ -99,7 +99,7 @@ impl EffectContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
-            component_index: 0,
+            depth: 0,
             state_scope: StateScope::Global,
         }
     }
@@ -107,13 +107,17 @@ impl EffectContext {
     pub fn new_sub_context(&self) -> EffectContext {
         EffectContext {
             id_path: self.id_path.clone(),
-            component_index: self.component_index,
-            state_scope: StateScope::Partial(self.id_path.clone(), self.component_index),
+            depth: self.depth,
+            state_scope: StateScope::Partial(self.id_path.clone(), self.depth),
         }
     }
 
-    pub fn begin_effect(&mut self, component_index: ComponentIndex) {
-        self.component_index = component_index;
+    pub fn begin_depth(&mut self, depth: Depth) {
+        self.depth = depth;
+    }
+
+    pub fn depth(&self) -> Depth {
+        self.depth
     }
 
     pub fn state_scope(&self) -> &StateScope {
@@ -128,7 +132,7 @@ impl IdContext for EffectContext {
 
     fn begin_id(&mut self, id: Id) {
         self.id_path.push(id);
-        self.component_index = 0;
+        self.depth = 0;
     }
 
     fn end_id(&mut self) -> Id {

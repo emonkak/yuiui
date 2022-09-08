@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use crate::component::Component;
 use crate::context::EffectContext;
 use crate::event::{EventResult, Lifecycle};
-use crate::id::ComponentIndex;
+use crate::id::Depth;
 use crate::state::State;
 use crate::view_node::CommitMode;
 
@@ -34,12 +34,12 @@ where
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,
-        component_index: ComponentIndex,
+        depth: Depth,
         context: &mut EffectContext,
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
-        context.begin_effect(component_index);
+        context.begin_depth(depth);
         match mode {
             CommitMode::Mount => {
                 self.component

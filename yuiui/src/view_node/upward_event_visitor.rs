@@ -50,7 +50,7 @@ where
                     }
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
-                    context.begin_effect(CS::LEN);
+                    context.begin_depth(CS::LEN);
                     result = result.combine(view.event(
                         event,
                         widget,

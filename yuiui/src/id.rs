@@ -19,7 +19,7 @@ pub type IdPath = [Id];
 
 pub type IdPathBuf = Vec<Id>;
 
-pub type ComponentIndex = usize;
+pub type Depth = usize;
 
 #[derive(Debug, Clone)]
 pub struct IdTree<T> {

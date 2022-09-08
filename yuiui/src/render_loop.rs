@@ -10,7 +10,7 @@ use crate::context::{EffectContext, RenderContext};
 use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
-use crate::id::{ComponentIndex, IdPathBuf, IdTree};
+use crate::id::{Depth, IdPathBuf, IdTree};
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
@@ -19,8 +19,8 @@ pub struct RenderLoop<E: Element<S, B>, S: State, B> {
     node: ViewNode<E::View, E::Components, S, B>,
     render_context: RenderContext,
     effect_queue: VecDeque<Effect<S>>,
-    update_selection: BTreeMap<IdPathBuf, ComponentIndex>,
-    commit_selection: BTreeMap<IdPathBuf, ComponentIndex>,
+    update_selection: BTreeMap<IdPathBuf, Depth>,
+    commit_selection: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
 }
 
@@ -58,8 +58,8 @@ where
                     self.node
                         .update_subtree(&id_tree, state, backend, &mut self.render_context);
                 if self.is_mounted {
-                    for (id_path, component_index) in changed_nodes {
-                        extend_selection(&mut self.commit_selection, id_path, component_index);
+                    for (id_path, depth) in changed_nodes {
+                        extend_selection(&mut self.commit_selection, id_path, depth);
                     }
                 }
                 if deadline.did_timeout() {
@@ -145,21 +145,21 @@ where
         match effect {
             Effect::Message(message, state_scope) => {
                 if state.reduce(message) {
-                    let (id_path, component_index) = state_scope.normalize();
-                    extend_selection(&mut self.update_selection, id_path, component_index);
+                    let (id_path, depth) = state_scope.normalize();
+                    extend_selection(&mut self.update_selection, id_path, depth);
                 }
             }
             Effect::Mutation(mutation, state_scope) => {
                 if mutation(state) {
-                    let (id_path, component_index) = state_scope.normalize();
-                    extend_selection(&mut self.update_selection, id_path, component_index);
+                    let (id_path, depth) = state_scope.normalize();
+                    extend_selection(&mut self.update_selection, id_path, depth);
                 }
             }
             Effect::Command(command, cancellation_token) => {
                 backend.invoke_command(command, cancellation_token);
             }
-            Effect::RequestUpdate(id_path, component_index) => {
-                extend_selection(&mut self.update_selection, id_path, component_index);
+            Effect::RequestUpdate(id_path, depth) => {
+                extend_selection(&mut self.update_selection, id_path, depth);
             }
         }
     }
@@ -216,18 +216,14 @@ impl Deadline for Forever {
     }
 }
 
-fn extend_selection(
-    selection: &mut BTreeMap<IdPathBuf, ComponentIndex>,
-    id_path: IdPathBuf,
-    component_index: ComponentIndex,
-) {
+fn extend_selection(selection: &mut BTreeMap<IdPathBuf, Depth>, id_path: IdPathBuf, depth: Depth) {
     match selection.entry(id_path) {
         btree_map::Entry::Vacant(entry) => {
-            entry.insert(component_index);
+            entry.insert(depth);
         }
         btree_map::Entry::Occupied(mut entry) => {
-            let current_component_index = entry.get_mut();
-            *current_component_index = (*current_component_index).min(component_index);
+            let current_depth = entry.get_mut();
+            *current_depth = (*current_depth).min(depth);
         }
     }
 }

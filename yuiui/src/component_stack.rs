@@ -5,7 +5,7 @@ use crate::component_node::ComponentNode;
 use crate::context::{EffectContext, RenderContext};
 use crate::element::Element;
 use crate::event::EventResult;
-use crate::id::ComponentIndex;
+use crate::id::Depth;
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
@@ -17,8 +17,8 @@ pub trait ComponentStack<S: State, B>: Sized {
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
-        target_index: ComponentIndex,
-        current_index: ComponentIndex,
+        target_depth: Depth,
+        current_depth: Depth,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -27,8 +27,8 @@ pub trait ComponentStack<S: State, B>: Sized {
     fn commit(
         &mut self,
         mode: CommitMode,
-        target_index: ComponentIndex,
-        current_index: ComponentIndex,
+        target_depth: Depth,
+        current_depth: Depth,
         context: &mut EffectContext,
         state: &S,
         backend: &B,
@@ -48,8 +48,8 @@ where
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
-        target_index: ComponentIndex,
-        current_index: ComponentIndex,
+        target_depth: Depth,
+        current_depth: Depth,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -63,14 +63,14 @@ where
             env: node.env,
             dirty: node.dirty,
         };
-        if target_index <= current_index {
+        if target_depth <= current_depth {
             let element = head.render(state, backend);
             element.update(&mut node, context, state, backend)
         } else {
             CS::update(
                 &mut node,
-                target_index,
-                current_index + 1,
+                target_depth,
+                current_depth + 1,
                 context,
                 state,
                 backend,
@@ -81,19 +81,19 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        target_index: ComponentIndex,
-        current_index: ComponentIndex,
+        target_depth: Depth,
+        current_depth: Depth,
         context: &mut EffectContext,
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
-        if target_index <= current_index {
-            self.0.commit(mode, current_index, context, state, backend)
+        if target_depth <= current_depth {
+            self.0.commit(mode, current_depth, context, state, backend)
         } else {
             self.1.commit(
                 mode,
-                target_index,
-                current_index + 1,
+                target_depth,
+                current_depth + 1,
                 context,
                 state,
                 backend,
@@ -118,8 +118,8 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
 
     fn update<'a>(
         _node: &mut ViewNodeMut<'a, V, Self, S, B>,
-        _target_index: ComponentIndex,
-        _current_index: ComponentIndex,
+        _target_depth: Depth,
+        _current_depth: Depth,
         _context: &mut RenderContext,
         _state: &S,
         _backend: &B,
@@ -130,8 +130,8 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _target_index: ComponentIndex,
-        _current_index: ComponentIndex,
+        _target_depth: Depth,
+        _current_depth: Depth,
         _context: &mut EffectContext,
         _state: &S,
         _backend: &B,
