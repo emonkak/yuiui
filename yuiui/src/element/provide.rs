@@ -36,7 +36,9 @@ where
         backend: &B,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
         let mut node = self.element.render(context, state, backend);
-        node.env = Some(Rc::new(self.value));
+        let env = Rc::new(self.value);
+        context.push_env(env.clone());
+        node.env = Some(env);
         node
     }
 
@@ -48,7 +50,9 @@ where
         backend: &B,
     ) -> bool {
         let result = self.element.update(node, context, state, backend);
-        *node.env = Some(Rc::new(self.value));
+        let env = Rc::new(self.value);
+        context.push_env(env.clone());
+        *node.env = Some(env);
         result
     }
 }
