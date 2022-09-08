@@ -3,7 +3,6 @@ use crate::effect::EffectOps;
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
-use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -19,10 +18,9 @@ impl<T, const N: usize> ArrayStorage<T, N> {
     }
 }
 
-impl<T, S, B, const N: usize> ElementSeq<S, B> for [T; N]
+impl<T, S, M, B, const N: usize> ElementSeq<S, M, B> for [T; N]
 where
-    T: ElementSeq<S, B>,
-    S: State,
+    T: ElementSeq<S, M, B>,
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
@@ -52,10 +50,9 @@ where
     }
 }
 
-impl<T, S, B, const N: usize> ViewNodeSeq<S, B> for ArrayStorage<T, N>
+impl<T, S, M, B, const N: usize> ViewNodeSeq<S, M, B> for ArrayStorage<T, N>
 where
-    T: ViewNodeSeq<S, B>,
-    S: State,
+    T: ViewNodeSeq<S, M, B>,
 {
     fn event_mask() -> &'static EventMask {
         T::event_mask()
@@ -71,7 +68,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut result = EffectOps::nop();
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
@@ -88,7 +85,6 @@ impl<T, Visitor, Context, Output, S, B, const N: usize> Traversable<Visitor, Con
 where
     T: Traversable<Visitor, Context, Output, S, B>,
     Output: Monoid,
-    S: State,
 {
     fn for_each(
         &mut self,

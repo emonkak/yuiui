@@ -6,20 +6,18 @@ use crate::context::EffectContext;
 use crate::effect::EffectOps;
 use crate::event::Lifecycle;
 use crate::id::Depth;
-use crate::state::State;
 use crate::view_node::CommitMode;
 
-pub struct ComponentNode<C: Component<S, B>, S: State, B> {
+pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
     pub(crate) state: C::State,
     _phantom: PhantomData<(S, B)>,
 }
 
-impl<C, S, B> ComponentNode<C, S, B>
+impl<C, S, M, B> ComponentNode<C, S, M, B>
 where
-    C: Component<S, B>,
-    S: State,
+    C: Component<S, M, B>,
 {
     pub(crate) fn new(component: C) -> Self {
         Self {
@@ -41,16 +39,13 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         context.set_depth(depth);
         match mode {
-            CommitMode::Mount => self.component.lifecycle(
-                Lifecycle::Mount,
-                &mut self.state,
-                context,
-                state,
-                backend,
-            ),
+            CommitMode::Mount => {
+                self.component
+                    .lifecycle(Lifecycle::Mount, &mut self.state, context, state, backend)
+            }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     let result = pending_component.lifecycle(
@@ -77,10 +72,9 @@ where
     }
 }
 
-impl<C, S, B> fmt::Debug for ComponentNode<C, S, B>
+impl<C, S, M, B> fmt::Debug for ComponentNode<C, S, M, B>
 where
-    C: Component<S, B> + fmt::Debug,
-    S: State,
+    C: Component<S, M, B> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ComponentNode")

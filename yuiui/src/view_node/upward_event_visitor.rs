@@ -5,7 +5,6 @@ use crate::context::EffectContext;
 use crate::effect::EffectOps;
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
-use crate::state::State;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 
@@ -22,17 +21,17 @@ impl<'a> UpwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext, S, B> for UpwardEventVisitor<'a>
+impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, EffectContext, S, B>
+    for UpwardEventVisitor<'a>
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
-    type Output = EffectOps<S>;
+    type Output = EffectOps<M>;
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, B>,
+        node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut EffectContext,
         state: &S,
         backend: &B,

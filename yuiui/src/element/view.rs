@@ -2,31 +2,28 @@ use std::fmt;
 
 use crate::component_stack::ComponentEnd;
 use crate::context::RenderContext;
-use crate::state::State;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
 
 use super::{Element, ElementSeq};
 
-pub struct ViewElement<V: View<S, B>, S: State, B> {
+pub struct ViewElement<V: View<S, M, B>, S, M, B> {
     view: V,
     children: V::Children,
 }
 
-impl<V, S, B> ViewElement<V, S, B>
+impl<V, S, M, B> ViewElement<V, S, M, B>
 where
-    V: View<S, B>,
-    S: State,
+    V: View<S, M, B>,
 {
     pub fn new(view: V, children: V::Children) -> Self {
         ViewElement { view, children }
     }
 }
 
-impl<V, S, B> Element<S, B> for ViewElement<V, S, B>
+impl<V, S, M, B> Element<S, M, B> for ViewElement<V, S, M, B>
 where
-    V: View<S, B>,
-    S: State,
+    V: View<S, M, B>,
 {
     type View = V;
 
@@ -39,7 +36,7 @@ where
         context: &mut RenderContext,
         state: &S,
         backend: &B,
-    ) -> ViewNode<Self::View, Self::Components, S, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         context.with_id(|id, context| {
             let children = self.children.render_children(context, state, backend);
             ViewNode::new(id, self.view, children, ComponentEnd::new())
@@ -48,7 +45,7 @@ where
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -73,13 +70,12 @@ where
     }
 }
 
-impl<V, S, B> ElementSeq<S, B> for ViewElement<V, S, B>
+impl<V, S, M, B> ElementSeq<S, M, B> for ViewElement<V, S, M, B>
 where
-    V: View<S, B>,
-    S: State,
+    V: View<S, M, B>,
 {
     type Storage =
-        ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
+        ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
     const DEPTH: usize = 1 + V::Children::DEPTH;
 
@@ -98,11 +94,10 @@ where
     }
 }
 
-impl<V, S, B> fmt::Debug for ViewElement<V, S, B>
+impl<V, S, M, B> fmt::Debug for ViewElement<V, S, M, B>
 where
-    V: View<S, B> + fmt::Debug,
+    V: View<S, M, B> + fmt::Debug,
     V::Children: fmt::Debug,
-    S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ViewElement")

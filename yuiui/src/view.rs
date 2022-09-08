@@ -4,10 +4,9 @@ use crate::context::EffectContext;
 use crate::effect::EffectOps;
 use crate::element::{ElementSeq, ViewElement};
 use crate::event::{HasEvent, Lifecycle};
-use crate::state::State;
 
-pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
-    type Children: ElementSeq<S, B>;
+pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
+    type Children: ElementSeq<S, M, B>;
 
     type State;
 
@@ -15,11 +14,11 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         &self,
         _lifecycle: Lifecycle<&Self>,
         _view_state: &mut Self::State,
-        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         EffectOps::nop()
     }
 
@@ -27,29 +26,29 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         &self,
         _event: <Self as HasEvent>::Event,
         _view_state: &mut Self::State,
-        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         EffectOps::nop()
     }
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         state: &S,
         backend: &B,
     ) -> Self::State;
 
-    fn el(self) -> ViewElement<Self, S, B>
+    fn el(self) -> ViewElement<Self, S, M, B>
     where
-        Self: View<S, B, Children = HNil>,
+        Self: View<S, M, B, Children = HNil>,
     {
         ViewElement::new(self, HNil)
     }
 
-    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, B> {
+    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, M, B> {
         ViewElement::new(self, children)
     }
 }

@@ -1,22 +1,27 @@
 use gtk::prelude::*;
 use std::marker::PhantomData;
-use yuiui::{EffectContext, EffectOps, ElementSeq, HasEvent, Lifecycle, State, View, ViewElement};
+use yuiui::{EffectContext, EffectOps, ElementSeq, HasEvent, Lifecycle, View, ViewElement};
 
 use crate::backend::Backend;
 
-pub trait GtkView<S: State>:
-    View<S, Backend<S>, State = <Self as GtkView<S>>::State, Children = <Self as GtkView<S>>::Children>
+pub trait GtkView<S, M>:
+    View<
+    S,
+    M,
+    Backend<M>,
+    State = <Self as GtkView<S, M>>::State,
+    Children = <Self as GtkView<S, M>>::Children,
+>
 {
     type State: IsA<gtk::Widget>;
 
-    type Children: ElementSeq<S, Backend<S>>;
+    type Children: ElementSeq<S, M, Backend<M>>;
 }
 
-impl<V, S> GtkView<S> for V
+impl<V, S, M> GtkView<S, M> for V
 where
-    V: View<S, Backend<S>>,
+    V: View<S, M, Backend<M>>,
     V::State: IsA<gtk::Widget>,
-    S: State,
 {
     type Children = V::Children;
 
@@ -37,12 +42,12 @@ impl<Child: IsA<gtk::Widget>> ApplicationWindow<Child> {
     }
 }
 
-impl<Child, S> View<S, Backend<S>> for ApplicationWindow<Child>
+impl<Child, S, M> View<S, M, Backend<M>> for ApplicationWindow<Child>
 where
-    Child: GtkView<S>,
-    S: State,
+    Child: GtkView<S, M>,
+    M: Send + 'static,
 {
-    type Children = ViewElement<Child, S, Backend<S>>;
+    type Children = ViewElement<Child, S, M, Backend<M>>;
 
     type State = gtk::ApplicationWindow;
 
@@ -50,11 +55,11 @@ where
         &self,
         lifecycle: Lifecycle<&Self>,
         view_state: &mut Self::State,
-        _children: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, M, Backend<M>>>::Storage,
         _context: &EffectContext,
         _state: &S,
-        _backend: &Backend<S>,
-    ) -> EffectOps<S> {
+        _backend: &Backend<M>,
+    ) -> EffectOps<M> {
         match lifecycle {
             Lifecycle::Mount => {
                 view_state.show();
@@ -73,9 +78,9 @@ where
 
     fn build(
         &self,
-        child: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
+        child: &<Self::Children as ElementSeq<S, M, Backend<M>>>::Storage,
         _state: &S,
-        env: &Backend<S>,
+        backend: &Backend<M>,
     ) -> Self::State {
         let mut builder = gtk::ApplicationWindow::builder();
 
@@ -84,7 +89,7 @@ where
         }
 
         builder
-            .application(env.application())
+            .application(backend.application())
             .child(child.as_view_state().unwrap())
             .build()
     }

@@ -13,10 +13,11 @@ use backend::Action;
 
 const DEALINE_PERIOD: Duration = Duration::from_millis(50);
 
-pub fn run<El, S>(application: Application, element: El, mut state: S)
+pub fn run<El, S, M>(application: Application, element: El, mut state: S)
 where
-    El: Element<S, Backend<S>> + 'static,
-    S: State,
+    El: Element<S, M, Backend<M>> + 'static,
+    S: State<Message = M>,
+    M: Send + 'static,
 {
     let (sender, receiver) = MainContext::channel(glib::PRIORITY_DEFAULT);
     let backend = Backend::new(

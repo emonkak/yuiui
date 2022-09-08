@@ -1,7 +1,6 @@
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
-use crate::state::State;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
@@ -17,15 +16,14 @@ impl<E, Deps, S, B> Memoize<E, Deps, S, B> {
     }
 }
 
-impl<E, Deps, S, B> Element<S, B> for Memoize<E, Deps, S, B>
+impl<E, Deps, S, M, B> Element<S, M, B> for Memoize<E, Deps, S, B>
 where
-    E: Element<S, B>,
+    E: Element<S, M, B>,
     Deps: PartialEq,
-    S: State,
 {
     type View = E::View;
 
-    type Components = (ComponentNode<AsComponent<Self>, S, B>, E::Components);
+    type Components = (ComponentNode<AsComponent<Self>, S, M, B>, E::Components);
 
     const DEPTH: usize = E::DEPTH;
 
@@ -34,14 +32,14 @@ where
         context: &mut RenderContext,
         state: &S,
         backend: &B,
-    ) -> ViewNode<Self::View, Self::Components, S, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let element = ComponentElement::new(AsComponent::new(self));
         element.render(context, state, backend)
     }
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -57,13 +55,13 @@ where
     }
 }
 
-impl<E, Deps, S, B> ElementSeq<S, B> for Memoize<E, Deps, S, B>
+impl<E, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<E, Deps, S, B>
 where
-    E: Element<S, B>,
+    E: Element<S, M, B>,
     Deps: PartialEq,
-    S: State,
 {
-    type Storage = ViewNode<E::View, (ComponentNode<AsComponent<Self>, S, B>, E::Components), S, B>;
+    type Storage =
+        ViewNode<E::View, (ComponentNode<AsComponent<Self>, S, M, B>, E::Components), S, M, B>;
 
     const DEPTH: usize = E::DEPTH;
 
@@ -92,11 +90,10 @@ impl<T> AsComponent<T> {
     }
 }
 
-impl<E, Deps, S, B> Component<S, B> for AsComponent<Memoize<E, Deps, S, B>>
+impl<E, Deps, S, M, B> Component<S, M, B> for AsComponent<Memoize<E, Deps, S, B>>
 where
-    E: Element<S, B>,
+    E: Element<S, M, B>,
     Deps: PartialEq,
-    S: State,
 {
     type Element = E;
 

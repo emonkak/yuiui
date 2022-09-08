@@ -5,7 +5,6 @@ use crate::effect::EffectOps;
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
-use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -28,10 +27,9 @@ impl<T> OptionStorage<T> {
     }
 }
 
-impl<T, S, B> ElementSeq<S, B> for Option<T>
+impl<T, S, M, B> ElementSeq<S, M, B> for Option<T>
 where
-    T: ElementSeq<S, B>,
-    S: State,
+    T: ElementSeq<S, M, B>,
 {
     type Storage = OptionStorage<T::Storage>;
 
@@ -77,10 +75,9 @@ where
     }
 }
 
-impl<T, S, B> ViewNodeSeq<S, B> for OptionStorage<T>
+impl<T, S, M, B> ViewNodeSeq<S, M, B> for OptionStorage<T>
 where
-    T: ViewNodeSeq<S, B>,
-    S: State,
+    T: ViewNodeSeq<S, M, B>,
 {
     fn event_mask() -> &'static EventMask {
         T::event_mask()
@@ -99,7 +96,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut result = EffectOps::nop();
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
@@ -130,7 +127,6 @@ impl<T, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S,
 where
     T: Traversable<Visitor, Context, Output, S, B>,
     Output: Default,
-    S: State,
 {
     fn for_each(
         &mut self,

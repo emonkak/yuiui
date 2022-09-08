@@ -5,48 +5,48 @@ use std::future::Future;
 use std::time::Duration;
 
 use crate::effect::Effect;
-use crate::state::State;
 
-pub enum Command<S: State> {
-    Future(BoxFuture<'static, Effect<S>>),
-    Stream(BoxStream<'static, Effect<S>>),
-    Timeout(Duration, Box<dyn FnOnce() -> Effect<S> + Send>),
-    Interval(Duration, Box<dyn Fn() -> Effect<S> + Send>),
+pub enum Command<M> {
+    Future(BoxFuture<'static, Effect<M>>),
+    Stream(BoxStream<'static, Effect<M>>),
+    Timeout(Duration, Box<dyn FnOnce() -> Effect<M> + Send>),
+    Interval(Duration, Box<dyn Fn() -> Effect<M> + Send>),
 }
 
-impl<S: State> Command<S> {
+impl<M> Command<M> {
     pub fn from_future<Future>(future: Future) -> Self
     where
-        Future: self::Future<Output = Effect<S>> + Send + 'static,
+        Future: self::Future<Output = Effect<M>> + Send + 'static,
     {
         Command::Future(Box::pin(future))
     }
 
     pub fn from_stream<Stream>(stream: Stream) -> Self
     where
-        Stream: self::Stream<Item = Effect<S>> + Send + 'static,
+        Stream: self::Stream<Item = Effect<M>> + Send + 'static,
     {
         Command::Stream(Box::pin(stream))
     }
 
     pub fn delay<F>(duration: Duration, f: F) -> Self
     where
-        F: FnOnce() -> Effect<S> + Send + 'static,
+        F: FnOnce() -> Effect<M> + Send + 'static,
     {
         Command::Timeout(duration, Box::new(f))
     }
 
     pub fn every<F>(period: Duration, f: F) -> Self
     where
-        F: Fn() -> Effect<S> + Send + 'static,
+        F: Fn() -> Effect<M> + Send + 'static,
     {
         Command::Interval(period, Box::new(f))
     }
 
-    pub fn map<F, NewState>(self, f: F) -> Command<NewState>
+    pub fn map<F, N>(self, f: F) -> Command<N>
     where
-        F: Fn(Effect<S>) -> Effect<NewState> + Send + 'static,
-        NewState: State,
+        F: Fn(Effect<M>) -> Effect<N> + Send + 'static,
+        M: 'static,
+        N: 'static,
     {
         match self {
             Command::Future(future) => Command::Future(Box::pin(future.map(f))),
@@ -61,9 +61,9 @@ impl<S: State> Command<S> {
     }
 }
 
-impl<S: State> fmt::Debug for Command<S>
+impl<M> fmt::Debug for Command<M>
 where
-    S::Message: fmt::Debug,
+    M: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

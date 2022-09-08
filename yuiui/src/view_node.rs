@@ -16,7 +16,6 @@ use crate::effect::EffectOps;
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
-use crate::state::State;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -27,26 +26,25 @@ use local_event_visitor::LocalEventVisitor;
 use update_visitor::UpdateVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
-pub struct ViewNode<V: View<S, B>, CS: ComponentStack<S, B, View = V>, S: State, B> {
+pub struct ViewNode<V: View<S, M, B>, CS: ComponentStack<S, M, B, View = V>, S, M, B> {
     pub(crate) id: Id,
     pub(crate) state: Option<ViewNodeState<V, V::State>>,
-    pub(crate) children: <V::Children as ElementSeq<S, B>>::Storage,
+    pub(crate) children: <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: CS,
     pub(crate) env: Option<Rc<dyn Any>>,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
 
-impl<V, CS, S, B> ViewNode<V, CS, S, B>
+impl<V, CS, S, M, B> ViewNode<V, CS, S, M, B>
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     pub(crate) fn new(
         id: Id,
         view: V,
-        children: <V::Children as ElementSeq<S, B>>::Storage,
+        children: <V::Children as ElementSeq<S, M, B>>::Storage,
         components: CS,
     ) -> Self {
         Self {
@@ -55,12 +53,12 @@ where
             children,
             components,
             env: None,
-            event_mask: <V::Children as ElementSeq<S, B>>::Storage::event_mask(),
+            event_mask: <V::Children as ElementSeq<S, M, B>>::Storage::event_mask(),
             dirty: true,
         }
     }
 
-    pub(crate) fn borrow_mut(&mut self) -> ViewNodeMut<V, CS, S, B> {
+    pub(crate) fn borrow_mut(&mut self) -> ViewNodeMut<V, CS, S, M, B> {
         ViewNodeMut {
             id: self.id,
             state: &mut self.state,
@@ -88,7 +86,7 @@ where
         }
     }
 
-    pub fn children(&self) -> &<V::Children as ElementSeq<S, B>>::Storage {
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
         &self.children
     }
 
@@ -119,7 +117,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
             visitor.visit(self, context, state, backend)
@@ -134,7 +132,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| {
             CommitVisitor::new(CommitMode::Update, depth)
         });
@@ -147,7 +145,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut visitor = DownwardEventVisitor::new(event);
         visitor.visit(self, context, state, backend)
     }
@@ -159,7 +157,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut visitor = DownwardEventVisitor::new(event);
         self.search(id_path, &mut visitor, context, state, backend)
             .unwrap_or_default()
@@ -172,7 +170,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
         visitor.visit(self, context, state, backend)
     }
@@ -184,30 +182,30 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, context, state, backend)
             .unwrap_or_default()
     }
 }
 
-pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
+pub struct ViewNodeMut<'a, V: View<S, M, B>, CS, S, M, B> {
     pub(crate) id: Id,
     pub(crate) state: &'a mut Option<ViewNodeState<V, V::State>>,
-    pub(crate) children: &'a mut <V::Children as ElementSeq<S, B>>::Storage,
+    pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) env: &'a mut Option<Rc<dyn Any>>,
     pub(crate) dirty: &'a mut bool,
 }
 
-pub trait ViewNodeSeq<S: State, B>:
-    Traversable<CommitVisitor, EffectContext, EffectOps<S>, S, B>
+pub trait ViewNodeSeq<S, M, B>:
+    Traversable<CommitVisitor, EffectContext, EffectOps<M>, S, B>
     + Traversable<UpdateVisitor, RenderContext, bool, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext, EffectOps<S>, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext, EffectOps<M>, S, B>
     + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, bool, S, B>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext, EffectOps<S>, S, B>
-    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext, EffectOps<S>, S, B>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext, EffectOps<S>, S, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext, EffectOps<M>, S, B>
+    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext, EffectOps<M>, S, B>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext, EffectOps<M>, S, B>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -219,21 +217,20 @@ pub trait ViewNodeSeq<S: State, B>:
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S>;
+    ) -> EffectOps<M>;
 }
 
-impl<V, CS, S, B> ViewNodeSeq<S, B> for ViewNode<V, CS, S, B>
+impl<V, CS, S, M, B> ViewNodeSeq<S, M, B> for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
         static mut EVENT_MASK: EventMask = EventMask::new();
 
         if !INIT.is_completed() {
-            let children_mask = <V::Children as ElementSeq<S, B>>::Storage::event_mask();
+            let children_mask = <V::Children as ElementSeq<S, M, B>>::Storage::event_mask();
 
             INIT.call_once(|| unsafe {
                 EVENT_MASK.merge(children_mask);
@@ -256,7 +253,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         context.begin_id(self.id);
         let result = self.commit(mode, context, state, backend);
         context.end_id();
@@ -264,15 +261,14 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
-    for ViewNode<V, CS, S, B>
+impl<V, CS, Visitor, S, M, B> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
+    for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage:
+    V: View<S, M, B>,
+    <V::Children as ElementSeq<S, M, B>>::Storage:
         Traversable<Visitor, RenderContext, Visitor::Output, S, B>,
-    CS: ComponentStack<S, B, View = V>,
+    CS: ComponentStack<S, M, B, View = V>,
     Visitor: self::Visitor<Self, RenderContext, S, B>,
-    S: State,
 {
     fn for_each(
         &mut self,
@@ -317,15 +313,14 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, EffectContext, Visitor::Output, S, B>
-    for ViewNode<V, CS, S, B>
+impl<V, CS, Visitor, S, M, B> Traversable<Visitor, EffectContext, Visitor::Output, S, B>
+    for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage:
+    V: View<S, M, B>,
+    <V::Children as ElementSeq<S, M, B>>::Storage:
         Traversable<Visitor, EffectContext, Visitor::Output, S, B>,
-    CS: ComponentStack<S, B, View = V>,
+    CS: ComponentStack<S, M, B, View = V>,
     Visitor: self::Visitor<Self, EffectContext, S, B>,
-    S: State,
 {
     fn for_each(
         &mut self,
@@ -364,13 +359,12 @@ where
     }
 }
 
-impl<V, CS, S, B> fmt::Debug for ViewNode<V, CS, S, B>
+impl<V, CS, S, M, B> fmt::Debug for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, B> + fmt::Debug,
+    V: View<S, M, B> + fmt::Debug,
     V::State: fmt::Debug,
-    <V::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
-    CS: ComponentStack<S, B, View = V> + fmt::Debug,
-    S: State,
+    <V::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
+    CS: ComponentStack<S, M, B, View = V> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ViewNode")

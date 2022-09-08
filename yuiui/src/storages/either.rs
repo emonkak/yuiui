@@ -7,7 +7,6 @@ use crate::effect::EffectOps;
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
-use crate::state::State;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -30,11 +29,10 @@ impl<L, R> EitherStorage<L, R> {
     }
 }
 
-impl<L, R, S, B> ElementSeq<S, B> for Either<L, R>
+impl<L, R, S, M, B> ElementSeq<S, M, B> for Either<L, R>
 where
-    L: ElementSeq<S, B>,
-    R: ElementSeq<S, B>,
-    S: State,
+    L: ElementSeq<S, M, B>,
+    R: ElementSeq<S, M, B>,
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
@@ -111,11 +109,10 @@ where
     }
 }
 
-impl<L, R, S, B> ViewNodeSeq<S, B> for EitherStorage<L, R>
+impl<L, R, S, M, B> ViewNodeSeq<S, M, B> for EitherStorage<L, R>
 where
-    L: ViewNodeSeq<S, B>,
-    R: ViewNodeSeq<S, B>,
-    S: State,
+    L: ViewNodeSeq<S, M, B>,
+    R: ViewNodeSeq<S, M, B>,
 {
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
@@ -147,7 +144,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut result = EffectOps::nop();
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
@@ -181,7 +178,6 @@ impl<L, R, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output,
 where
     L: Traversable<Visitor, Context, Output, S, B>,
     R: Traversable<Visitor, Context, Output, S, B>,
-    S: State,
 {
     fn for_each(
         &mut self,

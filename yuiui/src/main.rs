@@ -8,14 +8,12 @@ use yuiui::*;
 
 #[derive(Debug)]
 struct AppState {
-    count: Data<i64>,
+    counter_state: CounterState,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 enum AppMessage {
-    Increment,
-    Decrement,
+    CounterMessage(CounterMessage),
 }
 
 impl State for AppState {
@@ -23,14 +21,12 @@ impl State for AppState {
 
     fn reduce(&mut self, message: AppMessage) -> bool {
         match message {
-            AppMessage::Increment => self.count.value += 1,
-            AppMessage::Decrement => self.count.value -= 1,
+            AppMessage::CounterMessage(message) => self.counter_state.reduce(message),
         }
-        true
     }
 }
 
-fn app() -> impl DebuggableElement<AppState, ()> {
+fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
     Block::new().el_with(hlist![
         Block::new().el_with(vec![Text::new("hello").el(), Text::new("world").el()]),
         Block::new().el_with(Text::new("hello world!").el()),
@@ -46,13 +42,16 @@ fn app() -> impl DebuggableElement<AppState, ()> {
         button(ButtonProps {
             label: "click me!".into(),
         }),
-        counter().scope(|state: &AppState| &state.count),
+        counter().scope(
+            |state: &AppState| &state.counter_state,
+            AppMessage::CounterMessage,
+        ),
     ])
 }
 
 fn main() {
     let state = AppState {
-        count: Data::from(0),
+        counter_state: CounterState { count: 0 },
     };
     let element = app();
     let mut context = RenderContext::new();
@@ -74,17 +73,14 @@ impl Text {
     }
 }
 
-impl<S, B> View<S, B> for Text
-where
-    S: State,
-{
+impl<S, M, B> View<S, M, B> for Text {
     type State = TextState;
 
     type Children = hlist::HNil;
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _state: &S,
         _backend: &B,
     ) -> Self::State {
@@ -112,10 +108,9 @@ impl<C> Block<C> {
     }
 }
 
-impl<C, S, B> View<S, B> for Block<C>
+impl<C, S, M, B> View<S, M, B> for Block<C>
 where
-    C: ElementSeq<S, B>,
-    S: State,
+    C: ElementSeq<S, M, B>,
 {
     type State = BlockState;
 
@@ -123,7 +118,7 @@ where
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, B>>::Storage,
+        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _state: &S,
         _backend: &B,
     ) -> Self::State {
@@ -143,20 +138,59 @@ pub struct ButtonProps {
     pub label: Cow<'static, str>,
 }
 
-pub fn button<S: State, B>(
+pub fn button<S, M, B>(
     props: ButtonProps,
-) -> ComponentElement<FunctionComponent<ButtonProps, (), impl DebuggableElement<S, B>, S, B>> {
+) -> ComponentElement<FunctionComponent<ButtonProps, (), impl DebuggableElement<S, M, B>, S, M, B>>
+{
     FunctionComponent::new(props, |props, _local_state, _state, _backend| {
         Block::new().el_with(Text::new(props.label.clone()).el())
     })
     .el()
 }
 
-pub fn counter<E>(
-) -> ComponentElement<FunctionComponent<(), (), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>>
-{
-    FunctionComponent::new((), |_props, _local_state, state: &Data<i64>, _backend| {
-        Block::new().el_with(Text::new(format!("{}", state.value)).el())
-    })
+#[derive(Debug)]
+struct CounterState {
+    count: i64,
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+enum CounterMessage {
+    Increment,
+    Decrement,
+}
+
+impl State for CounterState {
+    type Message = CounterMessage;
+
+    fn reduce(&mut self, message: Self::Message) -> bool {
+        match message {
+            CounterMessage::Increment => {
+                self.count += 1;
+            }
+            CounterMessage::Decrement => {
+                self.count -= 1;
+            }
+        }
+        true
+    }
+}
+
+fn counter<B>() -> ComponentElement<
+    FunctionComponent<
+        (),
+        (),
+        impl DebuggableElement<CounterState, CounterMessage, B>,
+        CounterState,
+        CounterMessage,
+        B,
+    >,
+> {
+    FunctionComponent::new(
+        (),
+        |_props, _local_state, state: &CounterState, _backend| {
+            Block::new().el_with(Text::new(format!("{}", state.count)).el())
+        },
+    )
     .el()
 }

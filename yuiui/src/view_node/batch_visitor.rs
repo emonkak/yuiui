@@ -1,7 +1,6 @@
 use crate::component_stack::ComponentStack;
 use crate::element::ElementSeq;
 use crate::id::{Cursor, Depth, Id};
-use crate::state::State;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::ViewNode;
@@ -20,21 +19,20 @@ impl<'a, Visitor> BatchVisitor<'a, Visitor> {
     }
 }
 
-impl<'a, Inner, Context, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, Context, S, B>
+impl<'a, Inner, Context, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, Context, S, B>
     for BatchVisitor<'a, Inner>
 where
-    Inner: Visitor<ViewNode<V, CS, S, B>, Context, S, B>,
-    V: View<S, B>,
-    <<V as View<S, B>>::Children as ElementSeq<S, B>>::Storage:
+    Inner: Visitor<ViewNode<V, CS, S, M, B>, Context, S, B>,
+    V: View<S, M, B>,
+    <<V as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage:
         Traversable<Self, Context, Inner::Output, S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     type Output = Inner::Output;
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, B>,
+        node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut Context,
         state: &S,
         backend: &B,

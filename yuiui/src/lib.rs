@@ -29,7 +29,7 @@ pub use element::{
 pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
 pub use id::{Depth, Id, IdPath, IdPathBuf};
 pub use render_loop::{Deadline, Forever, RenderFlow, RenderLoop, RenderLoopContext};
-pub use state::{Data, State};
+pub use state::State;
 pub use traversable::{Traversable, Visitor};
 pub use view::View;
 pub use view_node::{CommitMode, ViewNode, ViewNodeSeq};

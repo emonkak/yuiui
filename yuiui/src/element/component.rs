@@ -3,7 +3,6 @@ use std::fmt;
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
-use crate::state::State;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
@@ -19,26 +18,25 @@ impl<C> ComponentElement<C> {
     }
 }
 
-impl<C, S, B> Element<S, B> for ComponentElement<C>
+impl<C, S, M, B> Element<S, M, B> for ComponentElement<C>
 where
-    C: Component<S, B>,
-    S: State,
+    C: Component<S, M, B>,
 {
-    type View = <C::Element as Element<S, B>>::View;
+    type View = <C::Element as Element<S, M, B>>::View;
 
     type Components = (
-        ComponentNode<C, S, B>,
-        <C::Element as Element<S, B>>::Components,
+        ComponentNode<C, S, M, B>,
+        <C::Element as Element<S, M, B>>::Components,
     );
 
-    const DEPTH: usize = 1 + <Self::View as View<S, B>>::Children::DEPTH;
+    const DEPTH: usize = 1 + <Self::View as View<S, M, B>>::Children::DEPTH;
 
     fn render(
         self,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
-    ) -> ViewNode<Self::View, Self::Components, S, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.render(state, backend);
         let node = element.render(context, state, backend);
@@ -55,7 +53,7 @@ where
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -76,13 +74,12 @@ where
     }
 }
 
-impl<C, S, B> ElementSeq<S, B> for ComponentElement<C>
+impl<C, S, M, B> ElementSeq<S, M, B> for ComponentElement<C>
 where
-    C: Component<S, B>,
-    S: State,
+    C: Component<S, M, B>,
 {
     type Storage =
-        ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
+        ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
     const DEPTH: usize = C::Element::DEPTH;
 

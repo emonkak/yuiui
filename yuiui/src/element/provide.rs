@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use crate::context::RenderContext;
-use crate::state::State;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
@@ -17,11 +16,10 @@ impl<E, T> Provide<E, T> {
     }
 }
 
-impl<E, T, S, B> Element<S, B> for Provide<E, T>
+impl<E, T, S, M, B> Element<S, M, B> for Provide<E, T>
 where
-    E: Element<S, B>,
+    E: Element<S, M, B>,
     T: 'static,
-    S: State,
 {
     type View = E::View;
 
@@ -34,7 +32,7 @@ where
         context: &mut RenderContext,
         state: &S,
         backend: &B,
-    ) -> ViewNode<Self::View, Self::Components, S, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let mut node = self.element.render(context, state, backend);
         let env = Rc::new(self.value);
         context.push_env(env.clone());
@@ -44,7 +42,7 @@ where
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         state: &S,
         backend: &B,
@@ -57,13 +55,12 @@ where
     }
 }
 
-impl<E, T, S, B> ElementSeq<S, B> for Provide<E, T>
+impl<E, T, S, M, B> ElementSeq<S, M, B> for Provide<E, T>
 where
-    E: Element<S, B>,
+    E: Element<S, M, B>,
     T: 'static,
-    S: State,
 {
-    type Storage = ViewNode<E::View, E::Components, S, B>;
+    type Storage = ViewNode<E::View, E::Components, S, M, B>;
 
     const DEPTH: usize = E::DEPTH;
 

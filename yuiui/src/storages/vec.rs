@@ -9,25 +9,23 @@ use crate::effect::EffectOps;
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
-use crate::state::State;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
 
-pub struct VecStorage<V: View<S, B>, CS: ComponentStack<S, B, View = V>, S: State, B> {
-    active: Vec<ViewNode<V, CS, S, B>>,
-    staging: VecDeque<ViewNode<V, CS, S, B>>,
+pub struct VecStorage<V: View<S, M, B>, CS: ComponentStack<S, M, B, View = V>, S, M, B> {
+    active: Vec<ViewNode<V, CS, S, M, B>>,
+    staging: VecDeque<ViewNode<V, CS, S, M, B>>,
     new_len: usize,
     dirty: bool,
 }
 
-impl<V, CS, S, B> VecStorage<V, CS, S, B>
+impl<V, CS, S, M, B> VecStorage<V, CS, S, M, B>
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
-    fn new(active: Vec<ViewNode<V, CS, S, B>>) -> Self {
+    fn new(active: Vec<ViewNode<V, CS, S, M, B>>) -> Self {
         Self {
             staging: VecDeque::with_capacity(active.len()),
             new_len: active.len(),
@@ -37,13 +35,12 @@ where
     }
 }
 
-impl<V, CS, S, B> fmt::Debug for VecStorage<V, CS, S, B>
+impl<V, CS, S, M, B> fmt::Debug for VecStorage<V, CS, S, M, B>
 where
-    V: View<S, B> + fmt::Debug,
+    V: View<S, M, B> + fmt::Debug,
     V::State: fmt::Debug,
-    <V::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
-    CS: ComponentStack<S, B, View = V> + fmt::Debug,
-    S: State,
+    <V::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
+    CS: ComponentStack<S, M, B, View = V> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("VecStorage")
@@ -55,12 +52,11 @@ where
     }
 }
 
-impl<E, S, B> ElementSeq<S, B> for Vec<E>
+impl<E, S, M, B> ElementSeq<S, M, B> for Vec<E>
 where
-    E: Element<S, B>,
-    S: State,
+    E: Element<S, M, B>,
 {
-    type Storage = VecStorage<E::View, E::Components, S, B>;
+    type Storage = VecStorage<E::View, E::Components, S, M, B>;
 
     const DEPTH: usize = E::DEPTH;
 
@@ -109,11 +105,10 @@ where
     }
 }
 
-impl<V, CS, S, B> ViewNodeSeq<S, B> for VecStorage<V, CS, S, B>
+impl<V, CS, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<V, CS, S, M, B>
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
@@ -138,7 +133,7 @@ where
         context: &mut EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         let mut result = EffectOps::nop();
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
@@ -188,14 +183,13 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, Visitor::Output, S, B>
-    for VecStorage<V, CS, S, B>
+impl<V, CS, Visitor, Context, S, M, B> Traversable<Visitor, Context, Visitor::Output, S, B>
+    for VecStorage<V, CS, S, M, B>
 where
-    ViewNode<V, CS, S, B>: Traversable<Visitor, Context, Visitor::Output, S, B>,
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    Visitor: self::Visitor<ViewNode<V, CS, S, B>, Context, S, B>,
-    S: State,
+    ViewNode<V, CS, S, M, B>: Traversable<Visitor, Context, Visitor::Output, S, B>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
+    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, Context, S, B>,
 {
     fn for_each(
         &mut self,

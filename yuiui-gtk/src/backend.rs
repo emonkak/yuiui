@@ -4,21 +4,21 @@ use gtk::Application;
 use std::any::Any;
 use yuiui::{
     Command, DestinedEffect, EffectContext, EventDestination, RawToken, RawTokenVTable,
-    RenderLoopContext, State,
+    RenderLoopContext,
 };
 
 #[derive(Debug)]
-pub struct Backend<S: State> {
+pub struct Backend<M> {
     application: Application,
     main_context: MainContext,
-    proxy: BackendProxy<S>,
+    proxy: BackendProxy<M>,
 }
 
-impl<S: State> Backend<S> {
+impl<M: Send + 'static> Backend<M> {
     pub(super) fn new(
         application: Application,
         main_context: MainContext,
-        proxy: BackendProxy<S>,
+        proxy: BackendProxy<M>,
     ) -> Self {
         Self {
             application,
@@ -31,7 +31,7 @@ impl<S: State> Backend<S> {
         &self.application
     }
 
-    pub fn proxy(&self) -> &BackendProxy<S> {
+    pub fn proxy(&self) -> &BackendProxy<M> {
         &self.proxy
     }
 
@@ -43,8 +43,8 @@ impl<S: State> Backend<S> {
     }
 }
 
-impl<S: State> RenderLoopContext<S> for Backend<S> {
-    fn invoke_command(&self, command: Command<S>, context: EffectContext) -> RawToken {
+impl<M: Send + 'static> RenderLoopContext<M> for Backend<M> {
+    fn invoke_command(&self, command: Command<M>, context: EffectContext) -> RawToken {
         let message_sender = self.proxy.sender.clone();
         let source_id = match command {
             Command::Future(future) => self.main_context.spawn_local(async move {
@@ -72,16 +72,16 @@ impl<S: State> RenderLoopContext<S> for Backend<S> {
 }
 
 #[derive(Debug, Clone)]
-pub struct BackendProxy<S: State> {
-    sender: Sender<Action<S>>,
+pub struct BackendProxy<M> {
+    sender: Sender<Action<M>>,
 }
 
-impl<S: State> BackendProxy<S> {
-    pub(super) fn new(sender: Sender<Action<S>>) -> Self {
+impl<M> BackendProxy<M> {
+    pub(super) fn new(sender: Sender<Action<M>>) -> Self {
         Self { sender }
     }
 
-    pub fn push_effect(&self, effect: DestinedEffect<S>) {
+    pub fn push_effect(&self, effect: DestinedEffect<M>) {
         self.sender.send(Action::PushEffect(effect)).unwrap();
     }
 
@@ -92,10 +92,10 @@ impl<S: State> BackendProxy<S> {
     }
 }
 
-pub(super) enum Action<S: State> {
+pub(super) enum Action<M> {
     RequestRender,
     DispatchEvent(Box<dyn Any + Send>, EventDestination),
-    PushEffect(DestinedEffect<S>),
+    PushEffect(DestinedEffect<M>),
 }
 
 fn create_token(source_id: SourceId) -> RawToken {

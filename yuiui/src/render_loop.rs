@@ -15,20 +15,20 @@ use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
-pub struct RenderLoop<E: Element<S, B>, S: State, B> {
-    node: ViewNode<E::View, E::Components, S, B>,
+pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
+    node: ViewNode<E::View, E::Components, S, M, B>,
     render_context: RenderContext,
-    effect_queue: VecDeque<DestinedEffect<S>>,
+    effect_queue: VecDeque<DestinedEffect<M>>,
     update_selection: BTreeMap<IdPathBuf, Depth>,
     commit_selection: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
 }
 
-impl<E, S, B> RenderLoop<E, S, B>
+impl<E, S, M, B> RenderLoop<E, S, M, B>
 where
-    E: Element<S, B>,
-    S: State,
-    B: RenderLoopContext<S>,
+    E: Element<S, M, B>,
+    S: State<Message = M>,
+    B: RenderLoopContext<M>,
 {
     pub fn build(element: E, state: &S, backend: &B) -> Self {
         let mut context = RenderContext::new();
@@ -125,7 +125,7 @@ where
         self.effect_queue.extend(result.into_effects());
     }
 
-    pub fn push_effect(&mut self, effect: DestinedEffect<S>) {
+    pub fn push_effect(&mut self, effect: DestinedEffect<M>) {
         self.effect_queue.push_back(effect);
     }
 
@@ -141,16 +141,10 @@ where
         }
     }
 
-    fn run_effect(&mut self, effect: DestinedEffect<S>, state: &mut S, backend: &B) {
+    fn run_effect(&mut self, effect: DestinedEffect<M>, state: &mut S, backend: &B) {
         match effect {
             DestinedEffect::Message(message, state_scope) => {
                 if state.reduce(message) {
-                    let (id_path, depth) = state_scope.normalize();
-                    extend_selection(&mut self.update_selection, id_path, depth);
-                }
-            }
-            DestinedEffect::Mutation(mutation, state_scope) => {
-                if mutation(state) {
                     let (id_path, depth) = state_scope.normalize();
                     extend_selection(&mut self.update_selection, id_path, depth);
                 }
@@ -168,15 +162,14 @@ where
     }
 }
 
-impl<E, S, B> fmt::Debug for RenderLoop<E, S, B>
+impl<E, S, M, B> fmt::Debug for RenderLoop<E, S, M, B>
 where
-    E: Element<S, B>,
+    E: Element<S, M, B>,
     E::View: fmt::Debug,
-    <E::View as View<S, B>>::State: fmt::Debug,
-    <<E::View as View<S, B>>::Children as ElementSeq<S, B>>::Storage: fmt::Debug,
+    <E::View as View<S, M, B>>::State: fmt::Debug,
+    <<E::View as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
     E::Components: fmt::Debug,
-    S: State,
-    S::Message: fmt::Debug,
+    M: fmt::Debug,
     B: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -191,8 +184,8 @@ where
     }
 }
 
-pub trait RenderLoopContext<S: State> {
-    fn invoke_command(&self, command: Command<S>, context: EffectContext) -> RawToken;
+pub trait RenderLoopContext<M> {
+    fn invoke_command(&self, command: Command<M>, context: EffectContext) -> RawToken;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

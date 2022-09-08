@@ -5,24 +5,19 @@ use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::context::{EffectContext, StateScope};
 use crate::id::{Depth, IdPathBuf};
-use crate::state::State;
 use crate::traversable::Monoid;
 
-pub enum Effect<S: State> {
-    Message(S::Message),
-    Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>),
-    Command(Command<S>, Option<CancellationToken>),
+pub enum Effect<M> {
+    Message(M),
+    Command(Command<M>, Option<CancellationToken>),
     RequestUpdate,
 }
 
-impl<S: State> Effect<S> {
-    pub fn destine(self, context: &EffectContext) -> DestinedEffect<S> {
+impl<M> Effect<M> {
+    pub fn destine(self, context: &EffectContext) -> DestinedEffect<M> {
         match self {
             Self::Message(message) => {
                 DestinedEffect::Message(message, context.state_scope().clone())
-            }
-            Self::Mutation(mutation) => {
-                DestinedEffect::Mutation(mutation, context.state_scope().clone())
             }
             Self::Command(command, cancellation_token) => {
                 DestinedEffect::Command(command, cancellation_token, context.clone())
@@ -33,26 +28,14 @@ impl<S: State> Effect<S> {
         }
     }
 
-    pub(crate) fn lift<F, NewState>(self, f: &Arc<F>) -> Effect<NewState>
+    pub(crate) fn lift<F, N>(self, f: &Arc<F>) -> Effect<N>
     where
-        F: Fn(&NewState) -> &S + Sync + Send + 'static,
-        NewState: State,
+        F: Fn(M) -> N + Sync + Send + 'static,
+        M: 'static,
+        N: 'static,
     {
         match self {
-            Self::Message(message) => {
-                let f = f.clone();
-                Effect::Mutation(Box::new(move |state| {
-                    let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
-                    sub_state.reduce(message)
-                }))
-            }
-            Self::Mutation(mutation) => {
-                let f = f.clone();
-                Effect::Mutation(Box::new(move |state| {
-                    let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
-                    mutation(sub_state)
-                }))
-            }
+            Self::Message(message) => Effect::Message(f(message)),
             Self::Command(command, cancellation_token) => {
                 let f = f.clone();
                 let command = command.map(move |effect| effect.lift(&f));
@@ -63,14 +46,13 @@ impl<S: State> Effect<S> {
     }
 }
 
-impl<S: State> fmt::Debug for Effect<S>
+impl<M> fmt::Debug for Effect<M>
 where
-    S::Message: fmt::Debug,
+    M: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Message(message) => f.debug_tuple("Message").field(message).finish(),
-            Self::Mutation(_) => f.debug_tuple("Mutation").finish(),
             Self::Command(command, cancellation_token) => f
                 .debug_tuple("Command")
                 .field(command)
@@ -81,40 +63,21 @@ where
     }
 }
 
-pub enum DestinedEffect<S: State> {
-    Message(S::Message, StateScope),
-    Mutation(Box<dyn FnOnce(&mut S) -> bool + Send>, StateScope),
-    Command(Command<S>, Option<CancellationToken>, EffectContext),
+pub enum DestinedEffect<M> {
+    Message(M, StateScope),
+    Command(Command<M>, Option<CancellationToken>, EffectContext),
     RequestUpdate(IdPathBuf, Depth),
 }
 
-impl<S: State> DestinedEffect<S> {
-    pub(crate) fn lift<F, NewState>(self, f: &Arc<F>) -> DestinedEffect<NewState>
+impl<M> DestinedEffect<M> {
+    pub(crate) fn lift<F, N>(self, f: &Arc<F>) -> DestinedEffect<N>
     where
-        F: Fn(&NewState) -> &S + Sync + Send + 'static,
-        NewState: State,
+        F: Fn(M) -> N + Sync + Send + 'static,
+        M: 'static,
+        N: 'static,
     {
         match self {
-            Self::Message(message, state_scope) => {
-                let f = f.clone();
-                DestinedEffect::Mutation(
-                    Box::new(move |state| {
-                        let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
-                        sub_state.reduce(message)
-                    }),
-                    state_scope,
-                )
-            }
-            Self::Mutation(mutation, state_scope) => {
-                let f = f.clone();
-                DestinedEffect::Mutation(
-                    Box::new(move |state| {
-                        let sub_state: &mut S = unsafe { &mut *(f(state) as *const _ as *mut _) };
-                        mutation(sub_state)
-                    }),
-                    state_scope,
-                )
-            }
+            Self::Message(message, state_scope) => DestinedEffect::Message(f(message), state_scope),
             Self::Command(command, cancellation_token, context) => {
                 let f = f.clone();
                 let command = command.map(move |effect| effect.lift(&f));
@@ -125,9 +88,9 @@ impl<S: State> DestinedEffect<S> {
     }
 }
 
-impl<S: State> fmt::Debug for DestinedEffect<S>
+impl<M> fmt::Debug for DestinedEffect<M>
 where
-    S::Message: fmt::Debug,
+    M: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -136,7 +99,6 @@ where
                 .field(message)
                 .field(state_scope)
                 .finish(),
-            Self::Mutation(_, state_scope) => f.debug_tuple("Mutation").field(state_scope).finish(),
             Self::Command(command, cancellation_token, context) => f
                 .debug_tuple("Command")
                 .field(command)
@@ -153,25 +115,26 @@ where
 }
 
 #[must_use]
-pub struct EffectOps<S: State> {
-    effects: Vec<DestinedEffect<S>>,
+pub struct EffectOps<M> {
+    effects: Vec<DestinedEffect<M>>,
 }
 
-impl<S: State> EffectOps<S> {
+impl<M> EffectOps<M> {
     pub fn nop() -> Self {
         EffectOps {
             effects: Vec::new(),
         }
     }
 
-    pub fn into_effects(self) -> Vec<DestinedEffect<S>> {
+    pub fn into_effects(self) -> Vec<DestinedEffect<M>> {
         self.effects
     }
 
-    pub(crate) fn lift<F, NewState>(self, f: &Arc<F>) -> EffectOps<NewState>
+    pub(crate) fn lift<F, N>(self, f: &Arc<F>) -> EffectOps<N>
     where
-        F: Fn(&NewState) -> &S + Sync + Send + 'static,
-        NewState: State,
+        F: Fn(M) -> N + Sync + Send + 'static,
+        M: 'static,
+        N: 'static,
     {
         let effects = self
             .effects
@@ -182,29 +145,29 @@ impl<S: State> EffectOps<S> {
     }
 }
 
-impl<S: State> Default for EffectOps<S> {
+impl<M> Default for EffectOps<M> {
     fn default() -> Self {
         EffectOps::nop()
     }
 }
 
-impl<S: State> Monoid for EffectOps<S> {
+impl<M> Monoid for EffectOps<M> {
     fn combine(mut self, other: Self) -> Self {
         self.effects.extend(other.effects);
         self
     }
 }
 
-impl<S: State> From<DestinedEffect<S>> for EffectOps<S> {
-    fn from(effect: DestinedEffect<S>) -> Self {
+impl<M> From<DestinedEffect<M>> for EffectOps<M> {
+    fn from(effect: DestinedEffect<M>) -> Self {
         EffectOps {
             effects: vec![effect],
         }
     }
 }
 
-impl<S: State> From<Vec<DestinedEffect<S>>> for EffectOps<S> {
-    fn from(effects: Vec<DestinedEffect<S>>) -> Self {
+impl<M> From<Vec<DestinedEffect<M>>> for EffectOps<M> {
+    fn from(effects: Vec<DestinedEffect<M>>) -> Self {
         EffectOps { effects }
     }
 }

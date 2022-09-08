@@ -4,10 +4,9 @@ use crate::context::EffectContext;
 use crate::effect::EffectOps;
 use crate::element::{ComponentElement, Element};
 use crate::event::Lifecycle;
-use crate::state::State;
 
-pub trait Component<S: State, B>: Sized {
-    type Element: Element<S, B>;
+pub trait Component<S, M, B>: Sized {
+    type Element: Element<S, M, B>;
 
     type State: Default;
 
@@ -18,7 +17,7 @@ pub trait Component<S: State, B>: Sized {
         _context: &EffectContext,
         _state: &S,
         _backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         EffectOps::nop()
     }
 
@@ -32,18 +31,15 @@ pub trait Component<S: State, B>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, LocalState, E, S: State, B> {
+pub struct FunctionComponent<Props, LocalState, E, S, M, B> {
     props: Props,
     render: fn(&Props, &LocalState, &S, &B) -> E,
     lifecycle: Option<
-        fn(&Props, Lifecycle<&Props>, &mut LocalState, &EffectContext, &S, &B) -> EffectOps<S>,
+        fn(&Props, Lifecycle<&Props>, &mut LocalState, &EffectContext, &S, &B) -> EffectOps<M>,
     >,
 }
 
-impl<Props, LocalState, E, S, B> FunctionComponent<Props, LocalState, E, S, B>
-where
-    S: State,
-{
+impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M, B> {
     pub fn new(props: Props, render: fn(&Props, &LocalState, &S, &B) -> E) -> Self {
         Self {
             props,
@@ -63,7 +59,7 @@ where
                     &EffectContext,
                     &S,
                     &B,
-                ) -> EffectOps<S>,
+                ) -> EffectOps<M>,
             >,
         >,
     ) -> Self {
@@ -72,11 +68,11 @@ where
     }
 }
 
-impl<Props, LocalState, E, S, B> Component<S, B> for FunctionComponent<Props, LocalState, E, S, B>
+impl<Props, LocalState, E, S, M, B> Component<S, M, B>
+    for FunctionComponent<Props, LocalState, E, S, M, B>
 where
     LocalState: Default,
-    E: Element<S, B>,
-    S: State,
+    E: Element<S, M, B>,
 {
     type Element = E;
 
@@ -89,7 +85,7 @@ where
         context: &EffectContext,
         state: &S,
         backend: &B,
-    ) -> EffectOps<S> {
+    ) -> EffectOps<M> {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map(|component| &component.props);
             lifecycle_fn(&self.props, lifecycle, local_state, context, state, backend)
@@ -103,10 +99,9 @@ where
     }
 }
 
-impl<Props, LocalState, E, S, B> fmt::Debug for FunctionComponent<Props, LocalState, E, S, B>
+impl<Props, LocalState, E, S, M, B> fmt::Debug for FunctionComponent<Props, LocalState, E, S, M, B>
 where
     Props: fmt::Debug,
-    S: State,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("FunctionComponent")

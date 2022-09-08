@@ -3,7 +3,6 @@ use std::mem;
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::id::Depth;
-use crate::state::State;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -19,17 +18,16 @@ impl<'a> UpdateVisitor {
     }
 }
 
-impl<V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, RenderContext, S, B> for UpdateVisitor
+impl<V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, RenderContext, S, B> for UpdateVisitor
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     type Output = bool;
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, B>,
+        node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut RenderContext,
         state: &S,
         backend: &B,

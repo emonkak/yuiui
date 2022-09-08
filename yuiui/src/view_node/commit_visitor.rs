@@ -5,7 +5,6 @@ use crate::context::EffectContext;
 use crate::effect::EffectOps;
 use crate::event::Lifecycle;
 use crate::id::Depth;
-use crate::state::State;
 use crate::traversable::{Monoid, Visitor};
 use crate::view::View;
 
@@ -22,17 +21,16 @@ impl CommitVisitor {
     }
 }
 
-impl<V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext, S, B> for CommitVisitor
+impl<V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, EffectContext, S, B> for CommitVisitor
 where
-    V: View<S, B>,
-    CS: ComponentStack<S, B, View = V>,
-    S: State,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
-    type Output = EffectOps<S>;
+    type Output = EffectOps<M>;
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, B>,
+        node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut EffectContext,
         state: &S,
         backend: &B,
@@ -98,7 +96,9 @@ where
                 (result, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                let result = node.children.commit(self.mode, context, state, backend)
+                let result = node
+                    .children
+                    .commit(self.mode, context, state, backend)
                     .combine(pending_view.lifecycle(
                         Lifecycle::Update(&view),
                         &mut view_state,
