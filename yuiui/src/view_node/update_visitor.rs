@@ -30,9 +30,9 @@ where
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> Self::Output {
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
@@ -40,13 +40,13 @@ where
                 &mut node.borrow_mut(),
                 component_index,
                 0,
+                context,
                 state,
                 backend,
-                context,
             )
         } else {
             node.dirty = true;
-            node.children.for_each(self, state, backend, context);
+            node.children.for_each(self, context, state, backend);
             true
         }
     }

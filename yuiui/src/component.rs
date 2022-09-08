@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::context::EffectContext;
 use crate::element::{ComponentElement, Element};
 use crate::event::{EventResult, Lifecycle};
 use crate::state::State;
@@ -7,7 +8,13 @@ use crate::state::State;
 pub trait Component<S: State, B>: Sized {
     type Element: Element<S, B>;
 
-    fn lifecycle(&self, _lifecycle: Lifecycle<&Self>, _state: &S, _backend: &B) -> EventResult<S> {
+    fn lifecycle(
+        &self,
+        _lifecycle: Lifecycle<&Self>,
+        _context: &EffectContext,
+        _state: &S,
+        _backend: &B,
+    ) -> EventResult<S> {
         EventResult::nop()
     }
 
@@ -24,7 +31,7 @@ pub trait Component<S: State, B>: Sized {
 pub struct FunctionComponent<Props, E, S: State, B> {
     props: Props,
     render: fn(&Props, &S, &B) -> E,
-    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &S, &B) -> EventResult<S>>,
+    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &EffectContext, &S, &B) -> EventResult<S>>,
 }
 
 impl<Props, E, S, B> FunctionComponent<Props, E, S, B>
@@ -41,7 +48,9 @@ where
 
     pub fn lifecycle(
         mut self,
-        lifecycle: impl Into<Option<fn(&Props, Lifecycle<&Props>, &S, &B) -> EventResult<S>>>,
+        lifecycle: impl Into<
+            Option<fn(&Props, Lifecycle<&Props>, &EffectContext, &S, &B) -> EventResult<S>>,
+        >,
     ) -> Self {
         self.lifecycle = lifecycle.into();
         self
@@ -55,10 +64,16 @@ where
 {
     type Element = E;
 
-    fn lifecycle(&self, lifecycle: Lifecycle<&Self>, state: &S, backend: &B) -> EventResult<S> {
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<&Self>,
+        context: &EffectContext,
+        state: &S,
+        backend: &B,
+    ) -> EventResult<S> {
         if let Some(lifecycle_fn) = &self.lifecycle {
-            let sub_lifecycle = lifecycle.map(|component| &component.props);
-            lifecycle_fn(&self.props, sub_lifecycle, state, backend)
+            let lifecycle = lifecycle.map(|component| &component.props);
+            lifecycle_fn(&self.props, lifecycle, context, state, backend)
         } else {
             EventResult::nop()
         }

@@ -35,17 +35,21 @@ where
         &mut self,
         mode: CommitMode,
         component_index: ComponentIndex,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         context.begin_effect(component_index);
         match mode {
-            CommitMode::Mount => self.component.lifecycle(Lifecycle::Mounted, state, backend),
+            CommitMode::Mount => {
+                self.component
+                    .lifecycle(Lifecycle::Mounted, context, state, backend)
+            }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     let result = pending_component.lifecycle(
                         Lifecycle::Updated(&self.component),
+                        context,
                         state,
                         backend,
                     );
@@ -55,9 +59,10 @@ where
                     EventResult::nop()
                 }
             }
-            CommitMode::Unmount => self
-                .component
-                .lifecycle(Lifecycle::Unmounted, state, backend),
+            CommitMode::Unmount => {
+                self.component
+                    .lifecycle(Lifecycle::Unmounted, context, state, backend)
+            }
         }
     }
 }

@@ -17,9 +17,9 @@ where
 
     fn render_children(
         self,
+        _context: &mut RenderContext,
         _state: &S,
         _backend: &B,
-        _context: &mut RenderContext,
     ) -> Self::Storage {
         HNil
     }
@@ -27,9 +27,9 @@ where
     fn update_children(
         self,
         _nodes: &mut Self::Storage,
+        _context: &mut RenderContext,
         _state: &S,
         _backend: &B,
-        _context: &mut RenderContext,
     ) -> bool {
         false
     }
@@ -51,9 +51,9 @@ where
     fn commit(
         &mut self,
         _mode: CommitMode,
+        _context: &mut EffectContext,
         _state: &S,
         _backend: &B,
-        _context: &mut EffectContext,
     ) -> EventResult<S> {
         EventResult::nop()
     }
@@ -67,9 +67,9 @@ where
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
+        _context: &mut Context,
         _state: &S,
         _backend: &B,
-        _context: &mut Context,
     ) -> Output {
         Output::default()
     }
@@ -78,9 +78,9 @@ where
         &mut self,
         _id_path: &IdPath,
         _visitor: &mut Visitor,
+        _context: &mut Context,
         _state: &S,
         _backend: &B,
-        _context: &mut Context,
     ) -> Option<Output> {
         None
     }
@@ -95,27 +95,27 @@ where
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         HCons {
-            head: self.head.render_children(state, backend, context),
-            tail: self.tail.render_children(state, backend, context),
+            head: self.head.render_children(context, state, backend),
+            tail: self.tail.render_children(context, state, backend),
         }
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self
             .head
-            .update_children(&mut storage.head, state, backend, context);
+            .update_children(&mut storage.head, context, state, backend);
         has_changed |= self
             .tail
-            .update_children(&mut storage.tail, state, backend, context);
+            .update_children(&mut storage.tail, context, state, backend);
         has_changed
     }
 }
@@ -150,13 +150,13 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         self.head
-            .commit(mode, state, backend, context)
-            .combine(self.tail.commit(mode, state, backend, context))
+            .commit(mode, context, state, backend)
+            .combine(self.tail.commit(mode, context, state, backend))
     }
 }
 
@@ -171,25 +171,25 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Output {
         self.head
-            .for_each(visitor, state, backend, context)
-            .combine(self.tail.for_each(visitor, state, backend, context))
+            .for_each(visitor, context, state, backend)
+            .combine(self.tail.for_each(visitor, context, state, backend))
     }
 
     fn search(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Option<Output> {
         self.head
-            .search(id_path, visitor, state, backend, context)
-            .or_else(|| self.tail.search(id_path, visitor, state, backend, context))
+            .search(id_path, visitor, context, state, backend)
+            .or_else(|| self.tail.search(id_path, visitor, context, state, backend))
     }
 }

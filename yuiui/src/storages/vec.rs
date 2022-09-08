@@ -61,10 +61,10 @@ where
 {
     type Storage = VecStorage<E::View, E::Components, S, B>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(state, backend, context))
+                .map(|element| element.render(context, state, backend))
                 .collect(),
         )
     }
@@ -72,9 +72,9 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
 
@@ -86,14 +86,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(&mut node.borrow_mut(), state, backend, context);
+                has_changed |= element.update(&mut node.borrow_mut(), context, state, backend);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(&mut node.borrow_mut(), state, backend, context);
+                    has_changed |= element.update(&mut node.borrow_mut(), context, state, backend);
                 } else {
-                    let node = element.render(state, backend, context);
+                    let node = element.render(context, state, backend);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -132,9 +132,9 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut result = EventResult::nop();
         if self.dirty || mode.is_propagatable() {
@@ -142,20 +142,20 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result = result.combine(node.commit(mode, state, backend, context));
+                        result = result.combine(node.commit(mode, context, state, backend));
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result = result.combine(node.commit(mode, state, backend, context));
+                        result = result.combine(node.commit(mode, context, state, backend));
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
                         result = result.combine(node.commit(
                             CommitMode::Unmount,
+                            context,
                             state,
                             backend,
-                            context,
                         ));
                         self.staging.push_front(node);
                     }
@@ -163,16 +163,16 @@ where
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result = result.combine(node.commit(mode, state, backend, context));
+                        result = result.combine(node.commit(mode, context, state, backend));
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
                             result = result.combine(node.commit(
                                 CommitMode::Mount,
+                                context,
                                 state,
                                 backend,
-                                context,
                             ));
                             self.active.push(node);
                         }
@@ -197,13 +197,13 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Visitor::Output {
         let mut result = Visitor::Output::default();
         for node in &mut self.active {
-            result = result.combine(node.for_each(visitor, state, backend, context));
+            result = result.combine(node.for_each(visitor, context, state, backend));
         }
         result
     }
@@ -212,14 +212,14 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Option<Visitor::Output> {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            node.search(id_path, visitor, state, backend, context)
+            node.search(id_path, visitor, context, state, backend)
         } else {
             None
         }

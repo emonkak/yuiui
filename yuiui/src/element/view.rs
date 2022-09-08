@@ -34,12 +34,12 @@ where
 
     fn render(
         self,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
-        context.with_identity(|id, context| {
-            let children = self.children.render_children(state, backend, context);
+        context.with_id(|id, context| {
+            let children = self.children.render_children(context, state, backend);
             ViewNode::new(id, self.view, children, ComponentEnd::new())
         })
     }
@@ -47,11 +47,11 @@ where
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
-        context.in_id(node.id, |context| {
+        context.id_guard(node.id, |context| {
             *node.state = match node.state.take().unwrap() {
                 ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
                 ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
@@ -61,7 +61,7 @@ where
             .into();
             *node.dirty = true;
             self.children
-                .update_children(node.children, state, backend, context);
+                .update_children(node.children, context, state, backend);
         });
         true
     }
@@ -75,18 +75,18 @@ where
     type Storage =
         ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, backend, context)
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+        self.render(context, state, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), state, backend, context)
+        self.update(&mut storage.borrow_mut(), context, state, backend)
     }
 }
 

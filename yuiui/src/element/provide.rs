@@ -29,11 +29,11 @@ where
 
     fn render(
         self,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
-        let mut node = self.element.render(state, backend, context);
+        let mut node = self.element.render(context, state, backend);
         node.env = Some(Rc::new(self.value));
         node
     }
@@ -41,11 +41,11 @@ where
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
-        let result = self.element.update(node, state, backend, context);
+        let result = self.element.update(node, context, state, backend);
         *node.env = Some(Rc::new(self.value));
         result
     }
@@ -59,17 +59,17 @@ where
 {
     type Storage = ViewNode<E::View, E::Components, S, B>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, backend, context)
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+        self.render(context, state, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), state, backend, context)
+        self.update(&mut storage.borrow_mut(), context, state, backend)
     }
 }

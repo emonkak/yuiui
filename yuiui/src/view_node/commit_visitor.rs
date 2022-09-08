@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, IdContext};
+use crate::context::EffectContext;
 use crate::event::{EventResult, Lifecycle};
 use crate::id::ComponentIndex;
 use crate::state::State;
@@ -35,20 +35,20 @@ where
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> Self::Output {
+        let mut result = node.children.commit(self.mode, context, state, backend);
         context.begin_effect(CS::LEN);
-        let mut result = node.children.commit(self.mode, state, backend, context);
         let node_state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut widget = view.build(&node.children, context.id_path(), state, backend);
+                let mut widget = view.build(&node.children, state, backend);
                 result = result.combine(view.lifecycle(
                     Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context,
                     state,
                     backend,
                 ));
@@ -59,7 +59,7 @@ where
                     Lifecycle::Mounted,
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context,
                     state,
                     backend,
                 ));
@@ -71,7 +71,7 @@ where
                         Lifecycle::Mounted,
                         &mut widget,
                         &node.children,
-                        context.id_path(),
+                        context,
                         state,
                         backend,
                     ))
@@ -79,7 +79,7 @@ where
                         Lifecycle::Updated(&view),
                         &mut widget,
                         &node.children,
-                        context.id_path(),
+                        context,
                         state,
                         backend,
                     ));
@@ -93,7 +93,7 @@ where
                     Lifecycle::Updated(&view),
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context,
                     state,
                     backend,
                 ));
@@ -104,7 +104,7 @@ where
                     Lifecycle::Updated(&view),
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context,
                     state,
                     backend,
                 ));
@@ -118,7 +118,7 @@ where
                     Lifecycle::Unmounted,
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context,
                     state,
                     backend,
                 ));
@@ -129,7 +129,7 @@ where
                     Lifecycle::Unmounted,
                     &mut widget,
                     &node.children,
-                    context.id_path(),
+                    context,
                     state,
                     backend,
                 ));
@@ -143,9 +143,9 @@ where
                 self.mode,
                 component_index,
                 0,
+                context,
                 state,
                 backend,
-                context,
             ));
         }
         result

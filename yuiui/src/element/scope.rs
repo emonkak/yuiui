@@ -51,12 +51,12 @@ where
 
     fn render(
         self,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
         let sub_state = (self.selector_fn)(state);
-        let sub_node = self.target.render(sub_state, backend, context);
+        let sub_node = self.target.render(context, sub_state, backend);
         ViewNode {
             id: sub_node.id,
             state: sub_node
@@ -73,13 +73,13 @@ where
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         with_sub_node(node, |sub_node| {
-            self.target.update(sub_node, sub_state, backend, context)
+            self.target.update(sub_node, context, sub_state, backend)
         })
     }
 }
@@ -93,10 +93,10 @@ where
 {
     type Storage = Scope<T::Storage, F, SS>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
         let sub_state = (self.selector_fn)(state);
         Scope::new(
-            self.target.render_children(sub_state, backend, context),
+            self.target.render_children(context, sub_state, backend),
             self.selector_fn.clone(),
         )
     }
@@ -104,13 +104,13 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .update_children(&mut storage.target, sub_state, backend, context)
+            .update_children(&mut storage.target, context, sub_state, backend)
     }
 }
 
@@ -132,14 +132,14 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
-            .commit(mode, sub_state, backend, &mut sub_context)
+            .commit(mode, &mut sub_context, sub_state, backend)
             .lift(&self.selector_fn)
     }
 }
@@ -153,25 +153,25 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> Output {
         let sub_state = (self.selector_fn)(state);
-        self.target.for_each(visitor, sub_state, backend, context)
+        self.target.for_each(visitor, context, sub_state, backend)
     }
 
     fn search(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> Option<Output> {
         let sub_state = (self.selector_fn)(state);
         self.target
-            .search(id_path, visitor, sub_state, backend, context)
+            .search(id_path, visitor, context, sub_state, backend)
     }
 }
 
@@ -186,14 +186,14 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
-            .for_each(visitor, sub_state, backend, &mut sub_context)
+            .for_each(visitor, &mut sub_context, sub_state, backend)
             .lift(&self.selector_fn)
     }
 
@@ -201,14 +201,14 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> Option<EventResult<S>> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         self.target
-            .search(id_path, visitor, sub_state, backend, &mut sub_context)
+            .search(id_path, visitor, &mut sub_context, sub_state, backend)
             .map(|result| result.lift(&self.selector_fn))
     }
 }
@@ -229,9 +229,9 @@ where
         mode: CommitMode,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
@@ -240,9 +240,9 @@ where
                 mode,
                 target_index,
                 current_index,
+                &mut sub_context,
                 sub_state,
                 backend,
-                &mut sub_context,
             )
             .lift(&self.selector_fn)
     }
@@ -251,9 +251,9 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let sub_state = (node.components.selector_fn)(state);
         with_sub_node(node, |sub_node| {
@@ -261,9 +261,9 @@ where
                 sub_node,
                 target_index,
                 current_index,
+                context,
                 sub_state,
                 backend,
-                context,
             )
         })
     }
@@ -285,18 +285,19 @@ where
         lifecycle: Lifecycle<&Self>,
         widget: &mut Self::Widget,
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
-        id_path: &IdPath,
+        context: &EffectContext,
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
+        let sub_context = context.new_sub_context();
         let sub_state = (self.selector_fn)(state);
         self.target
             .lifecycle(
                 sub_lifecycle,
                 widget,
                 &children.target,
-                id_path,
+                &sub_context,
                 sub_state,
                 backend,
             )
@@ -308,26 +309,32 @@ where
         event: <Self as HasEvent>::Event,
         widget: &mut Self::Widget,
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
-        id_path: &IdPath,
+        context: &EffectContext,
         state: &S,
         backend: &B,
     ) -> EventResult<S> {
+        let sub_context = context.new_sub_context();
         let sub_state = (self.selector_fn)(state);
         self.target
-            .event(event, widget, &children.target, id_path, sub_state, backend)
+            .event(
+                event,
+                widget,
+                &children.target,
+                &sub_context,
+                sub_state,
+                backend,
+            )
             .lift(&self.selector_fn)
     }
 
     fn build(
         &self,
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
-        id_path: &IdPath,
         state: &S,
         backend: &B,
     ) -> Self::Widget {
         let sub_state = (self.selector_fn)(state);
-        self.target
-            .build(&children.target, id_path, sub_state, backend)
+        self.target.build(&children.target, sub_state, backend)
     }
 }
 

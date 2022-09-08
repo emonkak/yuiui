@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, IdContext};
+use crate::context::EffectContext;
 use crate::event::{Event, EventResult, HasEvent};
 use crate::state::State;
 use crate::traversable::{Monoid, Traversable, Visitor};
@@ -31,22 +31,23 @@ where
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let mut result = EventResult::nop();
                 if node.event_mask.contains(&self.event.type_id()) {
-                    result = result.combine(node.children.for_each(self, state, backend, context));
+                    result = result.combine(node.children.for_each(self, context, state, backend));
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
+                    context.begin_effect(CS::LEN);
                     result = result.combine(view.event(
                         event,
                         widget,
                         &node.children,
-                        context.id_path(),
+                        context,
                         state,
                         backend,
                     ));

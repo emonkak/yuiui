@@ -29,25 +29,25 @@ where
 
     fn render(
         self,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
         let element = ComponentElement::new(AsComponent::new(self));
-        element.render(state, backend, context)
+        element.render(context, state, backend)
     }
 
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
             let element = ComponentElement::new(AsComponent::new(self));
-            Element::update(element, node, state, backend, context)
+            Element::update(element, node, context, state, backend)
         } else {
             head_node.pending_component = Some(AsComponent::new(self));
             false
@@ -63,18 +63,18 @@ where
 {
     type Storage = ViewNode<E::View, (ComponentNode<AsComponent<Self>, S, B>, E::Components), S, B>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, backend, context)
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+        self.render(context, state, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), state, backend, context)
+        self.update(&mut storage.borrow_mut(), context, state, backend)
     }
 }
 

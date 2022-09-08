@@ -11,7 +11,7 @@ pub trait IdContext {
 
     fn end_id(&mut self) -> Id;
 
-    fn in_id<F: FnOnce(&mut Self) -> T, T>(&mut self, id: Id, f: F) -> T {
+    fn id_guard<F: FnOnce(&mut Self) -> T, T>(&mut self, id: Id, f: F) -> T {
         self.begin_id(id);
         let result = f(self);
         self.end_id();
@@ -35,14 +35,14 @@ impl RenderContext {
         }
     }
 
-    pub fn next_identity(&mut self) -> Id {
+    pub fn next_id(&mut self) -> Id {
         let id = self.id_counter;
         self.id_counter += 1;
         Id(id)
     }
 
-    pub fn with_identity<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
-        let id = self.next_identity();
+    pub fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
+        let id = self.next_id();
         self.id_path.push(id);
         let result = f(id, self);
         self.id_path.pop();
@@ -88,6 +88,7 @@ impl IdContext for RenderContext {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EffectContext {
     id_path: IdPathBuf,
     component_index: ComponentIndex,

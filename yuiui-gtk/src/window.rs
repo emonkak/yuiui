@@ -1,6 +1,8 @@
 use gtk::prelude::*;
 use std::marker::PhantomData;
-use yuiui::{ElementSeq, EventResult, HasEvent, IdPath, Lifecycle, State, View, ViewElement};
+use yuiui::{
+    EffectContext, ElementSeq, EventResult, HasEvent, Lifecycle, State, View, ViewElement,
+};
 
 use crate::backend::Backend;
 
@@ -56,7 +58,7 @@ where
         lifecycle: Lifecycle<&Self>,
         widget: &mut Self::Widget,
         _children: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
-        _id_path: &IdPath,
+        _context: &EffectContext,
         _state: &S,
         _backend: &Backend<S>,
     ) -> EventResult<S> {
@@ -79,7 +81,6 @@ where
     fn build(
         &self,
         child: &<Self::Children as ElementSeq<S, Backend<S>>>::Storage,
-        _id_path: &IdPath,
         _state: &S,
         env: &Backend<S>,
     ) -> Self::Widget {

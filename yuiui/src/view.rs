@@ -1,8 +1,8 @@
 use hlist::HNil;
 
+use crate::context::EffectContext;
 use crate::element::{ElementSeq, ViewElement};
 use crate::event::{EventResult, HasEvent, Lifecycle};
-use crate::id::IdPath;
 use crate::state::State;
 
 pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
@@ -15,7 +15,7 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         _lifecycle: Lifecycle<&Self>,
         _widget: &mut Self::Widget,
         _children: &<Self::Children as ElementSeq<S, B>>::Storage,
-        _id_path: &IdPath,
+        _context: &EffectContext,
         _state: &S,
         _backend: &B,
     ) -> EventResult<S> {
@@ -27,7 +27,7 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
         _event: <Self as HasEvent>::Event,
         _widget: &mut Self::Widget,
         _children: &<Self::Children as ElementSeq<S, B>>::Storage,
-        _id_path: &IdPath,
+        _context: &EffectContext,
         _state: &S,
         _backend: &B,
     ) -> EventResult<S> {
@@ -37,7 +37,6 @@ pub trait View<S: State, B>: Sized + for<'event> HasEvent<'event> {
     fn build(
         &self,
         children: &<Self::Children as ElementSeq<S, B>>::Storage,
-        id_path: &IdPath,
         state: &S,
         backend: &B,
     ) -> Self::Widget;

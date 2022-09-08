@@ -34,20 +34,20 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
-        OptionStorage::new(self.map(|element| element.render_children(state, backend, context)))
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+        OptionStorage::new(self.map(|element| element.render_children(context, state, backend)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, state, backend, context) {
+                if element.update_children(node, context, state, backend) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -57,9 +57,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, state, backend, context);
+                    element.update_children(node, context, state, backend);
                 } else {
-                    storage.staging = Some(element.render_children(state, backend, context));
+                    storage.staging = Some(element.render_children(context, state, backend));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true
@@ -93,28 +93,28 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut result = EventResult::nop();
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
                     result =
-                        result.combine(node.commit(CommitMode::Unmount, state, backend, context));
+                        result.combine(node.commit(CommitMode::Unmount, context, state, backend));
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
                     result =
-                        result.combine(node.commit(CommitMode::Mount, state, backend, context));
+                        result.combine(node.commit(CommitMode::Mount, context, state, backend));
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                result = result.combine(node.commit(mode, state, backend, context));
+                result = result.combine(node.commit(mode, context, state, backend));
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -132,12 +132,12 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Output {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, state, backend, context)
+            node.for_each(visitor, context, state, backend)
         } else {
             Output::default()
         }
@@ -147,12 +147,12 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Option<Output> {
         if let Some(node) = &mut self.active {
-            node.search(id_path, visitor, state, backend, context)
+            node.search(id_path, visitor, context, state, backend)
         } else {
             None
         }

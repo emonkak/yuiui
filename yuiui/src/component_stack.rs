@@ -19,9 +19,9 @@ pub trait ComponentStack<S: State, B>: Sized {
         node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool;
 
     fn commit(
@@ -29,9 +29,9 @@ pub trait ComponentStack<S: State, B>: Sized {
         mode: CommitMode,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S>;
 }
 
@@ -50,9 +50,9 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, B>,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let (head, tail) = node.components;
         let mut node = ViewNodeMut {
@@ -65,15 +65,15 @@ where
         };
         if target_index <= current_index {
             let element = head.render(state, backend);
-            element.update(&mut node, state, backend, context)
+            element.update(&mut node, context, state, backend)
         } else {
             CS::update(
                 &mut node,
                 target_index,
                 current_index + 1,
+                context,
                 state,
                 backend,
-                context,
             )
         }
     }
@@ -83,20 +83,20 @@ where
         mode: CommitMode,
         target_index: ComponentIndex,
         current_index: ComponentIndex,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         if target_index <= current_index {
-            self.0.commit(mode, current_index, state, backend, context)
+            self.0.commit(mode, current_index, context, state, backend)
         } else {
             self.1.commit(
                 mode,
                 target_index,
                 current_index + 1,
+                context,
                 state,
                 backend,
-                context,
             )
         }
     }
@@ -120,9 +120,9 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
         _node: &mut ViewNodeMut<'a, V, Self, S, B>,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
+        _context: &mut RenderContext,
         _state: &S,
         _backend: &B,
-        _context: &mut RenderContext,
     ) -> bool {
         false
     }
@@ -132,9 +132,9 @@ impl<V: View<S, B>, S: State, B> ComponentStack<S, B> for ComponentEnd<V> {
         _mode: CommitMode,
         _target_index: ComponentIndex,
         _current_index: ComponentIndex,
+        _context: &mut EffectContext,
         _state: &S,
         _backend: &B,
-        _context: &mut EffectContext,
     ) -> EventResult<S> {
         EventResult::nop()
     }

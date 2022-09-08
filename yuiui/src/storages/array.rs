@@ -25,22 +25,22 @@ where
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render_children(state, backend, context)))
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+        ArrayStorage::new(self.map(|element| element.render_children(context, state, backend)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update_children(node, state, backend, context);
+            has_changed |= element.update_children(node, context, state, backend);
         }
 
         storage.dirty |= has_changed;
@@ -65,14 +65,14 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut result = EventResult::nop();
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                result = result.combine(node.commit(mode, state, backend, context));
+                result = result.combine(node.commit(mode, context, state, backend));
             }
             self.dirty = false;
         }
@@ -90,13 +90,13 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Output {
         let mut result = Output::default();
         for node in &mut self.nodes {
-            result = result.combine(node.for_each(visitor, state, backend, context));
+            result = result.combine(node.for_each(visitor, context, state, backend));
         }
         result
     }
@@ -105,12 +105,12 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Option<Output> {
         for node in &mut self.nodes {
-            if let Some(result) = node.search(id_path, visitor, state, backend, context) {
+            if let Some(result) = node.search(id_path, visitor, context, state, backend) {
                 return Some(result);
             }
         }

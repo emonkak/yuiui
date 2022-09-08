@@ -27,17 +27,17 @@ pub trait Element<S: State, B> {
 
     fn render(
         self,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B>;
 
     fn update(
         self,
-        scope: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool;
 
     fn scope<F, OriginState>(self, f: F) -> Scope<Self, F, S>
@@ -60,14 +60,14 @@ pub trait Element<S: State, B> {
 pub trait ElementSeq<S: State, B> {
     type Storage: ViewNodeSeq<S, B>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage;
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage;
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool;
 }
 

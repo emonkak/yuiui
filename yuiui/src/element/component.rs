@@ -32,13 +32,13 @@ where
 
     fn render(
         self,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> ViewNode<Self::View, Self::Components, S, B> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.render(state, backend);
-        let node = element.render(state, backend, context);
+        let node = element.render(context, state, backend);
         ViewNode {
             id: node.id,
             state: node.state,
@@ -53,9 +53,9 @@ where
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, B>,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
         let element = self.component.render(state, backend);
@@ -69,7 +69,7 @@ where
             env: node.env,
             dirty: node.dirty,
         };
-        element.update(&mut node, state, backend, context)
+        element.update(&mut node, context, state, backend)
     }
 }
 
@@ -81,18 +81,18 @@ where
     type Storage =
         ViewNode<<Self as Element<S, B>>::View, <Self as Element<S, B>>::Components, S, B>;
 
-    fn render_children(self, state: &S, backend: &B, context: &mut RenderContext) -> Self::Storage {
-        self.render(state, backend, context)
+    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+        self.render(context, state, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), state, backend, context)
+        self.update(&mut storage.borrow_mut(), context, state, backend)
     }
 }
 

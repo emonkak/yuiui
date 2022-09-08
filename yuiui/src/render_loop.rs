@@ -32,7 +32,7 @@ where
 {
     pub fn build(element: E, state: &S, backend: &B) -> Self {
         let mut context = RenderContext::new();
-        let node = element.render(state, backend, &mut context);
+        let node = element.render(&mut context, state, backend);
         Self {
             node,
             render_context: RenderContext::new(),
@@ -73,7 +73,7 @@ where
                     let mut effect_context = EffectContext::new();
                     let result =
                         self.node
-                            .commit_subtree(&id_tree, state, backend, &mut effect_context);
+                            .commit_subtree(&id_tree, &mut effect_context, state, backend);
                     self.effect_queue.extend(result.into_effects());
                     if deadline.did_timeout() {
                         return self.render_status();
@@ -83,7 +83,7 @@ where
                 let mut effect_context = EffectContext::new();
                 let result =
                     self.node
-                        .commit(CommitMode::Mount, state, backend, &mut effect_context);
+                        .commit(CommitMode::Mount, &mut effect_context, state, backend);
                 self.effect_queue.extend(result.into_effects());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
@@ -107,19 +107,19 @@ where
         let mut context = EffectContext::new();
         let result = match destination {
             EventDestination::Global => {
-                self.node.global_event(&event, state, backend, &mut context)
+                self.node.global_event(&event, &mut context, state, backend)
             }
             EventDestination::Downward(id_path) => {
                 self.node
-                    .downward_event(&event, &id_path, state, backend, &mut context)
+                    .downward_event(&event, &id_path, &mut context, state, backend)
             }
             EventDestination::Upward(id_path) => {
                 self.node
-                    .upward_event(&event, &id_path, state, backend, &mut context)
+                    .upward_event(&event, &id_path, &mut context, state, backend)
             }
             EventDestination::Local(id_path) => {
                 self.node
-                    .local_event(&event, &id_path, state, backend, &mut context)
+                    .local_event(&event, &id_path, &mut context, state, backend)
             }
         };
         self.effect_queue.extend(result.into_effects());

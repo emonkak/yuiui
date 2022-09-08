@@ -109,7 +109,7 @@ where
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
             UpdateVisitor::new(component_index)
         });
-        visitor.visit(self, state, backend, context);
+        visitor.visit(self, context, state, backend);
         // TODO:
         Vec::new()
     }
@@ -117,13 +117,13 @@ where
     pub fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         if self.dirty || mode.is_propagatable() {
             let mut visitor = CommitVisitor::new(mode, 0);
-            visitor.visit(self, state, backend, context)
+            visitor.visit(self, context, state, backend)
         } else {
             EventResult::nop()
         }
@@ -132,37 +132,37 @@ where
     pub fn commit_subtree(
         &mut self,
         id_tree: &IdTree<ComponentIndex>,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut visitor = BatchVisitor::new(id_tree.root(), |_, component_index| {
             CommitVisitor::new(CommitMode::Update, component_index)
         });
-        visitor.visit(self, state, backend, context)
+        visitor.visit(self, context, state, backend)
     }
 
     pub fn global_event(
         &mut self,
         event: &dyn Any,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut visitor = DownwardEventVisitor::new(event);
-        visitor.visit(self, state, backend, context)
+        visitor.visit(self, context, state, backend)
     }
 
     pub fn downward_event(
         &mut self,
         event: &dyn Any,
         id_path: &IdPath,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut visitor = DownwardEventVisitor::new(event);
-        self.search(id_path, &mut visitor, state, backend, context)
+        self.search(id_path, &mut visitor, context, state, backend)
             .unwrap_or_default()
     }
 
@@ -170,24 +170,24 @@ where
         &mut self,
         event: &dyn Any,
         id_path: &IdPath,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
-        visitor.visit(self, state, backend, context)
+        visitor.visit(self, context, state, backend)
     }
 
     pub fn local_event(
         &mut self,
         event: &dyn Any,
         id_path: &IdPath,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
         let mut visitor = LocalEventVisitor::new(event);
-        self.search(id_path, &mut visitor, state, backend, context)
+        self.search(id_path, &mut visitor, context, state, backend)
             .unwrap_or_default()
     }
 }
@@ -217,9 +217,9 @@ pub trait ViewNodeSeq<S: State, B>:
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S>;
 }
 
@@ -254,12 +254,12 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> EventResult<S> {
-        context.in_id(self.id, |context| {
-            self.commit(mode, state, backend, context)
+        context.id_guard(self.id, |context| {
+            self.commit(mode, context, state, backend)
         })
     }
 }
@@ -277,15 +277,15 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> Visitor::Output {
-        context.in_id(self.id, |context| {
+        context.id_guard(self.id, |context| {
             if let Some(value) = &self.env {
                 context.push_env(value.clone());
             }
-            visitor.visit(self, state, backend, context)
+            visitor.visit(self, context, state, backend)
         })
     }
 
@@ -293,21 +293,21 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut RenderContext,
         state: &S,
         backend: &B,
-        context: &mut RenderContext,
     ) -> Option<Visitor::Output> {
-        context.in_id(self.id, |context| {
+        context.id_guard(self.id, |context| {
             if let Some(value) = &self.env {
                 context.push_env(value.clone());
             }
             if self.id == Id::from_top(id_path) {
-                Some(visitor.visit(self, state, backend, context))
+                Some(visitor.visit(self, context, state, backend))
             } else if self.id == Id::from_bottom(id_path) {
                 debug_assert!(id_path.len() > 0);
                 let id_path = &id_path[1..];
                 self.children
-                    .search(id_path, visitor, state, backend, context)
+                    .search(id_path, visitor, context, state, backend)
             } else {
                 None
             }
@@ -328,12 +328,12 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> Visitor::Output {
-        context.in_id(self.id, |context| {
-            visitor.visit(self, state, backend, context)
+        context.id_guard(self.id, |context| {
+            visitor.visit(self, context, state, backend)
         })
     }
 
@@ -341,18 +341,18 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
+        context: &mut EffectContext,
         state: &S,
         backend: &B,
-        context: &mut EffectContext,
     ) -> Option<Visitor::Output> {
-        context.in_id(self.id, |context| {
+        context.id_guard(self.id, |context| {
             if self.id == Id::from_top(id_path) {
-                Some(visitor.visit(self, state, backend, context))
+                Some(visitor.visit(self, context, state, backend))
             } else if self.id == Id::from_bottom(id_path) {
                 debug_assert!(id_path.len() > 0);
                 let id_path = &id_path[1..];
                 self.children
-                    .search(id_path, visitor, state, backend, context)
+                    .search(id_path, visitor, context, state, backend)
             } else {
                 None
             }

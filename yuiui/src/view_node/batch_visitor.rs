@@ -40,21 +40,21 @@ where
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
+        context: &mut Context,
         state: &S,
         backend: &B,
-        context: &mut Context,
     ) -> Self::Output {
         let current = self.cursor.current();
         if let Some(component_index) = current.value() {
             let mut visitor = (self.visitor_factory)(current.id(), *component_index);
-            visitor.visit(node, state, backend, context)
+            visitor.visit(node, context, state, backend)
         } else {
             let mut result = Self::Output::default();
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
                 if let Some(child_result) =
-                    node.children.search(&[id], self, state, backend, context)
+                    node.children.search(&[id], self, context, state, backend)
                 {
                     result = result.combine(child_result);
                 }
