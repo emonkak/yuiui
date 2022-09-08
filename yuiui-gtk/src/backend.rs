@@ -3,8 +3,8 @@ use glib::{MainContext, Sender, SourceId};
 use gtk::Application;
 use std::any::Any;
 use yuiui::{
-    CancellationToken, Command, DestinedEffect, EffectContext, EventDestination, RawToken,
-    RawTokenVTable, RenderLoopContext, State,
+    Command, DestinedEffect, EffectContext, EventDestination, RawToken, RawTokenVTable,
+    RenderLoopContext, State,
 };
 
 #[derive(Debug)]
@@ -44,12 +44,7 @@ impl<S: State> Backend<S> {
 }
 
 impl<S: State> RenderLoopContext<S> for Backend<S> {
-    fn invoke_command(
-        &self,
-        command: Command<S>,
-        cancellation_token: Option<CancellationToken>,
-        context: EffectContext,
-    ) {
+    fn invoke_command(&self, command: Command<S>, context: EffectContext) -> RawToken {
         let message_sender = self.proxy.sender.clone();
         let source_id = match command {
             Command::Future(future) => self.main_context.spawn_local(async move {
@@ -72,10 +67,7 @@ impl<S: State> RenderLoopContext<S> for Backend<S> {
                 glib::Continue(true)
             }),
         };
-        if let Some(cancellation_token) = cancellation_token {
-            let token = create_token(source_id);
-            cancellation_token.register(token);
-        }
+        create_token(source_id)
     }
 }
 

@@ -4,7 +4,7 @@ use std::fmt;
 use std::mem;
 use std::time::{Duration, Instant};
 
-use crate::cancellation_token::CancellationToken;
+use crate::cancellation_token::RawToken;
 use crate::command::Command;
 use crate::context::{EffectContext, RenderContext};
 use crate::effect::DestinedEffect;
@@ -156,7 +156,10 @@ where
                 }
             }
             DestinedEffect::Command(command, cancellation_token, context) => {
-                backend.invoke_command(command, cancellation_token, context);
+                let token = backend.invoke_command(command, context);
+                if let Some(cancellation_token) = cancellation_token {
+                    cancellation_token.register(token);
+                }
             }
             DestinedEffect::RequestUpdate(id_path, depth) => {
                 extend_selection(&mut self.update_selection, id_path, depth);
@@ -189,12 +192,7 @@ where
 }
 
 pub trait RenderLoopContext<S: State> {
-    fn invoke_command(
-        &self,
-        command: Command<S>,
-        cancellation_token: Option<CancellationToken>,
-        context: EffectContext,
-    );
+    fn invoke_command(&self, command: Command<S>, context: EffectContext) -> RawToken;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

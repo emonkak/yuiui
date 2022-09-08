@@ -1,8 +1,6 @@
 use gtk::prelude::*;
 use std::marker::PhantomData;
-use yuiui::{
-    EffectContext, ElementSeq, EventResult, HasEvent, Lifecycle, State, View, ViewElement,
-};
+use yuiui::{EffectContext, EffectOps, ElementSeq, HasEvent, Lifecycle, State, View, ViewElement};
 
 use crate::backend::Backend;
 
@@ -61,7 +59,7 @@ where
         _context: &EffectContext,
         _state: &S,
         _backend: &Backend<S>,
-    ) -> EventResult<S> {
+    ) -> EffectOps<S> {
         match lifecycle {
             Lifecycle::Mounted => {
                 widget.show();
@@ -75,7 +73,7 @@ where
                 widget.hide();
             }
         }
-        EventResult::nop()
+        EffectOps::nop()
     }
 
     fn build(
