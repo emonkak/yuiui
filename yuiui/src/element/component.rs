@@ -58,7 +58,7 @@ where
         backend: &B,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
-        let element = self.component.render(state, backend);
+        let element = self.component.render(&head_node.state, state, backend);
         head_node.pending_component = Some(self.component);
         *node.dirty = true;
         let mut node = ViewNodeMut {

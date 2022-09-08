@@ -96,7 +96,9 @@ where
 {
     type Element = E;
 
-    fn render(&self, state: &S, backend: &B) -> Self::Element {
+    type State = ();
+
+    fn render(&self, _local_state: &Self::State, state: &S, backend: &B) -> Self::Element {
         (self.inner.render)(&self.inner.deps, state, backend)
     }
 }

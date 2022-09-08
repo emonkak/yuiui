@@ -145,16 +145,16 @@ pub struct ButtonProps {
 
 pub fn button<S: State, B>(
     props: ButtonProps,
-) -> ComponentElement<FunctionComponent<ButtonProps, impl DebuggableElement<S, B>, S, B>> {
-    FunctionComponent::new(props, |props, _state, _backend| {
+) -> ComponentElement<FunctionComponent<ButtonProps, (), impl DebuggableElement<S, B>, S, B>> {
+    FunctionComponent::new(props, |props, _local_state, _state, _backend| {
         Block::new().el_with(Text::new(props.label.clone()).el())
     })
     .el()
 }
 
 pub fn counter<E>(
-) -> ComponentElement<FunctionComponent<(), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>> {
-    FunctionComponent::new((), |_props, state: &Data<i64>, _backend| {
+) -> ComponentElement<FunctionComponent<(), (), impl DebuggableElement<Data<i64>, E>, Data<i64>, E>> {
+    FunctionComponent::new((), |_props, _local_state, state: &Data<i64>, _backend| {
         Block::new().el_with(Text::new(format!("{}", state.value)).el())
     })
     .el()

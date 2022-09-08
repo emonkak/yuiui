@@ -40,7 +40,9 @@ where
 {
     type Element = AsElement<Self>;
 
-    fn render(&self, _state: &S, _backend: &B) -> Self::Element {
+    type State = ();
+
+    fn render(&self, _local_state: &Self::State, _state: &S, _backend: &B) -> Self::Element {
         AsElement::new(self.clone())
     }
 }

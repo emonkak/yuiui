@@ -12,6 +12,7 @@ use crate::view_node::CommitMode;
 pub struct ComponentNode<C: Component<S, B>, S: State, B> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
+    pub(crate) state: C::State,
     _phantom: PhantomData<(S, B)>,
 }
 
@@ -24,12 +25,13 @@ where
         Self {
             component,
             pending_component: None,
+            state: C::State::default(),
             _phantom: PhantomData,
         }
     }
 
     pub(crate) fn render(&self, state: &S, backend: &B) -> C::Element {
-        self.component.render(state, backend)
+        self.component.render(&self.state, state, backend)
     }
 
     pub(crate) fn commit(
@@ -44,12 +46,13 @@ where
         match mode {
             CommitMode::Mount => {
                 self.component
-                    .lifecycle(Lifecycle::Mounted, context, state, backend)
+                    .lifecycle(Lifecycle::Mounted, &mut self.state, context, state, backend)
             }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     let result = pending_component.lifecycle(
                         Lifecycle::Updated(&self.component),
+                        &mut self.state,
                         context,
                         state,
                         backend,
@@ -62,7 +65,7 @@ where
             }
             CommitMode::Unmount => {
                 self.component
-                    .lifecycle(Lifecycle::Unmounted, context, state, backend)
+                    .lifecycle(Lifecycle::Unmounted, &mut self.state, context, state, backend)
             }
         }
     }
