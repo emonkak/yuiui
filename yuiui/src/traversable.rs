@@ -1,13 +1,13 @@
 use crate::id::IdPath;
 
-pub trait Traversable<Visitor, Context, S, B> {
+pub trait Traversable<Visitor, Context, Output, S, B> {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool;
+    ) -> Output;
 
     fn search(
         &mut self,
@@ -16,9 +16,34 @@ pub trait Traversable<Visitor, Context, S, B> {
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool;
+    ) -> Option<Output>;
 }
 
-pub trait TraversableVisitor<Node, Context, S, B> {
-    fn visit(&mut self, node: &mut Node, state: &S, backend: &B, context: &mut Context) -> bool;
+pub trait Visitor<Node, Context, S, B> {
+    type Output: Monoid;
+
+    fn visit(
+        &mut self,
+        node: &mut Node,
+        state: &S,
+        backend: &B,
+        context: &mut Context,
+    ) -> Self::Output;
+}
+
+pub trait Monoid: Default {
+    fn combine(self, other: Self) -> Self;
+}
+
+impl Monoid for bool {
+    fn combine(self, other: Self) -> Self {
+        self || other
+    }
+}
+
+impl<T> Monoid for Vec<T> {
+    fn combine(mut self, other: Self) -> Self {
+        self.extend(other);
+        self
+    }
 }

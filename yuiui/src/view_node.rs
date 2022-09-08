@@ -16,7 +16,7 @@ use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{ComponentIndex, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::State;
-use crate::traversable::{Traversable, TraversableVisitor};
+use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
 use batch_visitor::BatchVisitor;
@@ -110,7 +110,8 @@ where
             UpdateVisitor::new(component_index)
         });
         visitor.visit(self, state, backend, context);
-        visitor.into_changed_nodes()
+        // TODO:
+        Vec::new()
     }
 
     pub fn commit(
@@ -164,6 +165,7 @@ where
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, backend, context)
+            .unwrap_or(false)
     }
 
     pub fn upward_event(
@@ -188,6 +190,7 @@ where
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event);
         self.search(id_path, &mut visitor, state, backend, context)
+            .unwrap_or(false)
     }
 }
 
@@ -201,13 +204,13 @@ pub struct ViewNodeMut<'a, V: View<S, B>, CS, S: State, B> {
 }
 
 pub trait ViewNodeSeq<S: State, B>:
-    Traversable<CommitVisitor, EffectContext<S>, S, B>
-    + Traversable<UpdateVisitor, RenderContext, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext<S>, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, S, B>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, S, B>
-    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext<S>, S, B>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, S, B>
+    Traversable<CommitVisitor, EffectContext<S>, bool, S, B>
+    + Traversable<UpdateVisitor, RenderContext, bool, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, EffectContext<S>, bool, S, B>
+    + for<'a> Traversable<BatchVisitor<'a, UpdateVisitor>, RenderContext, bool, S, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, EffectContext<S>, bool, S, B>
+    + for<'a> Traversable<LocalEventVisitor<'a>, EffectContext<S>, bool, S, B>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, EffectContext<S>, bool, S, B>
 {
     fn event_mask() -> &'static EventMask;
 
@@ -263,12 +266,14 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for ViewNode<V, CS, S, B>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
+    for ViewNode<V, CS, S, B>
 where
     V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, RenderContext, S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage:
+        Traversable<Visitor, RenderContext, Visitor::Output, S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<Self, RenderContext, S, B>,
+    Visitor: self::Visitor<Self, RenderContext, S, B>,
     S: State,
 {
     fn for_each(
@@ -277,7 +282,7 @@ where
         state: &S,
         backend: &B,
         context: &mut RenderContext,
-    ) -> bool {
+    ) -> Visitor::Output {
         context.with_view(self.id, |context| {
             if let Some(value) = &self.env {
                 context.push_env(value.clone());
@@ -293,31 +298,33 @@ where
         state: &S,
         backend: &B,
         context: &mut RenderContext,
-    ) -> bool {
+    ) -> Option<Visitor::Output> {
         context.with_view(self.id, |context| {
             if let Some(value) = &self.env {
                 context.push_env(value.clone());
             }
             if self.id == Id::from_top(id_path) {
-                visitor.visit(self, state, backend, context)
+                Some(visitor.visit(self, state, backend, context))
             } else if self.id == Id::from_bottom(id_path) {
                 debug_assert!(id_path.len() > 0);
                 let id_path = &id_path[1..];
                 self.children
                     .search(id_path, visitor, state, backend, context)
             } else {
-                false
+                None
             }
         })
     }
 }
 
-impl<V, CS, Visitor, S, B> Traversable<Visitor, EffectContext<S>, S, B> for ViewNode<V, CS, S, B>
+impl<V, CS, Visitor, S, B> Traversable<Visitor, EffectContext<S>, Visitor::Output, S, B>
+    for ViewNode<V, CS, S, B>
 where
     V: View<S, B>,
-    <V::Children as ElementSeq<S, B>>::Storage: Traversable<Visitor, EffectContext<S>, S, B>,
+    <V::Children as ElementSeq<S, B>>::Storage:
+        Traversable<Visitor, EffectContext<S>, Visitor::Output, S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<Self, EffectContext<S>, S, B>,
+    Visitor: self::Visitor<Self, EffectContext<S>, S, B>,
     S: State,
 {
     fn for_each(
@@ -326,7 +333,7 @@ where
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Visitor::Output {
         context.with_view(self.id, |context| {
             visitor.visit(self, state, backend, context)
         })
@@ -339,17 +346,17 @@ where
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Option<Visitor::Output> {
         context.with_view(self.id, |context| {
             if self.id == Id::from_top(id_path) {
-                visitor.visit(self, state, backend, context)
+                Some(visitor.visit(self, state, backend, context))
             } else if self.id == Id::from_bottom(id_path) {
                 debug_assert!(id_path.len() > 0);
                 let id_path = &id_path[1..];
                 self.children
                     .search(id_path, visitor, state, backend, context)
             } else {
-                false
+                None
             }
         })
     }

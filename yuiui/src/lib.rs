@@ -30,6 +30,6 @@ pub use event::{Event, EventDestination, EventMask, EventResult, HasEvent, Lifec
 pub use id::{ComponentIndex, Id, IdPath, IdPathBuf};
 pub use render_loop::{Deadline, Forever, RenderFlow, RenderLoop, RenderLoopContext};
 pub use state::{Data, State};
-pub use traversable::{Traversable, TraversableVisitor};
+pub use traversable::{Traversable, Visitor};
 pub use view::View;
 pub use view_node::{CommitMode, ViewNode, ViewNodeSeq};

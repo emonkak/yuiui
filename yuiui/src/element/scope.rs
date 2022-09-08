@@ -146,9 +146,10 @@ where
     }
 }
 
-impl<T, F, SS, Visitor, S, B> Traversable<Visitor, RenderContext, S, B> for Scope<T, F, SS>
+impl<T, F, SS, Visitor, Output, S, B> Traversable<Visitor, RenderContext, Output, S, B>
+    for Scope<T, F, SS>
 where
-    T: Traversable<Visitor, RenderContext, SS, B>,
+    T: Traversable<Visitor, RenderContext, Output, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
 {
     fn for_each(
@@ -157,7 +158,7 @@ where
         state: &S,
         backend: &B,
         context: &mut RenderContext,
-    ) -> bool {
+    ) -> Output {
         let sub_state = (self.selector_fn)(state);
         self.target.for_each(visitor, sub_state, backend, context)
     }
@@ -169,16 +170,17 @@ where
         state: &S,
         backend: &B,
         context: &mut RenderContext,
-    ) -> bool {
+    ) -> Option<Output> {
         let sub_state = (self.selector_fn)(state);
         self.target
             .search(id_path, visitor, sub_state, backend, context)
     }
 }
 
-impl<T, F, SS, Visitor, S, B> Traversable<Visitor, EffectContext<S>, S, B> for Scope<T, F, SS>
+impl<T, F, SS, Visitor, Output, S, B> Traversable<Visitor, EffectContext<S>, Output, S, B>
+    for Scope<T, F, SS>
 where
-    T: Traversable<Visitor, EffectContext<SS>, SS, B>,
+    T: Traversable<Visitor, EffectContext<SS>, Output, SS, B>,
     F: Fn(&S) -> &SS + Sync + Send + 'static,
     SS: State,
     S: State,
@@ -189,7 +191,7 @@ where
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Output {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
         let result = self
@@ -206,14 +208,14 @@ where
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Option<Output> {
         let sub_state = (self.selector_fn)(state);
         let mut sub_context = context.new_sub_context();
-        let found = self
+        let result = self
             .target
             .search(id_path, visitor, sub_state, backend, &mut sub_context);
         context.merge_sub_context(sub_context, &self.selector_fn);
-        found
+        result
     }
 }
 

@@ -9,7 +9,7 @@ use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
 use crate::state::State;
-use crate::traversable::{Traversable, TraversableVisitor};
+use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
 
@@ -177,12 +177,13 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for VecStorage<V, CS, S, B>
+impl<V, CS, Visitor, Context, S, B> Traversable<Visitor, Context, Visitor::Output, S, B>
+    for VecStorage<V, CS, S, B>
 where
-    ViewNode<V, CS, S, B>: Traversable<Visitor, Context, S, B>,
+    ViewNode<V, CS, S, B>: Traversable<Visitor, Context, Visitor::Output, S, B>,
     V: View<S, B>,
     CS: ComponentStack<S, B, View = V>,
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, Context, S, B>,
+    Visitor: self::Visitor<ViewNode<V, CS, S, B>, Context, S, B>,
     S: State,
 {
     fn for_each(
@@ -191,10 +192,10 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
-        let mut result = false;
+    ) -> Visitor::Output {
+        let mut result = Visitor::Output::default();
         for node in &mut self.active {
-            result |= node.for_each(visitor, state, backend, context);
+            result = result.combine(node.for_each(visitor, state, backend, context));
         }
         result
     }
@@ -206,14 +207,13 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Option<Visitor::Output> {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            node.search(id_path, visitor, state, backend, context);
-            true
+            node.search(id_path, visitor, state, backend, context)
         } else {
-            false
+            None
         }
     }
 }

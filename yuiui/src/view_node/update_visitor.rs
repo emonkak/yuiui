@@ -4,7 +4,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::id::ComponentIndex;
 use crate::state::State;
-use crate::traversable::{Traversable, TraversableVisitor};
+use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
 use super::ViewNode;
@@ -19,19 +19,21 @@ impl<'a> UpdateVisitor {
     }
 }
 
-impl<V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, RenderContext, S, B> for UpdateVisitor
+impl<V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, RenderContext, S, B> for UpdateVisitor
 where
     V: View<S, B>,
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
+    type Output = bool;
+
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
         context: &mut RenderContext,
-    ) -> bool {
+    ) -> Self::Output {
         let component_index = mem::replace(&mut self.component_index, 0);
         if component_index < CS::LEN {
             CS::update(

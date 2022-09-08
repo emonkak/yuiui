@@ -173,10 +173,11 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for EitherStorage<L, R>
+impl<L, R, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+    for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, S, B>,
-    R: Traversable<Visitor, Context, S, B>,
+    L: Traversable<Visitor, Context, Output, S, B>,
+    R: Traversable<Visitor, Context, Output, S, B>,
     S: State,
 {
     fn for_each(
@@ -185,7 +186,7 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Output {
         match &mut self.active {
             Either::Left(node) => node.for_each(visitor, state, backend, context),
             Either::Right(node) => node.for_each(visitor, state, backend, context),
@@ -199,7 +200,7 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Option<Output> {
         match &mut self.active {
             Either::Left(node) => node.search(id_path, visitor, state, backend, context),
             Either::Right(node) => node.search(id_path, visitor, state, backend, context),

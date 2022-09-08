@@ -5,7 +5,7 @@ use crate::context::{EffectContext, IdContext};
 use crate::event::Lifecycle;
 use crate::id::ComponentIndex;
 use crate::state::State;
-use crate::traversable::TraversableVisitor;
+use crate::traversable::Visitor;
 use crate::view::View;
 
 use super::{CommitMode, ViewNode, ViewNodeSeq, ViewNodeState};
@@ -24,20 +24,21 @@ impl CommitVisitor {
     }
 }
 
-impl<V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
-    for CommitVisitor
+impl<V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B> for CommitVisitor
 where
     V: View<S, B>,
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
+    type Output = bool;
+
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Self::Output {
         let has_changed = node.children.commit(self.mode, state, backend, context);
         node.state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {

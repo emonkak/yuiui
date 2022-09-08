@@ -3,7 +3,7 @@ use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
-use crate::traversable::Traversable;
+use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 #[derive(Debug)]
@@ -81,10 +81,11 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, B, const N: usize> Traversable<Visitor, Context, S, B>
+impl<T, Visitor, Context, Output, S, B, const N: usize> Traversable<Visitor, Context, Output, S, B>
     for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Context, S, B>,
+    T: Traversable<Visitor, Context, Output, S, B>,
+    Output: Monoid,
     S: State,
 {
     fn for_each(
@@ -93,10 +94,10 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
-        let mut result = false;
+    ) -> Output {
+        let mut result = Output::default();
         for node in &mut self.nodes {
-            result |= node.for_each(visitor, state, backend, context);
+            result = result.combine(node.for_each(visitor, state, backend, context));
         }
         result
     }
@@ -108,12 +109,12 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Option<Output> {
         for node in &mut self.nodes {
-            if node.search(id_path, visitor, state, backend, context) {
-                return true;
+            if let Some(result) = node.search(id_path, visitor, state, backend, context) {
+                return Some(result);
             }
         }
-        false
+        None
     }
 }

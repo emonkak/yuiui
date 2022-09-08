@@ -6,7 +6,7 @@ use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
 use crate::state::State;
-use crate::traversable::Traversable;
+use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, B> ElementSeq<S, B> for HNil
@@ -59,8 +59,9 @@ where
     }
 }
 
-impl<Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for HNil
+impl<Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B> for HNil
 where
+    Output: Default,
     S: State,
 {
     fn for_each(
@@ -69,8 +70,8 @@ where
         _state: &S,
         _backend: &B,
         _context: &mut Context,
-    ) -> bool {
-        false
+    ) -> Output {
+        Output::default()
     }
 
     fn search(
@@ -80,8 +81,8 @@ where
         _state: &S,
         _backend: &B,
         _context: &mut Context,
-    ) -> bool {
-        false
+    ) -> Option<Output> {
+        None
     }
 }
 
@@ -160,10 +161,12 @@ where
     }
 }
 
-impl<H, T, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for HCons<H, T>
+impl<H, T, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+    for HCons<H, T>
 where
-    H: Traversable<Visitor, Context, S, B>,
-    T: Traversable<Visitor, Context, S, B> + HList,
+    H: Traversable<Visitor, Context, Output, S, B>,
+    T: Traversable<Visitor, Context, Output, S, B> + HList,
+    Output: Monoid,
     S: State,
 {
     fn for_each(
@@ -172,11 +175,10 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
-        let mut result = false;
-        result |= self.head.for_each(visitor, state, backend, context);
-        result |= self.tail.for_each(visitor, state, backend, context);
-        result
+    ) -> Output {
+        self.head
+            .for_each(visitor, state, backend, context)
+            .combine(self.tail.for_each(visitor, state, backend, context))
     }
 
     fn search(
@@ -186,8 +188,9 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
-        self.head.search(id_path, visitor, state, backend, context)
-            || self.tail.search(id_path, visitor, state, backend, context)
+    ) -> Option<Output> {
+        self.head
+            .search(id_path, visitor, state, backend, context)
+            .or_else(|| self.tail.search(id_path, visitor, state, backend, context))
     }
 }

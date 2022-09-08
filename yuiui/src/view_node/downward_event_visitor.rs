@@ -4,7 +4,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{EffectContext, IdContext};
 use crate::event::{Event, HasEvent};
 use crate::state::State;
-use crate::traversable::{Traversable, TraversableVisitor};
+use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
 use super::{ViewNode, ViewNodeState};
@@ -19,20 +19,22 @@ impl<'a> DownwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
+impl<'a, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
     for DownwardEventVisitor<'a>
 where
     V: View<S, B>,
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
+    type Output = bool;
+
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let mut captured = false;

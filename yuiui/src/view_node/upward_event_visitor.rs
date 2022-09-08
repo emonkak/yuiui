@@ -5,7 +5,7 @@ use crate::context::{EffectContext, IdContext};
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
 use crate::state::State;
-use crate::traversable::{Traversable, TraversableVisitor};
+use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
 use super::{ViewNode, ViewNodeState};
@@ -21,28 +21,33 @@ impl<'a> UpwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
+impl<'a, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, EffectContext<S>, S, B>
     for UpwardEventVisitor<'a>
 where
     V: View<S, B>,
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
+    type Output = bool;
+
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
         context: &mut EffectContext<S>,
-    ) -> bool {
+    ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, widget) | ViewNodeState::Pending(view, _, widget) => {
                 let mut captured = false;
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
-                    captured |= node
-                        .children
-                        .search(&[*head], self, state, backend, context);
+                    if let Some(child_captured) =
+                        node.children
+                            .search(&[*head], self, state, backend, context)
+                    {
+                        captured |= child_captured;
+                    }
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     let result = view.event(

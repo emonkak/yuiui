@@ -120,9 +120,11 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, B> Traversable<Visitor, Context, S, B> for OptionStorage<T>
+impl<T, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+    for OptionStorage<T>
 where
-    T: Traversable<Visitor, Context, S, B>,
+    T: Traversable<Visitor, Context, Output, S, B>,
+    Output: Default,
     S: State,
 {
     fn for_each(
@@ -131,11 +133,11 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Output {
         if let Some(node) = &mut self.active {
             node.for_each(visitor, state, backend, context)
         } else {
-            false
+            Output::default()
         }
     }
 
@@ -146,11 +148,11 @@ where
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Option<Output> {
         if let Some(node) = &mut self.active {
             node.search(id_path, visitor, state, backend, context)
         } else {
-            false
+            None
         }
     }
 }

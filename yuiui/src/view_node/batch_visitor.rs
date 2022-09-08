@@ -1,17 +1,15 @@
 use crate::component_stack::ComponentStack;
 use crate::context::IdContext;
 use crate::element::ElementSeq;
-use crate::id::{ComponentIndex, Cursor, Id, IdPathBuf};
+use crate::id::{ComponentIndex, Cursor, Id};
 use crate::state::State;
-use crate::traversable::Traversable;
-use crate::traversable::TraversableVisitor;
+use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::ViewNode;
 
 pub struct BatchVisitor<'a, Visitor> {
     cursor: Cursor<'a, ComponentIndex>,
     visitor_factory: fn(Id, ComponentIndex) -> Visitor,
-    changed_nodes: Vec<(IdPathBuf, ComponentIndex)>,
 }
 
 impl<'a, Visitor> BatchVisitor<'a, Visitor> {
@@ -22,49 +20,44 @@ impl<'a, Visitor> BatchVisitor<'a, Visitor> {
         Self {
             cursor,
             visitor_factory,
-            changed_nodes: Vec::new(),
         }
-    }
-
-    pub fn into_changed_nodes(self) -> Vec<(IdPathBuf, ComponentIndex)> {
-        self.changed_nodes
     }
 }
 
-impl<'a, Visitor, Context, V, CS, S, B> TraversableVisitor<ViewNode<V, CS, S, B>, Context, S, B>
-    for BatchVisitor<'a, Visitor>
+impl<'a, Inner, Context, V, CS, S, B> Visitor<ViewNode<V, CS, S, B>, Context, S, B>
+    for BatchVisitor<'a, Inner>
 where
-    Visitor: TraversableVisitor<ViewNode<V, CS, S, B>, Context, S, B>,
+    Inner: Visitor<ViewNode<V, CS, S, B>, Context, S, B>,
     Context: IdContext,
     V: View<S, B>,
     <<V as View<S, B>>::Children as ElementSeq<S, B>>::Storage:
-        Traversable<BatchVisitor<'a, Visitor>, Context, S, B>,
+        Traversable<Self, Context, Inner::Output, S, B>,
     CS: ComponentStack<S, B, View = V>,
     S: State,
 {
+    type Output = Inner::Output;
+
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, B>,
         state: &S,
         backend: &B,
         context: &mut Context,
-    ) -> bool {
+    ) -> Self::Output {
         let current = self.cursor.current();
         if let Some(component_index) = current.value() {
             let mut visitor = (self.visitor_factory)(current.id(), *component_index);
-            if visitor.visit(node, state, backend, context) {
-                self.changed_nodes
-                    .push((context.id_path().to_vec(), *component_index));
-                true
-            } else {
-                false
-            }
+            visitor.visit(node, state, backend, context)
         } else {
-            let mut result = false;
+            let mut result = Self::Output::default();
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                result |= node.children.search(&[id], self, state, backend, context);
+                if let Some(child_result) =
+                    node.children.search(&[id], self, state, backend, context)
+                {
+                    result = result.combine(child_result);
+                }
             }
             result
         }
