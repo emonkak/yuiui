@@ -1,7 +1,7 @@
 use futures::stream::StreamExt as _;
 use glib::{MainContext, Sender, SourceId};
 use std::any::Any;
-use yuiui::{CancellationToken, Command, EventDestination, RawToken, RawTokenVTable, StateStack};
+use yuiui::{CancellationToken, Command, EventDestination, RawToken, RawTokenVTable, IdStack};
 
 #[derive(Debug)]
 pub struct ExecutionContext<T> {
@@ -29,7 +29,7 @@ impl<T: Send + 'static> yuiui::ExecutionContext<T> for ExecutionContext<T> {
         &self,
         command: Command<T>,
         cancellation_token: Option<CancellationToken>,
-        state_stack: StateStack,
+        state_stack: IdStack,
     ) {
         let port = self.port.clone();
         let source_id = match command {
@@ -80,7 +80,7 @@ fn create_token(source_id: SourceId) -> RawToken {
 }
 
 pub(super) enum RenderAction<T> {
-    Message(T, StateStack),
+    Message(T, IdStack),
     Event(Box<dyn Any + Send>, EventDestination),
     RequestRender,
 }

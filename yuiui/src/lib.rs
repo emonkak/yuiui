@@ -19,13 +19,13 @@ pub use command::{Command, CommandBatch, ExecutionContext};
 pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
-pub use context::{MessageContext, RenderContext, StateStack};
+pub use context::{MessageContext, RenderContext};
 pub use element::{
     ComponentElement, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,
     ViewElement,
 };
 pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
-pub use id::{Depth, Id, IdPath, IdPathBuf};
+pub use id::{id_stack, id_tree, Depth, Id, IdPath, IdPathBuf, IdStack, IdTree};
 pub use render_loop::{Forever, RenderFlow, RenderLoop};
 pub use state::{State, Store};
 pub use traversable::{Traversable, Visitor};

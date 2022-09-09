@@ -8,18 +8,14 @@ pub struct IdTree<T> {
 }
 
 impl<T> IdTree<T> {
+    #[inline]
     pub fn root(&self) -> Cursor<'_, T> {
-        Cursor {
-            arena: &self.arena,
-            node: &self.arena[0],
-        }
+        Cursor::new(&self.arena)
     }
 
-    pub fn descendants(&self) -> impl Iterator<Item = Cursor<'_, T>> {
-        self.arena.iter().map(|node| Cursor {
-            arena: &self.arena,
-            node,
-        })
+    #[inline]
+    pub fn descendants(&self) -> Descendants<'_, T> {
+        Descendants::new(&self.arena)
     }
 }
 
@@ -101,10 +97,12 @@ impl<T> Node<T> {
         }
     }
 
+    #[inline]
     pub fn id(&self) -> Id {
         self.id
     }
 
+    #[inline]
     pub fn value(&self) -> Option<&T> {
         self.value.as_ref()
     }
@@ -117,16 +115,21 @@ pub struct Cursor<'a, T> {
 }
 
 impl<'a, T> Cursor<'a, T> {
+    fn new(arena: &'a Vec<Node<T>>) -> Self {
+        Self {
+            arena,
+            node: &arena[0],
+        }
+    }
+
+    #[inline]
     pub fn current(&self) -> &Node<T> {
         &self.node
     }
 
+    #[inline]
     pub fn children(&self) -> Children<'a, T> {
-        Children {
-            arena: self.arena,
-            children: &self.node.children,
-            index: 0,
-        }
+        Children::new(self.arena, &self.node.children)
     }
 }
 
@@ -134,6 +137,12 @@ impl<'a, T> Cursor<'a, T> {
 pub struct Descendants<'a, T> {
     arena: &'a Vec<Node<T>>,
     index: usize,
+}
+
+impl<'a, T> Descendants<'a, T> {
+    fn new(arena: &'a Vec<Node<T>>) -> Self {
+        Self { arena, index: 0 }
+    }
 }
 
 impl<'a, T> Iterator for Descendants<'a, T> {
@@ -158,6 +167,16 @@ pub struct Children<'a, T> {
     arena: &'a Vec<Node<T>>,
     children: &'a Vec<usize>,
     index: usize,
+}
+
+impl<'a, T> Children<'a, T> {
+    fn new(arena: &'a Vec<Node<T>>, children: &'a Vec<usize>) -> Self {
+        Self {
+            arena,
+            children,
+            index: 0,
+        }
+    }
 }
 
 impl<'a, T> Iterator for Children<'a, T> {

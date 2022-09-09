@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf};
+use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf, IdStack};
 
 #[derive(Debug)]
 pub struct RenderContext {
@@ -65,7 +65,7 @@ impl RenderContext {
 pub struct MessageContext<T> {
     id_path: IdPathBuf,
     depth: Depth,
-    state_stack: StateStack,
+    state_stack: IdStack,
     messages: Vec<T>,
 }
 
@@ -74,14 +74,14 @@ impl<T> MessageContext<T> {
         Self {
             id_path: IdPathBuf::new(),
             depth: 0,
-            state_stack: StateStack::new(),
+            state_stack: IdStack::new(),
             messages: Vec::new(),
         }
     }
 
     pub(crate) fn new_sub_context<U>(&self) -> MessageContext<U> {
         let mut state_stack = self.state_stack.clone();
-        state_stack.push((self.id_path.clone(), self.depth));
+        state_stack.push(&self.id_path, self.depth);
         MessageContext {
             id_path: self.id_path.clone(),
             depth: self.depth,
@@ -121,12 +121,10 @@ impl<T> MessageContext<T> {
         self.depth
     }
 
-    pub fn into_messages(self) -> Vec<(T, StateStack)> {
+    pub fn into_messages(self) -> Vec<(T, IdStack)> {
         self.messages
             .into_iter()
             .map(move |message| (message, self.state_stack.clone()))
             .collect()
     }
 }
-
-pub type StateStack = Vec<(IdPathBuf, Depth)>;

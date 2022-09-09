@@ -1,6 +1,6 @@
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
-use crate::id::{Depth, Cursor};
+use crate::id::{id_tree, Depth};
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -9,11 +9,11 @@ use super::{CommitMode, ViewNode};
 
 pub struct CommitSubtreeVisitor<'a> {
     mode: CommitMode,
-    cursor: Cursor<'a, Depth>,
+    cursor: id_tree::Cursor<'a, Depth>,
 }
 
 impl<'a> CommitSubtreeVisitor<'a> {
-    pub fn new(mode: CommitMode, cursor: Cursor<'a, Depth>) -> Self {
+    pub fn new(mode: CommitMode, cursor: id_tree::Cursor<'a, Depth>) -> Self {
         Self { mode, cursor }
     }
 }
@@ -41,7 +41,10 @@ where
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                result |= node.children.search(&[id], self, context, store, backend).unwrap_or(false);
+                result |= node
+                    .children
+                    .search(&[id], self, context, store, backend)
+                    .unwrap_or(false);
             }
             result
         }

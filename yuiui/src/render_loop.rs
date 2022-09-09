@@ -1,14 +1,14 @@
 use std::any::Any;
-use std::collections::{btree_map, BTreeMap, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::mem;
 use std::time::{Duration, Instant};
 
 use crate::command::ExecutionContext;
-use crate::context::{MessageContext, RenderContext, StateStack};
+use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
-use crate::id::{Depth, IdPathBuf, IdTree};
+use crate::id::{Depth, IdPathBuf, IdStack, IdTree};
 use crate::state::State;
 use crate::state::Store;
 use crate::view::View;
@@ -17,10 +17,10 @@ use crate::view_node::{CommitMode, ViewNode};
 pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     node: ViewNode<E::View, E::Components, S, M, B>,
     render_context: RenderContext,
-    message_queue: VecDeque<(M, StateStack)>,
+    message_queue: VecDeque<(M, IdStack)>,
     event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
-    update_selection: BTreeMap<IdPathBuf, Depth>,
-    commit_selection: BTreeMap<IdPathBuf, Depth>,
+    updated_nodes: BTreeMap<IdPathBuf, Depth>,
+    nodes_to_commit: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
 }
 
@@ -37,8 +37,8 @@ where
             render_context: RenderContext::new(),
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
-            update_selection: BTreeMap::new(),
-            commit_selection: BTreeMap::new(),
+            updated_nodes: BTreeMap::new(),
+            nodes_to_commit: BTreeMap::new(),
             is_mounted: false,
         }
     }
@@ -54,8 +54,15 @@ where
             while let Some((message, state_stack)) = self.message_queue.pop_front() {
                 let (dirty, command) = store.update(message);
                 if dirty {
-                    for (id_path, depth) in state_stack.clone() {
-                        extend_selection(&mut self.update_selection, id_path, depth);
+                    // Update the root always
+                    self.updated_nodes.insert(IdPathBuf::new(), 0);
+
+                    for (id_path, depth) in state_stack.iter() {
+                        if let Some(current_depth) = self.updated_nodes.get_mut(id_path) {
+                            *current_depth = (*current_depth).min(depth);
+                        } else {
+                            self.updated_nodes.insert(id_path.to_vec(), depth);
+                        }
                     }
                 }
                 for (command, cancellation_token) in command {
@@ -77,14 +84,18 @@ where
                 continue;
             }
 
-            if !self.update_selection.is_empty() {
-                let id_tree = IdTree::from_iter(mem::take(&mut self.update_selection));
+            if !self.updated_nodes.is_empty() {
+                let id_tree = IdTree::from_iter(mem::take(&mut self.updated_nodes));
                 let changed_nodes =
                     self.node
                         .update_subtree(&id_tree, store, backend, &mut self.render_context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
-                        extend_selection(&mut self.commit_selection, id_path, depth);
+                        if let Some(current_depth) = self.nodes_to_commit.get_mut(&id_path) {
+                            *current_depth = (*current_depth).min(depth);
+                        } else {
+                            self.nodes_to_commit.insert(id_path, depth);
+                        }
                     }
                 }
                 if deadline.did_timeout() {
@@ -93,8 +104,8 @@ where
             }
 
             if self.is_mounted {
-                if !self.commit_selection.is_empty() {
-                    let id_tree = IdTree::from_iter(mem::take(&mut self.commit_selection));
+                if !self.nodes_to_commit.is_empty() {
+                    let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_commit));
                     let mut context = MessageContext::new();
                     self.node
                         .commit_subtree(&id_tree, &mut context, store, backend);
@@ -120,7 +131,7 @@ where
         }
     }
 
-    pub fn push_message(&mut self, message: M, state_stack: StateStack) {
+    pub fn push_message(&mut self, message: M, state_stack: IdStack) {
         self.message_queue.push_back((message, state_stack));
     }
 
@@ -158,8 +169,8 @@ where
 
     fn render_status(&self) -> RenderFlow {
         if self.message_queue.is_empty()
-            && self.update_selection.is_empty()
-            && self.commit_selection.is_empty()
+            && self.updated_nodes.is_empty()
+            && self.nodes_to_commit.is_empty()
             && self.is_mounted
         {
             RenderFlow::Done
@@ -184,8 +195,8 @@ where
             .field("node", &self.node)
             .field("render_context", &self.render_context)
             .field("message_queue", &self.message_queue)
-            .field("update_selection", &self.update_selection)
-            .field("commit_selection", &self.commit_selection)
+            .field("updated_nodes", &self.updated_nodes)
+            .field("nodes_to_commit", &self.nodes_to_commit)
             .field("is_mounted", &self.is_mounted)
             .finish()
     }
@@ -212,17 +223,5 @@ pub struct Forever;
 impl Deadline for Forever {
     fn did_timeout(&self) -> bool {
         false
-    }
-}
-
-fn extend_selection(selection: &mut BTreeMap<IdPathBuf, Depth>, id_path: IdPathBuf, depth: Depth) {
-    match selection.entry(id_path) {
-        btree_map::Entry::Vacant(entry) => {
-            entry.insert(depth);
-        }
-        btree_map::Entry::Occupied(mut entry) => {
-            let current_depth = entry.get_mut();
-            *current_depth = (*current_depth).min(depth);
-        }
     }
 }
