@@ -295,13 +295,12 @@ where
         if let Some(value) = &self.env {
             context.push_env(value.clone());
         }
-        let result = if self.id == Id::from_top(id_path) {
+        let result = if self.id == Id::from_bottom(id_path) {
             Some(visitor.visit(self, context, store, backend))
-        } else if self.id == Id::from_bottom(id_path) {
+        } else if self.id == Id::from_top(id_path) {
             debug_assert!(id_path.len() > 0);
-            let id_path = &id_path[1..];
             self.children
-                .search(id_path, visitor, context, store, backend)
+                .search(&id_path[1..], visitor, context, store, backend)
         } else {
             None
         };

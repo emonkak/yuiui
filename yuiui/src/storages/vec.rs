@@ -208,7 +208,7 @@ where
         store: &Store<S>,
         backend: &B,
     ) -> Option<Visitor::Output> {
-        let id = Id::from_bottom(id_path);
+        let id = Id::from_top(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
             node.search(id_path, visitor, context, store, backend)
