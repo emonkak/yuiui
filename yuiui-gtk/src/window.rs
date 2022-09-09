@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use std::marker::PhantomData;
-use yuiui::{ElementSeq, Store, HasEvent, Lifecycle, MessageContext, View, ViewElement};
+use yuiui::{ElementSeq, HasEvent, Lifecycle, MessageContext, Store, View, ViewElement};
 
 use crate::backend::Backend;
 

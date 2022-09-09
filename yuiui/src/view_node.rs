@@ -2,7 +2,7 @@ mod batch_visitor;
 mod commit_visitor;
 mod downward_event_visitor;
 mod local_event_visitor;
-mod update_visitor;
+mod update_subtree_visitor;
 mod upward_event_visitor;
 
 use std::any::Any;
@@ -23,7 +23,7 @@ use batch_visitor::BatchVisitor;
 use commit_visitor::CommitVisitor;
 use downward_event_visitor::DownwardEventVisitor;
 use local_event_visitor::LocalEventVisitor;
-use update_visitor::UpdateVisitor;
+use update_subtree_visitor::UpdateSubtreeVisitor;
 use upward_event_visitor::UpwardEventVisitor;
 
 pub struct ViewNode<V: View<S, M, B>, CS: ComponentStack<S, M, B, View = V>, S, M, B> {
@@ -105,7 +105,7 @@ where
         backend: &B,
         context: &mut RenderContext,
     ) -> Vec<(IdPathBuf, Depth)> {
-        let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| UpdateVisitor::new(depth));
+        let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
         visitor.visit(self, context, store, backend)
     }
 
@@ -198,15 +198,9 @@ pub struct ViewNodeMut<'a, V: View<S, M, B>, CS, S, M, B> {
 
 pub trait ViewNodeSeq<S, M, B>:
     Traversable<CommitVisitor, MessageContext<M>, bool, S, B>
-    + Traversable<UpdateVisitor, RenderContext, Vec<(IdPathBuf, Depth)>, S, B>
     + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, MessageContext<M>, bool, S, B>
-    + for<'a> Traversable<
-        BatchVisitor<'a, UpdateVisitor>,
-        RenderContext,
-        Vec<(IdPathBuf, Depth)>,
-        S,
-        B,
-    > + for<'a> Traversable<DownwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
+    + for<'a> Traversable<UpdateSubtreeVisitor<'a>, RenderContext, Vec<(IdPathBuf, Depth)>, S, B>
     + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, B>
     + for<'a> Traversable<UpwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
 {

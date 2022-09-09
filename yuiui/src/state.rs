@@ -1,12 +1,12 @@
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::command::Command;
+use crate::command::CommandBatch;
 
 pub trait State: 'static {
     type Message;
 
-    fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>);
+    fn update(&mut self, message: Self::Message) -> (bool, CommandBatch<Self::Message>);
 }
 
 #[derive(Debug)]
@@ -27,6 +27,10 @@ impl<T> Store<T> {
         self.dirty.load(Ordering::Relaxed)
     }
 
+    pub(crate) fn mark_dirty(&self) {
+        self.dirty.store(true, Ordering::Relaxed)
+    }
+
     pub(crate) fn mark_clean(&self) {
         self.dirty.store(false, Ordering::Relaxed)
     }
@@ -43,10 +47,10 @@ impl<T> Deref for Store<T> {
 impl<T: State> State for Store<T> {
     type Message = T::Message;
 
-    fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>) {
+    fn update(&mut self, message: Self::Message) -> (bool, CommandBatch<Self::Message>) {
         let (dirty, commands) = self.state.update(message);
         if dirty {
-            self.dirty.store(true, Ordering::Relaxed)
+            self.mark_dirty();
         }
         (dirty, commands)
     }

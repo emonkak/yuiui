@@ -91,7 +91,12 @@ where
 
     const DEPTH: usize = [H::DEPTH, T::DEPTH][(H::DEPTH < T::DEPTH) as usize];
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+    fn render_children(
+        self,
+        context: &mut RenderContext,
+        store: &Store<S>,
+        backend: &B,
+    ) -> Self::Storage {
         HCons {
             head: self.head.render_children(context, store, backend),
             tail: self.tail.render_children(context, store, backend),

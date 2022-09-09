@@ -69,7 +69,12 @@ pub trait ElementSeq<S, M, B> {
 
     const DEPTH: usize;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage;
+    fn render_children(
+        self,
+        context: &mut RenderContext,
+        store: &Store<S>,
+        backend: &B,
+    ) -> Self::Storage;
 
     fn update_children(
         self,

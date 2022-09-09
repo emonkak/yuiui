@@ -4,8 +4,8 @@ use std::fmt;
 use std::mem;
 use std::time::{Duration, Instant};
 
-use crate::command::CommandRuntime;
-use crate::context::{MessageContext, RenderContext, StateScope};
+use crate::command::ExecutionContext;
+use crate::context::{MessageContext, RenderContext, StateStack};
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
 use crate::id::{Depth, IdPathBuf, IdTree};
@@ -17,7 +17,8 @@ use crate::view_node::{CommitMode, ViewNode};
 pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     node: ViewNode<E::View, E::Components, S, M, B>,
     render_context: RenderContext,
-    message_queue: VecDeque<(M, StateScope)>,
+    message_queue: VecDeque<(M, StateStack)>,
+    event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
     update_selection: BTreeMap<IdPathBuf, Depth>,
     commit_selection: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
@@ -35,6 +36,7 @@ where
             node,
             render_context: RenderContext::new(),
             message_queue: VecDeque::new(),
+            event_queue: VecDeque::new(),
             update_selection: BTreeMap::new(),
             commit_selection: BTreeMap::new(),
             is_mounted: false,
@@ -44,27 +46,35 @@ where
     pub fn run(
         &mut self,
         deadline: &impl Deadline,
-        command_runtime: &impl CommandRuntime<M>,
+        context: &impl ExecutionContext<M>,
         store: &mut Store<S>,
         backend: &B,
     ) -> RenderFlow {
         loop {
-            while let Some((message, state_scope)) = self.message_queue.pop_front() {
+            while let Some((message, state_stack)) = self.message_queue.pop_front() {
                 let (dirty, command) = store.update(message);
                 if dirty {
-                    let (id_path, depth) = state_scope.clone().normalize();
-                    extend_selection(&mut self.update_selection, id_path, depth);
+                    for (id_path, depth) in state_stack.clone() {
+                        extend_selection(&mut self.update_selection, id_path, depth);
+                    }
                 }
-                for (command_atom, cancellation_token) in command {
-                    command_runtime.spawn_command(
-                        command_atom,
-                        cancellation_token,
-                        state_scope.clone(),
-                    );
+                for (command, cancellation_token) in command {
+                    context.spawn_command(command, cancellation_token, state_stack.clone());
                 }
                 if deadline.did_timeout() {
                     return self.render_status();
                 }
+            }
+
+            while let Some((event, destination)) = self.event_queue.pop_front() {
+                self.dispatch_event(event, destination, store, backend);
+                if deadline.did_timeout() {
+                    return self.render_status();
+                }
+            }
+
+            if !self.message_queue.is_empty() {
+                continue;
             }
 
             if !self.update_selection.is_empty() {
@@ -110,11 +120,15 @@ where
         }
     }
 
-    pub fn push_message(&mut self, message: M, state_scope: StateScope) {
-        self.message_queue.push_back((message, state_scope));
+    pub fn push_message(&mut self, message: M, state_stack: StateStack) {
+        self.message_queue.push_back((message, state_stack));
     }
 
-    pub fn dispatch_event(
+    pub fn push_event(&mut self, event: Box<dyn Any + Send>, destination: EventDestination) {
+        self.event_queue.push_back((event, destination));
+    }
+
+    fn dispatch_event(
         &mut self,
         event: Box<dyn Any + Send>,
         destination: EventDestination,

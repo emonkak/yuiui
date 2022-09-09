@@ -115,7 +115,12 @@ where
 
     const DEPTH: usize = T::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+    fn render_children(
+        self,
+        context: &mut RenderContext,
+        store: &Store<S>,
+        backend: &B,
+    ) -> Self::Storage {
         let sub_store = (self.store_selector)(store);
         Scope::new(
             self.target.render_children(context, sub_store, backend),

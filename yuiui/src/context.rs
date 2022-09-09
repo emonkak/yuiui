@@ -19,15 +19,11 @@ impl RenderContext {
         }
     }
 
-    pub fn id_path(&self) -> &IdPath {
-        &self.id_path
-    }
-
-    pub fn begin_id(&mut self, id: Id) {
+    pub(crate) fn begin_id(&mut self, id: Id) {
         self.id_path.push(id);
     }
 
-    pub fn end_id(&mut self) {
+    pub(crate) fn end_id(&mut self) {
         let id = self.id_path.pop().unwrap();
 
         while let Some((env_id, _)) = self.env_stack.last() {
@@ -39,7 +35,7 @@ impl RenderContext {
         }
     }
 
-    pub fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
+    pub(crate) fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
         let id = self.id_counter.next();
         self.id_path.push(id);
         let result = f(id, self);
@@ -47,7 +43,7 @@ impl RenderContext {
         result
     }
 
-    pub fn get_env<T: 'static>(&self) -> Option<&T> {
+    pub(crate) fn get_env<T: 'static>(&self) -> Option<&T> {
         for (_, env) in self.env_stack.iter().rev() {
             if let Some(value) = env.downcast_ref() {
                 return Some(value);
@@ -56,8 +52,12 @@ impl RenderContext {
         None
     }
 
-    pub fn push_env(&mut self, value: Rc<dyn Any>) {
+    pub(crate) fn push_env(&mut self, value: Rc<dyn Any>) {
         self.env_stack.push((Id::from_bottom(&self.id_path), value))
+    }
+
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
     }
 }
 
@@ -65,7 +65,7 @@ impl RenderContext {
 pub struct MessageContext<T> {
     id_path: IdPathBuf,
     depth: Depth,
-    state_scope: StateScope,
+    state_stack: StateStack,
     messages: Vec<T>,
 }
 
@@ -74,36 +74,42 @@ impl<T> MessageContext<T> {
         Self {
             id_path: IdPathBuf::new(),
             depth: 0,
-            state_scope: StateScope::Whole,
+            state_stack: StateStack::new(),
             messages: Vec::new(),
         }
     }
 
-    pub fn new_sub_context<U>(&self) -> MessageContext<U> {
+    pub(crate) fn new_sub_context<U>(&self) -> MessageContext<U> {
+        let mut state_stack = self.state_stack.clone();
+        state_stack.push((self.id_path.clone(), self.depth));
         MessageContext {
             id_path: self.id_path.clone(),
             depth: self.depth,
-            state_scope: StateScope::Subtree(self.id_path.clone(), self.depth),
+            state_stack,
             messages: Vec::new(),
         }
     }
 
-    pub fn merge_sub_context<U, F: Fn(U) -> T>(&mut self, sub_context: MessageContext<U>, f: &F) {
+    pub(crate) fn merge_sub_context<U, F: Fn(U) -> T>(
+        &mut self,
+        sub_context: MessageContext<U>,
+        f: &F,
+    ) {
         assert!(sub_context.id_path.starts_with(&self.id_path));
         let new_messages = sub_context.messages.into_iter().map(f);
         self.messages.extend(new_messages);
     }
 
-    pub fn begin_id(&mut self, id: Id) {
+    pub(crate) fn begin_id(&mut self, id: Id) {
         self.id_path.push(id);
         self.depth = 0;
     }
 
-    pub fn end_id(&mut self) {
+    pub(crate) fn end_id(&mut self) {
         self.id_path.pop();
     }
 
-    pub fn set_depth(&mut self, depth: Depth) {
+    pub(crate) fn set_depth(&mut self, depth: Depth) {
         self.depth = depth;
     }
 
@@ -115,29 +121,12 @@ impl<T> MessageContext<T> {
         self.depth
     }
 
-    pub fn state_scope(&self) -> &StateScope {
-        &self.state_scope
-    }
-
-    pub fn into_messages(self) -> Vec<(T, StateScope)> {
+    pub fn into_messages(self) -> Vec<(T, StateStack)> {
         self.messages
             .into_iter()
-            .map(move |message| (message, self.state_scope.clone()))
+            .map(move |message| (message, self.state_stack.clone()))
             .collect()
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum StateScope {
-    Whole,
-    Subtree(IdPathBuf, Depth),
-}
-
-impl StateScope {
-    pub fn normalize(self) -> (IdPathBuf, Depth) {
-        match self {
-            StateScope::Whole => (IdPathBuf::new(), 0),
-            StateScope::Subtree(id_path, depth) => (id_path, depth),
-        }
-    }
-}
+pub type StateStack = Vec<(IdPathBuf, Depth)>;

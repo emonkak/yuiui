@@ -19,7 +19,7 @@ enum AppMessage {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(&mut self, message: AppMessage) -> (bool, Command<AppMessage>) {
+    fn update(&mut self, message: AppMessage) -> (bool, CommandBatch<AppMessage>) {
         match message {
             AppMessage::CounterMessage(message) => {
                 let (dirty, commands) = self.counter_store.update(message);
@@ -54,7 +54,7 @@ fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
 
 fn main() {
     let store = Store::new(AppState {
-        counter_store: Store::new(CounterState { count: 0 },)
+        counter_store: Store::new(CounterState { count: 0 }),
     });
     let element = app();
     let mut context = RenderContext::new();
@@ -166,7 +166,7 @@ enum CounterMessage {
 impl State for CounterState {
     type Message = CounterMessage;
 
-    fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>) {
+    fn update(&mut self, message: Self::Message) -> (bool, CommandBatch<Self::Message>) {
         match message {
             CounterMessage::Increment => {
                 self.count += 1;
@@ -175,7 +175,7 @@ impl State for CounterState {
                 self.count -= 1;
             }
         }
-        (true, Command::none())
+        (true, CommandBatch::none())
     }
 }
 

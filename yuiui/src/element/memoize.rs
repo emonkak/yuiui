@@ -66,7 +66,12 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+    fn render_children(
+        self,
+        context: &mut RenderContext,
+        store: &Store<S>,
+        backend: &B,
+    ) -> Self::Storage {
         self.render(context, store, backend)
     }
 
