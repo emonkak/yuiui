@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
-use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
@@ -13,19 +12,16 @@ use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
 
-pub struct VecStorage<V: View<S, M, B>, CS: ComponentStack<S, M, B, View = V>, S, M, B> {
-    active: Vec<ViewNode<V, CS, S, M, B>>,
-    staging: VecDeque<ViewNode<V, CS, S, M, B>>,
+#[derive(Debug)]
+pub struct VecStorage<T> {
+    active: Vec<T>,
+    staging: VecDeque<T>,
     new_len: usize,
     dirty: bool,
 }
 
-impl<V, CS, S, M, B> VecStorage<V, CS, S, M, B>
-where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
-{
-    fn new(active: Vec<ViewNode<V, CS, S, M, B>>) -> Self {
+impl<T> VecStorage<T> {
+    fn new(active: Vec<T>) -> Self {
         Self {
             staging: VecDeque::with_capacity(active.len()),
             new_len: active.len(),
@@ -35,28 +31,11 @@ where
     }
 }
 
-impl<V, CS, S, M, B> fmt::Debug for VecStorage<V, CS, S, M, B>
-where
-    V: View<S, M, B> + fmt::Debug,
-    V::State: fmt::Debug,
-    <V::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
-    CS: ComponentStack<S, M, B, View = V> + fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("VecStorage")
-            .field("active", &self.active)
-            .field("staging", &self.staging)
-            .field("new_len", &self.new_len)
-            .field("dirty", &self.dirty)
-            .finish()
-    }
-}
-
 impl<E, S, M, B> ElementSeq<S, M, B> for Vec<E>
 where
     E: Element<S, M, B>,
 {
-    type Storage = VecStorage<E::View, E::Components, S, M, B>;
+    type Storage = VecStorage<ViewNode<E::View, E::Components, S, M, B>>;
 
     const DEPTH: usize = E::DEPTH;
 
@@ -110,7 +89,7 @@ where
     }
 }
 
-impl<V, CS, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<V, CS, S, M, B>
+impl<V, CS, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<ViewNode<V, CS, S, M, B>>
 where
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
@@ -178,18 +157,18 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, M, B> Traversable<Visitor, Context, Visitor::Output, S, B>
-    for VecStorage<V, CS, S, M, B>
+impl<V, CS, Visitor, S, M, B> Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>
+    for VecStorage<ViewNode<V, CS, S, M, B>>
 where
-    ViewNode<V, CS, S, M, B>: Traversable<Visitor, Context, Visitor::Output, S, B>,
+    ViewNode<V, CS, S, M, B>: Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>,
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
-    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, S, B, Context = Context>,
+    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, S, B>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        context: &mut Visitor::Context,
         store: &Store<S>,
         backend: &B,
     ) -> Visitor::Output {
@@ -204,7 +183,7 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
-        context: &mut Context,
+        context: &mut Visitor::Context,
         store: &Store<S>,
         backend: &B,
     ) -> Option<Visitor::Output> {
