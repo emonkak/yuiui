@@ -19,13 +19,15 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
     ) -> Option<Output>;
 }
 
-pub trait Visitor<Node, Context, S, B> {
+pub trait Visitor<Node, S, B> {
+    type Context;
+
     type Output: Monoid;
 
     fn visit(
         &mut self,
         node: &mut Node,
-        context: &mut Context,
+        context: &mut Self::Context,
         state: &S,
         backend: &B,
     ) -> Self::Output;

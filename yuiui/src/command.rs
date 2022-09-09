@@ -4,49 +4,50 @@ use std::fmt;
 use std::future::Future;
 use std::time::Duration;
 
-use crate::effect::Effect;
+use crate::cancellation_token::RawToken;
+use crate::context::StateScope;
 
-pub enum Command<M> {
-    Future(BoxFuture<'static, Effect<M>>),
-    Stream(BoxStream<'static, Effect<M>>),
-    Timeout(Duration, Box<dyn FnOnce() -> Effect<M> + Send>),
-    Interval(Duration, Box<dyn Fn() -> Effect<M> + Send>),
+pub enum Command<T> {
+    Future(BoxFuture<'static, T>),
+    Stream(BoxStream<'static, T>),
+    Timeout(Duration, Box<dyn FnOnce() -> T + Send>),
+    Interval(Duration, Box<dyn Fn() -> T + Send>),
 }
 
-impl<M> Command<M> {
+impl<T> Command<T> {
     pub fn from_future<Future>(future: Future) -> Self
     where
-        Future: self::Future<Output = Effect<M>> + Send + 'static,
+        Future: self::Future<Output = T> + Send + 'static,
     {
         Command::Future(Box::pin(future))
     }
 
     pub fn from_stream<Stream>(stream: Stream) -> Self
     where
-        Stream: self::Stream<Item = Effect<M>> + Send + 'static,
+        Stream: self::Stream<Item = T> + Send + 'static,
     {
         Command::Stream(Box::pin(stream))
     }
 
     pub fn delay<F>(duration: Duration, f: F) -> Self
     where
-        F: FnOnce() -> Effect<M> + Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
     {
         Command::Timeout(duration, Box::new(f))
     }
 
     pub fn every<F>(period: Duration, f: F) -> Self
     where
-        F: Fn() -> Effect<M> + Send + 'static,
+        F: Fn() -> T + Send + 'static,
     {
         Command::Interval(period, Box::new(f))
     }
 
-    pub fn map<F, N>(self, f: F) -> Command<N>
+    pub fn map<F, U>(self, f: F) -> Command<U>
     where
-        F: Fn(Effect<M>) -> Effect<N> + Send + 'static,
-        M: 'static,
-        N: 'static,
+        F: Fn(T) -> U + Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         match self {
             Command::Future(future) => Command::Future(Box::pin(future.map(f))),
@@ -79,4 +80,8 @@ where
                 .finish_non_exhaustive(),
         }
     }
+}
+
+pub trait CommandRunner<M> {
+    fn spawn_command(&self, command: Command<M>, state_scope: StateScope) -> RawToken;
 }

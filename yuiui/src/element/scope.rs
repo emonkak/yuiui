@@ -3,8 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::EffectOps;
+use crate::context::{MessageContext, RenderContext};
 use crate::event::{EventMask, HasEvent, Lifecycle};
 use crate::id::{Depth, IdPath};
 use crate::traversable::Traversable;
@@ -156,15 +155,17 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) -> bool {
         let sub_state = (self.state_selector)(state);
         let mut sub_context = context.new_sub_context();
-        self.target
-            .commit(mode, &mut sub_context, sub_state, backend)
-            .lift(&self.message_selector)
+        let result = self
+            .target
+            .commit(mode, &mut sub_context, sub_state, backend);
+        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        result
     }
 }
 
@@ -199,10 +200,10 @@ where
     }
 }
 
-impl<T, FS, FM, SS, SM, Visitor, S, M, B> Traversable<Visitor, EffectContext, EffectOps<M>, S, B>
+impl<T, FS, FM, SS, SM, Visitor, S, M, B> Traversable<Visitor, MessageContext<M>, bool, S, B>
     for Scope<T, FS, FM, SS, SM>
 where
-    T: Traversable<Visitor, EffectContext, EffectOps<SM>, SS, B>,
+    T: Traversable<Visitor, MessageContext<SM>, bool, SS, B>,
     FS: Fn(&S) -> &SS + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
@@ -211,30 +212,34 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) -> bool {
         let sub_state = (self.state_selector)(state);
         let mut sub_context = context.new_sub_context();
-        self.target
-            .for_each(visitor, &mut sub_context, sub_state, backend)
-            .lift(&self.message_selector)
+        let result = self
+            .target
+            .for_each(visitor, &mut sub_context, sub_state, backend);
+        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        result
     }
 
     fn search(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> Option<EffectOps<M>> {
+    ) -> Option<bool> {
         let sub_state = (self.state_selector)(state);
         let mut sub_context = context.new_sub_context();
-        self.target
-            .search(id_path, visitor, &mut sub_context, sub_state, backend)
-            .map(|result| result.lift(&self.message_selector))
+        let result = self
+            .target
+            .search(id_path, visitor, &mut sub_context, sub_state, backend);
+        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        result
     }
 }
 
@@ -255,22 +260,22 @@ where
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) -> bool {
         let sub_state = (self.state_selector)(state);
         let mut sub_context = context.new_sub_context();
-        self.target
-            .commit(
-                mode,
-                target_depth,
-                current_depth,
-                &mut sub_context,
-                sub_state,
-                backend,
-            )
-            .lift(&self.message_selector)
+        let result = self.target.commit(
+            mode,
+            target_depth,
+            current_depth,
+            &mut sub_context,
+            sub_state,
+            backend,
+        );
+        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        result
     }
 
     fn update<'a>(
@@ -312,23 +317,22 @@ where
         lifecycle: Lifecycle<&Self>,
         view_state: &mut Self::State,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        context: &EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
-        let sub_context = context.new_sub_context();
+        let mut sub_context = context.new_sub_context();
         let sub_state = (self.state_selector)(state);
-        self.target
-            .lifecycle(
-                sub_lifecycle,
-                view_state,
-                &children.target,
-                &sub_context,
-                sub_state,
-                backend,
-            )
-            .lift(&self.message_selector)
+        self.target.lifecycle(
+            sub_lifecycle,
+            view_state,
+            &children.target,
+            &mut sub_context,
+            sub_state,
+            backend,
+        );
+        context.merge_sub_context(sub_context, self.message_selector.as_ref());
     }
 
     fn event(
@@ -336,22 +340,21 @@ where
         event: <Self as HasEvent>::Event,
         view_state: &mut Self::State,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        context: &EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
-        let sub_context = context.new_sub_context();
+    ) {
+        let mut sub_context = context.new_sub_context();
         let sub_state = (self.state_selector)(state);
-        self.target
-            .event(
-                event,
-                view_state,
-                &children.target,
-                &sub_context,
-                sub_state,
-                backend,
-            )
-            .lift(&self.message_selector)
+        self.target.event(
+            event,
+            view_state,
+            &children.target,
+            &mut sub_context,
+            sub_state,
+            backend,
+        );
+        context.merge_sub_context(sub_context, self.message_selector.as_ref());
     }
 
     fn build(

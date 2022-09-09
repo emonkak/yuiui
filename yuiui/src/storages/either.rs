@@ -2,12 +2,11 @@ use either::Either;
 use std::mem;
 use std::sync::Once;
 
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::EffectOps;
+use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::RenderFlags;
@@ -141,32 +140,32 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
-        let mut result = EffectOps::nop();
+    ) -> bool {
+        let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
-                result = result.combine(match &mut self.active {
+                result |= match &mut self.active {
                     Either::Left(node) => node.commit(CommitMode::Unmount, context, state, backend),
                     Either::Right(node) => {
                         node.commit(CommitMode::Unmount, context, state, backend)
                     }
-                });
+                };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
-                result = result.combine(match &mut self.active {
+                result |= match &mut self.active {
                     Either::Left(node) => node.commit(CommitMode::Mount, context, state, backend),
                     Either::Right(node) => node.commit(CommitMode::Mount, context, state, backend),
-                });
+                };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
-            result = result.combine(match &mut self.active {
+            result |= match &mut self.active {
                 Either::Left(node) => node.commit(mode, context, state, backend),
                 Either::Right(node) => node.commit(mode, context, state, backend),
-            });
+            };
         }
         self.flags = RenderFlags::COMMITED;
         result

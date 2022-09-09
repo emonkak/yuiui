@@ -1,5 +1,4 @@
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::EffectOps;
+use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
@@ -65,14 +64,14 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
-        let mut result = EffectOps::nop();
+    ) -> bool {
+        let mut result = false;
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                result = result.combine(node.commit(mode, context, state, backend));
+                result |= node.commit(mode, context, state, backend);
             }
             self.dirty = false;
         }

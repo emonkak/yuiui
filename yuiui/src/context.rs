@@ -62,27 +62,36 @@ impl RenderContext {
 }
 
 #[derive(Debug, Clone)]
-pub struct EffectContext {
+pub struct MessageContext<T> {
     id_path: IdPathBuf,
     depth: Depth,
     state_scope: StateScope,
+    messages: Vec<T>,
 }
 
-impl EffectContext {
+impl<T> MessageContext<T> {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
             depth: 0,
             state_scope: StateScope::Whole,
+            messages: Vec::new(),
         }
     }
 
-    pub fn new_sub_context(&self) -> EffectContext {
-        EffectContext {
+    pub fn new_sub_context<U>(&self) -> MessageContext<U> {
+        MessageContext {
             id_path: self.id_path.clone(),
             depth: self.depth,
             state_scope: StateScope::Subtree(self.id_path.clone(), self.depth),
+            messages: Vec::new(),
         }
+    }
+
+    pub fn merge_sub_context<U, F: Fn(U) -> T>(&mut self, sub_context: MessageContext<U>, f: &F) {
+        assert!(sub_context.id_path.starts_with(&self.id_path));
+        let new_messages = sub_context.messages.into_iter().map(f);
+        self.messages.extend(new_messages);
     }
 
     pub fn begin_id(&mut self, id: Id) {
@@ -108,6 +117,13 @@ impl EffectContext {
 
     pub fn state_scope(&self) -> &StateScope {
         &self.state_scope
+    }
+
+    pub fn into_messages(self) -> Vec<(T, StateScope)> {
+        self.messages
+            .into_iter()
+            .map(move |message| (message, self.state_scope.clone()))
+            .collect()
     }
 }
 

@@ -2,8 +2,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::component::Component;
-use crate::context::EffectContext;
-use crate::effect::EffectOps;
+use crate::context::MessageContext;
 use crate::event::Lifecycle;
 use crate::id::Depth;
 use crate::view_node::CommitMode;
@@ -36,19 +35,25 @@ where
         &mut self,
         mode: CommitMode,
         depth: Depth,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) -> bool {
         context.set_depth(depth);
         match mode {
             CommitMode::Mount => {
-                self.component
-                    .lifecycle(Lifecycle::Mount, &mut self.state, context, state, backend)
+                self.component.lifecycle(
+                    Lifecycle::Mount,
+                    &mut self.state,
+                    context,
+                    state,
+                    backend,
+                );
+                true
             }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
-                    let result = pending_component.lifecycle(
+                    pending_component.lifecycle(
                         Lifecycle::Update(&self.component),
                         &mut self.state,
                         context,
@@ -56,18 +61,21 @@ where
                         backend,
                     );
                     self.component = pending_component;
-                    result
+                    true
                 } else {
-                    EffectOps::nop()
+                    false
                 }
             }
-            CommitMode::Unmount => self.component.lifecycle(
-                Lifecycle::Unmount,
-                &mut self.state,
-                context,
-                state,
-                backend,
-            ),
+            CommitMode::Unmount => {
+                self.component.lifecycle(
+                    Lifecycle::Unmount,
+                    &mut self.state,
+                    context,
+                    state,
+                    backend,
+                );
+                true
+            }
         }
     }
 }

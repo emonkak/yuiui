@@ -1,11 +1,10 @@
 use std::any::Any;
 
 use crate::component_stack::ComponentStack;
-use crate::context::EffectContext;
-use crate::effect::EffectOps;
+use crate::context::MessageContext;
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
-use crate::traversable::{Monoid, Traversable, Visitor};
+use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
 use super::{ViewNode, ViewNodeState};
@@ -21,48 +20,41 @@ impl<'a> UpwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, EffectContext, S, B>
-    for UpwardEventVisitor<'a>
+impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for UpwardEventVisitor<'a>
 where
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
 {
-    type Output = EffectOps<M>;
+    type Context = MessageContext<M>;
+
+    type Output = bool;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, view_state)
             | ViewNodeState::Pending(view, _, view_state) => {
-                let mut result = EffectOps::nop();
+                let mut result = false;
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
-                    if let Some(child_captured) =
-                        node.children
-                            .search(&[*head], self, context, state, backend)
-                    {
-                        result = result.combine(child_captured);
-                    }
+                    result |= node
+                        .children
+                        .search(&[*head], self, context, state, backend)
+                        .unwrap_or(false);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     context.set_depth(CS::LEN);
-                    result = result.combine(view.event(
-                        event,
-                        view_state,
-                        &node.children,
-                        context,
-                        state,
-                        backend,
-                    ));
+                    view.event(event, view_state, &node.children, context, state, backend);
+                    result = true;
                 }
                 result
             }
-            _ => EffectOps::nop(),
+            _ => false,
         }
     }
 }

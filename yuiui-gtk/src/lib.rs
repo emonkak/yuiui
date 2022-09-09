@@ -1,56 +1,70 @@
 mod backend;
+mod execution_context;
 mod window;
 
-pub use backend::{Backend, BackendProxy};
 pub use window::ApplicationWindow;
 
 use glib::MainContext;
+use gtk::prelude::*;
 use gtk::Application;
 use std::time::{Duration, Instant};
 use yuiui::{Deadline, Element, Forever, RenderFlow, RenderLoop, State};
 
-use backend::Action;
+use backend::Backend;
+use execution_context::{ExecutionContext, RenderAction};
 
 const DEALINE_PERIOD: Duration = Duration::from_millis(50);
 
-pub fn run<El, S, M>(application: Application, element: El, mut state: S)
+pub fn run<El, S, M>(element: El, mut state: S)
 where
-    El: Element<S, M, Backend<M>> + 'static,
+    El: Element<S, M, Backend> + 'static,
     S: State<Message = M>,
     M: Send + 'static,
 {
-    let (sender, receiver) = MainContext::channel(glib::PRIORITY_DEFAULT);
-    let backend = Backend::new(
-        application,
-        MainContext::default(),
-        BackendProxy::new(sender),
-    );
-    let mut render_loop = RenderLoop::build(element, &state, &backend);
+    let (event_tx, event_rx) = MainContext::channel(glib::PRIORITY_DEFAULT);
+    let (action_tx, action_rx) = MainContext::channel(glib::PRIORITY_DEFAULT);
 
-    render_loop.run(&Forever, &mut state, &backend);
+    let application = Application::new(None, Default::default());
+    let backend = Backend::new(application.clone(), event_tx);
+    let execution_context = ExecutionContext::new(MainContext::default(), action_tx.clone());
 
-    receiver.attach(None, move |action| {
+    let mut render_loop = RenderLoop::create(element, &state, &backend);
+
+    render_loop.run(&Forever, &execution_context, &mut state, &backend);
+
+    event_rx.attach(None, move |(event, destination)| {
+        action_tx
+            .send(RenderAction::Event(event, destination))
+            .unwrap();
+        glib::Continue(true)
+    });
+
+    action_rx.attach(None, move |action| {
         let deadline = Instant::now() + DEALINE_PERIOD;
 
         match action {
-            Action::RequestRender => {}
-            Action::DispatchEvent(event, destination) => {
+            RenderAction::RequestRender => {}
+            RenderAction::Message(message, state_scope) => {
+                render_loop.push_message(message, state_scope);
+            }
+            RenderAction::Event(event, destination) => {
                 render_loop.dispatch_event(event, destination, &state, &backend);
 
                 if deadline.did_timeout() {
-                    backend.request_render();
+                    execution_context.request_render();
                     return glib::Continue(true);
                 }
             }
-            Action::PushEffect(effect) => {
-                render_loop.push_effect(effect);
-            }
         }
 
-        if render_loop.run(&deadline, &mut state, &backend) == RenderFlow::Suspended {
-            backend.request_render();
+        if render_loop.run(&deadline, &execution_context, &mut state, &backend)
+            == RenderFlow::Suspended
+        {
+            execution_context.request_render();
         }
 
         glib::Continue(true)
     });
+
+    application.run();
 }

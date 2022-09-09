@@ -19,21 +19,22 @@ impl<'a, Visitor> BatchVisitor<'a, Visitor> {
     }
 }
 
-impl<'a, Inner, Context, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, Context, S, B>
-    for BatchVisitor<'a, Inner>
+impl<'a, Inner, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for BatchVisitor<'a, Inner>
 where
-    Inner: Visitor<ViewNode<V, CS, S, M, B>, Context, S, B>,
+    Inner: Visitor<ViewNode<V, CS, S, M, B>, S, B>,
     V: View<S, M, B>,
-    <<V as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage:
-        Traversable<Self, Context, Inner::Output, S, B>,
+    <V::Children as ElementSeq<S, M, B>>::Storage:
+        Traversable<Self, Inner::Context, Inner::Output, S, B>,
     CS: ComponentStack<S, M, B, View = V>,
 {
+    type Context = Inner::Context;
+
     type Output = Inner::Output;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
-        context: &mut Context,
+        context: &mut Self::Context,
         state: &S,
         backend: &B,
     ) -> Self::Output {

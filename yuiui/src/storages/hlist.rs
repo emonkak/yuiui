@@ -1,8 +1,7 @@
 use hlist::{HCons, HList, HNil};
 use std::sync::Once;
 
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::EffectOps;
+use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
@@ -47,11 +46,11 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _context: &mut EffectContext,
+        _context: &mut MessageContext<M>,
         _state: &S,
         _backend: &B,
-    ) -> EffectOps<M> {
-        EffectOps::nop()
+    ) -> bool {
+        false
     }
 }
 
@@ -145,13 +144,13 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
-        self.head
-            .commit(mode, context, state, backend)
-            .combine(self.tail.commit(mode, context, state, backend))
+    ) -> bool {
+        let head_result = self.head.commit(mode, context, state, backend);
+        let tail_result = self.tail.commit(mode, context, state, backend);
+        head_result || tail_result
     }
 }
 

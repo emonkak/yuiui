@@ -4,8 +4,7 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::EffectOps;
+use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
@@ -130,48 +129,38 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
-        let mut result = EffectOps::nop();
+    ) -> bool {
+        let mut result = false;
         if self.dirty || mode.is_propagatable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result = result.combine(node.commit(mode, context, state, backend));
+                        result |= node.commit(mode, context, state, backend);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result = result.combine(node.commit(mode, context, state, backend));
+                        result |= node.commit(mode, context, state, backend);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        result = result.combine(node.commit(
-                            CommitMode::Unmount,
-                            context,
-                            state,
-                            backend,
-                        ));
+                        result |= node.commit(CommitMode::Unmount, context, state, backend);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result = result.combine(node.commit(mode, context, state, backend));
+                        result |= node.commit(mode, context, state, backend);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
-                            result = result.combine(node.commit(
-                                CommitMode::Mount,
-                                context,
-                                state,
-                                backend,
-                            ));
+                            result |= node.commit(CommitMode::Mount, context, state, backend);
                             self.active.push(node);
                         }
                     }
@@ -189,7 +178,7 @@ where
     ViewNode<V, CS, S, M, B>: Traversable<Visitor, Context, Visitor::Output, S, B>,
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
-    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, Context, S, B>,
+    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, S, B, Context = Context>,
 {
     fn for_each(
         &mut self,

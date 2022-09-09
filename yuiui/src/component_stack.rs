@@ -2,8 +2,7 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::component_node::ComponentNode;
-use crate::context::{EffectContext, RenderContext};
-use crate::effect::EffectOps;
+use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
 use crate::id::Depth;
 use crate::view::View;
@@ -28,10 +27,10 @@ pub trait ComponentStack<S, M, B>: Sized {
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M>;
+    ) -> bool;
 }
 
 impl<C, CS, S, M, B> ComponentStack<S, M, B> for (ComponentNode<C, S, M, B>, CS)
@@ -81,10 +80,10 @@ where
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) -> bool {
         if target_depth <= current_depth {
             self.0.commit(mode, current_depth, context, state, backend)
         } else {
@@ -130,10 +129,10 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _mode: CommitMode,
         _target_depth: Depth,
         _current_depth: Depth,
-        _context: &mut EffectContext,
+        _context: &mut MessageContext<M>,
         _state: &S,
         _backend: &B,
-    ) -> EffectOps<M> {
-        EffectOps::nop()
+    ) -> bool {
+        false
     }
 }

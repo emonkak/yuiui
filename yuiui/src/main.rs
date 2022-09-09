@@ -19,9 +19,12 @@ enum AppMessage {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn reduce(&mut self, message: AppMessage) -> bool {
+    fn update(&mut self, message: AppMessage) -> Effect<AppMessage> {
         match message {
-            AppMessage::CounterMessage(message) => self.counter_state.reduce(message),
+            AppMessage::CounterMessage(message) => self
+                .counter_state
+                .update(message)
+                .map(AppMessage::CounterMessage),
         }
     }
 }
@@ -163,7 +166,7 @@ enum CounterMessage {
 impl State for CounterState {
     type Message = CounterMessage;
 
-    fn reduce(&mut self, message: Self::Message) -> bool {
+    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
         match message {
             CounterMessage::Increment => {
                 self.count += 1;
@@ -172,7 +175,7 @@ impl State for CounterState {
                 self.count -= 1;
             }
         }
-        true
+        Effect::RequestUpdate
     }
 }
 

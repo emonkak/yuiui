@@ -2,7 +2,7 @@ use std::mem;
 
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
-use crate::id::{IdPathBuf, Depth};
+use crate::id::{Depth, IdPathBuf};
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -18,11 +18,13 @@ impl<'a> UpdateVisitor {
     }
 }
 
-impl<V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, RenderContext, S, B> for UpdateVisitor
+impl<V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for UpdateVisitor
 where
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
 {
+    type Context = RenderContext;
+
     type Output = Vec<(IdPathBuf, Depth)>;
 
     fn visit(

@@ -1,8 +1,7 @@
 use std::any::Any;
 
 use crate::component_stack::ComponentStack;
-use crate::context::EffectContext;
-use crate::effect::EffectOps;
+use crate::context::MessageContext;
 use crate::event::{Event, HasEvent};
 use crate::traversable::Visitor;
 use crate::view::View;
@@ -19,18 +18,19 @@ impl<'a> LocalEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, EffectContext, S, B>
-    for LocalEventVisitor<'a>
+impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for LocalEventVisitor<'a>
 where
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
 {
-    type Output = EffectOps<M>;
+    type Context = MessageContext<M>;
+
+    type Output = bool;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
-        context: &mut EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
     ) -> Self::Output {
@@ -40,9 +40,10 @@ where
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
                 context.set_depth(CS::LEN);
-                view.event(event, view_state, &node.children, context, state, backend)
+                view.event(event, view_state, &node.children, context, state, backend);
+                true
             }
-            ViewNodeState::Uninitialized(_) => EffectOps::nop(),
+            ViewNodeState::Uninitialized(_) => false,
         }
     }
 }

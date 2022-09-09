@@ -3,18 +3,17 @@ use std::sync::Arc;
 
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::context::{EffectContext, StateScope};
+use crate::context::{MessageContext, StateScope};
 use crate::id::{Depth, IdPathBuf};
-use crate::traversable::Monoid;
 
 pub enum Effect<M> {
-    Message(M),
-    Command(Command<M>, Option<CancellationToken>),
+    Message(M, StateScope),
+    Command(Command<M>, Option<CancellationToken>, StateScope),
     RequestUpdate,
 }
 
 impl<M> Effect<M> {
-    pub fn destine(self, context: &EffectContext) -> DestinedEffect<M> {
+    pub fn destine(self, context: &MessageContext<M>) -> DestinedEffect<M> {
         match self {
             Self::Message(message) => {
                 DestinedEffect::Message(message, context.state_scope().clone())
@@ -65,7 +64,7 @@ where
 
 pub enum DestinedEffect<M> {
     Message(M, StateScope),
-    Command(Command<M>, Option<CancellationToken>, EffectContext),
+    Command(Command<M>, Option<CancellationToken>, MessageContext<M>),
     RequestUpdate(IdPathBuf, Depth),
 }
 
@@ -111,63 +110,5 @@ where
                 .field(depth)
                 .finish(),
         }
-    }
-}
-
-#[must_use]
-pub struct EffectOps<M> {
-    effects: Vec<DestinedEffect<M>>,
-}
-
-impl<M> EffectOps<M> {
-    pub fn nop() -> Self {
-        EffectOps {
-            effects: Vec::new(),
-        }
-    }
-
-    pub fn into_effects(self) -> Vec<DestinedEffect<M>> {
-        self.effects
-    }
-
-    pub(crate) fn lift<F, N>(self, f: &Arc<F>) -> EffectOps<N>
-    where
-        F: Fn(M) -> N + Sync + Send + 'static,
-        M: 'static,
-        N: 'static,
-    {
-        let effects = self
-            .effects
-            .into_iter()
-            .map(|effect| effect.lift(f))
-            .collect();
-        EffectOps { effects }
-    }
-}
-
-impl<M> Default for EffectOps<M> {
-    fn default() -> Self {
-        EffectOps::nop()
-    }
-}
-
-impl<M> Monoid for EffectOps<M> {
-    fn combine(mut self, other: Self) -> Self {
-        self.effects.extend(other.effects);
-        self
-    }
-}
-
-impl<M> From<DestinedEffect<M>> for EffectOps<M> {
-    fn from(effect: DestinedEffect<M>) -> Self {
-        EffectOps {
-            effects: vec![effect],
-        }
-    }
-}
-
-impl<M> From<Vec<DestinedEffect<M>>> for EffectOps<M> {
-    fn from(effects: Vec<DestinedEffect<M>>) -> Self {
-        EffectOps { effects }
     }
 }

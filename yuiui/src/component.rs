@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::context::EffectContext;
-use crate::effect::EffectOps;
+use crate::context::MessageContext;
 use crate::element::{ComponentElement, Element};
 use crate::event::Lifecycle;
 
@@ -14,11 +13,10 @@ pub trait Component<S, M, B>: Sized {
         &self,
         _lifecycle: Lifecycle<&Self>,
         _local_state: &mut Self::State,
-        _context: &EffectContext,
+        _context: &mut MessageContext<M>,
         _state: &S,
         _backend: &B,
-    ) -> EffectOps<M> {
-        EffectOps::nop()
+    ) {
     }
 
     fn render(&self, local_state: &Self::State, state: &S, backend: &B) -> Self::Element;
@@ -34,9 +32,8 @@ pub trait Component<S, M, B>: Sized {
 pub struct FunctionComponent<Props, LocalState, E, S, M, B> {
     props: Props,
     render: fn(&Props, &LocalState, &S, &B) -> E,
-    lifecycle: Option<
-        fn(&Props, Lifecycle<&Props>, &mut LocalState, &EffectContext, &S, &B) -> EffectOps<M>,
-    >,
+    lifecycle:
+        Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &B)>,
 }
 
 impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M, B> {
@@ -51,16 +48,7 @@ impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M
     pub fn lifecycle(
         mut self,
         lifecycle: impl Into<
-            Option<
-                fn(
-                    &Props,
-                    Lifecycle<&Props>,
-                    &mut LocalState,
-                    &EffectContext,
-                    &S,
-                    &B,
-                ) -> EffectOps<M>,
-            >,
+            Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &B)>,
         >,
     ) -> Self {
         self.lifecycle = lifecycle.into();
@@ -82,15 +70,13 @@ where
         &self,
         lifecycle: Lifecycle<&Self>,
         local_state: &mut Self::State,
-        context: &EffectContext,
+        context: &mut MessageContext<M>,
         state: &S,
         backend: &B,
-    ) -> EffectOps<M> {
+    ) {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map(|component| &component.props);
             lifecycle_fn(&self.props, lifecycle, local_state, context, state, backend)
-        } else {
-            EffectOps::nop()
         }
     }
 
