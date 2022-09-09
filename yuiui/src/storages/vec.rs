@@ -8,6 +8,7 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
+use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
@@ -59,10 +60,10 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(context, state, backend))
+                .map(|element| element.render(context, store, backend))
                 .collect(),
         )
     }
@@ -71,7 +72,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let mut has_changed = false;
@@ -84,14 +85,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(&mut node.borrow_mut(), context, state, backend);
+                has_changed |= element.update(&mut node.borrow_mut(), context, store, backend);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(&mut node.borrow_mut(), context, state, backend);
+                    has_changed |= element.update(&mut node.borrow_mut(), context, store, backend);
                 } else {
-                    let node = element.render(context, state, backend);
+                    let node = element.render(context, store, backend);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -130,7 +131,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let mut result = false;
@@ -139,28 +140,28 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, context, state, backend);
+                        result |= node.commit(mode, context, store, backend);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result |= node.commit(mode, context, state, backend);
+                        result |= node.commit(mode, context, store, backend);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        result |= node.commit(CommitMode::Unmount, context, state, backend);
+                        result |= node.commit(CommitMode::Unmount, context, store, backend);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, context, state, backend);
+                        result |= node.commit(mode, context, store, backend);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
-                            result |= node.commit(CommitMode::Mount, context, state, backend);
+                            result |= node.commit(CommitMode::Mount, context, store, backend);
                             self.active.push(node);
                         }
                     }
@@ -184,12 +185,12 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Visitor::Output {
         let mut result = Visitor::Output::default();
         for node in &mut self.active {
-            result = result.combine(node.for_each(visitor, context, state, backend));
+            result = result.combine(node.for_each(visitor, context, store, backend));
         }
         result
     }
@@ -199,13 +200,13 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Option<Visitor::Output> {
         let id = Id::from_bottom(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            node.search(id_path, visitor, context, state, backend)
+            node.search(id_path, visitor, context, store, backend)
         } else {
             None
         }

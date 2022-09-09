@@ -8,14 +8,14 @@ use glib::MainContext;
 use gtk::prelude::*;
 use gtk::Application;
 use std::time::{Duration, Instant};
-use yuiui::{Deadline, Element, Forever, RenderFlow, RenderLoop, State};
+use yuiui::{Deadline, Element, Forever, RenderFlow, RenderLoop, State, Store};
 
 use backend::Backend;
 use execution_context::{ExecutionContext, RenderAction};
 
 const DEALINE_PERIOD: Duration = Duration::from_millis(50);
 
-pub fn run<El, S, M>(element: El, mut state: S)
+pub fn run<El, S, M>(element: El, mut store: Store<S>)
 where
     El: Element<S, M, Backend> + 'static,
     S: State<Message = M>,
@@ -28,9 +28,9 @@ where
     let backend = Backend::new(application.clone(), event_tx);
     let execution_context = ExecutionContext::new(MainContext::default(), action_tx.clone());
 
-    let mut render_loop = RenderLoop::create(element, &state, &backend);
+    let mut render_loop = RenderLoop::create(element, &store, &backend);
 
-    render_loop.run(&Forever, &execution_context, &mut state, &backend);
+    render_loop.run(&Forever, &execution_context, &mut store, &backend);
 
     event_rx.attach(None, move |(event, destination)| {
         action_tx
@@ -48,7 +48,7 @@ where
                 render_loop.push_message(message, state_scope);
             }
             RenderAction::Event(event, destination) => {
-                render_loop.dispatch_event(event, destination, &state, &backend);
+                render_loop.dispatch_event(event, destination, &store, &backend);
 
                 if deadline.did_timeout() {
                     execution_context.request_render();
@@ -57,7 +57,7 @@ where
             }
         }
 
-        if render_loop.run(&deadline, &execution_context, &mut state, &backend)
+        if render_loop.run(&deadline, &execution_context, &mut store, &backend)
             == RenderFlow::Suspended
         {
             execution_context.request_render();

@@ -3,6 +3,7 @@ use std::any::Any;
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
 use crate::event::{Event, HasEvent};
+use crate::state::Store;
 use crate::traversable::Visitor;
 use crate::view::View;
 
@@ -31,7 +32,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
@@ -40,7 +41,7 @@ where
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
                 context.set_depth(CS::LEN);
-                view.event(event, view_state, &node.children, context, state, backend);
+                view.event(event, view_state, &node.children, context, store, backend);
                 true
             }
             ViewNodeState::Uninitialized(_) => false,

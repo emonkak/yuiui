@@ -5,6 +5,7 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
+use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -16,7 +17,7 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
     fn render_children(
         self,
         _context: &mut RenderContext,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> Self::Storage {
         HNil
@@ -26,7 +27,7 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
         self,
         _nodes: &mut Self::Storage,
         _context: &mut RenderContext,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> bool {
         false
@@ -47,7 +48,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         &mut self,
         _mode: CommitMode,
         _context: &mut MessageContext<M>,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> bool {
         false
@@ -62,7 +63,7 @@ where
         &mut self,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> Output {
         Output::default()
@@ -73,7 +74,7 @@ where
         _id_path: &IdPath,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> Option<Output> {
         None
@@ -90,10 +91,10 @@ where
 
     const DEPTH: usize = [H::DEPTH, T::DEPTH][(H::DEPTH < T::DEPTH) as usize];
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
         HCons {
-            head: self.head.render_children(context, state, backend),
-            tail: self.tail.render_children(context, state, backend),
+            head: self.head.render_children(context, store, backend),
+            tail: self.tail.render_children(context, store, backend),
         }
     }
 
@@ -101,16 +102,16 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self
             .head
-            .update_children(&mut storage.head, context, state, backend);
+            .update_children(&mut storage.head, context, store, backend);
         has_changed |= self
             .tail
-            .update_children(&mut storage.tail, context, state, backend);
+            .update_children(&mut storage.tail, context, store, backend);
         has_changed
     }
 }
@@ -145,11 +146,11 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
-        let head_result = self.head.commit(mode, context, state, backend);
-        let tail_result = self.tail.commit(mode, context, state, backend);
+        let head_result = self.head.commit(mode, context, store, backend);
+        let tail_result = self.tail.commit(mode, context, store, backend);
         head_result || tail_result
     }
 }
@@ -165,12 +166,12 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Output {
         self.head
-            .for_each(visitor, context, state, backend)
-            .combine(self.tail.for_each(visitor, context, state, backend))
+            .for_each(visitor, context, store, backend)
+            .combine(self.tail.for_each(visitor, context, store, backend))
     }
 
     fn search(
@@ -178,11 +179,11 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Option<Output> {
         self.head
-            .search(id_path, visitor, context, state, backend)
-            .or_else(|| self.tail.search(id_path, visitor, context, state, backend))
+            .search(id_path, visitor, context, store, backend)
+            .or_else(|| self.tail.search(id_path, visitor, context, store, backend))
     }
 }

@@ -1,6 +1,7 @@
 use crate::component_stack::ComponentStack;
 use crate::element::ElementSeq;
 use crate::id::{Cursor, Depth, Id};
+use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::ViewNode;
@@ -35,20 +36,20 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut Self::Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Self::Output {
         let current = self.cursor.current();
         if let Some(depth) = current.value() {
             let mut visitor = (self.visitor_factory)(current.id(), *depth);
-            visitor.visit(node, context, state, backend)
+            visitor.visit(node, context, store, backend)
         } else {
             let mut result = Self::Output::default();
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
                 if let Some(child_result) =
-                    node.children.search(&[id], self, context, state, backend)
+                    node.children.search(&[id], self, context, store, backend)
                 {
                     result = result.combine(child_result);
                 }

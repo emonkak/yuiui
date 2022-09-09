@@ -3,6 +3,7 @@ use std::mem;
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::id::{Depth, IdPathBuf};
+use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -31,19 +32,19 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Self::Output {
         let depth = mem::replace(&mut self.depth, 0);
         if depth < CS::LEN {
-            if CS::update(&mut node.borrow_mut(), depth, 0, context, state, backend) {
+            if CS::update(&mut node.borrow_mut(), depth, 0, context, store, backend) {
                 vec![(context.id_path().to_vec(), depth)]
             } else {
                 Vec::new()
             }
         } else {
             node.dirty = true;
-            node.children.for_each(self, context, state, backend);
+            node.children.for_each(self, context, store, backend);
             vec![(context.id_path().to_vec(), 0)]
         }
     }

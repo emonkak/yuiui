@@ -5,6 +5,7 @@ use crate::component::Component;
 use crate::context::MessageContext;
 use crate::event::Lifecycle;
 use crate::id::Depth;
+use crate::state::Store;
 use crate::view_node::CommitMode;
 
 pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
@@ -27,8 +28,8 @@ where
         }
     }
 
-    pub(crate) fn render(&self, state: &S, backend: &B) -> C::Element {
-        self.component.render(&self.state, state, backend)
+    pub(crate) fn render(&self, store: &Store<S>, backend: &B) -> C::Element {
+        self.component.render(&self.state, store, backend)
     }
 
     pub(crate) fn commit(
@@ -36,7 +37,7 @@ where
         mode: CommitMode,
         depth: Depth,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         context.set_depth(depth);
@@ -46,7 +47,7 @@ where
                     Lifecycle::Mount,
                     &mut self.state,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 true
@@ -57,7 +58,7 @@ where
                         Lifecycle::Update(&self.component),
                         &mut self.state,
                         context,
-                        state,
+                        store,
                         backend,
                     );
                     self.component = pending_component;
@@ -71,7 +72,7 @@ where
                     Lifecycle::Unmount,
                     &mut self.state,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 true

@@ -16,6 +16,7 @@ use std::fmt;
 
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
+use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
@@ -29,7 +30,7 @@ pub trait Element<S, M, B> {
     fn render(
         self,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B>;
 
@@ -37,7 +38,7 @@ pub trait Element<S, M, B> {
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool;
 
@@ -48,7 +49,7 @@ pub trait Element<S, M, B> {
     ) -> Scope<Self, FS, FM, S, M>
     where
         Self: Sized,
-        FS: Fn(&PS) -> &S + Sync + Send + 'static,
+        FS: Fn(&Store<PS>) -> &Store<S> + Sync + Send + 'static,
         FM: Fn(M) -> PM + Sync + Send + 'static,
     {
         Scope::new(self, state_selector.into(), message_selector.into())
@@ -68,13 +69,13 @@ pub trait ElementSeq<S, M, B> {
 
     const DEPTH: usize;
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage;
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage;
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool;
 }

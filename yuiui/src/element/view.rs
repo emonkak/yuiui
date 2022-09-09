@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::component_stack::ComponentEnd;
 use crate::context::RenderContext;
+use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
 
@@ -34,11 +35,11 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         context.with_id(|id, context| {
-            let children = self.children.render_children(context, state, backend);
+            let children = self.children.render_children(context, store, backend);
             ViewNode::new(id, self.view, children, ComponentEnd::new())
         })
     }
@@ -47,13 +48,13 @@ where
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         context.begin_id(node.id);
 
         self.children
-            .update_children(node.children, context, state, backend);
+            .update_children(node.children, context, store, backend);
 
         *node.state = Some(match node.state.take().unwrap() {
             ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
@@ -79,18 +80,18 @@ where
 
     const DEPTH: usize = 1 + V::Children::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
-        self.render(context, state, backend)
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+        self.render(context, store, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, state, backend)
+        self.update(&mut storage.borrow_mut(), context, store, backend)
     }
 }
 

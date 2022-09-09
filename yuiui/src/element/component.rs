@@ -3,6 +3,7 @@ use std::fmt;
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
+use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
@@ -34,12 +35,12 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.render(state, backend);
-        let node = element.render(context, state, backend);
+        let element = component_node.render(store, backend);
+        let node = element.render(context, store, backend);
         ViewNode {
             id: node.id,
             state: node.state,
@@ -55,11 +56,11 @@ where
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
-        let element = self.component.render(&head_node.state, state, backend);
+        let element = self.component.render(&head_node.state, store, backend);
         head_node.pending_component = Some(self.component);
         *node.dirty = true;
         let mut node = ViewNodeMut {
@@ -70,7 +71,7 @@ where
             env: node.env,
             dirty: node.dirty,
         };
-        element.update(&mut node, context, state, backend)
+        element.update(&mut node, context, store, backend)
     }
 }
 
@@ -83,18 +84,18 @@ where
 
     const DEPTH: usize = C::Element::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
-        self.render(context, state, backend)
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+        self.render(context, store, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, state, backend)
+        self.update(&mut storage.borrow_mut(), context, store, backend)
     }
 }
 

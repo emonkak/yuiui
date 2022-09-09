@@ -3,6 +3,7 @@ use std::fmt;
 use crate::context::MessageContext;
 use crate::element::{ComponentElement, Element};
 use crate::event::Lifecycle;
+use crate::state::Store;
 
 pub trait Component<S, M, B>: Sized {
     type Element: Element<S, M, B>;
@@ -14,12 +15,12 @@ pub trait Component<S, M, B>: Sized {
         _lifecycle: Lifecycle<&Self>,
         _local_state: &mut Self::State,
         _context: &mut MessageContext<M>,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) {
     }
 
-    fn render(&self, local_state: &Self::State, state: &S, backend: &B) -> Self::Element;
+    fn render(&self, local_state: &Self::State, store: &Store<S>, backend: &B) -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -71,17 +72,17 @@ where
         lifecycle: Lifecycle<&Self>,
         local_state: &mut Self::State,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map(|component| &component.props);
-            lifecycle_fn(&self.props, lifecycle, local_state, context, state, backend)
+            lifecycle_fn(&self.props, lifecycle, local_state, context, store, backend)
         }
     }
 
-    fn render(&self, local_state: &Self::State, state: &S, backend: &B) -> Self::Element {
-        (self.render)(&self.props, local_state, state, backend)
+    fn render(&self, local_state: &Self::State, store: &Store<S>, backend: &B) -> Self::Element {
+        (self.render)(&self.props, local_state, store, backend)
     }
 }
 

@@ -9,6 +9,7 @@ pub trait State: 'static {
     fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>);
 }
 
+#[derive(Debug)]
 pub struct Store<T> {
     state: T,
     dirty: AtomicBool,

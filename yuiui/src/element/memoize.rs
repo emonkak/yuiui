@@ -1,6 +1,7 @@
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
+use crate::state::Store;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
@@ -30,24 +31,24 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let element = ComponentElement::new(AsComponent::new(self));
-        element.render(context, state, backend)
+        element.render(context, store, backend)
     }
 
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
             let element = ComponentElement::new(AsComponent::new(self));
-            Element::update(element, node, context, state, backend)
+            Element::update(element, node, context, store, backend)
         } else {
             head_node.pending_component = Some(AsComponent::new(self));
             false
@@ -65,18 +66,18 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
-        self.render(context, state, backend)
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+        self.render(context, store, backend)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, state, backend)
+        self.update(&mut storage.borrow_mut(), context, store, backend)
     }
 }
 
@@ -99,7 +100,7 @@ where
 
     type State = ();
 
-    fn render(&self, _local_state: &Self::State, state: &S, backend: &B) -> Self::Element {
-        (self.inner.render)(&self.inner.deps, state, backend)
+    fn render(&self, _local_state: &Self::State, store: &Store<S>, backend: &B) -> Self::Element {
+        (self.inner.render)(&self.inner.deps, store, backend)
     }
 }

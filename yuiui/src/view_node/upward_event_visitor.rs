@@ -4,6 +4,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
 use crate::event::{Event, HasEvent};
 use crate::id::IdPath;
+use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -33,7 +34,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
@@ -44,12 +45,12 @@ where
                     self.id_path = tail;
                     result |= node
                         .children
-                        .search(&[*head], self, context, state, backend)
+                        .search(&[*head], self, context, store, backend)
                         .unwrap_or(false);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
                     context.set_depth(CS::LEN);
-                    view.event(event, view_state, &node.children, context, state, backend);
+                    view.event(event, view_state, &node.children, context, store, backend);
                     result = true;
                 }
                 result

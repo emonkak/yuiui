@@ -6,6 +6,7 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
+use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -37,13 +38,13 @@ where
 
     const DEPTH: usize = [L::DEPTH, R::DEPTH][(L::DEPTH < R::DEPTH) as usize];
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
         match self {
             Either::Left(element) => EitherStorage::new(Either::Left(
-                element.render_children(context, state, backend),
+                element.render_children(context, store, backend),
             )),
             Either::Right(element) => EitherStorage::new(Either::Right(
-                element.render_children(context, state, backend),
+                element.render_children(context, store, backend),
             )),
         }
     }
@@ -52,12 +53,12 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update_children(node, context, state, backend) {
+                if element.update_children(node, context, store, backend) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -66,7 +67,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update_children(node, context, state, backend) {
+                if element.update_children(node, context, store, backend) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -77,11 +78,11 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update_children(node, context, state, backend);
+                        element.update_children(node, context, store, backend);
                     }
                     None => {
                         storage.staging = Some(Either::Right(
-                            element.render_children(context, state, backend),
+                            element.render_children(context, store, backend),
                         ));
                     }
                     _ => unreachable!(),
@@ -92,11 +93,11 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update_children(node, context, state, backend);
+                        element.update_children(node, context, store, backend);
                     }
                     None => {
                         storage.staging = Some(Either::Left(
-                            element.render_children(context, state, backend),
+                            element.render_children(context, store, backend),
                         ));
                     }
                     _ => unreachable!(),
@@ -141,30 +142,30 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Unmount, context, state, backend),
+                    Either::Left(node) => node.commit(CommitMode::Unmount, context, store, backend),
                     Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, context, state, backend)
+                        node.commit(CommitMode::Unmount, context, store, backend)
                     }
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Mount, context, state, backend),
-                    Either::Right(node) => node.commit(CommitMode::Mount, context, state, backend),
+                    Either::Left(node) => node.commit(CommitMode::Mount, context, store, backend),
+                    Either::Right(node) => node.commit(CommitMode::Mount, context, store, backend),
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, context, state, backend),
-                Either::Right(node) => node.commit(mode, context, state, backend),
+                Either::Left(node) => node.commit(mode, context, store, backend),
+                Either::Right(node) => node.commit(mode, context, store, backend),
             };
         }
         self.flags = RenderFlags::COMMITED;
@@ -182,12 +183,12 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Output {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, context, state, backend),
-            Either::Right(node) => node.for_each(visitor, context, state, backend),
+            Either::Left(node) => node.for_each(visitor, context, store, backend),
+            Either::Right(node) => node.for_each(visitor, context, store, backend),
         }
     }
 
@@ -196,12 +197,12 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Option<Output> {
         match &mut self.active {
-            Either::Left(node) => node.search(id_path, visitor, context, state, backend),
-            Either::Right(node) => node.search(id_path, visitor, context, state, backend),
+            Either::Left(node) => node.search(id_path, visitor, context, store, backend),
+            Either::Right(node) => node.search(id_path, visitor, context, store, backend),
         }
     }
 }

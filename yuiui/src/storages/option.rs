@@ -4,6 +4,7 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
+use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -34,20 +35,20 @@ where
 
     const DEPTH: usize = T::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, state: &S, backend: &B) -> Self::Storage {
-        OptionStorage::new(self.map(|element| element.render_children(context, state, backend)))
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>, backend: &B) -> Self::Storage {
+        OptionStorage::new(self.map(|element| element.render_children(context, store, backend)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, context, state, backend) {
+                if element.update_children(node, context, store, backend) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -57,9 +58,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, context, state, backend);
+                    element.update_children(node, context, store, backend);
                 } else {
-                    storage.staging = Some(element.render_children(context, state, backend));
+                    storage.staging = Some(element.render_children(context, store, backend));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true
@@ -93,25 +94,25 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Unmount, context, state, backend);
+                    result |= node.commit(CommitMode::Unmount, context, store, backend);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Mount, context, state, backend);
+                    result |= node.commit(CommitMode::Mount, context, store, backend);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, context, state, backend);
+                result |= node.commit(mode, context, store, backend);
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -129,11 +130,11 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Output {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, context, state, backend)
+            node.for_each(visitor, context, store, backend)
         } else {
             Output::default()
         }
@@ -144,11 +145,11 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Option<Output> {
         if let Some(node) = &mut self.active {
-            node.search(id_path, visitor, context, state, backend)
+            node.search(id_path, visitor, context, store, backend)
         } else {
             None
         }

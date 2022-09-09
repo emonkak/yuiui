@@ -10,6 +10,7 @@ use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
 use crate::id::{Depth, IdPathBuf, IdTree};
 use crate::state::State;
+use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
@@ -27,9 +28,9 @@ where
     E: Element<S, M, B>,
     S: State<Message = M>,
 {
-    pub fn create(element: E, state: &S, backend: &B) -> Self {
+    pub fn create(element: E, store: &Store<S>, backend: &B) -> Self {
         let mut context = RenderContext::new();
-        let node = element.render(&mut context, state, backend);
+        let node = element.render(&mut context, store, backend);
         Self {
             node,
             render_context: RenderContext::new(),
@@ -44,12 +45,12 @@ where
         &mut self,
         deadline: &impl Deadline,
         command_runtime: &impl CommandRuntime<M>,
-        state: &mut S,
+        store: &mut Store<S>,
         backend: &B,
     ) -> RenderFlow {
         loop {
             while let Some((message, state_scope)) = self.message_queue.pop_front() {
-                let (dirty, command) = state.update(message);
+                let (dirty, command) = store.update(message);
                 if dirty {
                     let (id_path, depth) = state_scope.clone().normalize();
                     extend_selection(&mut self.update_selection, id_path, depth);
@@ -70,7 +71,7 @@ where
                 let id_tree = IdTree::from_iter(mem::take(&mut self.update_selection));
                 let changed_nodes =
                     self.node
-                        .update_subtree(&id_tree, state, backend, &mut self.render_context);
+                        .update_subtree(&id_tree, store, backend, &mut self.render_context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         extend_selection(&mut self.commit_selection, id_path, depth);
@@ -86,7 +87,7 @@ where
                     let id_tree = IdTree::from_iter(mem::take(&mut self.commit_selection));
                     let mut context = MessageContext::new();
                     self.node
-                        .commit_subtree(&id_tree, &mut context, state, backend);
+                        .commit_subtree(&id_tree, &mut context, store, backend);
                     self.message_queue.extend(context.into_messages());
                     if deadline.did_timeout() {
                         return self.render_status();
@@ -95,7 +96,7 @@ where
             } else {
                 let mut context = MessageContext::new();
                 self.node
-                    .commit(CommitMode::Mount, &mut context, state, backend);
+                    .commit(CommitMode::Mount, &mut context, store, backend);
                 self.message_queue.extend(context.into_messages());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
@@ -117,25 +118,25 @@ where
         &mut self,
         event: Box<dyn Any + Send>,
         destination: EventDestination,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) {
         let mut context = MessageContext::new();
         match destination {
             EventDestination::Global => {
-                self.node.global_event(&event, &mut context, state, backend);
+                self.node.global_event(&event, &mut context, store, backend);
             }
             EventDestination::Downward(id_path) => {
                 self.node
-                    .downward_event(&event, &id_path, &mut context, state, backend);
+                    .downward_event(&event, &id_path, &mut context, store, backend);
             }
             EventDestination::Upward(id_path) => {
                 self.node
-                    .upward_event(&event, &id_path, &mut context, state, backend);
+                    .upward_event(&event, &id_path, &mut context, store, backend);
             }
             EventDestination::Local(id_path) => {
                 self.node
-                    .local_event(&event, &id_path, &mut context, state, backend);
+                    .local_event(&event, &id_path, &mut context, store, backend);
             }
         }
         self.message_queue.extend(context.into_messages());

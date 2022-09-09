@@ -4,6 +4,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
 use crate::event::Lifecycle;
 use crate::id::Depth;
+use crate::state::Store;
 use crate::traversable::Visitor;
 use crate::view::View;
 
@@ -33,47 +34,47 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Self::Output {
         let mut result = false;
         context.set_depth(CS::LEN);
         node.state = match (self.mode, node.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut view_state = view.build(&node.children, state, backend);
-                node.children.commit(self.mode, context, state, backend);
+                let mut view_state = view.build(&node.children, store, backend);
+                node.children.commit(self.mode, context, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 result = true;
                 ViewNodeState::Prepared(view, view_state)
             }
             (CommitMode::Mount, ViewNodeState::Prepared(view, mut view_state)) => {
-                node.children.commit(self.mode, context, state, backend);
+                node.children.commit(self.mode, context, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 result = true;
                 ViewNodeState::Prepared(view, view_state)
             }
             (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                node.children.commit(self.mode, context, state, backend);
+                node.children.commit(self.mode, context, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 pending_view.lifecycle(
@@ -81,7 +82,7 @@ where
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 result = true;
@@ -91,17 +92,17 @@ where
                 unreachable!()
             }
             (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
-                result |= node.children.commit(self.mode, context, state, backend);
+                result |= node.children.commit(self.mode, context, store, backend);
                 ViewNodeState::Prepared(view, view_state)
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                node.children.commit(self.mode, context, state, backend);
+                node.children.commit(self.mode, context, store, backend);
                 pending_view.lifecycle(
                     Lifecycle::Update(&view),
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
                 result = true;
@@ -116,10 +117,10 @@ where
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
-                node.children.commit(self.mode, context, state, backend);
+                node.children.commit(self.mode, context, store, backend);
                 result = true;
                 ViewNodeState::Prepared(view, view_state)
             }
@@ -129,10 +130,10 @@ where
                     &mut view_state,
                     &node.children,
                     context,
-                    state,
+                    store,
                     backend,
                 );
-                node.children.commit(self.mode, context, state, backend);
+                node.children.commit(self.mode, context, store, backend);
                 result = true;
                 ViewNodeState::Pending(view, pending_view, view_state)
             }
@@ -143,7 +144,7 @@ where
         if depth < CS::LEN {
             result |= node
                 .components
-                .commit(self.mode, depth, 0, context, state, backend);
+                .commit(self.mode, depth, 0, context, store, backend);
         }
 
         result

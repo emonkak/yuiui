@@ -1,11 +1,12 @@
 use crate::id::IdPath;
+use crate::state::Store;
 
 pub trait Traversable<Visitor, Context, Output, S, B> {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Output;
 
@@ -14,7 +15,7 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Option<Output>;
 }
@@ -28,7 +29,7 @@ pub trait Visitor<Node, S, B> {
         &mut self,
         node: &mut Node,
         context: &mut Self::Context,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> Self::Output;
 }

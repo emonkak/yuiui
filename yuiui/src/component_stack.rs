@@ -5,6 +5,7 @@ use crate::component_node::ComponentNode;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
 use crate::id::Depth;
+use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
@@ -18,7 +19,7 @@ pub trait ComponentStack<S, M, B>: Sized {
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool;
 
@@ -28,7 +29,7 @@ pub trait ComponentStack<S, M, B>: Sized {
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool;
 }
@@ -48,7 +49,7 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         let (head, tail) = node.components;
@@ -61,15 +62,15 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            let element = head.render(state, backend);
-            element.update(&mut node, context, state, backend)
+            let element = head.render(store, backend);
+            element.update(&mut node, context, store, backend)
         } else {
             CS::update(
                 &mut node,
                 target_depth,
                 current_depth + 1,
                 context,
-                state,
+                store,
                 backend,
             )
         }
@@ -81,18 +82,18 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &B,
     ) -> bool {
         if target_depth <= current_depth {
-            self.0.commit(mode, current_depth, context, state, backend)
+            self.0.commit(mode, current_depth, context, store, backend)
         } else {
             self.1.commit(
                 mode,
                 target_depth,
                 current_depth + 1,
                 context,
-                state,
+                store,
                 backend,
             )
         }
@@ -118,7 +119,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut RenderContext,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> bool {
         false
@@ -130,7 +131,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut MessageContext<M>,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> bool {
         false

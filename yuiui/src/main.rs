@@ -8,7 +8,7 @@ use yuiui::*;
 
 #[derive(Debug)]
 struct AppState {
-    counter_state: CounterState,
+    counter_store: Store<CounterState>,
 }
 
 #[derive(Debug)]
@@ -22,7 +22,7 @@ impl State for AppState {
     fn update(&mut self, message: AppMessage) -> (bool, Command<AppMessage>) {
         match message {
             AppMessage::CounterMessage(message) => {
-                let (dirty, commands) = self.counter_state.update(message);
+                let (dirty, commands) = self.counter_store.update(message);
                 (dirty, commands.map(AppMessage::CounterMessage))
             }
         }
@@ -46,19 +46,19 @@ fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
             label: "click me!".into(),
         }),
         counter().scope(
-            |state: &AppState| &state.counter_state,
+            |state: &Store<AppState>| &state.counter_store,
             AppMessage::CounterMessage,
         ),
     ])
 }
 
 fn main() {
-    let state = AppState {
-        counter_state: CounterState { count: 0 },
-    };
+    let store = Store::new(AppState {
+        counter_store: Store::new(CounterState { count: 0 },)
+    });
     let element = app();
     let mut context = RenderContext::new();
-    let node = element.render(&mut context, &state, &());
+    let node = element.render(&mut context, &store, &());
     println!("{:#?}", node);
 }
 
@@ -84,7 +84,7 @@ impl<S, M, B> View<S, M, B> for Text {
     fn build(
         &self,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> Self::State {
         TextState
@@ -122,7 +122,7 @@ where
     fn build(
         &self,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &B,
     ) -> Self::State {
         BlockState
