@@ -1,5 +1,4 @@
-mod batch_visitor;
-mod commit_visitor;
+mod commit_subtree_visitor;
 mod downward_event_visitor;
 mod local_event_visitor;
 mod update_subtree_visitor;
@@ -13,14 +12,14 @@ use std::sync::Once;
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
+use crate::event::Lifecycle;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
-use batch_visitor::BatchVisitor;
-use commit_visitor::CommitVisitor;
+use commit_subtree_visitor::CommitSubtreeVisitor;
 use downward_event_visitor::DownwardEventVisitor;
 use local_event_visitor::LocalEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
@@ -109,19 +108,125 @@ where
         visitor.visit(self, context, store, backend)
     }
 
-    pub fn commit(
+    pub fn commit_within(
         &mut self,
         mode: CommitMode,
+        depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         backend: &B,
     ) -> bool {
-        if self.dirty || mode.is_propagatable() {
-            let mut visitor = CommitVisitor::new(mode, 0);
-            visitor.visit(self, context, store, backend)
-        } else {
-            false
+        if !self.dirty && !mode.is_propagatable() {
+            return false;
         }
+
+        context.begin_id(self.id);
+        context.set_depth(CS::LEN);
+
+        let (mut result, node_state) = match (mode, self.state.take().unwrap()) {
+            (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
+                let mut view_state = view.build(&self.children, store, backend);
+                self.children.commit(mode, context, store, backend);
+                view.lifecycle(
+                    Lifecycle::Mount,
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                (true, ViewNodeState::Prepared(view, view_state))
+            }
+            (CommitMode::Mount, ViewNodeState::Prepared(view, mut view_state)) => {
+                self.children.commit(mode, context, store, backend);
+                view.lifecycle(
+                    Lifecycle::Mount,
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                (true, ViewNodeState::Prepared(view, view_state))
+            }
+            (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
+                self.children.commit(mode, context, store, backend);
+                view.lifecycle(
+                    Lifecycle::Mount,
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                pending_view.lifecycle(
+                    Lifecycle::Update(&view),
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                (true, ViewNodeState::Prepared(pending_view, view_state))
+            }
+            (CommitMode::Update, ViewNodeState::Uninitialized(_)) => {
+                unreachable!()
+            }
+            (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
+                let result = self.children.commit(mode, context, store, backend);
+                (result, ViewNodeState::Prepared(view, view_state))
+            }
+            (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
+                self.children.commit(mode, context, store, backend);
+                pending_view.lifecycle(
+                    Lifecycle::Update(&view),
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                (true, ViewNodeState::Prepared(pending_view, view_state))
+            }
+            (CommitMode::Unmount, ViewNodeState::Uninitialized(_)) => {
+                unreachable!()
+            }
+            (CommitMode::Unmount, ViewNodeState::Prepared(view, mut view_state)) => {
+                view.lifecycle(
+                    Lifecycle::Unmount,
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                self.children.commit(mode, context, store, backend);
+                (true, ViewNodeState::Prepared(view, view_state))
+            }
+            (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
+                view.lifecycle(
+                    Lifecycle::Unmount,
+                    &mut view_state,
+                    &self.children,
+                    context,
+                    store,
+                    backend,
+                );
+                self.children.commit(mode, context, store, backend);
+                (true, ViewNodeState::Pending(view, pending_view, view_state))
+            }
+        };
+        self.state = Some(node_state);
+
+        if depth < CS::LEN {
+            result |= self
+                .components
+                .commit(mode, depth, 0, context, store, backend);
+        }
+
+        context.end_id();
+
+        result
     }
 
     pub fn commit_subtree(
@@ -131,9 +236,7 @@ where
         store: &Store<S>,
         backend: &B,
     ) -> bool {
-        let mut visitor = BatchVisitor::new(id_tree.root(), |_, depth| {
-            CommitVisitor::new(CommitMode::Update, depth)
-        });
+        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
         visitor.visit(self, context, store, backend)
     }
 
@@ -197,8 +300,7 @@ pub struct ViewNodeMut<'a, V: View<S, M, B>, CS, S, M, B> {
 }
 
 pub trait ViewNodeSeq<S, M, B>:
-    Traversable<CommitVisitor, MessageContext<M>, bool, S, B>
-    + for<'a> Traversable<BatchVisitor<'a, CommitVisitor>, MessageContext<M>, bool, S, B>
+    for<'a> Traversable<CommitSubtreeVisitor<'a>, MessageContext<M>, bool, S, B>
     + for<'a> Traversable<DownwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
     + for<'a> Traversable<UpdateSubtreeVisitor<'a>, RenderContext, Vec<(IdPathBuf, Depth)>, S, B>
     + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, B>
@@ -251,10 +353,7 @@ where
         store: &Store<S>,
         backend: &B,
     ) -> bool {
-        context.begin_id(self.id);
-        let result = self.commit(mode, context, store, backend);
-        context.end_id();
-        result
+        self.commit_within(mode, 0, context, store, backend)
     }
 }
 

@@ -106,7 +106,7 @@ where
             } else {
                 let mut context = MessageContext::new();
                 self.node
-                    .commit(CommitMode::Mount, &mut context, store, backend);
+                    .commit_within(CommitMode::Mount, 0, &mut context, store, backend);
                 self.message_queue.extend(context.into_messages());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
