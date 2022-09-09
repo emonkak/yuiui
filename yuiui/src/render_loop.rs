@@ -4,12 +4,12 @@ use std::fmt;
 use std::mem;
 use std::time::{Duration, Instant};
 
-use crate::command::CommandRunner;
+use crate::command::CommandRuntime;
 use crate::context::{MessageContext, RenderContext, StateScope};
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
 use crate::id::{Depth, IdPathBuf, IdTree};
-use crate::state::{Effect, State};
+use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
@@ -43,14 +43,24 @@ where
     pub fn run(
         &mut self,
         deadline: &impl Deadline,
-        command_runner: &impl CommandRunner<M>,
+        command_runtime: &impl CommandRuntime<M>,
         state: &mut S,
         backend: &B,
     ) -> RenderFlow {
         loop {
             while let Some((message, state_scope)) = self.message_queue.pop_front() {
-                let effect = state.update(message);
-                self.run_effect(effect, state_scope, command_runner, state, backend);
+                let (dirty, command) = state.update(message);
+                if dirty {
+                    let (id_path, depth) = state_scope.clone().normalize();
+                    extend_selection(&mut self.update_selection, id_path, depth);
+                }
+                for (command_atom, cancellation_token) in command {
+                    command_runtime.spawn_command(
+                        command_atom,
+                        cancellation_token,
+                        state_scope.clone(),
+                    );
+                }
                 if deadline.did_timeout() {
                     return self.render_status();
                 }
@@ -140,33 +150,6 @@ where
             RenderFlow::Done
         } else {
             RenderFlow::Suspended
-        }
-    }
-
-    fn run_effect(
-        &mut self,
-        effect: Effect<M>,
-        state_scope: StateScope,
-        command_runner: &impl CommandRunner<M>,
-        state: &mut S,
-        backend: &B,
-    ) {
-        match effect {
-            Effect::Batch(effects) => {
-                for effect in effects {
-                    self.run_effect(effect, state_scope.clone(), command_runner, state, backend)
-                }
-            }
-            Effect::Command(command, cancellation_token) => {
-                let token = command_runner.spawn_command(command, state_scope);
-                if let Some(cancellation_token) = cancellation_token {
-                    cancellation_token.register(token);
-                }
-            }
-            Effect::RequestUpdate => {
-                let (id_path, depth) = state_scope.clone().normalize();
-                extend_selection(&mut self.update_selection, id_path, depth);
-            }
         }
     }
 }

@@ -1,40 +1,52 @@
-use crate::cancellation_token::CancellationToken;
+use std::ops::Deref;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::command::Command;
 
 pub trait State: 'static {
     type Message;
 
-    fn update(&mut self, message: Self::Message) -> Effect<Self::Message>;
+    fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>);
 }
 
-pub enum Effect<T> {
-    Batch(Vec<Effect<T>>),
-    Command(Command<T>, Option<CancellationToken>),
-    RequestUpdate,
+pub struct Store<T> {
+    state: T,
+    dirty: AtomicBool,
 }
 
-impl<T> Effect<T> {
-    pub fn nop() -> Effect<T> {
-        Effect::Batch(Vec::new())
+impl<T> Store<T> {
+    pub fn new(state: T) -> Self {
+        Self {
+            state,
+            dirty: AtomicBool::new(false),
+        }
     }
 
-    pub fn map<F, U>(self, f: F) -> Effect<U>
-    where
-        F: Fn(T) -> U + Clone + Send + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        match self {
-            Self::Batch(effects) => Effect::Batch(
-                effects
-                    .into_iter()
-                    .map(|effect| effect.map(f.clone()))
-                    .collect(),
-            ),
-            Self::Command(command, cancellation_token) => {
-                Effect::Command(command.map(f), cancellation_token)
-            }
-            Self::RequestUpdate => Effect::RequestUpdate,
+    pub(crate) fn dirty(&self) -> bool {
+        self.dirty.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn mark_clean(&self) {
+        self.dirty.store(false, Ordering::Relaxed)
+    }
+}
+
+impl<T> Deref for Store<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl<T: State> State for Store<T> {
+    type Message = T::Message;
+
+    fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>) {
+        let (dirty, commands) = self.state.update(message);
+        if dirty {
+            self.dirty.store(true, Ordering::Relaxed)
         }
+        (dirty, commands)
     }
 }

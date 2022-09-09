@@ -19,12 +19,12 @@ enum AppMessage {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(&mut self, message: AppMessage) -> Effect<AppMessage> {
+    fn update(&mut self, message: AppMessage) -> (bool, Command<AppMessage>) {
         match message {
-            AppMessage::CounterMessage(message) => self
-                .counter_state
-                .update(message)
-                .map(AppMessage::CounterMessage),
+            AppMessage::CounterMessage(message) => {
+                let (dirty, commands) = self.counter_state.update(message);
+                (dirty, commands.map(AppMessage::CounterMessage))
+            }
         }
     }
 }
@@ -166,7 +166,7 @@ enum CounterMessage {
 impl State for CounterState {
     type Message = CounterMessage;
 
-    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
+    fn update(&mut self, message: Self::Message) -> (bool, Command<Self::Message>) {
         match message {
             CounterMessage::Increment => {
                 self.count += 1;
@@ -175,7 +175,7 @@ impl State for CounterState {
                 self.count -= 1;
             }
         }
-        Effect::RequestUpdate
+        (true, Command::none())
     }
 }
 

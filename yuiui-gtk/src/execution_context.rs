@@ -1,7 +1,10 @@
 use futures::stream::StreamExt as _;
 use glib::{MainContext, Sender, SourceId};
 use std::any::Any;
-use yuiui::{Command, CommandRunner, EventDestination, RawToken, RawTokenVTable, StateScope};
+use yuiui::{
+    CancellationToken, CommandAtom, CommandRuntime, EventDestination, RawToken, RawTokenVTable,
+    StateScope,
+};
 
 #[derive(Debug)]
 pub struct ExecutionContext<T> {
@@ -24,34 +27,44 @@ impl<T: Send + 'static> ExecutionContext<T> {
     }
 }
 
-impl<T: Send + 'static> CommandRunner<T> for ExecutionContext<T> {
-    fn spawn_command(&self, command: Command<T>, state_scope: StateScope) -> RawToken {
+impl<T: Send + 'static> CommandRuntime<T> for ExecutionContext<T> {
+    fn spawn_command(
+        &self,
+        command: CommandAtom<T>,
+        cancellation_token: Option<CancellationToken>,
+        state_scope: StateScope,
+    ) {
         let port = self.port.clone();
         let source_id = match command {
-            Command::Future(future) => self.main_context.spawn_local(async move {
+            CommandAtom::Future(future) => self.main_context.spawn_local(async move {
                 let message = future.await;
                 port.send(RenderAction::Message(message, state_scope))
                     .unwrap();
             }),
-            Command::Stream(mut stream) => self.main_context.spawn_local(async move {
+            CommandAtom::Stream(mut stream) => self.main_context.spawn_local(async move {
                 while let Some(message) = stream.next().await {
                     port.send(RenderAction::Message(message, state_scope.clone()))
                         .unwrap();
                 }
             }),
-            Command::Timeout(duration, callback) => glib::timeout_add_once(duration, move || {
-                let message = callback();
-                port.send(RenderAction::Message(message, state_scope))
-                    .unwrap();
-            }),
-            Command::Interval(period, callback) => glib::timeout_add(period, move || {
+            CommandAtom::Timeout(duration, callback) => {
+                glib::timeout_add_once(duration, move || {
+                    let message = callback();
+                    port.send(RenderAction::Message(message, state_scope))
+                        .unwrap();
+                })
+            }
+            CommandAtom::Interval(period, callback) => glib::timeout_add(period, move || {
                 let message = callback();
                 port.send(RenderAction::Message(message, state_scope.clone()))
                     .unwrap();
                 glib::Continue(true)
             }),
         };
-        create_token(source_id)
+        if let Some(cancellation_token) = cancellation_token {
+            let token = create_token(source_id);
+            cancellation_token.register(token);
+        }
     }
 }
 
