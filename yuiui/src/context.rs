@@ -121,6 +121,10 @@ impl<T> MessageContext<T> {
         self.depth
     }
 
+    pub fn push(&mut self, message: T) {
+        self.messages.push(message);
+    }
+
     pub fn into_messages(self) -> Vec<(T, IdStack)> {
         self.messages
             .into_iter()
