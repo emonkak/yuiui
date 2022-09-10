@@ -100,9 +100,9 @@ impl<T> MessageContext<T> {
         self.messages.extend(new_messages);
     }
 
-    pub(crate) fn begin_id(&mut self, id: Id) {
+    pub(crate) fn begin_id(&mut self, id: Id, depth: Depth) {
         self.id_path.push(id);
-        self.depth = 0;
+        self.depth = depth;
     }
 
     pub(crate) fn end_id(&mut self) {

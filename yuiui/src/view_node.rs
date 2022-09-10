@@ -120,8 +120,7 @@ where
             return false;
         }
 
-        context.begin_id(self.id);
-        context.set_depth(CS::LEN);
+        context.begin_id(self.id, CS::LEN);
 
         let (mut result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
@@ -424,7 +423,7 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Visitor::Output {
-        context.begin_id(self.id);
+        context.begin_id(self.id, 0);
         let result = visitor.visit(self, context, store, backend);
         context.end_id();
         result
@@ -438,7 +437,7 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
-        context.begin_id(self.id);
+        context.begin_id(self.id, 0);
         let result = if self.id == Id::from_top(id_path) {
             Some(visitor.visit(self, context, store, backend))
         } else if self.id == Id::from_bottom(id_path) {
