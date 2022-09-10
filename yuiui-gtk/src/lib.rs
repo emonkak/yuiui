@@ -8,7 +8,7 @@ use glib::MainContext;
 use gtk::prelude::*;
 use gtk::Application;
 use std::time::{Duration, Instant};
-use yuiui::{Element, Forever, RenderFlow, RenderLoop, State, Store};
+use yuiui::{Element, RenderFlow, RenderLoop, State, Store};
 
 use backend::Backend;
 use execution_context::{ExecutionContext, RenderAction};
@@ -30,7 +30,7 @@ where
     let mut backend = Backend::new(application.clone(), event_tx);
     let mut render_loop = RenderLoop::create(element, &store, &mut backend);
 
-    render_loop.run(&Forever, &context, &mut store, &mut backend);
+    render_loop.run_forever(&context, &mut store, &mut backend);
 
     event_rx.attach(None, move |(event, destination)| {
         action_tx
@@ -52,7 +52,7 @@ where
             }
         }
 
-        if render_loop.run(&deadline, &context, &mut store, &mut backend) == RenderFlow::Suspended {
+        if render_loop.run(&deadline, &context, &mut store, &mut backend) == RenderFlow::Suspend {
             context.request_render();
         }
 

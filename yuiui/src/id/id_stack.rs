@@ -20,10 +20,7 @@ impl IdStack {
         if cfg!(debug_assertions) {
             ensure_valid(&id_path, &stack);
         }
-        Self {
-            id_path,
-            stack,
-        }
+        Self { id_path, stack }
     }
 
     #[inline]

@@ -26,7 +26,7 @@ pub use element::{
 };
 pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
 pub use id::{id_stack, id_tree, Depth, Id, IdPath, IdPathBuf, IdStack, IdTree};
-pub use render_loop::{Forever, RenderFlow, RenderLoop};
+pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{State, Store};
 pub use traversable::{Traversable, Visitor};
 pub use view::View;

@@ -8,7 +8,7 @@ use crate::command::ExecutionContext;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
-use crate::id::{Depth, IdPathBuf, IdStack, IdTree};
+use crate::id::{Depth, IdPath, IdPathBuf, IdStack, IdTree};
 use crate::state::State;
 use crate::state::Store;
 use crate::view::View;
@@ -19,7 +19,7 @@ pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     render_context: RenderContext,
     message_queue: VecDeque<(M, IdStack)>,
     event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
-    updated_nodes: BTreeMap<IdPathBuf, Depth>,
+    nodes_to_update: BTreeMap<IdPathBuf, Depth>,
     nodes_to_commit: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
 }
@@ -37,7 +37,7 @@ where
             render_context: RenderContext::new(),
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
-            updated_nodes: BTreeMap::new(),
+            nodes_to_update: BTreeMap::new(),
             nodes_to_commit: BTreeMap::new(),
             is_mounted: false,
         }
@@ -46,7 +46,7 @@ where
     pub fn run(
         &mut self,
         deadline: &impl Deadline,
-        context: &impl ExecutionContext<M>,
+        execution_context: &impl ExecutionContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> RenderFlow {
@@ -55,28 +55,34 @@ where
                 let (dirty, commands) = store.update(message);
                 if dirty {
                     // Update the root always
-                    self.updated_nodes.insert(IdPathBuf::new(), 0);
+                    if !self.nodes_to_update.contains_key(&[] as &IdPath) {
+                        self.nodes_to_update.insert(IdPathBuf::new(), 0);
+                    }
 
                     for (id_path, depth) in state_stack.iter() {
-                        if let Some(current_depth) = self.updated_nodes.get_mut(id_path) {
+                        if let Some(current_depth) = self.nodes_to_update.get_mut(id_path) {
                             *current_depth = (*current_depth).min(depth);
                         } else {
-                            self.updated_nodes.insert(id_path.to_vec(), depth);
+                            self.nodes_to_update.insert(id_path.to_vec(), depth);
                         }
                     }
                 }
                 for (command, cancellation_token) in commands {
-                    context.spawn_command(command, cancellation_token, state_stack.clone());
+                    execution_context.spawn_command(
+                        command,
+                        cancellation_token,
+                        state_stack.clone(),
+                    );
                 }
                 if deadline.did_timeout() {
-                    return self.render_status();
+                    return self.render_flow();
                 }
             }
 
             while let Some((event, destination)) = self.event_queue.pop_front() {
                 self.dispatch_event(event, destination, store, backend);
                 if deadline.did_timeout() {
-                    return self.render_status();
+                    return self.render_flow();
                 }
             }
 
@@ -84,8 +90,8 @@ where
                 continue;
             }
 
-            if !self.updated_nodes.is_empty() {
-                let id_tree = IdTree::from_iter(mem::take(&mut self.updated_nodes));
+            if !self.nodes_to_update.is_empty() {
+                let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_update));
                 let changed_nodes =
                     self.node
                         .update_subtree(&id_tree, store, backend, &mut self.render_context);
@@ -99,7 +105,7 @@ where
                     }
                 }
                 if deadline.did_timeout() {
-                    return self.render_status();
+                    return self.render_flow();
                 }
             }
 
@@ -111,7 +117,7 @@ where
                         .commit_subtree(&id_tree, &mut context, store, backend);
                     self.message_queue.extend(context.into_messages());
                     if deadline.did_timeout() {
-                        return self.render_status();
+                        return self.render_flow();
                     }
                 }
             } else {
@@ -121,7 +127,7 @@ where
                 self.message_queue.extend(context.into_messages());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
-                    return self.render_status();
+                    return self.render_flow();
                 }
             }
 
@@ -129,6 +135,16 @@ where
                 return RenderFlow::Done;
             }
         }
+    }
+
+    pub fn run_forever(
+        &mut self,
+        execution_context: &impl ExecutionContext<M>,
+        store: &mut Store<S>,
+        backend: &mut B,
+    ) {
+        let render_flow = self.run(&Forever, execution_context, store, backend);
+        assert_eq!(render_flow, RenderFlow::Done);
     }
 
     pub fn push_message(&mut self, message: M, state_stack: IdStack) {
@@ -167,15 +183,16 @@ where
         self.message_queue.extend(context.into_messages());
     }
 
-    fn render_status(&self) -> RenderFlow {
+    fn render_flow(&self) -> RenderFlow {
         if self.message_queue.is_empty()
-            && self.updated_nodes.is_empty()
+            && self.event_queue.is_empty()
+            && self.nodes_to_update.is_empty()
             && self.nodes_to_commit.is_empty()
             && self.is_mounted
         {
             RenderFlow::Done
         } else {
-            RenderFlow::Suspended
+            RenderFlow::Suspend
         }
     }
 }
@@ -195,7 +212,8 @@ where
             .field("node", &self.node)
             .field("render_context", &self.render_context)
             .field("message_queue", &self.message_queue)
-            .field("updated_nodes", &self.updated_nodes)
+            .field("event_queue", &self.event_queue)
+            .field("nodes_to_update", &self.nodes_to_update)
             .field("nodes_to_commit", &self.nodes_to_commit)
             .field("is_mounted", &self.is_mounted)
             .finish()
@@ -204,7 +222,7 @@ where
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RenderFlow {
-    Suspended,
+    Suspend,
     Done,
 }
 
@@ -218,7 +236,7 @@ impl Deadline for Instant {
     }
 }
 
-pub struct Forever;
+struct Forever;
 
 impl Deadline for Forever {
     fn did_timeout(&self) -> bool {
