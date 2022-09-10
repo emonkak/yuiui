@@ -58,7 +58,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let sub_store = (self.store_selector)(store);
         let sub_node = self.target.render(context, sub_store, backend);
@@ -94,7 +94,7 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         with_sub_node(node, |sub_node| {
@@ -119,7 +119,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         let sub_store = (self.store_selector)(store);
         Scope::new(
@@ -134,7 +134,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         self.target
@@ -163,7 +163,7 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
@@ -186,7 +186,7 @@ where
         visitor: &mut Visitor,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Output {
         let sub_store = (self.store_selector)(store);
         self.target.for_each(visitor, context, sub_store, backend)
@@ -198,7 +198,7 @@ where
         visitor: &mut Visitor,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<Output> {
         let sub_store = (self.store_selector)(store);
         self.target
@@ -220,7 +220,7 @@ where
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
@@ -237,7 +237,7 @@ where
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<bool> {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
@@ -268,7 +268,7 @@ where
         current_depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
@@ -290,7 +290,7 @@ where
         current_depth: Depth,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let store_selector = &node.components.store_selector;
         let sub_store = store_selector(store);
@@ -326,7 +326,7 @@ where
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
         let mut sub_context = context.new_sub_context();
@@ -349,7 +349,7 @@ where
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) {
         let mut sub_context = context.new_sub_context();
         let sub_store = (self.store_selector)(store);
@@ -368,7 +368,7 @@ where
         &self,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::State {
         let sub_store = (self.store_selector)(store);
         self.target.build(&children.target, sub_store, backend)

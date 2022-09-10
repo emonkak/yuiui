@@ -42,7 +42,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         match self {
             Either::Left(element) => EitherStorage::new(Either::Left(
@@ -59,7 +59,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
@@ -148,7 +148,7 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
@@ -189,7 +189,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Output {
         match &mut self.active {
             Either::Left(node) => node.for_each(visitor, context, store, backend),
@@ -203,7 +203,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<Output> {
         match &mut self.active {
             Either::Left(node) => node.search(id_path, visitor, context, store, backend),

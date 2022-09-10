@@ -36,7 +36,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.render(store, backend);
@@ -57,7 +57,7 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
         let element = self.component.render(&head_node.state, store, backend);
@@ -88,7 +88,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         self.render(context, store, backend)
     }
@@ -98,7 +98,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         self.update(&mut storage.borrow_mut(), context, store, backend)
     }

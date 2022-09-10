@@ -39,7 +39,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         OptionStorage::new(self.map(|element| element.render_children(context, store, backend)))
     }
@@ -49,7 +49,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
@@ -100,7 +100,7 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
@@ -136,7 +136,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Output {
         if let Some(node) = &mut self.active {
             node.for_each(visitor, context, store, backend)
@@ -151,7 +151,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<Output> {
         if let Some(node) = &mut self.active {
             node.search(id_path, visitor, context, store, backend)

@@ -16,11 +16,12 @@ pub trait Component<S, M, B>: Sized {
         _local_state: &mut Self::State,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) {
     }
 
-    fn render(&self, local_state: &Self::State, store: &Store<S>, backend: &B) -> Self::Element;
+    fn render(&self, local_state: &Self::State, store: &Store<S>, backend: &mut B)
+        -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -32,13 +33,13 @@ pub trait Component<S, M, B>: Sized {
 
 pub struct FunctionComponent<Props, LocalState, E, S, M, B> {
     props: Props,
-    render: fn(&Props, &LocalState, &S, &B) -> E,
+    render: fn(&Props, &LocalState, &S, &mut B) -> E,
     lifecycle:
-        Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &B)>,
+        Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &mut B)>,
 }
 
 impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M, B> {
-    pub fn new(props: Props, render: fn(&Props, &LocalState, &S, &B) -> E) -> Self {
+    pub fn new(props: Props, render: fn(&Props, &LocalState, &S, &mut B) -> E) -> Self {
         Self {
             props,
             render,
@@ -49,7 +50,9 @@ impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M
     pub fn lifecycle(
         mut self,
         lifecycle: impl Into<
-            Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &B)>,
+            Option<
+                fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &mut B),
+            >,
         >,
     ) -> Self {
         self.lifecycle = lifecycle.into();
@@ -73,7 +76,7 @@ where
         local_state: &mut Self::State,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map(|component| &component.props);
@@ -81,7 +84,12 @@ where
         }
     }
 
-    fn render(&self, local_state: &Self::State, store: &Store<S>, backend: &B) -> Self::Element {
+    fn render(
+        &self,
+        local_state: &Self::State,
+        store: &Store<S>,
+        backend: &mut B,
+    ) -> Self::Element {
         (self.render)(&self.props, local_state, store, backend)
     }
 }

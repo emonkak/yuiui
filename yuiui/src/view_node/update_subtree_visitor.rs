@@ -31,7 +31,7 @@ where
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Output {
         if let (Some(&depth), true) = (self.cursor.current().value(), store.dirty()) {
             let is_updated = if depth < CS::LEN {

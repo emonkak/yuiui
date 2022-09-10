@@ -18,7 +18,7 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
         self,
         _context: &mut RenderContext,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> Self::Storage {
         HNil
     }
@@ -28,7 +28,7 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
         _nodes: &mut Self::Storage,
         _context: &mut RenderContext,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> bool {
         false
     }
@@ -49,7 +49,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         _mode: CommitMode,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> bool {
         false
     }
@@ -64,7 +64,7 @@ where
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> Output {
         Output::default()
     }
@@ -75,7 +75,7 @@ where
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> Option<Output> {
         None
     }
@@ -95,7 +95,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         HCons {
             head: self.head.render_children(context, store, backend),
@@ -108,7 +108,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self
@@ -152,7 +152,7 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let head_result = self.head.commit(mode, context, store, backend);
         let tail_result = self.tail.commit(mode, context, store, backend);
@@ -172,7 +172,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Output {
         self.head
             .for_each(visitor, context, store, backend)
@@ -185,7 +185,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<Output> {
         self.head
             .search(id_path, visitor, context, store, backend)

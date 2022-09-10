@@ -28,7 +28,7 @@ where
         }
     }
 
-    pub(crate) fn render(&self, store: &Store<S>, backend: &B) -> C::Element {
+    pub(crate) fn render(&self, store: &Store<S>, backend: &mut B) -> C::Element {
         self.component.render(&self.state, store, backend)
     }
 
@@ -38,7 +38,7 @@ where
         depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         context.set_depth(depth);
         match mode {

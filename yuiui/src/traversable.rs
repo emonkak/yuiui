@@ -7,7 +7,7 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Output;
 
     fn search(
@@ -16,7 +16,7 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<Output>;
 }
 
@@ -30,7 +30,7 @@ pub trait Visitor<Node, S, B> {
         node: &mut Node,
         context: &mut Self::Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Output;
 }
 

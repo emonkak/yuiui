@@ -1,7 +1,7 @@
 use futures::stream::StreamExt as _;
 use glib::{MainContext, Sender, SourceId};
 use std::any::Any;
-use yuiui::{CancellationToken, Command, EventDestination, RawToken, RawTokenVTable, IdStack};
+use yuiui::{CancellationToken, Command, EventDestination, IdStack, RawToken, RawTokenVTable};
 
 #[derive(Debug)]
 pub struct ExecutionContext<T> {

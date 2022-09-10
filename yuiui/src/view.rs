@@ -17,7 +17,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) {
     }
 
@@ -28,7 +28,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) {
     }
 
@@ -36,7 +36,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
         &self,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::State;
 
     fn el(self) -> ViewElement<Self, S, M, B>

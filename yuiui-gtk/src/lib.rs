@@ -25,12 +25,12 @@ where
     let (action_tx, action_rx) = MainContext::channel(glib::PRIORITY_DEFAULT);
 
     let application = Application::new(None, Default::default());
-    let backend = Backend::new(application.clone(), event_tx);
     let context = ExecutionContext::new(MainContext::default(), action_tx.clone());
 
-    let mut render_loop = RenderLoop::create(element, &store, &backend);
+    let mut backend = Backend::new(application.clone(), event_tx);
+    let mut render_loop = RenderLoop::create(element, &store, &mut backend);
 
-    render_loop.run(&Forever, &context, &mut store, &backend);
+    render_loop.run(&Forever, &context, &mut store, &mut backend);
 
     event_rx.attach(None, move |(event, destination)| {
         action_tx
@@ -52,7 +52,7 @@ where
             }
         }
 
-        if render_loop.run(&deadline, &context, &mut store, &backend) == RenderFlow::Suspended {
+        if render_loop.run(&deadline, &context, &mut store, &mut backend) == RenderFlow::Suspended {
             context.request_render();
         }
 

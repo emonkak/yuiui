@@ -9,12 +9,12 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 use super::{ComponentElement, Element, ElementSeq};
 
 pub struct Consume<E, T, S, B> {
-    render: fn(&T, &S, &B) -> E,
+    render: fn(&T, &S, &mut B) -> E,
     _phantom: PhantomData<T>,
 }
 
 impl<E, T, S, B> Consume<E, T, S, B> {
-    pub const fn new(render: fn(&T, &S, &B) -> E) -> ComponentElement<Self> {
+    pub fn new(render: fn(&T, &S, &mut B) -> E) -> ComponentElement<Self> {
         let connect = Self {
             render,
             _phantom: PhantomData,
@@ -41,7 +41,12 @@ where
 
     type State = ();
 
-    fn render(&self, _local_state: &Self::State, _store: &Store<S>, _backend: &B) -> Self::Element {
+    fn render(
+        &self,
+        _local_state: &Self::State,
+        _store: &Store<S>,
+        _backend: &mut B,
+    ) -> Self::Element {
         AsElement::new(self.clone())
     }
 }
@@ -71,7 +76,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let value = context
             .get_env::<T>()
@@ -85,7 +90,7 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let value = context
             .get_env::<T>()
@@ -108,7 +113,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         self.render(context, store, backend)
     }
@@ -118,7 +123,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         self.update(&mut storage.borrow_mut(), context, store, backend)
     }

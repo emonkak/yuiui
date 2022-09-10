@@ -43,7 +43,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
@@ -57,7 +57,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let mut has_changed = false;
 
@@ -116,7 +116,7 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagatable() {
@@ -170,7 +170,7 @@ where
         visitor: &mut Visitor,
         context: &mut Visitor::Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Visitor::Output {
         let mut result = Visitor::Output::default();
         for node in &mut self.active {
@@ -185,7 +185,7 @@ where
         visitor: &mut Visitor,
         context: &mut Visitor::Context,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Option<Visitor::Output> {
         let id = Id::from_top(id_path);
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {

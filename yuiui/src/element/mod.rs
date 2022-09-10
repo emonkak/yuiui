@@ -31,7 +31,7 @@ pub trait Element<S, M, B> {
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B>;
 
     fn update(
@@ -39,7 +39,7 @@ pub trait Element<S, M, B> {
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool;
 
     fn scope<FS, FM, PS, PM>(
@@ -73,7 +73,7 @@ pub trait ElementSeq<S, M, B> {
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Storage;
 
     fn update_children(
@@ -81,7 +81,7 @@ pub trait ElementSeq<S, M, B> {
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool;
 }
 

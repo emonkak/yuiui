@@ -29,7 +29,7 @@ where
     E: Element<S, M, B>,
     S: State<Message = M>,
 {
-    pub fn create(element: E, store: &Store<S>, backend: &B) -> Self {
+    pub fn create(element: E, store: &Store<S>, backend: &mut B) -> Self {
         let mut context = RenderContext::new();
         let node = element.render(&mut context, store, backend);
         Self {
@@ -48,7 +48,7 @@ where
         deadline: &impl Deadline,
         context: &impl ExecutionContext<M>,
         store: &mut Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> RenderFlow {
         loop {
             while let Some((message, state_stack)) = self.message_queue.pop_front() {
@@ -144,7 +144,7 @@ where
         event: Box<dyn Any + Send>,
         destination: EventDestination,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) {
         let mut context = MessageContext::new();
         match destination {

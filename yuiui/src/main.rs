@@ -58,7 +58,7 @@ fn main() {
     });
     let element = app();
     let mut context = RenderContext::new();
-    let node = element.render(&mut context, &store, &());
+    let node = element.render(&mut context, &store, &mut ());
     println!("{:#?}", node);
 }
 
@@ -85,7 +85,7 @@ impl<S, M, B> View<S, M, B> for Text {
         &self,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> Self::State {
         TextState
     }
@@ -123,7 +123,7 @@ where
         &self,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> Self::State {
         BlockState
     }

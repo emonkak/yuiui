@@ -58,7 +58,7 @@ where
         _children: &<Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &Backend,
+        _backend: &mut Backend,
     ) {
         match lifecycle {
             Lifecycle::Mount => {
@@ -79,7 +79,7 @@ where
         &self,
         child: &<Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _store: &Store<S>,
-        backend: &Backend,
+        backend: &mut Backend,
     ) -> Self::State {
         let mut builder = gtk::ApplicationWindow::builder();
 

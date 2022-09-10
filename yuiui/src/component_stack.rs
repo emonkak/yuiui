@@ -20,7 +20,7 @@ pub trait ComponentStack<S, M, B>: Sized {
         current_depth: Depth,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool;
 
     fn commit(
@@ -30,7 +30,7 @@ pub trait ComponentStack<S, M, B>: Sized {
         current_depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool;
 }
 
@@ -50,7 +50,7 @@ where
         current_depth: Depth,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         let (head, tail) = node.components;
         let mut node = ViewNodeMut {
@@ -83,7 +83,7 @@ where
         current_depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> bool {
         if target_depth <= current_depth {
             self.0.commit(mode, current_depth, context, store, backend)
@@ -120,7 +120,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _current_depth: Depth,
         _context: &mut RenderContext,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> bool {
         false
     }
@@ -132,7 +132,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _current_depth: Depth,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &B,
+        _backend: &mut B,
     ) -> bool {
         false
     }

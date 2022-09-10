@@ -35,7 +35,7 @@ where
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &B,
+        backend: &mut B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, view_state)
