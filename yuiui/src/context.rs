@@ -66,7 +66,7 @@ pub struct MessageContext<T> {
     id_path: IdPathBuf,
     depth: Depth,
     state_stack: IdStack,
-    messages: Vec<T>,
+    messages: Vec<(T, IdStack)>,
 }
 
 impl<T> MessageContext<T> {
@@ -96,7 +96,10 @@ impl<T> MessageContext<T> {
         f: &F,
     ) {
         assert!(sub_context.id_path.starts_with(&self.id_path));
-        let new_messages = sub_context.messages.into_iter().map(f);
+        let new_messages = sub_context
+            .messages
+            .into_iter()
+            .map(|(message, state_stack)| (f(message), state_stack));
         self.messages.extend(new_messages);
     }
 
@@ -122,13 +125,10 @@ impl<T> MessageContext<T> {
     }
 
     pub fn push(&mut self, message: T) {
-        self.messages.push(message);
+        self.messages.push((message, self.state_stack.clone()));
     }
 
     pub fn into_messages(self) -> Vec<(T, IdStack)> {
         self.messages
-            .into_iter()
-            .map(move |message| (message, self.state_stack.clone()))
-            .collect()
     }
 }
