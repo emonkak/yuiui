@@ -37,7 +37,7 @@ where
         if let Some(depth) = self.cursor.current().value() {
             node.commit_within(self.mode, *depth, context, store, backend)
         } else {
-            let mut result = Self::Output::default();
+            let mut result = false;
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;

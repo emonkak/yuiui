@@ -357,7 +357,7 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, M, B> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
+impl<V, CS, S, M, B, Visitor> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,
@@ -408,7 +408,7 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, M, B> Traversable<Visitor, MessageContext<M>, Visitor::Output, S, B>
+impl<V, CS, S, M, B, Visitor> Traversable<Visitor, MessageContext<M>, Visitor::Output, S, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,

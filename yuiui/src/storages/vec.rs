@@ -157,7 +157,7 @@ where
     }
 }
 
-impl<V, CS, Visitor, S, M, B> Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>
+impl<V, CS, S, M, B, Visitor> Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>
     for VecStorage<ViewNode<V, CS, S, M, B>>
 where
     ViewNode<V, CS, S, M, B>: Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>,

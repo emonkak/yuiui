@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<V, CS, Visitor, Context, S, M, B, const N: usize>
+impl<V, CS, S, M, B, Visitor, Context, const N: usize>
     Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>
     for ArrayStorage<ViewNode<V, CS, S, M, B>, N>
 where
