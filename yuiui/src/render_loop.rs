@@ -52,7 +52,7 @@ where
     ) -> RenderFlow {
         loop {
             while let Some((message, state_stack)) = self.message_queue.pop_front() {
-                let (dirty, command) = store.update(message);
+                let (dirty, commands) = store.update(message);
                 if dirty {
                     // Update the root always
                     self.updated_nodes.insert(IdPathBuf::new(), 0);
@@ -65,7 +65,7 @@ where
                         }
                     }
                 }
-                for (command, cancellation_token) in command {
+                for (command, cancellation_token) in commands {
                     context.spawn_command(command, cancellation_token, state_stack.clone());
                 }
                 if deadline.did_timeout() {
