@@ -16,6 +16,17 @@ impl IdStack {
     }
 
     #[inline]
+    pub unsafe fn from_external(id_path: IdPathBuf, stack: Vec<(usize, Depth)>) -> Self {
+        if cfg!(debug_assertions) {
+            ensure_valid(&id_path, &stack);
+        }
+        Self {
+            id_path,
+            stack,
+        }
+    }
+
+    #[inline]
     pub fn len(&self) -> usize {
         self.stack.len()
     }
@@ -84,6 +95,15 @@ impl<'a> Iterator for Iter<'a> {
         } else {
             None
         }
+    }
+}
+
+fn ensure_valid(id_path: &IdPath, stack: &[(usize, Depth)]) {
+    let mut last_len = 0;
+    for (len, _) in stack {
+        assert!(*len <= id_path.len());
+        assert!(*len >= last_len);
+        last_len = *len;
     }
 }
 

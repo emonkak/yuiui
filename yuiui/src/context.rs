@@ -65,7 +65,7 @@ impl RenderContext {
 pub struct MessageContext<T> {
     id_path: IdPathBuf,
     depth: Depth,
-    state_stack: IdStack,
+    state_stack: Vec<(usize, Depth)>,
     messages: Vec<(T, IdStack)>,
 }
 
@@ -74,14 +74,14 @@ impl<T> MessageContext<T> {
         Self {
             id_path: IdPathBuf::new(),
             depth: 0,
-            state_stack: IdStack::new(),
+            state_stack: Vec::new(),
             messages: Vec::new(),
         }
     }
 
     pub(crate) fn new_sub_context<U>(&self) -> MessageContext<U> {
         let mut state_stack = self.state_stack.clone();
-        state_stack.push(&self.id_path, self.depth);
+        state_stack.push((self.id_path.len(), self.depth));
         MessageContext {
             id_path: self.id_path.clone(),
             depth: self.depth,
@@ -125,7 +125,13 @@ impl<T> MessageContext<T> {
     }
 
     pub fn push(&mut self, message: T) {
-        self.messages.push((message, self.state_stack.clone()));
+        let id_path = if let Some((len, _)) = self.state_stack.last() {
+            self.id_path[..*len].to_vec()
+        } else {
+            vec![]
+        };
+        let state_stack = unsafe { IdStack::from_external(id_path, self.state_stack.clone()) };
+        self.messages.push((message, state_stack));
     }
 
     pub fn into_messages(self) -> Vec<(T, IdStack)> {
