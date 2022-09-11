@@ -195,10 +195,10 @@ where
     }
 }
 
-impl<T, SF, MF, SS, SM, Visitor, S, M, B> Traversable<Visitor, MessageContext<M>, bool, S, B>
-    for Connect<T, SF, MF, SS, SM>
+impl<T, SF, MF, SS, SM, Visitor, Output, S, M, B>
+    Traversable<Visitor, MessageContext<M>, Output, S, B> for Connect<T, SF, MF, SS, SM>
 where
-    T: Traversable<Visitor, MessageContext<SM>, bool, SS, B>,
+    T: Traversable<Visitor, MessageContext<SM>, Output, SS, B>,
     SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
@@ -210,7 +210,7 @@ where
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
-    ) -> bool {
+    ) -> Output {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
         let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self
@@ -227,7 +227,7 @@ where
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
-    ) -> Option<bool> {
+    ) -> Option<Output> {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
         let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self
