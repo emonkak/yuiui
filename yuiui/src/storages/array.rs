@@ -67,7 +67,9 @@ where
         INIT.call_once(|| unsafe {
             let mut types = Vec::new();
             <V as HasEvent>::Event::collect_types(&mut types);
-            EVENT_MASK.add_all(&types);
+            if !types.is_empty() {
+                EVENT_MASK.extend(types);
+            }
         });
 
         unsafe { &EVENT_MASK }

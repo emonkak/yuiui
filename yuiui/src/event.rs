@@ -44,33 +44,32 @@ impl EventMask {
     }
 
     pub fn contains(&self, type_id: &TypeId) -> bool {
-        if let Some(mask) = &self.mask {
-            mask.contains(type_id)
-        } else {
-            false
-        }
+        self.mask
+            .as_ref()
+            .map_or(false, |mask| mask.contains(type_id))
     }
 
-    pub fn add(&mut self, type_id: TypeId) {
+    pub fn insert(&mut self, type_id: TypeId) {
         self.mask
             .get_or_insert_with(|| HashSet::new())
             .insert(type_id);
     }
 
-    pub fn add_all(&mut self, type_ids: &[TypeId]) {
-        if !type_ids.is_empty() {
-            self.mask
-                .get_or_insert_with(|| HashSet::new())
-                .extend(type_ids);
-        }
-    }
-
-    pub fn merge(&mut self, other: &Self) {
+    pub fn append(&mut self, other: &Self) {
         if let Some(mask) = &other.mask {
             if !mask.is_empty() {
                 self.mask.get_or_insert_with(|| HashSet::new()).extend(mask);
             }
         }
+    }
+}
+
+impl Extend<TypeId> for EventMask {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = TypeId>,
+    {
+        self.mask.get_or_insert_with(|| HashSet::new()).extend(iter);
     }
 }
 

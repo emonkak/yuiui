@@ -330,10 +330,12 @@ where
             let children_mask = <V::Children as ElementSeq<S, M, B>>::Storage::event_mask();
 
             INIT.call_once(|| unsafe {
-                EVENT_MASK.merge(children_mask);
+                EVENT_MASK.append(children_mask);
                 let mut types = Vec::new();
                 <V as HasEvent>::Event::collect_types(&mut types);
-                EVENT_MASK.add_all(&types);
+                if !types.is_empty() {
+                    EVENT_MASK.extend(types);
+                }
             });
         }
 
