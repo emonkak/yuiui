@@ -12,8 +12,6 @@ use crate::view_node::{CommitMode, ViewNodeSeq};
 impl<S, M, B> ElementSeq<S, M, B> for HNil {
     type Storage = HNil;
 
-    const DEPTH: usize = 0;
-
     fn render_children(self, _context: &mut RenderContext, _store: &mut Store<S>) -> Self::Storage {
         HNil
     }
@@ -82,8 +80,6 @@ where
     T::Storage: HList,
 {
     type Storage = HCons<H::Storage, T::Storage>;
-
-    const DEPTH: usize = [H::DEPTH, T::DEPTH][(H::DEPTH < T::DEPTH) as usize];
 
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         HCons {

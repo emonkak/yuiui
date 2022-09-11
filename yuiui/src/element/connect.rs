@@ -52,8 +52,6 @@ where
 
     type Components = Connect<T::Components, SF, MF, SS, SM>;
 
-    const DEPTH: usize = T::DEPTH;
-
     fn render(
         self,
         context: &mut RenderContext,
@@ -111,8 +109,6 @@ where
     M: 'static,
 {
     type Storage = Connect<T::Storage, SF, MF, SS, SM>;
-
-    const DEPTH: usize = T::DEPTH;
 
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };

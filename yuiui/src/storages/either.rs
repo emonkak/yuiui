@@ -36,8 +36,6 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    const DEPTH: usize = [L::DEPTH, R::DEPTH][(L::DEPTH < R::DEPTH) as usize];
-
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         match self {
             Either::Left(element) => {

@@ -4,7 +4,6 @@ use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
 use crate::state::Store;
-use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
@@ -29,8 +28,6 @@ where
         ComponentNode<C, S, M, B>,
         <C::Element as Element<S, M, B>>::Components,
     );
-
-    const DEPTH: usize = 1 + <Self::View as View<S, M, B>>::Children::DEPTH;
 
     fn render(
         self,
@@ -77,8 +74,6 @@ where
 {
     type Storage =
         ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
-
-    const DEPTH: usize = C::Element::DEPTH;
 
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         self.render(context, store)

@@ -37,8 +37,6 @@ where
 {
     type Storage = VecStorage<ViewNode<E::View, E::Components, S, M, B>>;
 
-    const DEPTH: usize = E::DEPTH;
-
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()

@@ -29,8 +29,6 @@ where
 {
     type Storage = ArrayStorage<ViewNode<E::View, E::Components, S, M, B>, N>;
 
-    const DEPTH: usize = E::DEPTH;
-
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         ArrayStorage::new(self.map(|element| element.render(context, store)))
     }
