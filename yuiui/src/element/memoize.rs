@@ -48,7 +48,6 @@ where
             let element = ComponentElement::new(AsComponent::new(self));
             Element::update(element, node, context, store)
         } else {
-            head_node.pending_component = Some(AsComponent::new(self));
             false
         }
     }
