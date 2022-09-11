@@ -1,0 +1,9 @@
+[package]
+name = "slot_vec"
+version = "0.0.0"
+authors = ["Shota Nozaki <emonkak@gmail.com>"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+futures = "0.3"

@@ -479,7 +479,7 @@ mod tests {
         let baz = xs.insert("baz");
 
         assert_eq!(3, xs.len());
-        assert_eq!(3, xs.slot_size());
+        assert_eq!(4, xs.slot_size());
 
         xs.clear();
 

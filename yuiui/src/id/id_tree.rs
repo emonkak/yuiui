@@ -136,12 +136,12 @@ impl<'a, T> Cursor<'a, T> {
 #[derive(Debug)]
 pub struct Descendants<'a, T> {
     arena: &'a Vec<Node<T>>,
-    index: usize,
+    current: usize,
 }
 
 impl<'a, T> Descendants<'a, T> {
     fn new(arena: &'a Vec<Node<T>>) -> Self {
-        Self { arena, index: 0 }
+        Self { arena, current: 0 }
     }
 }
 
@@ -149,12 +149,12 @@ impl<'a, T> Iterator for Descendants<'a, T> {
     type Item = Cursor<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.arena.len() {
+        if self.current < self.arena.len() {
             let cursor = Cursor {
                 arena: self.arena,
-                node: &self.arena[self.index],
+                node: &self.arena[self.current],
             };
-            self.index += 1;
+            self.current += 1;
             Some(cursor)
         } else {
             None
@@ -166,7 +166,7 @@ impl<'a, T> Iterator for Descendants<'a, T> {
 pub struct Children<'a, T> {
     arena: &'a Vec<Node<T>>,
     children: &'a Vec<usize>,
-    index: usize,
+    current: usize,
 }
 
 impl<'a, T> Children<'a, T> {
@@ -174,7 +174,7 @@ impl<'a, T> Children<'a, T> {
         Self {
             arena,
             children,
-            index: 0,
+            current: 0,
         }
     }
 }
@@ -183,13 +183,13 @@ impl<'a, T> Iterator for Children<'a, T> {
     type Item = Cursor<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.children.len() {
-            let index = self.children[self.index];
+        if self.current < self.children.len() {
+            let current = self.children[self.current];
             let cursor = Cursor {
                 arena: self.arena,
-                node: &self.arena[index],
+                node: &self.arena[current],
             };
-            self.index += 1;
+            self.current += 1;
             Some(cursor)
         } else {
             None

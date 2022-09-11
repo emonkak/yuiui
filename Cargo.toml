@@ -4,6 +4,7 @@ members = [
     "either-macro",
     "hlist",
     "observable",
+    "slot_vec",
     "yuiui",
     "yuiui-derive",
     "yuiui-gtk",
