@@ -9,6 +9,7 @@ use crate::id::IdPath;
 use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::StateTree;
 
 use super::RenderFlags;
 
@@ -136,6 +137,7 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -144,23 +146,29 @@ where
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Unmount, context, store, backend),
+                    Either::Left(node) => {
+                        node.commit(CommitMode::Unmount, state_tree, context, store, backend)
+                    }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, context, store, backend)
+                        node.commit(CommitMode::Unmount, state_tree, context, store, backend)
                     }
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Mount, context, store, backend),
-                    Either::Right(node) => node.commit(CommitMode::Mount, context, store, backend),
+                    Either::Left(node) => {
+                        node.commit(CommitMode::Mount, state_tree, context, store, backend)
+                    }
+                    Either::Right(node) => {
+                        node.commit(CommitMode::Mount, state_tree, context, store, backend)
+                    }
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, context, store, backend),
-                Either::Right(node) => node.commit(mode, context, store, backend),
+                Either::Left(node) => node.commit(mode, state_tree, context, store, backend),
+                Either::Right(node) => node.commit(mode, state_tree, context, store, backend),
             };
         }
         self.flags = RenderFlags::COMMITED;

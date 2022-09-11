@@ -1,4 +1,5 @@
-use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf, StateTree};
+use crate::id::{Id, IdCounter, IdPath, IdPathBuf};
+use crate::state::StateId;
 
 #[derive(Debug)]
 pub struct RenderContext {
@@ -36,30 +37,26 @@ impl RenderContext {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MessageContext<T> {
     id_path: IdPathBuf,
-    state_tree: StateTree,
-    messages: Vec<(T, StateTree)>,
+    state_id: StateId,
+    messages: Vec<(T, StateId)>,
 }
 
 impl<T> MessageContext<T> {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
-            state_tree: StateTree::new(),
+            state_id: StateId::ROOT,
             messages: Vec::new(),
         }
     }
 
-    pub(crate) fn new_sub_context<U>(
-        &self,
-        subscribers: Vec<(IdPathBuf, Depth)>,
-    ) -> MessageContext<U> {
-        let state_tree = self.state_tree.new_subtree(subscribers);
+    pub(crate) fn new_sub_context<U>(&mut self, state_id: StateId) -> MessageContext<U> {
         MessageContext {
             id_path: self.id_path.clone(),
-            state_tree,
+            state_id,
             messages: Vec::new(),
         }
     }
@@ -73,7 +70,7 @@ impl<T> MessageContext<T> {
         let new_messages = sub_context
             .messages
             .into_iter()
-            .map(|(message, state_tree)| (f(message), state_tree));
+            .map(|(message, state_id)| (f(message), state_id));
         self.messages.extend(new_messages);
     }
 
@@ -85,15 +82,19 @@ impl<T> MessageContext<T> {
         self.id_path.pop();
     }
 
+    pub(crate) fn state_id(&self) -> StateId {
+        self.state_id
+    }
+
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
     }
 
     pub fn push_message(&mut self, message: T) {
-        self.messages.push((message, self.state_tree.clone()));
+        self.messages.push((message, self.state_id));
     }
 
-    pub fn into_messages(self) -> Vec<(T, StateTree)> {
+    pub fn into_messages(self) -> Vec<(T, StateId)> {
         self.messages
     }
 }

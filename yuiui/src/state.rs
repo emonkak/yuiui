@@ -1,7 +1,12 @@
+use slot_vec::{slot_tree, SlotTree};
 use std::ops::Deref;
 
 use crate::command::CommandBatch;
-use crate::id::{Depth, IdPath, IdPathBuf};
+use crate::id::{Depth, IdPathBuf};
+
+pub type StateId = slot_tree::NodeId;
+
+pub type StateTree = SlotTree<(IdPathBuf, Depth)>;
 
 pub trait State: 'static {
     type Message;
@@ -13,7 +18,7 @@ pub trait State: 'static {
 pub struct Store<T> {
     state: T,
     dirty: bool,
-    subscribers: Vec<(IdPathBuf, Depth)>,
+    subscription: Option<StateId>,
 }
 
 impl<T> Store<T> {
@@ -21,7 +26,7 @@ impl<T> Store<T> {
         Self {
             state,
             dirty: false,
-            subscribers: Vec::new(),
+            subscription: None,
         }
     }
 
@@ -33,32 +38,12 @@ impl<T> Store<T> {
         self.dirty = false;
     }
 
-    pub(crate) fn add_subscriber(&mut self, id_path: &IdPath, depth: Depth) {
-        if !self
-            .subscribers
-            .iter()
-            .any(|(existing_id_path, existing_depth)| {
-                existing_id_path.last() == id_path.last() && *existing_depth == depth
-            })
-        {
-            self.subscribers.push((id_path.to_vec(), depth))
-        }
+    pub(crate) fn connect<F: FnOnce() -> StateId>(&mut self, f: F) -> StateId {
+        *self.subscription.get_or_insert_with(f)
     }
 
-    pub(crate) fn remove_subscriber(&mut self, id_path: &IdPath, depth: Depth) {
-        if let Some(position) =
-            self.subscribers
-                .iter()
-                .position(|(existing_id_path, existing_depth)| {
-                    existing_id_path.last() == id_path.last() && *existing_depth == depth
-                })
-        {
-            self.subscribers.swap_remove(position);
-        }
-    }
-
-    pub(crate) fn to_subscribers(&self) -> Vec<(IdPathBuf, Depth)> {
-        self.subscribers.to_vec()
+    pub(crate) fn subscription(&self) -> StateId {
+        self.subscription.unwrap_or(StateId::ROOT)
     }
 }
 

@@ -6,7 +6,7 @@ use std::time::Duration;
 use std::vec;
 
 use crate::cancellation_token::CancellationToken;
-use crate::id::StateTree;
+use crate::state::StateId;
 
 pub enum Command<T> {
     Future(BoxFuture<'static, T>),
@@ -133,6 +133,6 @@ pub trait ExecutionContext<M> {
         &self,
         command: Command<M>,
         cancellation_token: Option<CancellationToken>,
-        state_tree: StateTree,
+        state_id: StateId,
     );
 }

@@ -14,7 +14,7 @@ use crate::element::ElementSeq;
 use crate::event::Lifecycle;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
-use crate::state::Store;
+use crate::state::{StateTree, Store};
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -108,6 +108,7 @@ where
         &mut self,
         mode: CommitMode,
         depth: Depth,
+        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -118,13 +119,16 @@ where
 
         context.begin_id(self.id);
 
-        let result = if matches!(mode, CommitMode::Mount | CommitMode::Update) {
-            self.children.commit(mode, context, store, backend)
-        } else {
-            false
+        let pre_result = match mode {
+            CommitMode::Mount | CommitMode::Update => self
+                .children
+                .commit(mode, state_tree, context, store, backend),
+            CommitMode::Unmount => self
+                .components
+                .commit(mode, depth, 0, state_tree, context, store, backend),
         };
 
-        let (mut result, node_state) = match (mode, self.state.take().unwrap()) {
+        let (result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut view_state = view.build(&self.children, store, backend);
                 view.lifecycle(
@@ -171,7 +175,7 @@ where
                 unreachable!()
             }
             (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
-                (result, ViewNodeState::Prepared(view, view_state))
+                (false, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
                 pending_view.lifecycle(
@@ -212,28 +216,31 @@ where
         };
 
         self.state = Some(node_state);
+        self.dirty = false;
 
-        result |= self
-            .components
-            .commit(mode, depth, 0, context, store, backend);
-
-        if matches!(mode, CommitMode::Unmount) {
-            result |= self.children.commit(mode, context, store, backend);
-        }
+        let post_result = match mode {
+            CommitMode::Mount | CommitMode::Update => self
+                .components
+                .commit(mode, depth, 0, state_tree, context, store, backend),
+            CommitMode::Unmount => self
+                .children
+                .commit(mode, state_tree, context, store, backend),
+        };
 
         context.end_id();
 
-        result
+        pre_result | result | post_result
     }
 
     pub fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
+        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
+        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root(), state_tree);
         visitor.visit(self, context, store, backend)
     }
 
@@ -309,6 +316,7 @@ pub trait ViewNodeSeq<S, M, B>:
     fn commit(
         &mut self,
         mode: CommitMode,
+        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -347,15 +355,16 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        self.commit_within(mode, 0, context, store, backend)
+        self.commit_within(mode, 0, state_tree, context, store, backend)
     }
 }
 
-impl<V, CS, S, M, B, Visitor> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
+impl<'a, V, CS, S, M, B, Visitor> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,
@@ -400,7 +409,7 @@ where
     }
 }
 
-impl<V, CS, S, M, B, Visitor> Traversable<Visitor, MessageContext<M>, Visitor::Output, S, B>
+impl<'a, V, CS, S, M, B, Visitor> Traversable<Visitor, MessageContext<M>, Visitor::Output, S, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,

@@ -8,6 +8,7 @@ use crate::id::IdPath;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::StateTree;
 
 impl<S, M, B> ElementSeq<S, M, B> for HNil {
     type Storage = HNil;
@@ -39,6 +40,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
     fn commit(
         &mut self,
         _mode: CommitMode,
+        _state_tree: &mut StateTree,
         _context: &mut MessageContext<M>,
         _store: &mut Store<S>,
         _backend: &mut B,
@@ -130,12 +132,13 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
+        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let head_result = self.head.commit(mode, context, store, backend);
-        let tail_result = self.tail.commit(mode, context, store, backend);
+        let head_result = self.head.commit(mode, state_tree, context, store, backend);
+        let tail_result = self.tail.commit(mode, state_tree, context, store, backend);
         head_result || tail_result
     }
 }
