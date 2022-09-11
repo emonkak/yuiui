@@ -122,14 +122,25 @@ where
 
         context.begin_id(self.id);
 
-        let component_result = self
-            .components
-            .commit(mode, depth, 0, context, store, backend);
+        match mode {
+            CommitMode::Mount => {
+                self.components.connect(context.id_path(), 0, store);
+            },
+            CommitMode::Unmount => {
+                self.components.disconnect(context.id_path(), 0, store);
+            },
+            CommitMode::Update => {}
+        };
 
-        let (view_result, node_state) = match (mode, self.state.take().unwrap()) {
+        let result = if matches!(mode, CommitMode::Mount | CommitMode::Update) {
+            self.children.commit(mode, context, store, backend)
+        } else {
+            false
+        };
+
+        let (mut result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
                 let mut view_state = view.build(&self.children, store, backend);
-                self.children.commit(mode, context, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
@@ -141,7 +152,6 @@ where
                 (true, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Mount, ViewNodeState::Prepared(view, mut view_state)) => {
-                self.children.commit(mode, context, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
@@ -153,7 +163,6 @@ where
                 (true, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                self.children.commit(mode, context, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
@@ -176,11 +185,9 @@ where
                 unreachable!()
             }
             (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
-                let result = self.children.commit(mode, context, store, backend);
                 (result, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
-                self.children.commit(mode, context, store, backend);
                 pending_view.lifecycle(
                     Lifecycle::Update(&view),
                     &mut view_state,
@@ -203,7 +210,6 @@ where
                     store,
                     backend,
                 );
-                self.children.commit(mode, context, store, backend);
                 (true, ViewNodeState::Prepared(view, view_state))
             }
             (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
@@ -215,16 +221,23 @@ where
                     store,
                     backend,
                 );
-                self.children.commit(mode, context, store, backend);
                 (true, ViewNodeState::Pending(view, pending_view, view_state))
             }
         };
 
         self.state = Some(node_state);
 
+        result |= self
+            .components
+            .commit(mode, depth, 0, context, store, backend);
+
+        if matches!(mode, CommitMode::Unmount) {
+            result |= self.children.commit(mode, context, store, backend);
+        }
+
         context.end_id();
 
-        component_result || view_result
+        result
     }
 
     pub fn commit_subtree(

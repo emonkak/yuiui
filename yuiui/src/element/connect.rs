@@ -276,6 +276,20 @@ where
         })
     }
 
+    fn connect(&mut self, id_path: &IdPath, depth: Depth, store: &mut Store<S>) {
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        sub_store.add_subscriber(id_path.to_vec(), depth);
+        self.target.connect(id_path, depth, sub_store)
+    }
+
+    fn disconnect(&mut self, id_path: &IdPath, depth: Depth, store: &mut Store<S>) {
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        sub_store.remove_subscriber(id_path, depth);
+        self.target.disconnect(id_path, depth, sub_store)
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -287,15 +301,6 @@ where
     ) -> bool {
         let sub_store =
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
-        match mode {
-            CommitMode::Mount => {
-                sub_store.add_subscriber(context.id_path().to_vec(), current_depth);
-            }
-            CommitMode::Unmount => {
-                sub_store.remove_subscriber(context.id_path(), current_depth);
-            }
-            CommitMode::Update => {}
-        }
         let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self.target.commit(
             mode,
