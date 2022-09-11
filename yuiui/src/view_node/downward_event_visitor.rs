@@ -32,7 +32,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
@@ -40,7 +40,6 @@ where
             | ViewNodeState::Pending(view, _, view_state) => {
                 let mut result = false;
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
-                    context.set_depth(CS::LEN);
                     view.event(event, view_state, &node.children, context, store, backend);
                     result = true;
                 }

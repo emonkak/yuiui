@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::command::CommandBatch;
+use crate::id::{Depth, Id, IdPath, IdPathBuf};
 
 pub trait State: 'static {
     type Message;
@@ -13,6 +15,7 @@ pub trait State: 'static {
 pub struct Store<T> {
     state: T,
     dirty: AtomicBool,
+    subscribers: HashMap<(Id, Depth), IdPathBuf>,
 }
 
 impl<T> Store<T> {
@@ -20,6 +23,7 @@ impl<T> Store<T> {
         Self {
             state,
             dirty: AtomicBool::new(false),
+            subscribers: HashMap::new(),
         }
     }
 
@@ -33,6 +37,22 @@ impl<T> Store<T> {
 
     pub(crate) fn mark_clean(&self) {
         self.dirty.store(false, Ordering::Relaxed)
+    }
+
+    pub(crate) fn to_subscribers(&self) -> Vec<(IdPathBuf, Depth)> {
+        self.subscribers
+            .iter()
+            .map(|((_, depth), id_path)| (id_path.to_vec(), *depth))
+            .collect()
+    }
+
+    pub(crate) fn subscribe(&mut self, id_path: IdPathBuf, depth: Depth) {
+        self.subscribers
+            .insert((Id::from_bottom(&id_path), depth), id_path);
+    }
+
+    pub(crate) fn unsubscribe(&mut self, id_path: &IdPath, depth: Depth) {
+        self.subscribers.remove(&(Id::from_bottom(&id_path), depth));
     }
 }
 

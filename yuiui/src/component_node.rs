@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use crate::component::Component;
 use crate::context::MessageContext;
 use crate::event::Lifecycle;
-use crate::id::Depth;
 use crate::state::Store;
 use crate::view_node::CommitMode;
 
@@ -35,12 +34,10 @@ where
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,
-        depth: Depth,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        context.set_depth(depth);
         match mode {
             CommitMode::Mount => {
                 self.component.lifecycle(

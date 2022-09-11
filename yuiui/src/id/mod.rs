@@ -1,8 +1,8 @@
-pub mod id_stack;
 pub mod id_tree;
+pub mod state_tree;
 
-pub use id_stack::IdStack;
 pub use id_tree::IdTree;
+pub use state_tree::StateTree;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(u64);

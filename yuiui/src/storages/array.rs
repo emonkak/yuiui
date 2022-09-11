@@ -87,7 +87,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut result = false;
@@ -114,7 +114,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Visitor::Output {
         let mut result = Visitor::Output::default();
@@ -129,7 +129,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         let id = Id::from_top(id_path);

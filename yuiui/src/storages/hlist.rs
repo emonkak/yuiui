@@ -48,7 +48,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         &mut self,
         _mode: CommitMode,
         _context: &mut MessageContext<M>,
-        _store: &Store<S>,
+        _store: &mut Store<S>,
         _backend: &mut B,
     ) -> bool {
         false
@@ -63,7 +63,7 @@ where
         &mut self,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _store: &Store<S>,
+        _store: &mut Store<S>,
         _backend: &mut B,
     ) -> Output {
         Output::default()
@@ -74,7 +74,7 @@ where
         _id_path: &IdPath,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _store: &Store<S>,
+        _store: &mut Store<S>,
         _backend: &mut B,
     ) -> Option<Output> {
         None
@@ -151,7 +151,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         let head_result = self.head.commit(mode, context, store, backend);
@@ -171,7 +171,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Output {
         self.head
@@ -184,7 +184,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         self.head

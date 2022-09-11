@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf, IdStack};
+use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf, StateTree};
 
 #[derive(Debug)]
 pub struct RenderContext {
@@ -64,28 +64,27 @@ impl RenderContext {
 #[derive(Debug, Clone)]
 pub struct MessageContext<T> {
     id_path: IdPathBuf,
-    depth: Depth,
-    state_stack: Vec<(usize, Depth)>,
-    messages: Vec<(T, IdStack)>,
+    state_tree: StateTree,
+    messages: Vec<(T, StateTree)>,
 }
 
 impl<T> MessageContext<T> {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
-            depth: 0,
-            state_stack: Vec::new(),
+            state_tree: StateTree::new(),
             messages: Vec::new(),
         }
     }
 
-    pub(crate) fn new_sub_context<U>(&self) -> MessageContext<U> {
-        let mut state_stack = self.state_stack.clone();
-        state_stack.push((self.id_path.len(), self.depth));
+    pub(crate) fn new_sub_context<U>(
+        &self,
+        subscribers: Vec<(IdPathBuf, Depth)>,
+    ) -> MessageContext<U> {
+        let state_tree = self.state_tree.new_subtree(subscribers);
         MessageContext {
             id_path: self.id_path.clone(),
-            depth: self.depth,
-            state_stack,
+            state_tree,
             messages: Vec::new(),
         }
     }
@@ -99,42 +98,27 @@ impl<T> MessageContext<T> {
         let new_messages = sub_context
             .messages
             .into_iter()
-            .map(|(message, state_stack)| (f(message), state_stack));
+            .map(|(message, state_tree)| (f(message), state_tree));
         self.messages.extend(new_messages);
     }
 
-    pub(crate) fn begin_id(&mut self, id: Id, depth: Depth) {
+    pub(crate) fn begin_id(&mut self, id: Id) {
         self.id_path.push(id);
-        self.depth = depth;
     }
 
     pub(crate) fn end_id(&mut self) {
         self.id_path.pop();
     }
 
-    pub(crate) fn set_depth(&mut self, depth: Depth) {
-        self.depth = depth;
-    }
-
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
     }
 
-    pub fn depth(&self) -> Depth {
-        self.depth
+    pub fn push_message(&mut self, message: T) {
+        self.messages.push((message, self.state_tree.clone()));
     }
 
-    pub fn push(&mut self, message: T) {
-        let id_path = if let Some((len, _)) = self.state_stack.last() {
-            self.id_path[..*len].to_vec()
-        } else {
-            vec![]
-        };
-        let state_stack = unsafe { IdStack::from_external(id_path, self.state_stack.clone()) };
-        self.messages.push((message, state_stack));
-    }
-
-    pub fn into_messages(self) -> Vec<(T, IdStack)> {
+    pub fn into_messages(self) -> Vec<(T, StateTree)> {
         self.messages
     }
 }

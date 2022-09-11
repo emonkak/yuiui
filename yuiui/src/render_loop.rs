@@ -8,16 +8,15 @@ use crate::command::ExecutionContext;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
-use crate::id::{Depth, IdPath, IdPathBuf, IdStack, IdTree};
-use crate::state::State;
-use crate::state::Store;
+use crate::id::{Depth, IdPath, IdPathBuf, IdTree, StateTree};
+use crate::state::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
 pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     node: ViewNode<E::View, E::Components, S, M, B>,
     render_context: RenderContext,
-    message_queue: VecDeque<(M, IdStack)>,
+    message_queue: VecDeque<(M, StateTree)>,
     event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
     nodes_to_update: BTreeMap<IdPathBuf, Depth>,
     nodes_to_commit: BTreeMap<IdPathBuf, Depth>,
@@ -51,7 +50,7 @@ where
         backend: &mut B,
     ) -> RenderFlow {
         loop {
-            while let Some((message, state_stack)) = self.message_queue.pop_front() {
+            while let Some((message, state_tree)) = self.message_queue.pop_front() {
                 let (dirty, commands) = store.update(message);
                 if dirty {
                     // Update the root always
@@ -59,11 +58,11 @@ where
                         self.nodes_to_update.insert(IdPathBuf::new(), 0);
                     }
 
-                    for (id_path, depth) in state_stack.iter() {
+                    for (id_path, depth) in state_tree.iter().flatten() {
                         if let Some(current_depth) = self.nodes_to_update.get_mut(id_path) {
-                            *current_depth = (*current_depth).min(depth);
+                            *current_depth = (*current_depth).min(*depth);
                         } else {
-                            self.nodes_to_update.insert(id_path.to_vec(), depth);
+                            self.nodes_to_update.insert(id_path.to_vec(), *depth);
                         }
                     }
                 }
@@ -71,7 +70,7 @@ where
                     execution_context.spawn_command(
                         command,
                         cancellation_token,
-                        state_stack.clone(),
+                        state_tree.clone(),
                     );
                 }
                 if deadline.did_timeout() {
@@ -147,8 +146,8 @@ where
         assert_eq!(render_flow, RenderFlow::Done);
     }
 
-    pub fn push_message(&mut self, message: M, state_stack: IdStack) {
-        self.message_queue.push_back((message, state_stack));
+    pub fn push_message(&mut self, message: M, state_tree: StateTree) {
+        self.message_queue.push_back((message, state_tree));
     }
 
     pub fn push_event(&mut self, event: Box<dyn Any + Send>, destination: EventDestination) {
@@ -159,7 +158,7 @@ where
         &mut self,
         event: Box<dyn Any + Send>,
         destination: EventDestination,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) {
         let mut context = MessageContext::new();

@@ -13,14 +13,14 @@ use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
 
 use super::{Element, ElementSeq};
 
-pub struct Scope<T, FS, FM, SS, SM> {
+pub struct Connect<T, FS, FM, SS, SM> {
     target: T,
     store_selector: Arc<FS>,
     message_selector: Arc<FM>,
     _phantom: PhantomData<(SS, SM)>,
 }
 
-impl<T, FS, FM, SS, SM> Scope<T, FS, FM, SS, SM> {
+impl<T, FS, FM, SS, SM> Connect<T, FS, FM, SS, SM> {
     pub fn new(target: T, store_selector: Arc<FS>, message_selector: Arc<FM>) -> Self {
         Self {
             target,
@@ -31,16 +31,16 @@ impl<T, FS, FM, SS, SM> Scope<T, FS, FM, SS, SM> {
     }
 }
 
-impl<T, FS, FM, SS, SM> fmt::Debug for Scope<T, FS, FM, SS, SM>
+impl<T, FS, FM, SS, SM> fmt::Debug for Connect<T, FS, FM, SS, SM>
 where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Scope").field(&self.target).finish()
+        f.debug_tuple("Connect").field(&self.target).finish()
     }
 }
 
-impl<T, FS, FM, SS, SM, S, M, B> Element<S, M, B> for Scope<T, FS, FM, SS, SM>
+impl<T, FS, FM, SS, SM, S, M, B> Element<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: Element<SS, SM, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -48,9 +48,9 @@ where
     SM: 'static,
     M: 'static,
 {
-    type View = Scope<T::View, FS, FM, SS, SM>;
+    type View = Connect<T::View, FS, FM, SS, SM>;
 
-    type Components = Scope<T::Components, FS, FM, SS, SM>;
+    type Components = Connect<T::Components, FS, FM, SS, SM>;
 
     const DEPTH: usize = T::DEPTH;
 
@@ -60,25 +60,26 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
-        let sub_store = (self.store_selector)(store);
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         let sub_node = self.target.render(context, sub_store, backend);
         ViewNode {
             id: sub_node.id,
             state: sub_node.state.map(|state| {
                 state.map_view(|view| {
-                    Scope::new(
+                    Connect::new(
                         view,
                         self.store_selector.clone(),
                         self.message_selector.clone(),
                     )
                 })
             }),
-            children: Scope::new(
+            children: Connect::new(
                 sub_node.children,
                 self.store_selector.clone(),
                 self.message_selector.clone(),
             ),
-            components: Scope::new(
+            components: Connect::new(
                 sub_node.components,
                 self.store_selector,
                 self.message_selector,
@@ -96,14 +97,15 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         with_sub_node(node, |sub_node| {
             self.target.update(sub_node, context, sub_store, backend)
         })
     }
 }
 
-impl<T, FS, FM, SS, SM, S, M, B> ElementSeq<S, M, B> for Scope<T, FS, FM, SS, SM>
+impl<T, FS, FM, SS, SM, S, M, B> ElementSeq<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: ElementSeq<SS, SM, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -111,7 +113,7 @@ where
     SM: 'static,
     M: 'static,
 {
-    type Storage = Scope<T::Storage, FS, FM, SS, SM>;
+    type Storage = Connect<T::Storage, FS, FM, SS, SM>;
 
     const DEPTH: usize = T::DEPTH;
 
@@ -121,8 +123,9 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Self::Storage {
-        let sub_store = (self.store_selector)(store);
-        Scope::new(
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        Connect::new(
             self.target.render_children(context, sub_store, backend),
             self.store_selector.clone(),
             self.message_selector.clone(),
@@ -136,13 +139,14 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         self.target
             .update_children(&mut storage.target, context, sub_store, backend)
     }
 }
 
-impl<T, FS, FM, SS, SM, S, M, B> ViewNodeSeq<S, M, B> for Scope<T, FS, FM, SS, SM>
+impl<T, FS, FM, SS, SM, S, M, B> ViewNodeSeq<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: ViewNodeSeq<SS, SM, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -162,11 +166,12 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self
             .target
             .commit(mode, &mut sub_context, sub_store, backend);
@@ -176,7 +181,7 @@ where
 }
 
 impl<T, FS, FM, SS, SM, Visitor, Output, S, B> Traversable<Visitor, RenderContext, Output, S, B>
-    for Scope<T, FS, FM, SS, SM>
+    for Connect<T, FS, FM, SS, SM>
 where
     T: Traversable<Visitor, RenderContext, Output, SS, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -185,10 +190,11 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Output {
-        let sub_store = (self.store_selector)(store);
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         self.target.for_each(visitor, context, sub_store, backend)
     }
 
@@ -197,17 +203,18 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
-        let sub_store = (self.store_selector)(store);
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         self.target
             .search(id_path, visitor, context, sub_store, backend)
     }
 }
 
 impl<T, FS, FM, SS, SM, Visitor, S, M, B> Traversable<Visitor, MessageContext<M>, bool, S, B>
-    for Scope<T, FS, FM, SS, SM>
+    for Connect<T, FS, FM, SS, SM>
 where
     T: Traversable<Visitor, MessageContext<SM>, bool, SS, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -219,11 +226,12 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self
             .target
             .for_each(visitor, &mut sub_context, sub_store, backend);
@@ -236,11 +244,12 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> Option<bool> {
-        let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self
             .target
             .search(id_path, visitor, &mut sub_context, sub_store, backend);
@@ -249,7 +258,7 @@ where
     }
 }
 
-impl<T, FS, FM, SS, SM, S, M, B> ComponentStack<S, M, B> for Scope<T, FS, FM, SS, SM>
+impl<T, FS, FM, SS, SM, S, M, B> ComponentStack<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: ComponentStack<SS, SM, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -259,7 +268,7 @@ where
 {
     const LEN: usize = T::LEN;
 
-    type View = Scope<T::View, FS, FM, SS, SM>;
+    type View = Connect<T::View, FS, FM, SS, SM>;
 
     fn commit(
         &mut self,
@@ -267,11 +276,21 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let sub_store =
+            unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
+        match mode {
+            CommitMode::Mount => {
+                sub_store.subscribe(context.id_path().to_vec(), current_depth);
+            }
+            CommitMode::Unmount => {
+                sub_store.unsubscribe(context.id_path(), current_depth);
+            }
+            CommitMode::Update => {}
+        }
+        let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         let result = self.target.commit(
             mode,
             target_depth,
@@ -289,11 +308,11 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         let store_selector = &node.components.store_selector;
-        let sub_store = store_selector(store);
+        let sub_store = unsafe { &mut *(store_selector(store) as *const _ as *mut Store<SS>) };
         with_sub_node(node, |sub_node| {
             T::update(
                 sub_node,
@@ -307,7 +326,7 @@ where
     }
 }
 
-impl<T, FS, FM, SS, SM, S, M, B> View<S, M, B> for Scope<T, FS, FM, SS, SM>
+impl<T, FS, FM, SS, SM, S, M, B> View<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: View<SS, SM, B>,
     FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
@@ -315,7 +334,7 @@ where
     SM: 'static,
     M: 'static,
 {
-    type Children = Scope<T::Children, FS, FM, SS, SM>;
+    type Children = Connect<T::Children, FS, FM, SS, SM>;
 
     type State = T::State;
 
@@ -329,8 +348,8 @@ where
         backend: &mut B,
     ) {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
-        let mut sub_context = context.new_sub_context();
         let sub_store = (self.store_selector)(store);
+        let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         self.target.lifecycle(
             sub_lifecycle,
             view_state,
@@ -351,8 +370,8 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) {
-        let mut sub_context = context.new_sub_context();
         let sub_store = (self.store_selector)(store);
+        let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         self.target.event(
             event,
             view_state,
@@ -375,7 +394,7 @@ where
     }
 }
 
-impl<'event, T, FS, FM, SS, SM> HasEvent<'event> for Scope<T, FS, FM, SS, SM>
+impl<'event, T, FS, FM, SS, SM> HasEvent<'event> for Connect<T, FS, FM, SS, SM>
 where
     T: HasEvent<'event>,
 {
@@ -383,7 +402,7 @@ where
 }
 
 fn with_sub_node<Callback, Output, FS, FM, SS, SM, V, CS, S, M, B>(
-    node: &mut ViewNodeMut<Scope<V, FS, FM, SS, SM>, Scope<CS, FS, FM, SS, SM>, S, M, B>,
+    node: &mut ViewNodeMut<Connect<V, FS, FM, SS, SM>, Connect<CS, FS, FM, SS, SM>, S, M, B>,
     callback: Callback,
 ) -> Output
 where
@@ -409,7 +428,7 @@ where
     };
     let result = callback(&mut sub_node);
     *node.state = sub_node_state.map(|state| {
-        state.map_view(|view| Scope::new(view, store_selector.clone(), message_selector.clone()))
+        state.map_view(|view| Connect::new(view, store_selector.clone(), message_selector.clone()))
     });
     result
 }

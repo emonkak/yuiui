@@ -1,15 +1,15 @@
 mod component;
+mod connect;
 mod consume;
 mod memoize;
 mod provide;
-mod scope;
 mod view;
 
 pub use component::ComponentElement;
+pub use connect::Connect;
 pub use consume::Consume;
 pub use memoize::Memoize;
 pub use provide::Provide;
-pub use scope::Scope;
 pub use view::ViewElement;
 
 use std::fmt;
@@ -42,17 +42,17 @@ pub trait Element<S, M, B> {
         backend: &mut B,
     ) -> bool;
 
-    fn scope<FS, FM, PS, PM>(
+    fn connect<FS, FM, PS, PM>(
         self,
         state_selector: FS,
         message_selector: FM,
-    ) -> Scope<Self, FS, FM, S, M>
+    ) -> Connect<Self, FS, FM, S, M>
     where
         Self: Sized,
         FS: Fn(&Store<PS>) -> &Store<S> + Sync + Send + 'static,
         FM: Fn(M) -> PM + Sync + Send + 'static,
     {
-        Scope::new(self, state_selector.into(), message_selector.into())
+        Connect::new(self, state_selector.into(), message_selector.into())
     }
 
     fn provide<F, T>(self, value: T) -> Provide<Self, T>

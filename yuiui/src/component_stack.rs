@@ -20,7 +20,7 @@ pub trait ComponentStack<S, M, B>: Sized {
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool;
 
@@ -29,7 +29,7 @@ pub trait ComponentStack<S, M, B>: Sized {
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool;
 }
@@ -50,11 +50,11 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         if target_depth <= current_depth {
-            self.0.commit(mode, current_depth, context, store, backend)
+            self.0.commit(mode, context, store, backend)
         } else {
             self.1.commit(
                 mode,
@@ -72,7 +72,7 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         let (head, tail) = node.components;
@@ -120,7 +120,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut MessageContext<M>,
-        _store: &Store<S>,
+        _store: &mut Store<S>,
         _backend: &mut B,
     ) -> bool {
         false
@@ -131,7 +131,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut RenderContext,
-        _store: &Store<S>,
+        _store: &mut Store<S>,
         _backend: &mut B,
     ) -> bool {
         false
