@@ -20,10 +20,7 @@ pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
 pub use context::{MessageContext, RenderContext};
-pub use element::{
-    ComponentElement, Consume, DebuggableElement, Element, ElementSeq, Memoize, Provide,
-    ViewElement,
-};
+pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memoize, ViewElement};
 pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
 pub use id::{id_tree, Depth, Id, IdPath, IdPathBuf, IdTree, StateTree};
 pub use render_loop::{RenderFlow, RenderLoop};

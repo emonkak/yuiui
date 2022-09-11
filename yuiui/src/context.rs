@@ -1,13 +1,9 @@
-use std::any::Any;
-use std::rc::Rc;
-
 use crate::id::{Depth, Id, IdCounter, IdPath, IdPathBuf, StateTree};
 
 #[derive(Debug)]
 pub struct RenderContext {
     id_path: IdPathBuf,
     id_counter: IdCounter,
-    env_stack: Vec<(Id, Rc<dyn Any>)>,
 }
 
 impl RenderContext {
@@ -15,7 +11,6 @@ impl RenderContext {
         Self {
             id_path: IdPathBuf::new(),
             id_counter: IdCounter::new(),
-            env_stack: Vec::new(),
         }
     }
 
@@ -24,15 +19,8 @@ impl RenderContext {
     }
 
     pub(crate) fn end_id(&mut self) {
-        let id = self.id_path.pop().unwrap();
-
-        while let Some((env_id, _)) = self.env_stack.last() {
-            if *env_id == id {
-                self.env_stack.pop();
-            } else {
-                break;
-            }
-        }
+        let old_id = self.id_path.pop();
+        assert!(old_id.is_some());
     }
 
     pub(crate) fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
@@ -41,19 +29,6 @@ impl RenderContext {
         let result = f(id, self);
         self.id_path.pop();
         result
-    }
-
-    pub(crate) fn get_env<T: 'static>(&self) -> Option<&T> {
-        for (_, env) in self.env_stack.iter().rev() {
-            if let Some(value) = env.downcast_ref() {
-                return Some(value);
-            }
-        }
-        None
-    }
-
-    pub(crate) fn push_env(&mut self, value: Rc<dyn Any>) {
-        self.env_stack.push((Id::from_bottom(&self.id_path), value))
     }
 
     pub fn id_path(&self) -> &IdPath {

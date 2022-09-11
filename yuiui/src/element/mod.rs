@@ -1,15 +1,11 @@
 mod component;
 mod connect;
-mod consume;
 mod memoize;
-mod provide;
 mod view;
 
 pub use component::ComponentElement;
 pub use connect::Connect;
-pub use consume::Consume;
 pub use memoize::Memoize;
-pub use provide::Provide;
 pub use view::ViewElement;
 
 use std::fmt;
@@ -51,14 +47,6 @@ pub trait Element<S, M, B> {
         FM: Fn(M) -> PM + Sync + Send + 'static,
     {
         Connect::new(self, state_selector.into(), message_selector.into())
-    }
-
-    fn provide<F, T>(self, value: T) -> Provide<Self, T>
-    where
-        Self: Sized,
-        T: 'static,
-    {
-        Provide::new(self, value)
     }
 }
 

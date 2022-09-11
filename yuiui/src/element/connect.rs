@@ -82,7 +82,6 @@ where
                 self.store_selector,
                 self.message_selector,
             ),
-            env: sub_node.env,
             event_mask: sub_node.event_mask,
             dirty: sub_node.dirty,
         }
@@ -400,7 +399,6 @@ where
         state: &mut sub_node_state,
         children: &mut node.children.target,
         components: &mut node.components.target,
-        env: &mut node.env,
         dirty: &mut node.dirty,
     };
     let result = callback(&mut sub_node);

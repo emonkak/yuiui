@@ -45,7 +45,6 @@ where
             state: node.state,
             children: node.children,
             components: (component_node, node.components),
-            env: node.env,
             event_mask: node.event_mask,
             dirty: true,
         }
@@ -66,7 +65,6 @@ where
             state: node.state,
             children: node.children,
             components: tail_nodes,
-            env: node.env,
             dirty: node.dirty,
         };
         element.update(&mut node, context, store)

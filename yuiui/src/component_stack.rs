@@ -60,7 +60,6 @@ where
             state: node.state,
             children: node.children,
             components: tail,
-            env: node.env,
             dirty: node.dirty,
         };
         if target_depth <= current_depth {

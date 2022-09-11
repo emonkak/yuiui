@@ -6,7 +6,6 @@ mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
@@ -30,7 +29,6 @@ pub struct ViewNode<V: View<S, M, B>, CS: ComponentStack<S, M, B, View = V>, S, 
     pub(crate) state: Option<ViewNodeState<V, V::State>>,
     pub(crate) children: <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: CS,
-    pub(crate) env: Option<Rc<dyn Any>>,
     pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
@@ -51,7 +49,6 @@ where
             state: Some(ViewNodeState::Uninitialized(view)),
             children,
             components,
-            env: None,
             event_mask: <V::Children as ElementSeq<S, M, B>>::Storage::event_mask(),
             dirty: true,
         }
@@ -63,7 +60,6 @@ where
             state: &mut self.state,
             children: &mut self.children,
             components: &mut self.components,
-            env: &mut self.env,
             dirty: &mut self.dirty,
         }
     }
@@ -306,7 +302,6 @@ pub struct ViewNodeMut<'a, V: View<S, M, B>, CS, S, M, B> {
     pub(crate) state: &'a mut Option<ViewNodeState<V, V::State>>,
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: &'a mut CS,
-    pub(crate) env: &'a mut Option<Rc<dyn Any>>,
     pub(crate) dirty: &'a mut bool,
 }
 
@@ -387,9 +382,6 @@ where
         backend: &mut B,
     ) -> Visitor::Output {
         context.begin_id(self.id);
-        if let Some(value) = &self.env {
-            context.push_env(value.clone());
-        }
         let result = visitor.visit(self, context, store, backend);
         context.end_id();
         result
@@ -404,9 +396,6 @@ where
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         context.begin_id(self.id);
-        if let Some(value) = &self.env {
-            context.push_env(value.clone());
-        }
         let result = if self.id == Id::from_bottom(id_path) {
             Some(visitor.visit(self, context, store, backend))
         } else if self.id == Id::from_top(id_path) {
