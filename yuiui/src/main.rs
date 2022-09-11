@@ -143,9 +143,8 @@ pub struct ButtonProps {
 
 pub fn button<S, M, B>(
     props: ButtonProps,
-) -> ComponentElement<FunctionComponent<ButtonProps, (), impl DebuggableElement<S, M, B>, S, M, B>>
-{
-    FunctionComponent::new(props, |props, _local_state, _state| {
+) -> ComponentElement<FunctionComponent<ButtonProps, impl DebuggableElement<S, M, B>, S, M, B>> {
+    FunctionComponent::new(props, |props, _state| {
         Block::new().el_with(Text::new(props.label.clone()).el())
     })
     .el()
@@ -182,14 +181,13 @@ impl State for CounterState {
 fn counter<B>() -> ComponentElement<
     FunctionComponent<
         (),
-        (),
         impl DebuggableElement<CounterState, CounterMessage, B>,
         CounterState,
         CounterMessage,
         B,
     >,
 > {
-    FunctionComponent::new((), |_props, _local_state, state: &CounterState| {
+    FunctionComponent::new((), |_props, state: &CounterState| {
         Block::new().el_with(Text::new(format!("{}", state.count)).el())
     })
     .el()

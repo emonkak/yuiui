@@ -10,8 +10,7 @@ use crate::view_node::CommitMode;
 pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
-    pub(crate) state: C::State,
-    _phantom: PhantomData<(S, B)>,
+    _phantom: PhantomData<(S, M, B)>,
 }
 
 impl<C, S, M, B> ComponentNode<C, S, M, B>
@@ -22,13 +21,12 @@ where
         Self {
             component,
             pending_component: None,
-            state: C::State::default(),
             _phantom: PhantomData,
         }
     }
 
     pub(crate) fn render(&self, state: &S) -> C::Element {
-        self.component.render(&self.state, state)
+        self.component.render(state)
     }
 
     pub(crate) fn commit(
@@ -40,20 +38,14 @@ where
     ) -> bool {
         match mode {
             CommitMode::Mount => {
-                self.component.lifecycle(
-                    Lifecycle::Mount,
-                    &mut self.state,
-                    context,
-                    store,
-                    backend,
-                );
+                self.component
+                    .lifecycle(Lifecycle::Mount, context, store, backend);
                 true
             }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
                     pending_component.lifecycle(
                         Lifecycle::Update(&self.component),
-                        &mut self.state,
                         context,
                         store,
                         backend,
@@ -65,13 +57,8 @@ where
                 }
             }
             CommitMode::Unmount => {
-                self.component.lifecycle(
-                    Lifecycle::Unmount,
-                    &mut self.state,
-                    context,
-                    store,
-                    backend,
-                );
+                self.component
+                    .lifecycle(Lifecycle::Unmount, context, store, backend);
                 true
             }
         }

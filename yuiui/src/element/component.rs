@@ -57,7 +57,7 @@ where
         store: &Store<S>,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
-        let element = self.component.render(&head_node.state, store);
+        let element = self.component.render(store);
         head_node.pending_component = Some(self.component);
         *node.dirty = true;
         let mut node = ViewNodeMut {

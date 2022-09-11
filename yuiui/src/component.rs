@@ -7,19 +7,16 @@ use crate::event::Lifecycle;
 pub trait Component<S, M, B>: Sized {
     type Element: Element<S, M, B>;
 
-    type State: Default;
-
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<&Self>,
-        _local_state: &mut Self::State,
         _context: &mut MessageContext<M>,
         _state: &S,
         _backend: &mut B,
     ) {
     }
 
-    fn render(&self, local_state: &Self::State, state: &S) -> Self::Element;
+    fn render(&self, state: &S) -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -29,15 +26,14 @@ pub trait Component<S, M, B>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, LocalState, E, S, M, B> {
+pub struct FunctionComponent<Props, E, S, M, B> {
     props: Props,
-    render: fn(&Props, &LocalState, &S) -> E,
-    lifecycle:
-        Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &mut B)>,
+    render: fn(&Props, &S) -> E,
+    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &mut MessageContext<M>, &S, &mut B)>,
 }
 
-impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M, B> {
-    pub fn new(props: Props, render: fn(&Props, &LocalState, &S) -> E) -> Self {
+impl<Props, E, S, M, B> FunctionComponent<Props, E, S, M, B> {
+    pub fn new(props: Props, render: fn(&Props, &S) -> E) -> Self {
         Self {
             props,
             render,
@@ -47,47 +43,38 @@ impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M
 
     pub fn lifecycle(
         mut self,
-        lifecycle: impl Into<
-            Option<
-                fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &mut B),
-            >,
-        >,
+        lifecycle: impl Into<Option<fn(&Props, Lifecycle<&Props>, &mut MessageContext<M>, &S, &mut B)>>,
     ) -> Self {
         self.lifecycle = lifecycle.into();
         self
     }
 }
 
-impl<Props, LocalState, E, S, M, B> Component<S, M, B>
-    for FunctionComponent<Props, LocalState, E, S, M, B>
+impl<Props, E, S, M, B> Component<S, M, B> for FunctionComponent<Props, E, S, M, B>
 where
-    LocalState: Default,
     E: Element<S, M, B>,
 {
     type Element = E;
 
-    type State = LocalState;
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<&Self>,
-        local_state: &mut Self::State,
         context: &mut MessageContext<M>,
         state: &S,
         backend: &mut B,
     ) {
         if let Some(lifecycle_fn) = &self.lifecycle {
             let lifecycle = lifecycle.map(|component| &component.props);
-            lifecycle_fn(&self.props, lifecycle, local_state, context, state, backend)
+            lifecycle_fn(&self.props, lifecycle, context, state, backend)
         }
     }
 
-    fn render(&self, local_state: &Self::State, state: &S) -> Self::Element {
-        (self.render)(&self.props, local_state, state)
+    fn render(&self, state: &S) -> Self::Element {
+        (self.render)(&self.props, state)
     }
 }
 
-impl<Props, LocalState, E, S, M, B> fmt::Debug for FunctionComponent<Props, LocalState, E, S, M, B>
+impl<Props, E, S, M, B> fmt::Debug for FunctionComponent<Props, E, S, M, B>
 where
     Props: fmt::Debug,
 {
