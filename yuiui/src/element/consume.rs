@@ -8,13 +8,13 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Consume<E, T, S, B> {
-    render: fn(&T, &S, &mut B) -> E,
+pub struct Consume<E, T, S> {
+    render: fn(&T, &S) -> E,
     _phantom: PhantomData<T>,
 }
 
-impl<E, T, S, B> Consume<E, T, S, B> {
-    pub fn new(render: fn(&T, &S, &mut B) -> E) -> ComponentElement<Self> {
+impl<E, T, S> Consume<E, T, S> {
+    pub fn new(render: fn(&T, &S) -> E) -> ComponentElement<Self> {
         let connect = Self {
             render,
             _phantom: PhantomData,
@@ -23,7 +23,7 @@ impl<E, T, S, B> Consume<E, T, S, B> {
     }
 }
 
-impl<E, T, S, B> Clone for Consume<E, T, S, B> {
+impl<E, T, S> Clone for Consume<E, T, S> {
     fn clone(&self) -> Self {
         Self {
             render: self.render.clone(),
@@ -32,7 +32,7 @@ impl<E, T, S, B> Clone for Consume<E, T, S, B> {
     }
 }
 
-impl<E, T, S, M, B> Component<S, M, B> for Consume<E, T, S, B>
+impl<E, T, S, M, B> Component<S, M, B> for Consume<E, T, S>
 where
     E: Element<S, M, B>,
     T: 'static,
@@ -45,7 +45,6 @@ where
         &self,
         _local_state: &Self::State,
         _store: &Store<S>,
-        _backend: &mut B,
     ) -> Self::Element {
         AsElement::new(self.clone())
     }
@@ -61,7 +60,7 @@ impl<T> AsElement<T> {
     }
 }
 
-impl<E, T, S, M, B> Element<S, M, B> for AsElement<Consume<E, T, S, B>>
+impl<E, T, S, M, B> Element<S, M, B> for AsElement<Consume<E, T, S>>
 where
     E: Element<S, M, B>,
     T: 'static,
@@ -76,13 +75,12 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let value = context
             .get_env::<T>()
             .unwrap_or_else(|| panic!("get env {}", any::type_name::<T>()));
-        let element = (self.inner.render)(value, store, backend);
-        element.render(context, store, backend)
+        let element = (self.inner.render)(value, store);
+        element.render(context, store)
     }
 
     fn update(
@@ -90,17 +88,16 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let value = context
             .get_env::<T>()
             .unwrap_or_else(|| panic!("get env {}", any::type_name::<T>()));
-        let element = (self.inner.render)(value, store, backend);
-        element.update(node, context, store, backend)
+        let element = (self.inner.render)(value, store);
+        element.update(node, context, store)
     }
 }
 
-impl<E, T, S, M, B> ElementSeq<S, M, B> for AsElement<Consume<E, T, S, B>>
+impl<E, T, S, M, B> ElementSeq<S, M, B> for AsElement<Consume<E, T, S>>
 where
     E: Element<S, M, B>,
     T: 'static,
@@ -113,9 +110,8 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
-        self.render(context, store, backend)
+        self.render(context, store)
     }
 
     fn update_children(
@@ -123,8 +119,7 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, store, backend)
+        self.update(&mut storage.borrow_mut(), context, store)
     }
 }

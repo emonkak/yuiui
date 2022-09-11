@@ -35,9 +35,8 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render(context, store, backend)))
+        ArrayStorage::new(self.map(|element| element.render(context, store)))
     }
 
     fn update_children(
@@ -45,13 +44,12 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update(&mut node.borrow_mut(), context, store, backend);
+            has_changed |= element.update(&mut node.borrow_mut(), context, store);
         }
 
         storage.dirty |= has_changed;

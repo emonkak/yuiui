@@ -36,10 +36,9 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         context.with_id(|id, context| {
-            let children = self.children.render_children(context, store, backend);
+            let children = self.children.render_children(context, store);
             ViewNode::new(id, self.view, children, ComponentEnd::new())
         })
     }
@@ -49,12 +48,11 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         context.begin_id(node.id);
 
         self.children
-            .update_children(node.children, context, store, backend);
+            .update_children(node.children, context, store);
 
         *node.state = Some(match node.state.take().unwrap() {
             ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
@@ -84,9 +82,8 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
-        self.render(context, store, backend)
+        self.render(context, store)
     }
 
     fn update_children(
@@ -94,9 +91,8 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, store, backend)
+        self.update(&mut storage.borrow_mut(), context, store)
     }
 }
 

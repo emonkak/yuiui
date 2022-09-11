@@ -6,18 +6,18 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<E, Deps, S, B> {
-    render: fn(&Deps, &S, &mut B) -> E,
+pub struct Memoize<E, Deps, S> {
+    render: fn(&Deps, &S) -> E,
     deps: Deps,
 }
 
-impl<E, Deps, S, B> Memoize<E, Deps, S, B> {
-    pub fn new(render: fn(&Deps, &S, &mut B) -> E, deps: Deps) -> Self {
+impl<E, Deps, S> Memoize<E, Deps, S> {
+    pub fn new(render: fn(&Deps, &S) -> E, deps: Deps) -> Self {
         Self { render, deps }
     }
 }
 
-impl<E, Deps, S, M, B> Element<S, M, B> for Memoize<E, Deps, S, B>
+impl<E, Deps, S, M, B> Element<S, M, B> for Memoize<E, Deps, S>
 where
     E: Element<S, M, B>,
     Deps: PartialEq,
@@ -32,10 +32,9 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let element = ComponentElement::new(AsComponent::new(self));
-        element.render(context, store, backend)
+        element.render(context, store)
     }
 
     fn update(
@@ -43,12 +42,11 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
             let element = ComponentElement::new(AsComponent::new(self));
-            Element::update(element, node, context, store, backend)
+            Element::update(element, node, context, store)
         } else {
             head_node.pending_component = Some(AsComponent::new(self));
             false
@@ -56,7 +54,7 @@ where
     }
 }
 
-impl<E, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<E, Deps, S, B>
+impl<E, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<E, Deps, S>
 where
     E: Element<S, M, B>,
     Deps: PartialEq,
@@ -70,9 +68,8 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
-        self.render(context, store, backend)
+        self.render(context, store)
     }
 
     fn update_children(
@@ -80,9 +77,8 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, store, backend)
+        self.update(&mut storage.borrow_mut(), context, store)
     }
 }
 
@@ -96,7 +92,7 @@ impl<T> AsComponent<T> {
     }
 }
 
-impl<E, Deps, S, M, B> Component<S, M, B> for AsComponent<Memoize<E, Deps, S, B>>
+impl<E, Deps, S, M, B> Component<S, M, B> for AsComponent<Memoize<E, Deps, S>>
 where
     E: Element<S, M, B>,
     Deps: PartialEq,
@@ -109,8 +105,7 @@ where
         &self,
         _local_state: &Self::State,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Element {
-        (self.inner.render)(&self.inner.deps, store, backend)
+        (self.inner.render)(&self.inner.deps, store)
     }
 }

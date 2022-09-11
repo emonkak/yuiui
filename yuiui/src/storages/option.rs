@@ -39,9 +39,8 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
-        OptionStorage::new(self.map(|element| element.render_children(context, store, backend)))
+        OptionStorage::new(self.map(|element| element.render_children(context, store)))
     }
 
     fn update_children(
@@ -49,11 +48,10 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, context, store, backend) {
+                if element.update_children(node, context, store) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -63,9 +61,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, context, store, backend);
+                    element.update_children(node, context, store);
                 } else {
-                    storage.staging = Some(element.render_children(context, store, backend));
+                    storage.staging = Some(element.render_children(context, store));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true

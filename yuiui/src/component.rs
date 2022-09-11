@@ -20,8 +20,11 @@ pub trait Component<S, M, B>: Sized {
     ) {
     }
 
-    fn render(&self, local_state: &Self::State, store: &Store<S>, backend: &mut B)
-        -> Self::Element;
+    fn render(
+        &self,
+        local_state: &Self::State,
+        store: &Store<S>,
+    ) -> Self::Element;
 
     fn el(self) -> ComponentElement<Self>
     where
@@ -33,13 +36,13 @@ pub trait Component<S, M, B>: Sized {
 
 pub struct FunctionComponent<Props, LocalState, E, S, M, B> {
     props: Props,
-    render: fn(&Props, &LocalState, &S, &mut B) -> E,
+    render: fn(&Props, &LocalState, &S) -> E,
     lifecycle:
         Option<fn(&Props, Lifecycle<&Props>, &mut LocalState, &mut MessageContext<M>, &S, &mut B)>,
 }
 
 impl<Props, LocalState, E, S, M, B> FunctionComponent<Props, LocalState, E, S, M, B> {
-    pub fn new(props: Props, render: fn(&Props, &LocalState, &S, &mut B) -> E) -> Self {
+    pub fn new(props: Props, render: fn(&Props, &LocalState, &S) -> E) -> Self {
         Self {
             props,
             render,
@@ -88,9 +91,8 @@ where
         &self,
         local_state: &Self::State,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Element {
-        (self.render)(&self.props, local_state, store, backend)
+        (self.render)(&self.props, local_state, store)
     }
 }
 

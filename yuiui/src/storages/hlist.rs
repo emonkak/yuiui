@@ -18,7 +18,6 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
         self,
         _context: &mut RenderContext,
         _store: &Store<S>,
-        _backend: &mut B,
     ) -> Self::Storage {
         HNil
     }
@@ -28,7 +27,6 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
         _nodes: &mut Self::Storage,
         _context: &mut RenderContext,
         _store: &Store<S>,
-        _backend: &mut B,
     ) -> bool {
         false
     }
@@ -95,11 +93,10 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
         HCons {
-            head: self.head.render_children(context, store, backend),
-            tail: self.tail.render_children(context, store, backend),
+            head: self.head.render_children(context, store),
+            tail: self.tail.render_children(context, store),
         }
     }
 
@@ -108,15 +105,14 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self
             .head
-            .update_children(&mut storage.head, context, store, backend);
+            .update_children(&mut storage.head, context, store);
         has_changed |= self
             .tail
-            .update_children(&mut storage.tail, context, store, backend);
+            .update_children(&mut storage.tail, context, store);
         has_changed
     }
 }

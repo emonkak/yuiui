@@ -43,11 +43,10 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(context, store, backend))
+                .map(|element| element.render(context, store))
                 .collect(),
         )
     }
@@ -57,7 +56,6 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let mut has_changed = false;
 
@@ -69,14 +67,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(&mut node.borrow_mut(), context, store, backend);
+                has_changed |= element.update(&mut node.borrow_mut(), context, store);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(&mut node.borrow_mut(), context, store, backend);
+                    has_changed |= element.update(&mut node.borrow_mut(), context, store);
                 } else {
-                    let node = element.render(context, store, backend);
+                    let node = element.render(context, store);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }

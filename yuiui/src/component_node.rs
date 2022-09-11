@@ -27,8 +27,8 @@ where
         }
     }
 
-    pub(crate) fn render(&self, store: &Store<S>, backend: &mut B) -> C::Element {
-        self.component.render(&self.state, store, backend)
+    pub(crate) fn render(&self, store: &Store<S>) -> C::Element {
+        self.component.render(&self.state, store)
     }
 
     pub(crate) fn commit(

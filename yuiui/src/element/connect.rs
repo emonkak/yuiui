@@ -58,11 +58,10 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let sub_store =
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
-        let sub_node = self.target.render(context, sub_store, backend);
+        let sub_node = self.target.render(context, sub_store);
         ViewNode {
             id: sub_node.id,
             state: sub_node.state.map(|state| {
@@ -95,12 +94,11 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let sub_store =
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         with_sub_node(node, |sub_node| {
-            self.target.update(sub_node, context, sub_store, backend)
+            self.target.update(sub_node, context, sub_store)
         })
     }
 }
@@ -121,12 +119,11 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> Self::Storage {
         let sub_store =
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         Connect::new(
-            self.target.render_children(context, sub_store, backend),
+            self.target.render_children(context, sub_store),
             self.store_selector.clone(),
             self.message_selector.clone(),
         )
@@ -137,12 +134,11 @@ where
         storage: &mut Self::Storage,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
     ) -> bool {
         let sub_store =
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         self.target
-            .update_children(&mut storage.target, context, sub_store, backend)
+            .update_children(&mut storage.target, context, sub_store)
     }
 }
 
@@ -270,6 +266,26 @@ where
 
     type View = Connect<T::View, FS, FM, SS, SM>;
 
+    fn update<'a>(
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        target_depth: Depth,
+        current_depth: Depth,
+        context: &mut RenderContext,
+        store: &mut Store<S>,
+    ) -> bool {
+        let store_selector = &node.components.store_selector;
+        let sub_store = unsafe { &mut *(store_selector(store) as *const _ as *mut Store<SS>) };
+        with_sub_node(node, |sub_node| {
+            T::update(
+                sub_node,
+                target_depth,
+                current_depth,
+                context,
+                sub_store,
+            )
+        })
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -301,28 +317,6 @@ where
         );
         context.merge_sub_context(sub_context, self.message_selector.as_ref());
         result
-    }
-
-    fn update<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
-        target_depth: Depth,
-        current_depth: Depth,
-        context: &mut RenderContext,
-        store: &mut Store<S>,
-        backend: &mut B,
-    ) -> bool {
-        let store_selector = &node.components.store_selector;
-        let sub_store = unsafe { &mut *(store_selector(store) as *const _ as *mut Store<SS>) };
-        with_sub_node(node, |sub_node| {
-            T::update(
-                sub_node,
-                target_depth,
-                current_depth,
-                context,
-                sub_store,
-                backend,
-            )
-        })
     }
 }
 

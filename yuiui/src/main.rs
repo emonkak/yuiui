@@ -53,12 +53,12 @@ fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
 }
 
 fn main() {
-    let mut store = Store::new(AppState {
+    let store = Store::new(AppState {
         counter_store: Store::new(CounterState { count: 0 }),
     });
     let element = app();
     let mut context = RenderContext::new();
-    let node = element.render(&mut context, &mut store, &mut ());
+    let node = element.render(&mut context, &store);
     println!("{:#?}", node);
 }
 
@@ -145,7 +145,7 @@ pub fn button<S, M, B>(
     props: ButtonProps,
 ) -> ComponentElement<FunctionComponent<ButtonProps, (), impl DebuggableElement<S, M, B>, S, M, B>>
 {
-    FunctionComponent::new(props, |props, _local_state, _state, _backend| {
+    FunctionComponent::new(props, |props, _local_state, _state| {
         Block::new().el_with(Text::new(props.label.clone()).el())
     })
     .el()
@@ -191,7 +191,7 @@ fn counter<B>() -> ComponentElement<
 > {
     FunctionComponent::new(
         (),
-        |_props, _local_state, state: &CounterState, _backend| {
+        |_props, _local_state, state: &CounterState| {
             Block::new().el_with(Text::new(format!("{}", state.count)).el())
         },
     )
