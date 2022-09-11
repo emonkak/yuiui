@@ -125,10 +125,10 @@ where
         match mode {
             CommitMode::Mount => {
                 self.components.connect(context.id_path(), 0, store);
-            },
+            }
             CommitMode::Unmount => {
                 self.components.disconnect(context.id_path(), 0, store);
-            },
+            }
             CommitMode::Update => {}
         };
 

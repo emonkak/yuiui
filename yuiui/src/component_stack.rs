@@ -127,11 +127,9 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         false
     }
 
-    fn connect(&mut self, _id_path: &IdPath, _depth: Depth, _store: &mut Store<S>) {
-    }
+    fn connect(&mut self, _id_path: &IdPath, _depth: Depth, _store: &mut Store<S>) {}
 
-    fn disconnect(&mut self, _id_path: &IdPath, _depth: Depth, _store: &mut Store<S>) {
-    }
+    fn disconnect(&mut self, _id_path: &IdPath, _depth: Depth, _store: &mut Store<S>) {}
 
     fn commit(
         &mut self,
