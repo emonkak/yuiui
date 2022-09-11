@@ -6,18 +6,18 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<E, Deps, S> {
+pub struct Memoize<Deps, S, E> {
     render: fn(&Deps, &S) -> E,
     deps: Deps,
 }
 
-impl<E, Deps, S> Memoize<E, Deps, S> {
+impl<Deps, S, E> Memoize<Deps, S, E> {
     pub fn new(render: fn(&Deps, &S) -> E, deps: Deps) -> Self {
         Self { render, deps }
     }
 }
 
-impl<E, Deps, S, M, B> Element<S, M, B> for Memoize<E, Deps, S>
+impl<Deps, S, E, M, B> Element<S, M, B> for Memoize<Deps, S, E>
 where
     E: Element<S, M, B>,
     Deps: PartialEq,
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<E, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<E, Deps, S>
+impl<Deps, S, E, M, B> ElementSeq<S, M, B> for Memoize<Deps, S, E>
 where
     E: Element<S, M, B>,
     Deps: PartialEq,
@@ -88,7 +88,7 @@ impl<T> AsComponent<T> {
     }
 }
 
-impl<E, Deps, S, M, B> Component<S, M, B> for AsComponent<Memoize<E, Deps, S>>
+impl<Deps, S, E, M, B> Component<S, M, B> for AsComponent<Memoize<Deps, S, E>>
 where
     E: Element<S, M, B>,
     Deps: PartialEq,
