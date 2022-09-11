@@ -27,8 +27,8 @@ where
         }
     }
 
-    pub(crate) fn render(&self, store: &Store<S>) -> C::Element {
-        self.component.render(&self.state, store)
+    pub(crate) fn render(&self, state: &S) -> C::Element {
+        self.component.render(&self.state, state)
     }
 
     pub(crate) fn commit(

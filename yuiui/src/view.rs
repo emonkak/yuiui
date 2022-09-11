@@ -3,7 +3,6 @@ use hlist::HNil;
 use crate::context::MessageContext;
 use crate::element::{ElementSeq, ViewElement};
 use crate::event::{HasEvent, Lifecycle};
-use crate::state::Store;
 
 pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
     type Children: ElementSeq<S, M, B>;
@@ -16,7 +15,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
         _view_state: &mut Self::State,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
-        _store: &Store<S>,
+        _state: &S,
         _backend: &mut B,
     ) {
     }
@@ -27,7 +26,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
         _view_state: &mut Self::State,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
-        _store: &Store<S>,
+        _state: &S,
         _backend: &mut B,
     ) {
     }
@@ -35,7 +34,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
     fn build(
         &self,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        store: &Store<S>,
+        state: &S,
         backend: &mut B,
     ) -> Self::State;
 

@@ -39,11 +39,7 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
                 .map(|element| element.render(context, store))

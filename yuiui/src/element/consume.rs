@@ -41,11 +41,7 @@ where
 
     type State = ();
 
-    fn render(
-        &self,
-        _local_state: &Self::State,
-        _store: &Store<S>,
-    ) -> Self::Element {
+    fn render(&self, _local_state: &Self::State, _state: &S) -> Self::Element {
         AsElement::new(self.clone())
     }
 }
@@ -106,11 +102,7 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)
     }
 

@@ -38,18 +38,14 @@ where
 
     const DEPTH: usize = [L::DEPTH, R::DEPTH][(L::DEPTH < R::DEPTH) as usize];
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         match self {
-            Either::Left(element) => EitherStorage::new(Either::Left(
-                element.render_children(context, store),
-            )),
-            Either::Right(element) => EitherStorage::new(Either::Right(
-                element.render_children(context, store),
-            )),
+            Either::Left(element) => {
+                EitherStorage::new(Either::Left(element.render_children(context, store)))
+            }
+            Either::Right(element) => {
+                EitherStorage::new(Either::Right(element.render_children(context, store)))
+            }
         }
     }
 
@@ -84,9 +80,8 @@ where
                         element.update_children(node, context, store);
                     }
                     None => {
-                        storage.staging = Some(Either::Right(
-                            element.render_children(context, store),
-                        ));
+                        storage.staging =
+                            Some(Either::Right(element.render_children(context, store)));
                     }
                     _ => unreachable!(),
                 };
@@ -99,9 +94,8 @@ where
                         element.update_children(node, context, store);
                     }
                     None => {
-                        storage.staging = Some(Either::Left(
-                            element.render_children(context, store),
-                        ));
+                        storage.staging =
+                            Some(Either::Left(element.render_children(context, store)));
                     }
                     _ => unreachable!(),
                 }

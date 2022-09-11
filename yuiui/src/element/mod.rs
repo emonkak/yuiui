@@ -47,7 +47,7 @@ pub trait Element<S, M, B> {
     ) -> Connect<Self, FS, FM, S, M>
     where
         Self: Sized,
-        FS: Fn(&Store<PS>) -> &Store<S> + Sync + Send + 'static,
+        FS: Fn(&PS) -> &Store<S> + Sync + Send + 'static,
         FM: Fn(M) -> PM + Sync + Send + 'static,
     {
         Connect::new(self, state_selector.into(), message_selector.into())
@@ -67,11 +67,7 @@ pub trait ElementSeq<S, M, B> {
 
     const DEPTH: usize;
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage;
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage;
 
     fn update_children(
         self,

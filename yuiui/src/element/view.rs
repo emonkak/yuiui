@@ -51,8 +51,7 @@ where
     ) -> bool {
         context.begin_id(node.id);
 
-        self.children
-            .update_children(node.children, context, store);
+        self.children.update_children(node.children, context, store);
 
         *node.state = Some(match node.state.take().unwrap() {
             ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
@@ -78,11 +77,7 @@ where
 
     const DEPTH: usize = 1 + V::Children::DEPTH;
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)
     }
 

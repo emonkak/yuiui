@@ -64,11 +64,7 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)
     }
 
@@ -101,11 +97,7 @@ where
 
     type State = ();
 
-    fn render(
-        &self,
-        _local_state: &Self::State,
-        store: &Store<S>,
-    ) -> Self::Element {
-        (self.inner.render)(&self.inner.deps, store)
+    fn render(&self, _local_state: &Self::State, state: &S) -> Self::Element {
+        (self.inner.render)(&self.inner.deps, state)
     }
 }

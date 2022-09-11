@@ -14,11 +14,7 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
 
     const DEPTH: usize = 0;
 
-    fn render_children(
-        self,
-        _context: &mut RenderContext,
-        _store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, _context: &mut RenderContext, _store: &Store<S>) -> Self::Storage {
         HNil
     }
 
@@ -89,11 +85,7 @@ where
 
     const DEPTH: usize = [H::DEPTH, T::DEPTH][(H::DEPTH < T::DEPTH) as usize];
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         HCons {
             head: self.head.render_children(context, store),
             tail: self.tail.render_children(context, store),
@@ -107,12 +99,8 @@ where
         store: &Store<S>,
     ) -> bool {
         let mut has_changed = false;
-        has_changed |= self
-            .head
-            .update_children(&mut storage.head, context, store);
-        has_changed |= self
-            .tail
-            .update_children(&mut storage.tail, context, store);
+        has_changed |= self.head.update_children(&mut storage.head, context, store);
+        has_changed |= self.tail.update_children(&mut storage.tail, context, store);
         has_changed
     }
 }

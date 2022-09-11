@@ -43,7 +43,7 @@ where
 impl<T, FS, FM, SS, SM, S, M, B> Element<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: Element<SS, SM, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
@@ -106,7 +106,7 @@ where
 impl<T, FS, FM, SS, SM, S, M, B> ElementSeq<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: ElementSeq<SS, SM, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
@@ -115,11 +115,7 @@ where
 
     const DEPTH: usize = T::DEPTH;
 
-    fn render_children(
-        self,
-        context: &mut RenderContext,
-        store: &Store<S>,
-    ) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         let sub_store =
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         Connect::new(
@@ -145,7 +141,7 @@ where
 impl<T, FS, FM, SS, SM, S, M, B> ViewNodeSeq<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: ViewNodeSeq<SS, SM, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
@@ -180,7 +176,7 @@ impl<T, FS, FM, SS, SM, Visitor, Output, S, B> Traversable<Visitor, RenderContex
     for Connect<T, FS, FM, SS, SM>
 where
     T: Traversable<Visitor, RenderContext, Output, SS, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
 {
     fn for_each(
         &mut self,
@@ -213,7 +209,7 @@ impl<T, FS, FM, SS, SM, Visitor, S, M, B> Traversable<Visitor, MessageContext<M>
     for Connect<T, FS, FM, SS, SM>
 where
     T: Traversable<Visitor, MessageContext<SM>, bool, SS, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
@@ -257,7 +253,7 @@ where
 impl<T, FS, FM, SS, SM, S, M, B> ComponentStack<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: ComponentStack<SS, SM, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
@@ -276,13 +272,7 @@ where
         let store_selector = &node.components.store_selector;
         let sub_store = unsafe { &mut *(store_selector(store) as *const _ as *mut Store<SS>) };
         with_sub_node(node, |sub_node| {
-            T::update(
-                sub_node,
-                target_depth,
-                current_depth,
-                context,
-                sub_store,
-            )
+            T::update(sub_node, target_depth, current_depth, context, sub_store)
         })
     }
 
@@ -299,10 +289,10 @@ where
             unsafe { &mut *((self.store_selector)(store) as *const _ as *mut Store<SS>) };
         match mode {
             CommitMode::Mount => {
-                sub_store.subscribe(context.id_path().to_vec(), current_depth);
+                sub_store.add_subscriber(context.id_path().to_vec(), current_depth);
             }
             CommitMode::Unmount => {
-                sub_store.unsubscribe(context.id_path(), current_depth);
+                sub_store.remove_subscriber(context.id_path(), current_depth);
             }
             CommitMode::Update => {}
         }
@@ -323,7 +313,7 @@ where
 impl<T, FS, FM, SS, SM, S, M, B> View<S, M, B> for Connect<T, FS, FM, SS, SM>
 where
     T: View<SS, SM, B>,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
@@ -338,11 +328,11 @@ where
         view_state: &mut Self::State,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        state: &S,
         backend: &mut B,
     ) {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.store_selector)(state);
         let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         self.target.lifecycle(
             sub_lifecycle,
@@ -361,10 +351,10 @@ where
         view_state: &mut Self::State,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        state: &S,
         backend: &mut B,
     ) {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.store_selector)(state);
         let mut sub_context = context.new_sub_context(sub_store.to_subscribers());
         self.target.event(
             event,
@@ -380,10 +370,10 @@ where
     fn build(
         &self,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        store: &Store<S>,
+        state: &S,
         backend: &mut B,
     ) -> Self::State {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.store_selector)(state);
         self.target.build(&children.target, sub_store, backend)
     }
 }
@@ -401,7 +391,7 @@ fn with_sub_node<Callback, Output, FS, FM, SS, SM, V, CS, S, M, B>(
 ) -> Output
 where
     Callback: FnOnce(&mut ViewNodeMut<V, CS, SS, SM, B>) -> Output,
-    FS: Fn(&Store<S>) -> &Store<SS> + Sync + Send + 'static,
+    FS: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
     FM: Fn(SM) -> M + Sync + Send + 'static,
     V: View<SS, SM, B>,
     CS: ComponentStack<SS, SM, B, View = V>,

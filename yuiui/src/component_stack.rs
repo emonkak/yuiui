@@ -63,13 +63,7 @@ where
             let element = head.render(store);
             element.update(&mut node, context, store)
         } else {
-            CS::update(
-                &mut node,
-                target_depth,
-                current_depth + 1,
-                context,
-                store,
-            )
+            CS::update(&mut node, target_depth, current_depth + 1, context, store)
         }
     }
 

@@ -46,7 +46,7 @@ fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
             label: "click me!".into(),
         }),
         counter().connect(
-            |state: &Store<AppState>| &state.counter_store,
+            |state: &AppState| &state.counter_store,
             AppMessage::CounterMessage,
         ),
     ])
@@ -84,7 +84,7 @@ impl<S, M, B> View<S, M, B> for Text {
     fn build(
         &self,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        _store: &Store<S>,
+        _state: &S,
         _backend: &mut B,
     ) -> Self::State {
         TextState
@@ -122,7 +122,7 @@ where
     fn build(
         &self,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
-        _store: &Store<S>,
+        _state: &S,
         _backend: &mut B,
     ) -> Self::State {
         BlockState
@@ -189,11 +189,8 @@ fn counter<B>() -> ComponentElement<
         B,
     >,
 > {
-    FunctionComponent::new(
-        (),
-        |_props, _local_state, state: &CounterState| {
-            Block::new().el_with(Text::new(format!("{}", state.count)).el())
-        },
-    )
+    FunctionComponent::new((), |_props, _local_state, state: &CounterState| {
+        Block::new().el_with(Text::new(format!("{}", state.count)).el())
+    })
     .el()
 }
