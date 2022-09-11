@@ -38,7 +38,7 @@ where
 
     const DEPTH: usize = [L::DEPTH, R::DEPTH][(L::DEPTH < R::DEPTH) as usize];
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         match self {
             Either::Left(element) => {
                 EitherStorage::new(Either::Left(element.render_children(context, store)))
@@ -53,7 +53,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {

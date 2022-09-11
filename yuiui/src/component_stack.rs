@@ -4,7 +4,7 @@ use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
-use crate::id::{Depth, IdPath};
+use crate::id::Depth;
 use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
@@ -21,10 +21,6 @@ pub trait ComponentStack<S, M, B>: Sized {
         context: &mut RenderContext,
         store: &mut Store<S>,
     ) -> bool;
-
-    fn connect(&mut self, id_path: &IdPath, depth: Depth, store: &mut Store<S>);
-
-    fn disconnect(&mut self, id_path: &IdPath, depth: Depth, store: &mut Store<S>);
 
     fn commit(
         &mut self,
@@ -68,14 +64,6 @@ where
         } else {
             CS::update(&mut node, target_depth, current_depth + 1, context, store)
         }
-    }
-
-    fn connect(&mut self, id_path: &IdPath, depth: Depth, store: &mut Store<S>) {
-        self.1.connect(id_path, depth, store);
-    }
-
-    fn disconnect(&mut self, id_path: &IdPath, depth: Depth, store: &mut Store<S>) {
-        self.1.disconnect(id_path, depth, store);
     }
 
     fn commit(
@@ -125,10 +113,6 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
     ) -> bool {
         false
     }
-
-    fn connect(&mut self, _id_path: &IdPath, _depth: Depth, _store: &mut Store<S>) {}
-
-    fn disconnect(&mut self, _id_path: &IdPath, _depth: Depth, _store: &mut Store<S>) {}
 
     fn commit(
         &mut self,

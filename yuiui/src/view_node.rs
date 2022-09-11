@@ -118,16 +118,6 @@ where
 
         context.begin_id(self.id);
 
-        match mode {
-            CommitMode::Mount => {
-                self.components.connect(context.id_path(), 0, store);
-            }
-            CommitMode::Unmount => {
-                self.components.disconnect(context.id_path(), 0, store);
-            }
-            CommitMode::Update => {}
-        };
-
         let result = if matches!(mode, CommitMode::Mount | CommitMode::Update) {
             self.children.commit(mode, context, store, backend)
         } else {

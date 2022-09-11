@@ -39,7 +39,7 @@ where
 
     const DEPTH: usize = E::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
                 .map(|element| element.render(context, store))
@@ -51,7 +51,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
     ) -> bool {
         let mut has_changed = false;
 

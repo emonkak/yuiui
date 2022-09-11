@@ -53,12 +53,12 @@ fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
 }
 
 fn main() {
-    let store = Store::new(AppState {
+    let mut store = Store::new(AppState {
         counter_store: Store::new(CounterState { count: 0 }),
     });
     let element = app();
     let mut context = RenderContext::new();
-    let node = element.render(&mut context, &store);
+    let node = element.render(&mut context, &mut store);
     println!("{:#?}", node);
 }
 

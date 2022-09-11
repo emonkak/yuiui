@@ -28,7 +28,7 @@ where
     E: Element<S, M, B>,
     S: State<Message = M>,
 {
-    pub fn create(element: E, store: &Store<S>) -> Self {
+    pub fn create(element: E, store: &mut Store<S>) -> Self {
         let mut context = RenderContext::new();
         let node = element.render(&mut context, store);
         Self {

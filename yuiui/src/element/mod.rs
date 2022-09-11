@@ -26,14 +26,14 @@ pub trait Element<S, M, B> {
     fn render(
         self,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B>;
 
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
     ) -> bool;
 
     fn connect<FS, FM, PS, PM>(
@@ -55,13 +55,13 @@ pub trait ElementSeq<S, M, B> {
 
     const DEPTH: usize;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage;
+    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage;
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
     ) -> bool;
 }
 

@@ -35,7 +35,7 @@ where
 
     const DEPTH: usize = T::DEPTH;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         OptionStorage::new(self.map(|element| element.render_children(context, store)))
     }
 
@@ -43,7 +43,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        store: &mut Store<S>,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {

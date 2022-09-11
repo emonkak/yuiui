@@ -28,7 +28,7 @@ where
     let context = ExecutionContext::new(MainContext::default(), action_tx.clone());
 
     let mut backend = Backend::new(application.clone(), event_tx);
-    let mut render_loop = RenderLoop::create(element, &store);
+    let mut render_loop = RenderLoop::create(element, &mut store);
 
     render_loop.run_forever(&context, &mut store, &mut backend);
 

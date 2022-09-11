@@ -33,8 +33,16 @@ impl<T> Store<T> {
         self.dirty = false;
     }
 
-    pub(crate) fn add_subscriber(&mut self, id_path: IdPathBuf, depth: Depth) {
-        self.subscribers.push((id_path, depth))
+    pub(crate) fn add_subscriber(&mut self, id_path: &IdPath, depth: Depth) {
+        if !self
+            .subscribers
+            .iter()
+            .any(|(existing_id_path, existing_depth)| {
+                existing_id_path.last() == id_path.last() && *existing_depth == depth
+            })
+        {
+            self.subscribers.push((id_path.to_vec(), depth))
+        }
     }
 
     pub(crate) fn remove_subscriber(&mut self, id_path: &IdPath, depth: Depth) {
