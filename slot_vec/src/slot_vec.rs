@@ -207,7 +207,7 @@ impl<T> SlotVec<T> {
     }
 
     #[inline]
-    pub fn ordered_mut(&mut self) -> impl Iterator<Item = (Key, &mut T)> {
+    pub fn ordered_mut(&mut self) -> OrderedMut<'_, T> {
         OrderedMut::new(&mut self.entries, &mut self.slots)
     }
 
@@ -673,14 +673,15 @@ mod tests {
         let foo = xs.push("foo");
         let bar = xs.push("bar");
         let baz = xs.push("baz");
+        xs.remove(foo);
 
         assert_eq!(
             xs.iter().collect::<Vec<_>>(),
-            vec![(foo, &"foo"), (bar, &"bar"), (baz, &"baz")],
+            vec![(baz, &"baz"), (bar, &"bar")],
         );
         assert_eq!(
             xs.iter_mut().collect::<Vec<_>>(),
-            vec![(foo, &mut "foo"), (bar, &mut "bar"), (baz, &mut "baz")]
+            vec![(baz, &mut "baz"), (bar, &mut "bar")]
         );
     }
 
@@ -690,14 +691,15 @@ mod tests {
         let foo = xs.push("foo");
         let bar = xs.push("bar");
         let baz = xs.push("baz");
+        xs.remove(foo);
 
         assert_eq!(
             xs.ordered().collect::<Vec<_>>(),
-            vec![(foo, &"foo"), (bar, &"bar"), (baz, &"baz")]
+            vec![(bar, &"bar"), (baz, &"baz")]
         );
         assert_eq!(
             xs.ordered_mut().collect::<Vec<_>>(),
-            vec![(foo, &mut "foo"), (bar, &mut "bar"), (baz, &mut "baz")]
+            vec![(bar, &mut "bar"), (baz, &mut "baz")]
         );
     }
 }
