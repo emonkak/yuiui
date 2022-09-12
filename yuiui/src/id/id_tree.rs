@@ -199,8 +199,6 @@ impl<'a, T> Iterator for Children<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
 
     #[test]
@@ -212,7 +210,7 @@ mod tests {
         //      |       +- *6
         //      |
         //      +--- 3 ---- 7 --- *8
-        let source = BTreeMap::from_iter([
+        let id_tree = IdTree::from_iter([
             (vec![], 1),
             (vec![Id(1)], 2),
             (vec![Id(1), Id(4)], 3),
@@ -220,7 +218,6 @@ mod tests {
             (vec![Id(2), Id(6)], 5),
             (vec![Id(3), Id(7), Id(8)], 6),
         ]);
-        let id_tree = IdTree::from_iter(source);
 
         assert_eq!(
             id_tree.root().current(),
