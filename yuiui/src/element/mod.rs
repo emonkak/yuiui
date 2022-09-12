@@ -34,17 +34,15 @@ pub trait Element<S, M, B> {
         store: &mut Store<S>,
     ) -> bool;
 
-    fn connect<FS, FM, PS, PM>(
+    fn connect<PS, PM>(
         self,
-        state_selector: FS,
-        message_selector: FM,
-    ) -> Connect<Self, FS, FM, S, M>
+        state_selector: fn(&PS) -> &Store<S>,
+        message_selector: fn(M) -> PM,
+    ) -> Connect<Self, PS, PM, S, M>
     where
         Self: Sized,
-        FS: Fn(&PS) -> &Store<S> + Sync + Send + 'static,
-        FM: Fn(M) -> PM + Sync + Send + 'static,
     {
-        Connect::new(self, state_selector.into(), message_selector.into())
+        Connect::new(self, state_selector, message_selector)
     }
 }
 

@@ -1,6 +1,5 @@
 use std::fmt;
 use std::marker::PhantomData;
-use std::sync::Arc;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
@@ -13,15 +12,15 @@ use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
 
 use super::{Element, ElementSeq};
 
-pub struct Connect<T, SF, MF, SS, SM> {
+pub struct Connect<T, S, M, SS, SM> {
     target: T,
-    store_selector: Arc<SF>,
-    message_selector: Arc<MF>,
+    store_selector: fn(&S) -> &Store<SS>,
+    message_selector: fn(SM) -> M,
     _phantom: PhantomData<(SS, SM)>,
 }
 
-impl<T, SF, MF, SS, SM> Connect<T, SF, MF, SS, SM> {
-    pub fn new(target: T, store_selector: Arc<SF>, message_selector: Arc<MF>) -> Self {
+impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
+    pub fn new(target: T, store_selector: fn(&S) -> &Store<SS>, message_selector: fn(SM) -> M) -> Self {
         Self {
             target,
             store_selector,
@@ -31,7 +30,7 @@ impl<T, SF, MF, SS, SM> Connect<T, SF, MF, SS, SM> {
     }
 }
 
-impl<T, SF, MF, SS, SM> fmt::Debug for Connect<T, SF, MF, SS, SM>
+impl<T, S, M, SS, SM> fmt::Debug for Connect<T, S, M, SS, SM>
 where
     T: fmt::Debug,
 {
@@ -40,17 +39,15 @@ where
     }
 }
 
-impl<T, SF, MF, SS, SM, S, M, B> Element<S, M, B> for Connect<T, SF, MF, SS, SM>
+impl<T, S, M, SS, SM, B> Element<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: Element<SS, SM, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
 {
-    type View = Connect<T::View, SF, MF, SS, SM>;
+    type View = Connect<T::View, S, M, SS, SM>;
 
-    type Components = Connect<T::Components, SF, MF, SS, SM>;
+    type Components = Connect<T::Components, S, M, SS, SM>;
 
     fn render(
         self,
@@ -98,15 +95,13 @@ where
     }
 }
 
-impl<T, SF, MF, SS, SM, S, M, B> ElementSeq<S, M, B> for Connect<T, SF, MF, SS, SM>
+impl<T, S, M, SS, SM, B> ElementSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ElementSeq<SS, SM, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
 {
-    type Storage = Connect<T::Storage, SF, MF, SS, SM>;
+    type Storage = Connect<T::Storage, S, M, SS, SM>;
 
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
@@ -129,11 +124,9 @@ where
     }
 }
 
-impl<T, SF, MF, SS, SM, S, M, B> ViewNodeSeq<S, M, B> for Connect<T, SF, MF, SS, SM>
+impl<T, S, M, SS, SM, B> ViewNodeSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ViewNodeSeq<SS, SM, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
 {
@@ -157,16 +150,15 @@ where
         let result = self
             .target
             .commit(mode, &mut sub_context, sub_store, backend);
-        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
 }
 
-impl<'a, T, SF, MF, SS, SM, Visitor, Output, S, B> Traversable<Visitor, RenderContext, Output, S, B>
-    for Connect<T, SF, MF, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, RenderContext, Output, S, B>
+    for Connect<T, S, M, SS, SM>
 where
     T: Traversable<Visitor, RenderContext, Output, SS, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
 {
     fn for_each(
         &mut self,
@@ -193,12 +185,10 @@ where
     }
 }
 
-impl<'a, T, SF, MF, SS, SM, Visitor, Output, S, M, B>
-    Traversable<Visitor, MessageContext<M>, Output, S, B> for Connect<T, SF, MF, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, Output, B>
+    Traversable<Visitor, MessageContext<M>, Output, S, B> for Connect<T, S, M, SS, SM>
 where
     T: Traversable<Visitor, MessageContext<SM>, Output, SS, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
 {
@@ -214,7 +204,7 @@ where
         let result = self
             .target
             .for_each(visitor, &mut sub_context, sub_store, backend);
-        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
 
@@ -231,22 +221,20 @@ where
         let result = self
             .target
             .search(id_path, visitor, &mut sub_context, sub_store, backend);
-        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
 }
 
-impl<T, SF, MF, SS, SM, S, M, B> ComponentStack<S, M, B> for Connect<T, SF, MF, SS, SM>
+impl<T, S, M, SS, SM, B> ComponentStack<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ComponentStack<SS, SM, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
 {
     const LEN: usize = T::LEN;
 
-    type View = Connect<T::View, SF, MF, SS, SM>;
+    type View = Connect<T::View, S, M, SS, SM>;
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
@@ -286,20 +274,18 @@ where
             sub_store,
             backend,
         );
-        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
 }
 
-impl<T, SF, MF, SS, SM, S, M, B> View<S, M, B> for Connect<T, SF, MF, SS, SM>
+impl<T, S, M, SS, SM, B> View<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: View<SS, SM, B>,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     SM: 'static,
     M: 'static,
 {
-    type Children = Connect<T::Children, SF, MF, SS, SM>;
+    type Children = Connect<T::Children, S, M, SS, SM>;
 
     type State = T::State;
 
@@ -323,7 +309,7 @@ where
             sub_store,
             backend,
         );
-        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        context.merge_sub_context(sub_context, &self.message_selector);
     }
 
     fn event(
@@ -345,7 +331,7 @@ where
             sub_store,
             backend,
         );
-        context.merge_sub_context(sub_context, self.message_selector.as_ref());
+        context.merge_sub_context(sub_context, &self.message_selector);
     }
 
     fn build(
@@ -359,21 +345,19 @@ where
     }
 }
 
-impl<'event, T, SF, MF, SS, SM> HasEvent<'event> for Connect<T, SF, MF, SS, SM>
+impl<'event, T, S, M, SS, SM> HasEvent<'event> for Connect<T, S, M, SS, SM>
 where
     T: HasEvent<'event>,
 {
     type Event = T::Event;
 }
 
-fn with_sub_node<Callback, Output, SF, MF, SS, SM, V, CS, S, M, B>(
-    node: &mut ViewNodeMut<Connect<V, SF, MF, SS, SM>, Connect<CS, SF, MF, SS, SM>, S, M, B>,
+fn with_sub_node<Callback, Output, S, M, SS, SM, V, CS, B>(
+    node: &mut ViewNodeMut<Connect<V, S, M, SS, SM>, Connect<CS, S, M, SS, SM>, S, M, B>,
     callback: Callback,
 ) -> Output
 where
     Callback: FnOnce(&mut ViewNodeMut<V, CS, SS, SM, B>) -> Output,
-    SF: Fn(&S) -> &Store<SS> + Sync + Send + 'static,
-    MF: Fn(SM) -> M + Sync + Send + 'static,
     V: View<SS, SM, B>,
     CS: ComponentStack<SS, SM, B, View = V>,
 {
