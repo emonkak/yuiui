@@ -11,7 +11,6 @@ use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
-use crate::StateTree;
 
 #[derive(Debug)]
 pub struct VecStorage<T> {
@@ -109,7 +108,6 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -120,30 +118,28 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, state_tree, context, store, backend);
+                        result |= node.commit(mode, context, store, backend);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result |= node.commit(mode, state_tree, context, store, backend);
+                        result |= node.commit(mode, context, store, backend);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        result |=
-                            node.commit(CommitMode::Unmount, state_tree, context, store, backend);
+                        result |= node.commit(CommitMode::Unmount, context, store, backend);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, state_tree, context, store, backend);
+                        result |= node.commit(mode, context, store, backend);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
-                            result |=
-                                node.commit(CommitMode::Mount, state_tree, context, store, backend);
+                            result |= node.commit(CommitMode::Mount, context, store, backend);
                             self.active.push(node);
                         }
                     }

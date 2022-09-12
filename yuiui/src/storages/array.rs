@@ -6,7 +6,7 @@ use crate::element::Element;
 use crate::element::ElementSeq;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Id, IdPath};
-use crate::state::{StateTree, Store};
+use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
@@ -80,7 +80,6 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -88,7 +87,7 @@ where
         let mut result = false;
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                result |= node.commit(mode, state_tree, context, store, backend);
+                result |= node.commit(mode, context, store, backend);
             }
             self.dirty = false;
         }

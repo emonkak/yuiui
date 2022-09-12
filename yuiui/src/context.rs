@@ -1,5 +1,4 @@
 use crate::id::{Id, IdCounter, IdPath, IdPathBuf};
-use crate::state::StateId;
 
 #[derive(Debug)]
 pub struct RenderContext {
@@ -40,23 +39,20 @@ impl RenderContext {
 #[derive(Debug)]
 pub struct MessageContext<T> {
     id_path: IdPathBuf,
-    state_id: StateId,
-    messages: Vec<(T, StateId)>,
+    messages: Vec<T>,
 }
 
 impl<T> MessageContext<T> {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
-            state_id: StateId::ROOT,
             messages: Vec::new(),
         }
     }
 
-    pub(crate) fn new_sub_context<U>(&mut self, state_id: StateId) -> MessageContext<U> {
+    pub(crate) fn new_sub_context<U>(&mut self) -> MessageContext<U> {
         MessageContext {
             id_path: self.id_path.clone(),
-            state_id,
             messages: Vec::new(),
         }
     }
@@ -67,10 +63,7 @@ impl<T> MessageContext<T> {
         f: &F,
     ) {
         assert!(sub_context.id_path.starts_with(&self.id_path));
-        let new_messages = sub_context
-            .messages
-            .into_iter()
-            .map(|(message, state_id)| (f(message), state_id));
+        let new_messages = sub_context.messages.into_iter().map(|message| f(message));
         self.messages.extend(new_messages);
     }
 
@@ -82,19 +75,15 @@ impl<T> MessageContext<T> {
         self.id_path.pop();
     }
 
-    pub(crate) fn state_id(&self) -> StateId {
-        self.state_id
-    }
-
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
     }
 
     pub fn push_message(&mut self, message: T) {
-        self.messages.push((message, self.state_id));
+        self.messages.push(message);
     }
 
-    pub fn into_messages(self) -> Vec<(T, StateId)> {
+    pub fn into_messages(self) -> Vec<T> {
         self.messages
     }
 }

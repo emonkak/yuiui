@@ -1,7 +1,7 @@
 use futures::stream::StreamExt as _;
 use glib::{MainContext, Sender, SourceId};
 use std::any::Any;
-use yuiui::{CancellationToken, Command, EventDestination, RawToken, RawTokenVTable, StateId};
+use yuiui::{CancellationToken, Command, EventDestination, RawToken, RawTokenVTable};
 
 #[derive(Debug)]
 pub struct ExecutionContext<T> {
@@ -25,30 +25,25 @@ impl<T: Send + 'static> ExecutionContext<T> {
 }
 
 impl<T: Send + 'static> yuiui::ExecutionContext<T> for ExecutionContext<T> {
-    fn spawn_command(
-        &self,
-        command: Command<T>,
-        cancellation_token: Option<CancellationToken>,
-        state_id: StateId,
-    ) {
+    fn spawn_command(&self, command: Command<T>, cancellation_token: Option<CancellationToken>) {
         let port = self.port.clone();
         let source_id = match command {
             Command::Future(future) => self.main_context.spawn_local(async move {
                 let message = future.await;
-                port.send(RenderAction::Message(message, state_id)).unwrap();
+                port.send(RenderAction::Message(message)).unwrap();
             }),
             Command::Stream(mut stream) => self.main_context.spawn_local(async move {
                 while let Some(message) = stream.next().await {
-                    port.send(RenderAction::Message(message, state_id)).unwrap();
+                    port.send(RenderAction::Message(message)).unwrap();
                 }
             }),
             Command::Timeout(duration, callback) => glib::timeout_add_once(duration, move || {
                 let message = callback();
-                port.send(RenderAction::Message(message, state_id)).unwrap();
+                port.send(RenderAction::Message(message)).unwrap();
             }),
             Command::Interval(period, callback) => glib::timeout_add(period, move || {
                 let message = callback();
-                port.send(RenderAction::Message(message, state_id)).unwrap();
+                port.send(RenderAction::Message(message)).unwrap();
                 glib::Continue(true)
             }),
         };
@@ -76,7 +71,7 @@ fn create_token(source_id: SourceId) -> RawToken {
 }
 
 pub(super) enum RenderAction<T> {
-    Message(T, StateId),
+    Message(T),
     Event(Box<dyn Any + Send>, EventDestination),
     RequestRender,
 }

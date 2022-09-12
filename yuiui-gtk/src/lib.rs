@@ -44,8 +44,8 @@ where
 
         match action {
             RenderAction::RequestRender => {}
-            RenderAction::Message(message, state_scope) => {
-                render_loop.push_message(message, state_scope);
+            RenderAction::Message(message) => {
+                render_loop.push_message(message);
             }
             RenderAction::Event(event, destination) => {
                 render_loop.push_event(event, destination);

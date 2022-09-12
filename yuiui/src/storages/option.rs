@@ -4,7 +4,7 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
 use crate::id::IdPath;
-use crate::state::{StateTree, Store};
+use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -90,7 +90,6 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -99,18 +98,18 @@ where
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Unmount, state_tree, context, store, backend);
+                    result |= node.commit(CommitMode::Unmount, context, store, backend);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Mount, state_tree, context, store, backend);
+                    result |= node.commit(CommitMode::Mount, context, store, backend);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, state_tree, context, store, backend);
+                result |= node.commit(mode, context, store, backend);
             }
         }
         self.flags = RenderFlags::COMMITED;

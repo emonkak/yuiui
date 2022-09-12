@@ -15,7 +15,6 @@ either = { path = "../either" }
 either-macro = { path = "../either-macro" }
 futures = "0.3"
 hlist = { path = "../hlist" }
-slot_vec = { path = "../slot_vec" }
 
 [[bin]]
 name = "main"

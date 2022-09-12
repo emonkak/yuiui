@@ -6,7 +6,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::event::{EventMask, HasEvent, Lifecycle};
 use crate::id::{Depth, IdPath};
-use crate::state::{StateTree, Store};
+use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
@@ -148,16 +148,15 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
-        let mut sub_context = context.new_sub_context(sub_store.subscription());
+        let mut sub_context = context.new_sub_context();
         let result = self
             .target
-            .commit(mode, state_tree, &mut sub_context, sub_store, backend);
+            .commit(mode, &mut sub_context, sub_store, backend);
         context.merge_sub_context(sub_context, self.message_selector.as_ref());
         result
     }
@@ -211,7 +210,7 @@ where
         backend: &mut B,
     ) -> Output {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
-        let mut sub_context = context.new_sub_context(sub_store.subscription());
+        let mut sub_context = context.new_sub_context();
         let result = self
             .target
             .for_each(visitor, &mut sub_context, sub_store, backend);
@@ -228,7 +227,7 @@ where
         backend: &mut B,
     ) -> Option<Output> {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
-        let mut sub_context = context.new_sub_context(sub_store.subscription());
+        let mut sub_context = context.new_sub_context();
         let result = self
             .target
             .search(id_path, visitor, &mut sub_context, sub_store, backend);
@@ -268,32 +267,21 @@ where
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
-        let state_id = match mode {
-            CommitMode::Mount => sub_store.connect(|| {
-                state_tree.append(
-                    context.state_id(),
-                    (context.id_path().to_vec(), current_depth),
-                )
-            }),
-            CommitMode::Unmount => {
-                let state_id = sub_store.subscription();
-                state_tree.detach_from(state_id);
-                state_id
-            }
-            CommitMode::Update => sub_store.subscription(),
-        };
-        let mut sub_context = context.new_sub_context(state_id);
+        match mode {
+            CommitMode::Mount => sub_store.connect(context.id_path().to_vec(), current_depth),
+            CommitMode::Unmount => sub_store.disconnect(context.id_path(), current_depth),
+            CommitMode::Update => {}
+        }
+        let mut sub_context = context.new_sub_context();
         let result = self.target.commit(
             mode,
             target_depth,
             current_depth,
-            state_tree,
             &mut sub_context,
             sub_store,
             backend,
@@ -326,7 +314,7 @@ where
     ) {
         let sub_lifecycle = lifecycle.map(|view| &view.target);
         let sub_store = (self.store_selector)(state);
-        let mut sub_context = context.new_sub_context(sub_store.subscription());
+        let mut sub_context = context.new_sub_context();
         self.target.lifecycle(
             sub_lifecycle,
             view_state,
@@ -348,7 +336,7 @@ where
         backend: &mut B,
     ) {
         let sub_store = (self.store_selector)(state);
-        let mut sub_context = context.new_sub_context(sub_store.subscription());
+        let mut sub_context = context.new_sub_context();
         self.target.event(
             event,
             view_state,

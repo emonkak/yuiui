@@ -9,15 +9,14 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::EventDestination;
 use crate::id::{Depth, IdPath, IdPathBuf, IdTree};
-use crate::state::{State, StateId, StateTree, Store};
+use crate::state::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
 pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     node: ViewNode<E::View, E::Components, S, M, B>,
-    state_tree: StateTree,
     render_context: RenderContext,
-    message_queue: VecDeque<(M, StateId)>,
+    message_queue: VecDeque<M>,
     event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
     nodes_to_update: BTreeMap<IdPathBuf, Depth>,
     nodes_to_commit: BTreeMap<IdPathBuf, Depth>,
@@ -34,7 +33,6 @@ where
         let node = element.render(&mut context, store);
         Self {
             node,
-            state_tree: StateTree::new((IdPathBuf::new(), 0)),
             render_context: RenderContext::new(),
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
@@ -52,24 +50,22 @@ where
         backend: &mut B,
     ) -> RenderFlow {
         loop {
-            while let Some((message, state_id)) = self.message_queue.pop_front() {
-                let (dirty, commands) = store.update(message);
+            while let Some(message) = self.message_queue.pop_front() {
+                let (dirty, effect) = store.update(message);
                 if dirty {
-                    // Update the root always
                     if !self.nodes_to_update.contains_key(&[] as &IdPath) {
                         self.nodes_to_update.insert(IdPathBuf::new(), 0);
                     }
-
-                    for (_, (id_path, depth)) in self.state_tree.iter_from(state_id) {
-                        if let Some(current_depth) = self.nodes_to_update.get_mut(id_path) {
-                            *current_depth = (*current_depth).min(*depth);
-                        } else {
-                            self.nodes_to_update.insert(id_path.to_vec(), *depth);
-                        }
+                }
+                for (id_path, depth) in effect.subscriptions {
+                    if let Some(current_depth) = self.nodes_to_update.get_mut(&id_path) {
+                        *current_depth = (*current_depth).min(depth);
+                    } else {
+                        self.nodes_to_update.insert(id_path, depth);
                     }
                 }
-                for (command, cancellation_token) in commands {
-                    execution_context.spawn_command(command, cancellation_token, state_id);
+                for (command, cancellation_token) in effect.commands {
+                    execution_context.spawn_command(command, cancellation_token);
                 }
                 if deadline.did_timeout() {
                     return self.render_flow();
@@ -110,13 +106,8 @@ where
                 if !self.nodes_to_commit.is_empty() {
                     let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_commit));
                     let mut context = MessageContext::new();
-                    self.node.commit_subtree(
-                        &id_tree,
-                        &mut self.state_tree,
-                        &mut context,
-                        store,
-                        backend,
-                    );
+                    self.node
+                        .commit_subtree(&id_tree, &mut context, store, backend);
                     self.message_queue.extend(context.into_messages());
                     if deadline.did_timeout() {
                         return self.render_flow();
@@ -124,14 +115,8 @@ where
                 }
             } else {
                 let mut context = MessageContext::new();
-                self.node.commit_within(
-                    CommitMode::Mount,
-                    0,
-                    &mut self.state_tree,
-                    &mut context,
-                    store,
-                    backend,
-                );
+                self.node
+                    .commit_within(CommitMode::Mount, 0, &mut context, store, backend);
                 self.message_queue.extend(context.into_messages());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
@@ -155,8 +140,8 @@ where
         assert_eq!(render_flow, RenderFlow::Done);
     }
 
-    pub fn push_message(&mut self, message: M, state_id: StateId) {
-        self.message_queue.push_back((message, state_id));
+    pub fn push_message(&mut self, message: M) {
+        self.message_queue.push_back(message);
     }
 
     pub fn push_event(&mut self, event: Box<dyn Any + Send>, destination: EventDestination) {

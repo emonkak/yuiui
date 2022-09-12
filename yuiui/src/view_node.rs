@@ -14,7 +14,7 @@ use crate::element::ElementSeq;
 use crate::event::Lifecycle;
 use crate::event::{Event, EventMask, HasEvent};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
-use crate::state::{StateTree, Store};
+use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
@@ -108,7 +108,6 @@ where
         &mut self,
         mode: CommitMode,
         depth: Depth,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -120,12 +119,12 @@ where
         context.begin_id(self.id);
 
         let pre_result = match mode {
-            CommitMode::Mount | CommitMode::Update => self
-                .children
-                .commit(mode, state_tree, context, store, backend),
+            CommitMode::Mount | CommitMode::Update => {
+                self.children.commit(mode, context, store, backend)
+            }
             CommitMode::Unmount => self
                 .components
-                .commit(mode, depth, 0, state_tree, context, store, backend),
+                .commit(mode, depth, 0, context, store, backend),
         };
 
         let (result, node_state) = match (mode, self.state.take().unwrap()) {
@@ -221,10 +220,8 @@ where
         let post_result = match mode {
             CommitMode::Mount | CommitMode::Update => self
                 .components
-                .commit(mode, depth, 0, state_tree, context, store, backend),
-            CommitMode::Unmount => self
-                .children
-                .commit(mode, state_tree, context, store, backend),
+                .commit(mode, depth, 0, context, store, backend),
+            CommitMode::Unmount => self.children.commit(mode, context, store, backend),
         };
 
         context.end_id();
@@ -235,12 +232,11 @@ where
     pub fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root(), state_tree);
+        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
         visitor.visit(self, context, store, backend)
     }
 
@@ -316,7 +312,6 @@ pub trait ViewNodeSeq<S, M, B>:
     fn commit(
         &mut self,
         mode: CommitMode,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -355,12 +350,11 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        self.commit_within(mode, 0, state_tree, context, store, backend)
+        self.commit_within(mode, 0, context, store, backend)
     }
 }
 

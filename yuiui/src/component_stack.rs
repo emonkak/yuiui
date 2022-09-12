@@ -5,7 +5,7 @@ use crate::component_node::ComponentNode;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
 use crate::id::Depth;
-use crate::state::{StateTree, Store};
+use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
@@ -27,7 +27,6 @@ pub trait ComponentStack<S, M, B>: Sized {
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -72,7 +71,6 @@ where
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        state_tree: &mut StateTree,
         context: &mut MessageContext<M>,
         store: &mut Store<S>,
         backend: &mut B,
@@ -84,7 +82,6 @@ where
                 mode,
                 target_depth,
                 current_depth + 1,
-                state_tree,
                 context,
                 store,
                 backend,
@@ -122,7 +119,6 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _mode: CommitMode,
         _target_depth: Depth,
         _current_depth: Depth,
-        _state_tree: &mut StateTree,
         _context: &mut MessageContext<M>,
         _store: &mut Store<S>,
         _backend: &mut B,

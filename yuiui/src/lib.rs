@@ -15,7 +15,7 @@ mod view;
 mod view_node;
 
 pub use cancellation_token::{CancellationToken, RawToken, RawTokenVTable};
-pub use command::{Command, CommandBatch, ExecutionContext};
+pub use command::{Command, ExecutionContext};
 pub use component::{Component, FunctionComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
@@ -24,7 +24,7 @@ pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memo
 pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
 pub use id::{id_tree, Depth, Id, IdPath, IdPathBuf, IdTree};
 pub use render_loop::{RenderFlow, RenderLoop};
-pub use state::{State, StateId, StateTree, Store};
+pub use state::{Effect, State, Store};
 pub use traversable::{Traversable, Visitor};
 pub use view::View;
 pub use view_node::{CommitMode, ViewNode, ViewNodeSeq};
