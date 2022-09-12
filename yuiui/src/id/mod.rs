@@ -3,7 +3,7 @@ pub mod id_tree;
 pub use id_tree::IdTree;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Id(u64);
+pub struct Id(usize);
 
 impl Id {
     pub const ROOT: Self = Self(0);
@@ -17,6 +17,12 @@ impl Id {
     }
 }
 
+impl Into<usize> for Id {
+    fn into(self) -> usize {
+        self.0
+    }
+}
+
 pub type IdPath = [Id];
 
 pub type IdPathBuf = Vec<Id>;
@@ -25,7 +31,7 @@ pub type Depth = usize;
 
 #[derive(Debug)]
 pub struct IdCounter {
-    count: u64,
+    count: usize,
 }
 
 impl IdCounter {
