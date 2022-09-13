@@ -112,12 +112,12 @@ impl<T> SlotVec<T> {
         key
     }
 
-    pub fn insert(&mut self, key: Key, new_value: T) -> Option<T> {
+    pub fn insert(&mut self, key: Key, value: T) -> Option<T> {
         match self.slots.get(key) {
             Some(slot) if slot.is_filled() => {
                 let index = slot.force_filled();
                 let (_, old_value) = &mut self.entries[index];
-                return Some(mem::replace(old_value, new_value));
+                return Some(mem::replace(old_value, value));
             }
             Some(slot) if slot.is_free() => {
                 let free_position = slot.force_free();
@@ -134,7 +134,7 @@ impl<T> SlotVec<T> {
             }
         }
 
-        self.entries.push((key, new_value));
+        self.entries.push((key, value));
 
         None
     }
@@ -693,6 +693,7 @@ mod tests {
         let foo = xs.push("foo");
         let bar = xs.push("bar");
         let baz = xs.push("baz");
+
         xs.remove(foo);
 
         assert_eq!(
@@ -711,6 +712,7 @@ mod tests {
         let foo = xs.push("foo");
         let bar = xs.push("bar");
         let baz = xs.push("baz");
+
         xs.remove(foo);
 
         assert_eq!(
