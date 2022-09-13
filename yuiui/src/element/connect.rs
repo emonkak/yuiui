@@ -20,7 +20,11 @@ pub struct Connect<T, S, M, SS, SM> {
 }
 
 impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
-    pub fn new(target: T, store_selector: fn(&S) -> &Store<SS>, message_selector: fn(SM) -> M) -> Self {
+    pub fn new(
+        target: T,
+        store_selector: fn(&S) -> &Store<SS>,
+        message_selector: fn(SM) -> M,
+    ) -> Self {
         Self {
             target,
             store_selector,
@@ -185,8 +189,8 @@ where
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, B>
-    Traversable<Visitor, MessageContext<M>, Output, S, B> for Connect<T, S, M, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, MessageContext<M>, Output, S, B>
+    for Connect<T, S, M, SS, SM>
 where
     T: Traversable<Visitor, MessageContext<SM>, Output, SS, B>,
     SM: 'static,
@@ -261,8 +265,8 @@ where
     ) -> bool {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
         match mode {
-            CommitMode::Mount => sub_store.connect(context.id_path().to_vec(), current_depth),
-            CommitMode::Unmount => sub_store.disconnect(context.id_path(), current_depth),
+            CommitMode::Mount => sub_store.subscribe(context.id_path().to_vec(), current_depth),
+            CommitMode::Unmount => sub_store.unsubscribe(context.id_path(), current_depth),
             CommitMode::Update => {}
         }
         let mut sub_context = context.new_sub_context();

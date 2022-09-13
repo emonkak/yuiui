@@ -9,7 +9,7 @@ use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
-pub trait ComponentStack<S, M, B>: Sized {
+pub trait ComponentStack<S, M, B> {
     const LEN: usize;
 
     type View: View<S, M, B>;

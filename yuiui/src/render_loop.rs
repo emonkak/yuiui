@@ -57,7 +57,7 @@ where
                         self.nodes_to_update.insert(IdPathBuf::new(), 0);
                     }
                 }
-                for (id_path, depth) in effect.subscriptions {
+                for (id_path, depth) in effect.subscribers {
                     if let Some(current_depth) = self.nodes_to_update.get_mut(&id_path) {
                         *current_depth = (*current_depth).min(depth);
                     } else {

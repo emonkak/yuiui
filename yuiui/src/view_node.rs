@@ -290,7 +290,7 @@ where
     }
 }
 
-pub struct ViewNodeMut<'a, V: View<S, M, B>, CS, S, M, B> {
+pub struct ViewNodeMut<'a, V: View<S, M, B>, CS: ?Sized, S, M, B> {
     pub(crate) id: Id,
     pub(crate) state: &'a mut Option<ViewNodeState<V, V::State>>,
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, B>>::Storage,

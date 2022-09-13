@@ -4,7 +4,7 @@ use crate::context::MessageContext;
 use crate::element::{ComponentElement, Element};
 use crate::event::Lifecycle;
 
-pub trait Component<S, M, B>: Sized {
+pub trait Component<S, M, B> {
     type Element: Element<S, M, B>;
 
     fn lifecycle(

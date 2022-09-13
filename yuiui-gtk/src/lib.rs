@@ -18,7 +18,7 @@ const DEALINE_PERIOD: Duration = Duration::from_millis(50);
 pub fn run<El, S, M>(element: El, mut store: Store<S>)
 where
     El: Element<S, M, Backend> + 'static,
-    S: State<Message = M>,
+    S: State<Message = M> + 'static,
     M: Send + 'static,
 {
     let (event_tx, event_rx) = MainContext::channel(glib::PRIORITY_DEFAULT);
