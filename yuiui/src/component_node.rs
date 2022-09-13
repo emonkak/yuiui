@@ -1,5 +1,6 @@
 use std::fmt;
 use std::marker::PhantomData;
+use std::mem;
 
 use crate::component::Component;
 use crate::context::MessageContext;
@@ -44,13 +45,13 @@ where
             }
             CommitMode::Update => {
                 if let Some(pending_component) = self.pending_component.take() {
-                    pending_component.lifecycle(
-                        Lifecycle::Update(&self.component),
+                    let old_component = mem::replace(&mut self.component, pending_component);
+                    self.component.lifecycle(
+                        Lifecycle::Update(old_component),
                         context,
                         store,
                         backend,
                     );
-                    self.component = pending_component;
                     true
                 } else {
                     false

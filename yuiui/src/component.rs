@@ -4,12 +4,12 @@ use crate::context::MessageContext;
 use crate::element::{ComponentElement, Element};
 use crate::event::Lifecycle;
 
-pub trait Component<S, M, B> {
+pub trait Component<S, M, B>: Sized {
     type Element: Element<S, M, B>;
 
     fn lifecycle(
         &self,
-        _lifecycle: Lifecycle<&Self>,
+        _lifecycle: Lifecycle<Self>,
         _context: &mut MessageContext<M>,
         _state: &S,
         _backend: &mut B,
@@ -18,10 +18,7 @@ pub trait Component<S, M, B> {
 
     fn render(&self, state: &S) -> Self::Element;
 
-    fn el(self) -> ComponentElement<Self>
-    where
-        Self: Sized,
-    {
+    fn el(self) -> ComponentElement<Self> {
         ComponentElement::new(self)
     }
 }
@@ -29,7 +26,7 @@ pub trait Component<S, M, B> {
 pub struct FunctionComponent<Props, E, S, M, B> {
     props: Props,
     render: fn(&Props, &S) -> E,
-    lifecycle: Option<fn(&Props, Lifecycle<&Props>, &mut MessageContext<M>, &S, &mut B)>,
+    lifecycle: Option<fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B)>,
 }
 
 impl<Props, E, S, M, B> FunctionComponent<Props, E, S, M, B> {
@@ -43,7 +40,7 @@ impl<Props, E, S, M, B> FunctionComponent<Props, E, S, M, B> {
 
     pub fn lifecycle(
         mut self,
-        lifecycle: impl Into<Option<fn(&Props, Lifecycle<&Props>, &mut MessageContext<M>, &S, &mut B)>>,
+        lifecycle: impl Into<Option<fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B)>>,
     ) -> Self {
         self.lifecycle = lifecycle.into();
         self
@@ -58,14 +55,14 @@ where
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&Self>,
+        lifecycle: Lifecycle<Self>,
         context: &mut MessageContext<M>,
         state: &S,
         backend: &mut B,
     ) {
-        if let Some(lifecycle_fn) = &self.lifecycle {
-            let lifecycle = lifecycle.map(|component| &component.props);
-            lifecycle_fn(&self.props, lifecycle, context, state, backend)
+        if let Some(callback) = self.lifecycle {
+            let lifecycle = lifecycle.map(|component| component.props);
+            callback(&self.props, lifecycle, context, state, backend)
         }
     }
 

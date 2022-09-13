@@ -53,7 +53,7 @@ where
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&Self>,
+        lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         _children: &<Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _context: &mut MessageContext<M>,

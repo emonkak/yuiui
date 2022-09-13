@@ -295,14 +295,14 @@ where
 
     fn lifecycle(
         &self,
-        lifecycle: Lifecycle<&Self>,
+        lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         state: &S,
         backend: &mut B,
     ) {
-        let sub_lifecycle = lifecycle.map(|view| &view.target);
+        let sub_lifecycle = lifecycle.map(|view| view.target);
         let sub_store = (self.store_selector)(state);
         let mut sub_context = context.new_sub_context();
         self.target.lifecycle(

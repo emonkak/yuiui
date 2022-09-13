@@ -161,7 +161,7 @@ where
                     backend,
                 );
                 pending_view.lifecycle(
-                    Lifecycle::Update(&view),
+                    Lifecycle::Update(view),
                     &mut view_state,
                     &self.children,
                     context,
@@ -178,7 +178,7 @@ where
             }
             (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
                 pending_view.lifecycle(
-                    Lifecycle::Update(&view),
+                    Lifecycle::Update(view),
                     &mut view_state,
                     &self.children,
                     context,
@@ -469,16 +469,16 @@ where
 }
 
 #[derive(Debug)]
-pub enum ViewNodeState<V, W> {
-    Uninitialized(V),
-    Prepared(V, W),
-    Pending(V, V, W),
+pub enum ViewNodeState<T, S> {
+    Uninitialized(T),
+    Prepared(T, S),
+    Pending(T, T, S),
 }
 
-impl<V, W> ViewNodeState<V, W> {
-    pub fn map_view<F, NewView>(self, f: F) -> ViewNodeState<NewView, W>
+impl<T, S> ViewNodeState<T, S> {
+    pub fn map_view<F, U>(self, f: F) -> ViewNodeState<U, S>
     where
-        F: Fn(V) -> NewView,
+        F: Fn(T) -> U,
     {
         match self {
             Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),

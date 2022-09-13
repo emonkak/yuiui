@@ -16,7 +16,7 @@ use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
-pub trait Element<S, M, B> {
+pub trait Element<S, M, B>: Sized {
     type View: View<S, M, B>;
 
     type Components: ComponentStack<S, M, B, View = Self::View>;
@@ -38,10 +38,7 @@ pub trait Element<S, M, B> {
         self,
         state_selector: fn(&PS) -> &Store<S>,
         message_selector: fn(M) -> PM,
-    ) -> Connect<Self, PS, PM, S, M>
-    where
-        Self: Sized,
-    {
+    ) -> Connect<Self, PS, PM, S, M> {
         Connect::new(self, state_selector, message_selector)
     }
 }
