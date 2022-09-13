@@ -309,6 +309,26 @@ impl<T> IntoIterator for SlotVec<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a SlotVec<T> {
+    type IntoIter = Iter<'a, T>;
+
+    type Item = (Key, &'a T);
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut SlotVec<T> {
+    type IntoIter = IterMut<'a, T>;
+
+    type Item = (Key, &'a mut T);
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
 pub struct Iter<'a, T> {
     entries: &'a [(Key, T)],
     current: usize,
