@@ -20,7 +20,7 @@ impl RenderContext {
 
     pub(crate) fn end_id(&mut self) {
         let old_id = self.id_path.pop();
-        assert!(old_id.is_some());
+        debug_assert!(old_id.is_some());
     }
 
     pub(crate) fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
@@ -63,7 +63,7 @@ impl<T> MessageContext<T> {
         f: &F,
     ) {
         assert!(sub_context.id_path.starts_with(&self.id_path));
-        let new_messages = sub_context.messages.into_iter().map(|message| f(message));
+        let new_messages = sub_context.messages.into_iter().map(f);
         self.messages.extend(new_messages);
     }
 
@@ -72,7 +72,8 @@ impl<T> MessageContext<T> {
     }
 
     pub(crate) fn end_id(&mut self) {
-        self.id_path.pop();
+        let old_id = self.id_path.pop();
+        debug_assert!(old_id.is_some());
     }
 
     pub fn id_path(&self) -> &IdPath {
