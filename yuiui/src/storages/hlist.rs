@@ -61,7 +61,7 @@ where
         Output::default()
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         _id_path: &IdPath,
         _visitor: &mut Visitor,
@@ -159,7 +159,7 @@ where
             .combine(self.tail.for_each(visitor, context, store, backend))
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -168,7 +168,7 @@ where
         backend: &mut B,
     ) -> Option<Output> {
         self.head
-            .search(id_path, visitor, context, store, backend)
-            .or_else(|| self.tail.search(id_path, visitor, context, store, backend))
+            .for_id_path(id_path, visitor, context, store, backend)
+            .or_else(|| self.tail.for_id_path(id_path, visitor, context, store, backend))
     }
 }

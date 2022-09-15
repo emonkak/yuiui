@@ -175,7 +175,7 @@ where
         self.target.for_each(visitor, context, sub_store, backend)
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -185,7 +185,7 @@ where
     ) -> Option<Output> {
         let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
         self.target
-            .search(id_path, visitor, context, sub_store, backend)
+            .for_id_path(id_path, visitor, context, sub_store, backend)
     }
 }
 
@@ -212,7 +212,7 @@ where
         result
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -224,7 +224,7 @@ where
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
-            .search(id_path, visitor, &mut sub_context, sub_store, backend);
+            .for_id_path(id_path, visitor, &mut sub_context, sub_store, backend);
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }

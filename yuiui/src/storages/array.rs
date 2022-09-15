@@ -118,7 +118,7 @@ where
         result
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -129,7 +129,7 @@ where
         let id = Id::from_top(id_path);
         if let Ok(index) = self.nodes.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.nodes[index];
-            node.search(id_path, visitor, context, store, backend)
+            node.for_id_path(id_path, visitor, context, store, backend)
         } else {
             None
         }

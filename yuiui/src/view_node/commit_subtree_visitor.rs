@@ -43,7 +43,7 @@ where
                 self.cursor = cursor;
                 result |= node
                     .children
-                    .search(&[id], self, context, store, backend)
+                    .for_id_path(&[id], self, context, store, backend)
                     .unwrap_or(false);
             }
             result

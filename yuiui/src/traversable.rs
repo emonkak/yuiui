@@ -10,7 +10,7 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         backend: &mut B,
     ) -> Output;
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,

@@ -137,7 +137,7 @@ where
         }
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -146,7 +146,7 @@ where
         backend: &mut B,
     ) -> Option<Output> {
         if let Some(node) = &mut self.active {
-            node.search(id_path, visitor, context, store, backend)
+            node.for_id_path(id_path, visitor, context, store, backend)
         } else {
             None
         }

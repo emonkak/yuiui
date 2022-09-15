@@ -45,7 +45,7 @@ where
                     self.id_path = tail;
                     result |= node
                         .children
-                        .search(&[*head], self, context, store, backend)
+                        .for_id_path(&[*head], self, context, store, backend)
                         .unwrap_or(false);
                 }
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {

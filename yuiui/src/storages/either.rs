@@ -187,7 +187,7 @@ where
         }
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -196,8 +196,8 @@ where
         backend: &mut B,
     ) -> Option<Output> {
         match &mut self.active {
-            Either::Left(node) => node.search(id_path, visitor, context, store, backend),
-            Either::Right(node) => node.search(id_path, visitor, context, store, backend),
+            Either::Left(node) => node.for_id_path(id_path, visitor, context, store, backend),
+            Either::Right(node) => node.for_id_path(id_path, visitor, context, store, backend),
         }
     }
 }

@@ -260,7 +260,7 @@ where
         backend: &mut B,
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
-        self.search(id_path, &mut visitor, context, store, backend)
+        self.for_id_path(id_path, &mut visitor, context, store, backend)
             .unwrap_or_default()
     }
 
@@ -285,7 +285,7 @@ where
         backend: &mut B,
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event);
-        self.search(id_path, &mut visitor, context, store, backend)
+        self.for_id_path(id_path, &mut visitor, context, store, backend)
             .unwrap_or(false)
     }
 }
@@ -380,7 +380,7 @@ where
         result
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -394,7 +394,7 @@ where
         } else if self.id == Id::from_top(id_path) {
             debug_assert!(id_path.len() > 0);
             self.children
-                .search(&id_path[1..], visitor, context, store, backend)
+                .for_id_path(&id_path[1..], visitor, context, store, backend)
         } else {
             None
         };
@@ -425,7 +425,7 @@ where
         result
     }
 
-    fn search(
+    fn for_id_path(
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
@@ -440,7 +440,7 @@ where
             debug_assert!(id_path.len() > 0);
             let id_path = &id_path[1..];
             self.children
-                .search(id_path, visitor, context, store, backend)
+                .for_id_path(id_path, visitor, context, store, backend)
         } else {
             None
         };
