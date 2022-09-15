@@ -31,7 +31,7 @@ impl<T> SlotVec<T> {
     }
 
     #[inline]
-    pub fn contains(&self, key: Key) -> bool {
+    pub fn contains_key(&self, key: Key) -> bool {
         self.slots.get(key).map_or(false, |slot| slot.is_filled())
     }
 
@@ -139,7 +139,7 @@ impl<T> SlotVec<T> {
         None
     }
 
-    pub fn reserve(&mut self) -> Key {
+    pub fn reserve_key(&mut self) -> Key {
         let index = self.slots.len();
         self.slots.push(Slot::NULL);
         index
@@ -537,9 +537,9 @@ mod tests {
         let bar = xs.push("bar");
         let baz = xs.next_key();
 
-        assert_eq!(xs.contains(foo), true);
-        assert_eq!(xs.contains(bar), true);
-        assert_eq!(xs.contains(baz), false);
+        assert_eq!(xs.contains_key(foo), true);
+        assert_eq!(xs.contains_key(bar), true);
+        assert_eq!(xs.contains_key(baz), false);
 
         assert_eq!(xs.get(foo), Some(&"foo"));
         assert_eq!(xs.get(bar), Some(&"bar"));
@@ -562,9 +562,9 @@ mod tests {
     }
 
     #[test]
-    fn test_reserve() {
+    fn test_reserve_key() {
         let mut xs = SlotVec::new();
-        let null = xs.reserve();
+        let null = xs.reserve_key();
         let foo = xs.push("foo");
 
         assert_ne!(foo, null);
@@ -641,16 +641,16 @@ mod tests {
         assert_eq!(xs.remove(foo), Some("foo"));
         assert_eq!(xs.len(), 1);
         assert_eq!(xs.slot_size(), 2);
-        assert_eq!(xs.contains(foo), false);
-        assert_eq!(xs.contains(bar), true);
-        assert_eq!(xs.contains(baz), false);
+        assert_eq!(xs.contains_key(foo), false);
+        assert_eq!(xs.contains_key(bar), true);
+        assert_eq!(xs.contains_key(baz), false);
 
         assert_eq!(Some("bar"), xs.remove(bar));
         assert_eq!(0, xs.len());
         assert_eq!(0, xs.slot_size());
-        assert_eq!(false, xs.contains(foo));
-        assert_eq!(false, xs.contains(bar));
-        assert_eq!(false, xs.contains(baz));
+        assert_eq!(false, xs.contains_key(foo));
+        assert_eq!(false, xs.contains_key(bar));
+        assert_eq!(false, xs.contains_key(baz));
 
         assert_eq!(None, xs.remove(baz));
     }
@@ -669,9 +669,9 @@ mod tests {
 
         assert_eq!(xs.len(), 0);
         assert_eq!(xs.slot_size(), 0);
-        assert_eq!(xs.contains(foo), false);
-        assert_eq!(xs.contains(bar), false);
-        assert_eq!(xs.contains(baz), false);
+        assert_eq!(xs.contains_key(foo), false);
+        assert_eq!(xs.contains_key(bar), false);
+        assert_eq!(xs.contains_key(baz), false);
     }
 
     #[test]

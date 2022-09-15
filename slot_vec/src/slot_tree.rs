@@ -32,14 +32,14 @@ impl<T> SlotTree<T> {
     pub fn new(data: T) -> Self {
         let mut arena = SlotVec::new();
         let root = Node::new(data, None, Vec::new());
-        arena.reserve();
+        arena.reserve_key();
         arena.push(root);
         Self { arena }
     }
 
     #[inline]
     pub fn contains(&self, node_id: NodeId) -> bool {
-        self.arena.contains(node_id.into())
+        self.arena.contains_key(node_id.into())
     }
 
     #[inline]
