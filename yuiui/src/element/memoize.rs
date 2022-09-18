@@ -56,8 +56,7 @@ where
     E: Element<S, M, B>,
     Deps: PartialEq,
 {
-    type Storage =
-        ViewNode<E::View, (ComponentNode<AsComponent<Self>, S, M, B>, E::Components), S, M, B>;
+    type Storage = ViewNode<E::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
         self.render(context, store)
