@@ -129,13 +129,13 @@ where
 
         let (result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut view_state = view.build(&self.children, store, backend);
+                let mut view_state = view.build(&self.children, store.state(), backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 (true, ViewNodeState::Prepared(view, view_state))
@@ -146,7 +146,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 (true, ViewNodeState::Prepared(view, view_state))
@@ -157,7 +157,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 pending_view.lifecycle(
@@ -165,7 +165,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 (true, ViewNodeState::Prepared(pending_view, view_state))
@@ -182,7 +182,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 (true, ViewNodeState::Prepared(pending_view, view_state))
@@ -196,7 +196,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 (true, ViewNodeState::Prepared(view, view_state))
@@ -207,7 +207,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store,
+                    store.state(),
                     backend,
                 );
                 (true, ViewNodeState::Pending(view, pending_view, view_state))

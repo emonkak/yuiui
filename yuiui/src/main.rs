@@ -22,8 +22,8 @@ impl State for AppState {
     fn update(&mut self, message: AppMessage) -> (bool, Effect<AppMessage>) {
         match message {
             AppMessage::CounterMessage(message) => {
-                let (dirty, effect) = self.counter_store.update(message);
-                (dirty, effect.map(AppMessage::CounterMessage))
+                let (_, effect) = self.counter_store.update(message);
+                (false, effect.map(AppMessage::CounterMessage))
             }
         }
     }

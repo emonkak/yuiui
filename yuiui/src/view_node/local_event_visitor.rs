@@ -40,7 +40,14 @@ where
             | ViewNodeState::Pending(view, _, view_state) => {
                 let event = <V as HasEvent>::Event::from_any(self.event)
                     .expect("cast any event to view event");
-                view.event(event, view_state, &node.children, context, store, backend);
+                view.event(
+                    event,
+                    view_state,
+                    &node.children,
+                    context,
+                    store.state(),
+                    backend,
+                );
                 true
             }
             ViewNodeState::Uninitialized(_) => false,

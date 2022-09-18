@@ -40,7 +40,14 @@ where
             | ViewNodeState::Pending(view, _, view_state) => {
                 let mut result = false;
                 if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
-                    view.event(event, view_state, &node.children, context, store, backend);
+                    view.event(
+                        event,
+                        view_state,
+                        &node.children,
+                        context,
+                        store.state(),
+                        backend,
+                    );
                     result = true;
                 }
                 if node.event_mask.contains(&self.event.type_id()) {

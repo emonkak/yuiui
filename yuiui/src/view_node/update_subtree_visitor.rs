@@ -53,7 +53,8 @@ where
                 let id = cursor.current().id();
                 self.cursor = cursor;
                 if let Some(child_result) =
-                    node.children.for_id_path(&[id], self, context, store, backend)
+                    node.children
+                        .for_id_path(&[id], self, context, store, backend)
                 {
                     result.extend(child_result);
                 }

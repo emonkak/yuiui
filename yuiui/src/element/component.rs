@@ -35,7 +35,7 @@ where
         store: &mut Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.render(store);
+        let element = component_node.render(store.state());
         let node = element.render(context, store);
         ViewNode {
             id: node.id,
@@ -54,7 +54,7 @@ where
         store: &mut Store<S>,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
-        let element = self.component.render(store);
+        let element = self.component.render(store.state());
         head_node.pending_component = Some(self.component);
         *node.dirty = true;
         let mut node = ViewNodeMut {

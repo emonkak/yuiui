@@ -58,7 +58,7 @@ where
         context: &mut RenderContext,
         store: &mut Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         let sub_node = self.target.render(context, sub_store);
         ViewNode {
             id: sub_node.id,
@@ -92,7 +92,7 @@ where
         context: &mut RenderContext,
         store: &mut Store<S>,
     ) -> bool {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         with_sub_node(node, |sub_node| {
             self.target.update(sub_node, context, sub_store)
         })
@@ -108,7 +108,7 @@ where
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
     fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         Connect::new(
             self.target.render_children(context, sub_store),
             self.store_selector.clone(),
@@ -122,7 +122,7 @@ where
         context: &mut RenderContext,
         store: &mut Store<S>,
     ) -> bool {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         self.target
             .update_children(&mut storage.target, context, sub_store)
     }
@@ -149,7 +149,7 @@ where
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
@@ -171,7 +171,7 @@ where
         store: &mut Store<S>,
         backend: &mut B,
     ) -> Output {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         self.target.for_each(visitor, context, sub_store, backend)
     }
 
@@ -183,7 +183,7 @@ where
         store: &mut Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         self.target
             .for_id_path(id_path, visitor, context, sub_store, backend)
     }
@@ -203,7 +203,7 @@ where
         store: &mut Store<S>,
         backend: &mut B,
     ) -> Output {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
@@ -220,11 +220,11 @@ where
         store: &mut Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         let mut sub_context = context.new_sub_context();
-        let result = self
-            .target
-            .for_id_path(id_path, visitor, &mut sub_context, sub_store, backend);
+        let result =
+            self.target
+                .for_id_path(id_path, visitor, &mut sub_context, sub_store, backend);
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
@@ -248,7 +248,7 @@ where
         store: &mut Store<S>,
     ) -> bool {
         let store_selector = &node.components.store_selector;
-        let sub_store = unsafe { coerce_mut((store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((store_selector)(store.state())) };
         with_sub_node(node, |sub_node| {
             T::update(sub_node, target_depth, current_depth, context, sub_store)
         })
@@ -263,7 +263,7 @@ where
         store: &mut Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = unsafe { coerce_mut((self.store_selector)(store)) };
+        let sub_store = unsafe { coerce_mut((self.store_selector)(store.state())) };
         match mode {
             CommitMode::Mount => sub_store.subscribe(context.id_path().to_vec(), current_depth),
             CommitMode::Unmount => sub_store.unsubscribe(context.id_path(), current_depth),
@@ -310,7 +310,7 @@ where
             view_state,
             &children.target,
             &mut sub_context,
-            sub_store,
+            sub_store.state(),
             backend,
         );
         context.merge_sub_context(sub_context, &self.message_selector);
@@ -332,7 +332,7 @@ where
             view_state,
             &children.target,
             &mut sub_context,
-            sub_store,
+            sub_store.state(),
             backend,
         );
         context.merge_sub_context(sub_context, &self.message_selector);
@@ -345,7 +345,8 @@ where
         backend: &mut B,
     ) -> Self::State {
         let sub_store = (self.store_selector)(state);
-        self.target.build(&children.target, sub_store, backend)
+        self.target
+            .build(&children.target, sub_store.state(), backend)
     }
 }
 

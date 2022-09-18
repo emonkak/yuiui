@@ -40,7 +40,7 @@ where
         match mode {
             CommitMode::Mount => {
                 self.component
-                    .lifecycle(Lifecycle::Mount, context, store, backend);
+                    .lifecycle(Lifecycle::Mount, context, store.state(), backend);
                 true
             }
             CommitMode::Update => {
@@ -49,7 +49,7 @@ where
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
                         context,
-                        store,
+                        store.state(),
                         backend,
                     );
                     true
@@ -59,7 +59,7 @@ where
             }
             CommitMode::Unmount => {
                 self.component
-                    .lifecycle(Lifecycle::Unmount, context, store, backend);
+                    .lifecycle(Lifecycle::Unmount, context, store.state(), backend);
                 true
             }
         }

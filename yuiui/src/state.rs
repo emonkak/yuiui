@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::id::{Depth, IdPath, IdPathBuf};
@@ -44,16 +42,12 @@ impl<T> Store<T> {
         self.dirty = false;
     }
 
-    pub fn dirty(&self) -> bool {
-        self.dirty
-    }
-}
-
-impl<T> Deref for Store<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
+    pub(crate) fn state(&self) -> &T {
         &self.state
+    }
+
+    pub(crate) fn dirty(&self) -> bool {
+        self.dirty
     }
 }
 
@@ -89,7 +83,7 @@ impl<T> Effect<T> {
         self.subscribers.append(&mut other.subscribers);
     }
 
-    pub fn push_command(
+    pub fn add_command(
         &mut self,
         command: Command<T>,
         cancellation_token: Option<CancellationToken>,

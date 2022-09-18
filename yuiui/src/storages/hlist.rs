@@ -169,6 +169,9 @@ where
     ) -> Option<Output> {
         self.head
             .for_id_path(id_path, visitor, context, store, backend)
-            .or_else(|| self.tail.for_id_path(id_path, visitor, context, store, backend))
+            .or_else(|| {
+                self.tail
+                    .for_id_path(id_path, visitor, context, store, backend)
+            })
     }
 }
