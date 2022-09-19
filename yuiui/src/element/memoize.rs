@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
@@ -6,21 +8,31 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<Deps, S, E> {
-    render: fn(&Deps, &S) -> E,
-    deps: Deps,
+pub struct Memoize<F: Fn(&D) -> E, D, E> {
+    render_fn: F,
+    deps: D,
+    phantom: PhantomData<E>,
 }
 
-impl<Deps, S, E> Memoize<Deps, S, E> {
-    pub fn new(render: fn(&Deps, &S) -> E, deps: Deps) -> Self {
-        Self { render, deps }
+impl<F, D, E> Memoize<F, D, E>
+where
+    F: Fn(&D) -> E,
+    D: PartialEq,
+{
+    pub fn new(render_fn: F, deps: D) -> Self {
+        Self {
+            render_fn,
+            deps,
+            phantom: PhantomData,
+        }
     }
 }
 
-impl<Deps, S, E, M, B> Element<S, M, B> for Memoize<Deps, S, E>
+impl<F, D, E, S, M, B> Element<S, M, B> for Memoize<F, D, E>
 where
+    F: Fn(&D) -> E,
+    D: PartialEq,
     E: Element<S, M, B>,
-    Deps: PartialEq,
 {
     type View = E::View;
 
@@ -51,10 +63,11 @@ where
     }
 }
 
-impl<Deps, S, E, M, B> ElementSeq<S, M, B> for Memoize<Deps, S, E>
+impl<F, D, E, S, M, B> ElementSeq<S, M, B> for Memoize<F, D, E>
 where
+    F: Fn(&D) -> E,
+    D: PartialEq,
     E: Element<S, M, B>,
-    Deps: PartialEq,
 {
     type Storage = ViewNode<E::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
@@ -82,14 +95,15 @@ impl<T> AsComponent<T> {
     }
 }
 
-impl<Deps, S, E, M, B> Component<S, M, B> for AsComponent<Memoize<Deps, S, E>>
+impl<F, D, E, S, M, B> Component<S, M, B> for AsComponent<Memoize<F, D, E>>
 where
+    F: Fn(&D) -> E,
+    D: PartialEq,
     E: Element<S, M, B>,
-    Deps: PartialEq,
 {
     type Element = E;
 
-    fn render(&self, state: &S) -> Self::Element {
-        (self.inner.render)(&self.inner.deps, state)
+    fn render(&self, _state: &S) -> Self::Element {
+        (self.inner.render_fn)(&self.inner.deps)
     }
 }
