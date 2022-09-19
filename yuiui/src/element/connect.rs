@@ -16,7 +16,7 @@ pub struct Connect<T, S, M, SS, SM> {
     target: T,
     store_selector: fn(&S) -> &Store<SS>,
     message_selector: fn(SM) -> M,
-    _phantom: PhantomData<(SS, SM)>,
+    phantom: PhantomData<(SS, SM)>,
 }
 
 impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
@@ -29,7 +29,7 @@ impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
             target,
             store_selector,
             message_selector,
-            _phantom: PhantomData,
+            phantom: PhantomData,
         }
     }
 }
@@ -46,8 +46,6 @@ where
 impl<T, S, M, SS, SM, B> Element<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: Element<SS, SM, B>,
-    SM: 'static,
-    M: 'static,
 {
     type View = Connect<T::View, S, M, SS, SM>;
 
@@ -102,8 +100,6 @@ where
 impl<T, S, M, SS, SM, B> ElementSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ElementSeq<SS, SM, B>,
-    SM: 'static,
-    M: 'static,
 {
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
@@ -131,8 +127,6 @@ where
 impl<T, S, M, SS, SM, B> ViewNodeSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ViewNodeSeq<SS, SM, B>,
-    SM: 'static,
-    M: 'static,
 {
     fn event_mask() -> &'static EventMask {
         T::event_mask()
@@ -193,8 +187,6 @@ impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, MessageContex
     for Connect<T, S, M, SS, SM>
 where
     T: Traversable<Visitor, MessageContext<SM>, Output, SS, B>,
-    SM: 'static,
-    M: 'static,
 {
     fn for_each(
         &mut self,
@@ -233,8 +225,6 @@ where
 impl<T, S, M, SS, SM, B> ComponentStack<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ComponentStack<SS, SM, B>,
-    SM: 'static,
-    M: 'static,
 {
     const LEN: usize = T::LEN;
 
@@ -286,8 +276,6 @@ where
 impl<T, S, M, SS, SM, B> View<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: View<SS, SM, B>,
-    SM: 'static,
-    M: 'static,
 {
     type Children = Connect<T::Children, S, M, SS, SM>;
 

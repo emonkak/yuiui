@@ -11,7 +11,7 @@ use crate::view_node::CommitMode;
 pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
     pub(crate) component: C,
     pub(crate) pending_component: Option<C>,
-    _phantom: PhantomData<(S, M, B)>,
+    phantom: PhantomData<(S, M, B)>,
 }
 
 impl<C, S, M, B> ComponentNode<C, S, M, B>
@@ -22,12 +22,8 @@ where
         Self {
             component,
             pending_component: None,
-            _phantom: PhantomData,
+            phantom: PhantomData,
         }
-    }
-
-    pub(crate) fn render(&self, state: &S) -> C::Element {
-        self.component.render(state)
     }
 
     pub(crate) fn commit(

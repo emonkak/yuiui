@@ -35,7 +35,7 @@ where
         store: &mut Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.render(store.state());
+        let element = component_node.component.render(store.state());
         let node = element.render(context, store);
         ViewNode {
             id: node.id,

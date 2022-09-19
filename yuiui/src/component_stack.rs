@@ -59,7 +59,7 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            let element = head.render(store.state());
+            let element = head.component.render(store.state());
             element.update(&mut node, context, store)
         } else {
             CS::update(&mut node, target_depth, current_depth + 1, context, store)
