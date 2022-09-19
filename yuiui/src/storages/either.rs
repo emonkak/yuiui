@@ -118,8 +118,12 @@ where
             let right_mask = R::event_mask();
 
             INIT.call_once(|| unsafe {
-                EVENT_MASK.append(left_mask);
-                EVENT_MASK.append(right_mask);
+                if !left_mask.is_empty() {
+                    EVENT_MASK.extend(left_mask);
+                }
+                if !right_mask.is_empty() {
+                    EVENT_MASK.extend(right_mask);
+                }
             });
         }
 

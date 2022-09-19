@@ -1,5 +1,7 @@
 use std::any::{Any, TypeId};
-use std::collections::HashSet;
+use std::collections::{hash_set, HashSet};
+use std::hash::Hash;
+use std::iter::{ExactSizeIterator, FusedIterator};
 
 use crate::id::IdPathBuf;
 
@@ -34,54 +36,6 @@ pub trait HasEvent<'event> {
 }
 
 #[derive(Debug)]
-pub struct EventMask {
-    mask: Option<HashSet<TypeId>>,
-}
-
-impl EventMask {
-    pub const fn new() -> Self {
-        Self { mask: None }
-    }
-
-    pub fn contains(&self, type_id: &TypeId) -> bool {
-        self.mask
-            .as_ref()
-            .map_or(false, |mask| mask.contains(type_id))
-    }
-
-    pub fn insert(&mut self, type_id: TypeId) {
-        self.mask
-            .get_or_insert_with(|| HashSet::new())
-            .insert(type_id);
-    }
-
-    pub fn append(&mut self, other: &Self) {
-        if let Some(mask) = &other.mask {
-            if !mask.is_empty() {
-                self.mask.get_or_insert_with(|| HashSet::new()).extend(mask);
-            }
-        }
-    }
-}
-
-impl Extend<TypeId> for EventMask {
-    fn extend<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = TypeId>,
-    {
-        self.mask.get_or_insert_with(|| HashSet::new()).extend(iter);
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum EventDestination {
-    Global,
-    Local(IdPathBuf),
-    Upward(IdPathBuf),
-    Downward(IdPathBuf),
-}
-
-#[derive(Debug)]
 pub enum Lifecycle<T> {
     Mount,
     Update(T),
@@ -100,3 +54,140 @@ impl<T> Lifecycle<T> {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum EventDestination {
+    Global,
+    Local(IdPathBuf),
+    Upward(IdPathBuf),
+    Downward(IdPathBuf),
+}
+
+pub type EventMask = OptionHashSet<TypeId>;
+
+#[derive(Debug)]
+pub struct OptionHashSet<T> {
+    entries: Option<HashSet<T>>,
+}
+
+impl<T> OptionHashSet<T>
+where
+    T: Eq + Hash,
+{
+    pub const fn new() -> Self {
+        Self { entries: None }
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.entries.as_ref().map_or(false, HashSet::is_empty)
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.entries.as_ref().map_or(0, HashSet::len)
+    }
+
+    #[inline]
+    pub fn contains(&self, value: &T) -> bool {
+        self.entries
+            .as_ref()
+            .map_or(false, |entries| entries.contains(value))
+    }
+
+    #[inline]
+    pub fn insert(&mut self, value: T) {
+        self.entries.get_or_insert_with(HashSet::new).insert(value);
+    }
+}
+
+impl<T> Extend<T> for OptionHashSet<T>
+where
+    T: Eq + Hash,
+{
+    #[inline]
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        self.entries.get_or_insert_with(HashSet::new).extend(iter);
+    }
+}
+
+impl<'a, T> Extend<&'a T> for OptionHashSet<T>
+where
+    T: Eq + Hash + Copy + 'a,
+{
+    #[inline]
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a T>,
+    {
+        self.entries.get_or_insert_with(HashSet::new).extend(iter);
+    }
+}
+
+impl<T> IntoIterator for OptionHashSet<T>
+where
+    T: Eq + Hash,
+{
+    type Item = T;
+
+    type IntoIter = OptionIter<hash_set::IntoIter<T>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        let iter = self.entries.map(HashSet::into_iter);
+        OptionIter::new(iter)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a OptionHashSet<T>
+where
+    T: Eq + Hash,
+{
+    type Item = &'a T;
+
+    type IntoIter = OptionIter<hash_set::Iter<'a, T>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        let iter = self.entries.as_ref().map(HashSet::iter);
+        OptionIter::new(iter)
+    }
+}
+
+pub struct OptionIter<I> {
+    iter: Option<I>,
+}
+
+impl<T> OptionIter<T> {
+    fn new(iter: Option<T>) -> Self {
+        Self { iter }
+    }
+}
+
+impl<I: Iterator> Iterator for OptionIter<I> {
+    type Item = I::Item;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.as_mut().and_then(Iterator::next)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter
+            .as_ref()
+            .map_or_else(|| (0, Some(0)), Iterator::size_hint)
+    }
+}
+
+impl<I: ExactSizeIterator> ExactSizeIterator for OptionIter<I> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.as_ref().map_or(0, ExactSizeIterator::len)
+    }
+}
+
+impl<I: FusedIterator> FusedIterator for OptionIter<I> {}

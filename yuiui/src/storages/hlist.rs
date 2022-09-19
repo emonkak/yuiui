@@ -115,8 +115,12 @@ where
             let tail_mask = T::event_mask();
 
             INIT.call_once(|| unsafe {
-                EVENT_MASK.append(head_mask);
-                EVENT_MASK.append(tail_mask);
+                if !head_mask.is_empty() {
+                    EVENT_MASK.extend(head_mask);
+                }
+                if !tail_mask.is_empty() {
+                    EVENT_MASK.extend(tail_mask);
+                }
             });
         }
 
