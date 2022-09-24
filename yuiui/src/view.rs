@@ -2,9 +2,9 @@ use hlist::HNil;
 
 use crate::context::MessageContext;
 use crate::element::{ElementSeq, ViewElement};
-use crate::event::{HasEvent, Lifecycle};
+use crate::event::{EventListener, Lifecycle};
 
-pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
+pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
     type Children: ElementSeq<S, M, B>;
 
     type State;
@@ -22,7 +22,7 @@ pub trait View<S, M, B>: Sized + for<'event> HasEvent<'event> {
 
     fn event(
         &self,
-        _event: <Self as HasEvent>::Event,
+        _event: <Self as EventListener>::Event,
         _view_state: &mut Self::State,
         _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,

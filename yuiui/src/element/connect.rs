@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
-use crate::event::{EventMask, HasEvent, Lifecycle};
+use crate::event::{EventListener, EventMask, Lifecycle};
 use crate::id::{Depth, IdPath};
 use crate::state::Store;
 use crate::traversable::Traversable;
@@ -306,7 +306,7 @@ where
 
     fn event(
         &self,
-        event: <Self as HasEvent>::Event,
+        event: <Self as EventListener>::Event,
         view_state: &mut Self::State,
         children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
@@ -338,9 +338,9 @@ where
     }
 }
 
-impl<'event, T, S, M, SS, SM> HasEvent<'event> for Connect<T, S, M, SS, SM>
+impl<'event, T, S, M, SS, SM> EventListener<'event> for Connect<T, S, M, SS, SM>
 where
-    T: HasEvent<'event>,
+    T: EventListener<'event>,
 {
     type Event = T::Event;
 }

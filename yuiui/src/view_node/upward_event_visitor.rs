@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
-use crate::event::{Event, HasEvent};
+use crate::event::{Event, EventListener};
 use crate::id::IdPath;
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
@@ -48,7 +48,7 @@ where
                         .for_id_path(&[*head], self, context, store, backend)
                         .unwrap_or(false);
                 }
-                if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
+                if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
                     view.event(
                         event,
                         view_state,

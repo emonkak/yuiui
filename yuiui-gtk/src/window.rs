@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use std::marker::PhantomData;
-use yuiui::{ElementSeq, HasEvent, Lifecycle, MessageContext, View, ViewElement};
+use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, View, ViewElement};
 
 use crate::backend::Backend;
 
@@ -94,6 +94,6 @@ where
     }
 }
 
-impl<'event, Child> HasEvent<'event> for ApplicationWindow<Child> {
+impl<'event, Child> EventListener<'event> for ApplicationWindow<Child> {
     type Event = ();
 }

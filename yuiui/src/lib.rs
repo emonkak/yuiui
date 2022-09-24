@@ -23,7 +23,7 @@ pub use component_stack::ComponentStack;
 pub use context::{MessageContext, RenderContext};
 pub use effect::Effect;
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memoize, ViewElement};
-pub use event::{Event, EventDestination, EventMask, HasEvent, Lifecycle};
+pub use event::{Event, EventDestination, EventListener, EventMask, Lifecycle};
 pub use id::{id_tree, Depth, Id, IdPath, IdPathBuf, IdTree};
 pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{State, Store};

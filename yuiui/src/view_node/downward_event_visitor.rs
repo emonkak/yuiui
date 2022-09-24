@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
-use crate::event::{Event, HasEvent};
+use crate::event::{Event, EventListener};
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -39,7 +39,7 @@ where
             ViewNodeState::Prepared(view, view_state)
             | ViewNodeState::Pending(view, _, view_state) => {
                 let mut result = false;
-                if let Some(event) = <V as HasEvent>::Event::from_any(self.event) {
+                if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
                     view.event(
                         event,
                         view_state,

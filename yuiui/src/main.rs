@@ -91,7 +91,7 @@ impl<S, M, B> View<S, M, B> for Text {
     }
 }
 
-impl<'event> HasEvent<'event> for Text {
+impl<'event> EventListener<'event> for Text {
     type Event = ();
 }
 
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<'event, C> HasEvent<'event> for Block<C> {
+impl<'event, C> EventListener<'event> for Block<C> {
     type Event = ();
 }
 

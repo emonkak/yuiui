@@ -5,7 +5,7 @@ use std::sync::Once;
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
-use crate::event::{Event, EventMask, HasEvent};
+use crate::event::{Event, EventListener, EventMask};
 use crate::id::{Id, IdPath};
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
@@ -92,7 +92,7 @@ where
 
         INIT.call_once(|| unsafe {
             let mut types = Vec::new();
-            <V as HasEvent>::Event::collect_types(&mut types);
+            <V as EventListener>::Event::collect_types(&mut types);
             if !types.is_empty() {
                 EVENT_MASK.extend(types);
             }

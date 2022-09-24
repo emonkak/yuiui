@@ -12,7 +12,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
-use crate::event::{Event, EventMask, HasEvent};
+use crate::event::{Event, EventListener, EventMask};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
@@ -335,7 +335,7 @@ where
                     EVENT_MASK.extend(children_mask);
                 }
                 let mut types = Vec::new();
-                <V as HasEvent>::Event::collect_types(&mut types);
+                <V as EventListener>::Event::collect_types(&mut types);
                 if !types.is_empty() {
                     EVENT_MASK.extend(types);
                 }

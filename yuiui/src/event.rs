@@ -31,7 +31,7 @@ impl<'event, T: 'static> Event<'event> for &'event T {
     }
 }
 
-pub trait HasEvent<'event> {
+pub trait EventListener<'event> {
     type Event: Event<'event>;
 }
 
