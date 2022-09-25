@@ -26,53 +26,6 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
     }
 }
 
-impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
-    fn event_mask() -> &'static EventMask {
-        static MASK: EventMask = EventMask::new();
-        &MASK
-    }
-
-    fn len(&self) -> usize {
-        0
-    }
-
-    fn commit(
-        &mut self,
-        _mode: CommitMode,
-        _context: &mut MessageContext<M>,
-        _store: &Store<S>,
-        _backend: &mut B,
-    ) -> bool {
-        false
-    }
-}
-
-impl<Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B> for HNil
-where
-    Output: Default,
-{
-    fn for_each(
-        &mut self,
-        _visitor: &mut Visitor,
-        _context: &mut Context,
-        _store: &Store<S>,
-        _backend: &mut B,
-    ) -> Output {
-        Output::default()
-    }
-
-    fn for_id_path(
-        &mut self,
-        _id_path: &IdPath,
-        _visitor: &mut Visitor,
-        _context: &mut Context,
-        _store: &Store<S>,
-        _backend: &mut B,
-    ) -> Option<Output> {
-        None
-    }
-}
-
 impl<H, T, S, M, B> ElementSeq<S, M, B> for HCons<H, T>
 where
     H: ElementSeq<S, M, B>,
@@ -98,6 +51,27 @@ where
         has_changed |= self.head.update_children(&mut storage.head, context, store);
         has_changed |= self.tail.update_children(&mut storage.tail, context, store);
         has_changed
+    }
+}
+
+impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
+    fn event_mask() -> &'static EventMask {
+        static MASK: EventMask = EventMask::new();
+        &MASK
+    }
+
+    fn len(&self) -> usize {
+        0
+    }
+
+    fn commit(
+        &mut self,
+        _mode: CommitMode,
+        _context: &mut MessageContext<M>,
+        _store: &Store<S>,
+        _backend: &mut B,
+    ) -> bool {
+        false
     }
 }
 
@@ -141,6 +115,32 @@ where
         let head_result = self.head.commit(mode, context, store, backend);
         let tail_result = self.tail.commit(mode, context, store, backend);
         head_result || tail_result
+    }
+}
+
+impl<Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B> for HNil
+where
+    Output: Default,
+{
+    fn for_each(
+        &mut self,
+        _visitor: &mut Visitor,
+        _context: &mut Context,
+        _store: &Store<S>,
+        _backend: &mut B,
+    ) -> Output {
+        Output::default()
+    }
+
+    fn for_id_path(
+        &mut self,
+        _id_path: &IdPath,
+        _visitor: &mut Visitor,
+        _context: &mut Context,
+        _store: &Store<S>,
+        _backend: &mut B,
+    ) -> Option<Output> {
+        None
     }
 }
 

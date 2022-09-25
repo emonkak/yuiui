@@ -49,9 +49,9 @@ pub struct Button<Child, S, M> {
     accessible_role: Option<gtk::AccessibleRole>,
     action_name: Option<String>,
     action_target: Option<glib::Variant>,
-    #[property(false)]
+    #[property(bind = false)]
     on_click: Option<Box<dyn Fn(&S) -> M>>,
-    #[property(false)]
+    #[property(bind = false, argument = false, setter = false)]
     _phantom: PhantomData<Child>,
 }
 

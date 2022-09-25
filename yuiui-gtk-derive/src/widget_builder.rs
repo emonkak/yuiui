@@ -1,6 +1,6 @@
+use darling::FromMeta;
 use proc_macro2::Literal;
 use quote::{quote, ToTokens, TokenStreamExt as _};
-use syn::parse::{Parse, ParseStream};
 
 pub struct WidgetBuilderDerive {
     widget_type: syn::Type,
@@ -31,19 +31,26 @@ impl ToTokens for WidgetBuilderDerive {
                 .attrs
                 .iter()
                 .find(|attr| attr.path.is_ident("property"))
-                .and_then(|attr| attr.parse_args::<Property>().ok())
-                .unwrap_or(Property::Enabled(true));
-            let property_name = match property {
-                Property::Enabled(enabled) => {
-                    enabled.then(|| Literal::string(&name.to_string().replace("_", "-")))
-                }
-                Property::Named(name) => Some(Literal::string(&name)),
-            };
+                .map(|attr| {
+                    let meta = attr.parse_meta().unwrap();
+                    Property::from_meta(&meta).unwrap()
+                })
+                .unwrap_or_default();
+            let property_name = Literal::string(
+                &property
+                    .name
+                    .unwrap_or_else(|| name.to_string().replace("_", "-")),
+            );
+
+            if property.argument {
+                new_arguments.push(quote!(#name: #ty));
+                new_body.push(quote!(#name));
+            } else {
+                new_body.push(quote!(#name: Default::default()));
+            }
 
             if let Some(inner_ty) = extract_option(ty) {
-                new_body.push(quote!(#name: None));
-
-                if let Some(property_name) = property_name {
+                if property.bind {
                     build_body.push(quote!(
                         if let Some(ref #name) = self.#name {
                             properties.push((#property_name, #name));
@@ -71,21 +78,16 @@ impl ToTokens for WidgetBuilderDerive {
                     ));
                 }
 
-                setter_fns.push(quote!(
-                    pub fn #name(mut self, #name: #inner_ty) -> Self {
-                        self.#name = Some(#name);
-                        self
-                    }
-                ));
-            } else {
-                if is_phantom(ty) {
-                    new_body.push(quote!(#name: Default::default()));
-                } else {
-                    new_arguments.push(quote!(#name: #ty));
-                    new_body.push(quote!(#name));
+                if property.setter {
+                    setter_fns.push(quote!(
+                        pub fn #name(mut self, #name: #inner_ty) -> Self {
+                            self.#name = Some(#name);
+                            self
+                        }
+                    ));
                 }
-
-                if let Some(property_name) = property_name {
+            } else {
+                if property.bind {
                     build_body.push(quote!(
                         properties.push((#property_name, &self.#name));
                     ));
@@ -93,6 +95,15 @@ impl ToTokens for WidgetBuilderDerive {
                     update_body.push(quote!(
                         if old.#name != self.#name {
                             properties.push((#property_name, self.#name.to_value()));
+                        }
+                    ));
+                }
+
+                if property.setter {
+                    setter_fns.push(quote!(
+                        pub fn #name(mut self, #name: #ty) -> Self {
+                            self.#name = #name;
+                            self
                         }
                     ));
                 }
@@ -137,24 +148,22 @@ impl ToTokens for WidgetBuilderDerive {
     }
 }
 
-enum Property {
-    Enabled(bool),
-    Named(String),
+#[derive(FromMeta)]
+#[darling(default)]
+struct Property {
+    bind: bool,
+    argument: bool,
+    setter: bool,
+    name: Option<String>,
 }
 
-impl Parse for Property {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let lookahead = input.lookahead1();
-        if lookahead.peek(syn::LitBool) {
-            input
-                .parse::<syn::LitBool>()
-                .map(|lit| Property::Enabled(lit.value()))
-        } else if lookahead.peek(syn::LitStr) {
-            input
-                .parse::<syn::LitStr>()
-                .map(|lit| Property::Named(lit.value()))
-        } else {
-            Err(lookahead.error())
+impl Default for Property {
+    fn default() -> Self {
+        Self {
+            bind: true,
+            argument: false,
+            setter: true,
+            name: None,
         }
     }
 }
@@ -192,26 +201,4 @@ fn extract_option(ty: &syn::Type) -> Option<&syn::Type> {
         }
     }
     None
-}
-
-fn is_phantom(ty: &syn::Type) -> bool {
-    const PHANTOM_TYPES: [&[&str]; 3] = [
-        &["PhantomData"],
-        &["std", "marker", "PhantomData"],
-        &["core", "marker", "PhantomData"],
-    ];
-
-    if let syn::Type::Path(typepath) = ty {
-        let segment_idents = typepath
-            .path
-            .segments
-            .iter()
-            .map(|segment| &segment.ident)
-            .collect::<Vec<_>>();
-        PHANTOM_TYPES
-            .iter()
-            .any(|phantom_type| segment_idents.as_slice() == *phantom_type)
-    } else {
-        false
-    }
 }
