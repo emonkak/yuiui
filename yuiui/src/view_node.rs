@@ -129,11 +129,11 @@ where
 
         let (result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut view_state = view.build(&self.children, store, backend);
+                let mut view_state = view.build(&mut self.children, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,
@@ -144,7 +144,7 @@ where
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,
@@ -155,7 +155,7 @@ where
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,
@@ -163,7 +163,7 @@ where
                 pending_view.lifecycle(
                     Lifecycle::Update(view),
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,
@@ -180,7 +180,7 @@ where
                 pending_view.lifecycle(
                     Lifecycle::Update(view),
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,
@@ -194,7 +194,7 @@ where
                 view.lifecycle(
                     Lifecycle::Unmount,
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,
@@ -205,7 +205,7 @@ where
                 view.lifecycle(
                     Lifecycle::Unmount,
                     &mut view_state,
-                    &self.children,
+                    &mut self.children,
                     context,
                     store,
                     backend,

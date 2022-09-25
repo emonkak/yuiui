@@ -83,7 +83,7 @@ impl<S, M, B> View<S, M, B> for Text {
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
         _backend: &mut B,
     ) -> Self::State {
@@ -121,7 +121,7 @@ where
 
     fn build(
         &self,
-        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
         _backend: &mut B,
     ) -> Self::State {

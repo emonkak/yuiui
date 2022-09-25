@@ -52,7 +52,7 @@ where
                     view.event(
                         event,
                         view_state,
-                        &node.children,
+                        &mut node.children,
                         context,
                         store,
                         backend,

@@ -14,7 +14,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
         &self,
         _lifecycle: Lifecycle<Self>,
         _view_state: &mut Self::State,
-        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
         _backend: &mut B,
@@ -25,7 +25,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
         &self,
         _event: <Self as EventListener>::Event,
         _view_state: &mut Self::State,
-        _children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
         _backend: &mut B,
@@ -34,7 +34,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
         backend: &mut B,
     ) -> Self::State;

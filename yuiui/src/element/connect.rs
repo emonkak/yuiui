@@ -285,7 +285,7 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         backend: &mut B,
@@ -296,7 +296,7 @@ where
         self.target.lifecycle(
             sub_lifecycle,
             view_state,
-            &children.target,
+            &mut children.target,
             &mut sub_context,
             sub_store,
             backend,
@@ -308,7 +308,7 @@ where
         &self,
         event: <Self as EventListener>::Event,
         view_state: &mut Self::State,
-        children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         backend: &mut B,
@@ -318,7 +318,7 @@ where
         self.target.event(
             event,
             view_state,
-            &children.target,
+            &mut children.target,
             &mut sub_context,
             sub_store,
             backend,
@@ -328,13 +328,12 @@ where
 
     fn build(
         &self,
-        children: &<Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
         backend: &mut B,
     ) -> Self::State {
         let sub_store = (self.store_selector)(store);
-        self.target
-            .build(&children.target, sub_store, backend)
+        self.target.build(&mut children.target, sub_store, backend)
     }
 }
 
