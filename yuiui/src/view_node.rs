@@ -68,17 +68,8 @@ where
         self.id
     }
 
-    pub fn node_state(&self) -> &ViewNodeState<V, V::State> {
+    pub fn state(&self) -> &ViewNodeState<V, V::State> {
         self.state.as_ref().unwrap()
-    }
-
-    pub fn as_view_state(&self) -> Option<&V::State> {
-        match self.state.as_ref().unwrap() {
-            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
-                Some(view_state)
-            }
-            ViewNodeState::Uninitialized(_) => None,
-        }
     }
 
     pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
@@ -471,16 +462,16 @@ where
 }
 
 #[derive(Debug)]
-pub enum ViewNodeState<T, S> {
-    Uninitialized(T),
-    Prepared(T, S),
-    Pending(T, T, S),
+pub enum ViewNodeState<V, S> {
+    Uninitialized(V),
+    Prepared(V, S),
+    Pending(V, V, S),
 }
 
-impl<T, S> ViewNodeState<T, S> {
-    pub fn map_view<F, U>(self, f: F) -> ViewNodeState<U, S>
+impl<V, S> ViewNodeState<V, S> {
+    pub fn map_view<F, W>(self, f: F) -> ViewNodeState<W, S>
     where
-        F: Fn(T) -> U,
+        F: Fn(V) -> W,
     {
         match self {
             Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
@@ -488,6 +479,21 @@ impl<T, S> ViewNodeState<T, S> {
             Self::Pending(view, pending_view, view_state) => {
                 ViewNodeState::Pending(f(view), f(pending_view), view_state)
             }
+        }
+    }
+
+    pub fn as_view(&self) -> &V {
+        match self {
+            Self::Prepared(view, _) | Self::Pending(view, _, _) | Self::Uninitialized(view) => view,
+        }
+    }
+
+    pub fn as_view_state(&self) -> Option<&S> {
+        match self {
+            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
+                Some(view_state)
+            }
+            ViewNodeState::Uninitialized(_) => None,
         }
     }
 }

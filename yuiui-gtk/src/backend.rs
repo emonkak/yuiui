@@ -1,31 +1,36 @@
-use glib::Sender;
-use gtk::Application as GtkApplication;
+use gtk::glib;
 use std::any::Any;
 use yuiui::EventDestination;
 
 #[derive(Debug)]
-pub struct Backend {
-    application: GtkApplication,
-    event_port: Sender<(Box<dyn Any + Send>, EventDestination)>,
+pub struct GtkBackend {
+    application: gtk::Application,
+    window: gtk::ApplicationWindow,
+    event_port: glib::Sender<(Box<dyn Any + Send>, EventDestination)>,
 }
 
-impl Backend {
+impl GtkBackend {
     pub(super) fn new(
-        application: GtkApplication,
-        event_port: Sender<(Box<dyn Any + Send>, EventDestination)>,
+        application: gtk::Application,
+        window: gtk::ApplicationWindow,
+        event_port: glib::Sender<(Box<dyn Any + Send>, EventDestination)>,
     ) -> Self {
         Self {
             application,
+            window,
             event_port,
         }
     }
 
-    pub fn application(&self) -> &GtkApplication {
+    pub fn application(&self) -> &gtk::Application {
         &self.application
     }
 
-    pub fn dispatch_event(&self, event: Box<dyn Any + Send>, destination: EventDestination) {
-        let port = self.event_port.clone();
-        port.send((event, destination)).unwrap();
+    pub fn window(&self) -> &gtk::ApplicationWindow {
+        &self.window
+    }
+
+    pub fn event_port(&self) -> glib::Sender<(Box<dyn Any + Send>, EventDestination)> {
+        self.event_port.clone()
     }
 }

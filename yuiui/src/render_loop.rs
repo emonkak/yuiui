@@ -148,6 +148,10 @@ where
         self.event_queue.push_back((event, destination));
     }
 
+    pub fn node(&self) -> &ViewNode<E::View, E::Components, S, M, B> {
+        &self.node
+    }
+
     fn dispatch_event(
         &mut self,
         event: Box<dyn Any + Send>,

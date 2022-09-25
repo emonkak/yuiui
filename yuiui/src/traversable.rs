@@ -38,6 +38,12 @@ pub trait Monoid: Default {
     fn combine(self, other: Self) -> Self;
 }
 
+impl Monoid for () {
+    fn combine(self, _other: Self) -> Self {
+        ()
+    }
+}
+
 impl Monoid for bool {
     fn combine(self, other: Self) -> Self {
         self || other
