@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
@@ -38,8 +38,13 @@ where
         match node.state.as_mut().unwrap() {
             ViewNodeState::Prepared(view, view_state)
             | ViewNodeState::Pending(view, _, view_state) => {
-                let event = <V as EventListener>::Event::from_any(self.event)
-                    .expect("cast any event to view event");
+                let event =
+                    <V as EventListener>::Event::from_any(self.event).unwrap_or_else(|| {
+                        panic!(
+                            "cast any event to {}",
+                            any::type_name::<<V as EventListener>::Event>()
+                        )
+                    });
                 view.event(
                     event,
                     view_state,

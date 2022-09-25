@@ -158,19 +158,20 @@ where
         let mut context = MessageContext::new();
         match destination {
             EventDestination::Global => {
-                self.node.global_event(&event, &mut context, store, backend);
+                self.node
+                    .global_event(&*event, &mut context, store, backend);
             }
             EventDestination::Downward(id_path) => {
                 self.node
-                    .downward_event(&event, &id_path, &mut context, store, backend);
+                    .downward_event(&*event, &id_path, &mut context, store, backend);
             }
             EventDestination::Upward(id_path) => {
                 self.node
-                    .upward_event(&event, &id_path, &mut context, store, backend);
+                    .upward_event(&*event, &id_path, &mut context, store, backend);
             }
             EventDestination::Local(id_path) => {
                 self.node
-                    .local_event(&event, &id_path, &mut context, store, backend);
+                    .local_event(&*event, &id_path, &mut context, store, backend);
             }
         }
         self.message_queue.extend(context.into_messages());
