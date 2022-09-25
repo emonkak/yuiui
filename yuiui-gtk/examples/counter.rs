@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Component, ComponentEl, Effect, FunctionComponent, State, Store};
-use yuiui_gtk::widgets::{button, label, r#box, BoxBuilder, ButtonBuilder, LabelBuilder};
+use yuiui::{Component, ComponentEl, Effect, FunctionComponent, State, Store, View};
+use yuiui_gtk::widgets::{Box as BoxView, Button, Label};
 use yuiui_gtk::{Application, GtkBackend, GtkElement};
 
 fn main() {
@@ -30,35 +30,31 @@ fn app() -> ComponentEl<
     FunctionComponent<(), impl GtkElement<AppState, AppMessage>, AppState, AppMessage, GtkBackend>,
 > {
     FunctionComponent::new((), |_props, state: &AppState| {
-        r#box(
-            BoxBuilder::new().orientation(gtk::Orientation::Vertical),
-            hlist![
-                r#box(
-                    BoxBuilder::new().orientation(gtk::Orientation::Horizontal),
-                    hlist![
-                        button(
-                            ButtonBuilder::new(),
-                            |_| AppMessage::Decrement,
-                            label(
-                                LabelBuilder::new()
+        BoxView::new()
+            .orientation(gtk::Orientation::Vertical)
+            .el_with(hlist![
+                BoxView::new()
+                    .orientation(gtk::Orientation::Horizontal)
+                    .el_with(hlist![
+                        Button::new()
+                            .on_click(Box::new(|_| AppMessage::Decrement))
+                            .el_with(
+                                Label::new()
                                     .label("-".to_owned())
                                     .halign(gtk::Align::Center)
-                            )
-                        ),
-                        button(
-                            ButtonBuilder::new(),
-                            |_| AppMessage::Increment,
-                            label(
-                                LabelBuilder::new()
+                                    .el()
+                            ),
+                        Button::new()
+                            .on_click(Box::new(|_| AppMessage::Increment))
+                            .el_with(
+                                Label::new()
                                     .label("+".to_owned())
                                     .halign(gtk::Align::Center)
-                            )
-                        ),
-                    ]
-                ),
-                label(LabelBuilder::new().label(state.count.to_string()))
-            ],
-        )
+                                    .el()
+                            ),
+                    ]),
+                Label::new().label(state.count.to_string()).el(),
+            ])
     })
     .el()
 }

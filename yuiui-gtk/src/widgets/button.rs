@@ -3,120 +3,15 @@ use std::marker::PhantomData;
 use gtk::glib::object::ObjectExt;
 use gtk::glib::SignalHandlerId;
 use gtk::{gdk, glib, prelude::*};
-use yuiui::{
-    ElementSeq, EventDestination, EventListener, Lifecycle, MessageContext, Store, View, ViewEl,
-};
+use yuiui::{ElementSeq, EventDestination, EventListener, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::backend::GtkBackend;
 use crate::element::GtkElement;
 
-pub fn button<OnClick, Child, S, M>(
-    builder: ButtonBuilder,
-    on_click: OnClick,
-    child: Child,
-) -> ViewEl<Button<OnClick, Child>, S, M, GtkBackend>
-where
-    OnClick: Fn(&S) -> M,
-    Child: GtkElement<S, M>,
-{
-    Button::new(builder, on_click).el_with(child)
-}
-
-#[derive(Debug)]
-pub struct Button<OnClick, Child> {
-    builder: ButtonBuilder,
-    on_click: OnClick,
-    _phantom: PhantomData<Child>,
-}
-
-impl<OnClick, Child> Button<OnClick, Child> {
-    fn new(builder: ButtonBuilder, on_click: OnClick) -> Self {
-        Self {
-            builder,
-            on_click,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<OnClick, Child, S, M> View<S, M, GtkBackend> for Button<OnClick, Child>
-where
-    OnClick: Fn(&S) -> M,
-    Child: GtkElement<S, M>,
-{
-    type Children = Child;
-
-    type State = ButtonState;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        context: &mut MessageContext<M>,
-        _store: &Store<S>,
-        backend: &mut GtkBackend,
-    ) {
-        match lifecycle {
-            Lifecycle::Mount => {
-                let event_port = backend.event_port();
-                let id_path = context.id_path().to_vec();
-                view_state.clicked_signal = view_state
-                    .widget
-                    .connect_clicked(move |_| {
-                        event_port
-                            .send((
-                                Box::new(Event::Clicked),
-                                EventDestination::Local(id_path.clone()),
-                            ))
-                            .unwrap();
-                    })
-                    .into();
-            }
-            Lifecycle::Update(old_view) => {
-                self.builder.update(&old_view.builder, &view_state.widget);
-            }
-            Lifecycle::Unmount => {
-                if let Some(signal_id) = view_state.clicked_signal.take() {
-                    view_state.widget.disconnect(signal_id);
-                }
-            }
-        }
-    }
-
-    fn event(
-        &self,
-        _event: <Self as EventListener>::Event,
-        _view_state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        _backend: &mut GtkBackend,
-    ) {
-        let message = (self.on_click)(store);
-        context.push_message(message);
-    }
-
-    fn build(
-        &self,
-        child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        _store: &Store<S>,
-        _backend: &mut GtkBackend,
-    ) -> Self::State {
-        let widget = self.builder.build();
-        widget.set_child(Some(child.state().as_view_state().unwrap().as_ref()));
-        ButtonState::new(widget)
-    }
-}
-
-impl<'event, OnClick, Child> EventListener<'event> for Button<OnClick, Child> {
-    type Event = &'event Event;
-}
-
-#[derive(Debug, WidgetBuilder)]
+#[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
-pub struct ButtonBuilder {
+pub struct Button<Child, S, M> {
     child: Option<gtk::Widget>,
     has_frame: Option<bool>,
     icon_name: Option<String>,
@@ -154,6 +49,85 @@ pub struct ButtonBuilder {
     accessible_role: Option<gtk::AccessibleRole>,
     action_name: Option<String>,
     action_target: Option<glib::Variant>,
+    #[property(false)]
+    on_click: Option<Box<dyn Fn(&S) -> M>>,
+    #[property(false)]
+    _phantom: PhantomData<Child>,
+}
+
+impl<Child, S, M> View<S, M, GtkBackend> for Button<Child, S, M>
+where
+    Child: GtkElement<S, M>,
+{
+    type Children = Child;
+
+    type State = ButtonState;
+
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<Self>,
+        view_state: &mut Self::State,
+        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        context: &mut MessageContext<M>,
+        _store: &Store<S>,
+        backend: &mut GtkBackend,
+    ) {
+        match lifecycle {
+            Lifecycle::Mount => {
+                let event_port = backend.event_port();
+                let id_path = context.id_path().to_vec();
+                view_state.clicked_signal = view_state
+                    .widget
+                    .connect_clicked(move |_| {
+                        event_port
+                            .send((
+                                Box::new(Event::Clicked),
+                                EventDestination::Local(id_path.clone()),
+                            ))
+                            .unwrap();
+                    })
+                    .into();
+            }
+            Lifecycle::Update(old_view) => {
+                self.update(&old_view, &view_state.widget);
+            }
+            Lifecycle::Unmount => {
+                if let Some(signal_id) = view_state.clicked_signal.take() {
+                    view_state.widget.disconnect(signal_id);
+                }
+            }
+        }
+    }
+
+    fn event(
+        &self,
+        _event: <Self as EventListener>::Event,
+        _view_state: &mut Self::State,
+        _child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        context: &mut MessageContext<M>,
+        store: &Store<S>,
+        _backend: &mut GtkBackend,
+    ) {
+        if let Some(on_click) = &self.on_click {
+            let message = on_click(store);
+            context.push_message(message);
+        }
+    }
+
+    fn build(
+        &self,
+        child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _store: &Store<S>,
+        _backend: &mut GtkBackend,
+    ) -> Self::State {
+        let widget = self.build();
+        widget.set_child(Some(child.state().as_view_state().unwrap().as_ref()));
+        ButtonState::new(widget)
+    }
+}
+
+impl<'event, Child, S, M> EventListener<'event> for Button<Child, S, M> {
+    type Event = &'event Event;
 }
 
 #[derive(Debug)]

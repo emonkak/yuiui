@@ -1,5 +1,6 @@
 use proc_macro2::Literal;
 use quote::{quote, ToTokens, TokenStreamExt as _};
+use syn::parse::{Parse, ParseStream};
 
 pub struct WidgetBuilderDerive {
     widget_type: syn::Type,
@@ -26,36 +27,49 @@ impl ToTokens for WidgetBuilderDerive {
                 .ident
                 .as_ref()
                 .expect("the field name must be specified");
-            let property = Literal::string(&name.to_string().replace("_", "-"));
+            let property = field
+                .attrs
+                .iter()
+                .find(|attr| attr.path.is_ident("property"))
+                .and_then(|attr| attr.parse_args::<Property>().ok())
+                .unwrap_or(Property::Enabled(true));
+            let property_name = match property {
+                Property::Enabled(enabled) => {
+                    enabled.then(|| Literal::string(&name.to_string().replace("_", "-")))
+                }
+                Property::Named(name) => Some(Literal::string(&name)),
+            };
 
             if let Some(inner_ty) = extract_option(ty) {
                 new_body.push(quote!(#name: None));
 
-                build_body.push(quote!(
-                    if let Some(ref #name) = self.#name {
-                        properties.push((#property, #name));
-                    }
-                ));
+                if let Some(property_name) = property_name {
+                    build_body.push(quote!(
+                        if let Some(ref #name) = self.#name {
+                            properties.push((#property_name, #name));
+                        }
+                    ));
 
-                update_body.push(quote!(
-                    match (&old.#name, &self.#name) {
-                        (Some(old_value), Some(new_value)) => {
-                            if old_value != new_value {
-                                properties.push((#property, new_value.to_value()));
+                    update_body.push(quote!(
+                        match (&old.#name, &self.#name) {
+                            (Some(old_value), Some(new_value)) => {
+                                if old_value != new_value {
+                                    properties.push((#property_name, new_value.to_value()));
+                                }
                             }
+                            (Some(_), None) => {
+                                let pspec = object.find_property(#property_name)
+                                    .expect(concat!("Unable to find the property of ", #property_name));
+                                let default_value = pspec.default_value().to_value();
+                                properties.push((#property_name, default_value));
+                            }
+                            (None, Some(new_value)) => {
+                                properties.push((#property_name, new_value.to_value()));
+                            }
+                            (None, None) => {}
                         }
-                        (Some(_), None) => {
-                            let pspec = object.find_property(#property)
-                                .expect(concat!("Unable to find the property of ", #property));
-                            let default_value = pspec.default_value().to_value();
-                            properties.push((#property, default_value));
-                        }
-                        (None, Some(new_value)) => {
-                            properties.push((#property, new_value.to_value()));
-                        }
-                        (None, None) => {}
-                    }
-                ));
+                    ));
+                }
 
                 setter_fns.push(quote!(
                     pub fn #name(mut self, #name: #inner_ty) -> Self {
@@ -64,19 +78,24 @@ impl ToTokens for WidgetBuilderDerive {
                     }
                 ));
             } else {
-                new_arguments.push(quote!(#name: #ty));
+                if is_phantom(ty) {
+                    new_body.push(quote!(#name: Default::default()));
+                } else {
+                    new_arguments.push(quote!(#name: #ty));
+                    new_body.push(quote!(#name));
+                }
 
-                new_body.push(quote!(#name));
+                if let Some(property_name) = property_name {
+                    build_body.push(quote!(
+                        properties.push((#property_name, &self.#name));
+                    ));
 
-                build_body.push(quote!(
-                    properties.push((#property, &self.#name));
-                ));
-
-                update_body.push(quote!(
-                    if old.#name != self.#name {
-                        properties.push((#property, self.#name.to_value()));
-                    }
-                ));
+                    update_body.push(quote!(
+                        if old.#name != self.#name {
+                            properties.push((#property_name, self.#name.to_value()));
+                        }
+                    ));
+                }
             }
         }
 
@@ -118,6 +137,28 @@ impl ToTokens for WidgetBuilderDerive {
     }
 }
 
+enum Property {
+    Enabled(bool),
+    Named(String),
+}
+
+impl Parse for Property {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(syn::LitBool) {
+            input
+                .parse::<syn::LitBool>()
+                .map(|lit| Property::Enabled(lit.value()))
+        } else if lookahead.peek(syn::LitStr) {
+            input
+                .parse::<syn::LitStr>()
+                .map(|lit| Property::Named(lit.value()))
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
 fn extract_option(ty: &syn::Type) -> Option<&syn::Type> {
     const OPTION_TYPES: [&[&str]; 3] = [
         &["Option"],
@@ -151,4 +192,26 @@ fn extract_option(ty: &syn::Type) -> Option<&syn::Type> {
         }
     }
     None
+}
+
+fn is_phantom(ty: &syn::Type) -> bool {
+    const PHANTOM_TYPES: [&[&str]; 3] = [
+        &["PhantomData"],
+        &["std", "marker", "PhantomData"],
+        &["core", "marker", "PhantomData"],
+    ];
+
+    if let syn::Type::Path(typepath) = ty {
+        let segment_idents = typepath
+            .path
+            .segments
+            .iter()
+            .map(|segment| &segment.ident)
+            .collect::<Vec<_>>();
+        PHANTOM_TYPES
+            .iter()
+            .any(|phantom_type| segment_idents.as_slice() == *phantom_type)
+    } else {
+        false
+    }
 }

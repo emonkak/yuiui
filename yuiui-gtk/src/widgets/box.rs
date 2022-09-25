@@ -2,89 +2,15 @@ use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
     ComponentStack, ElementSeq, EventListener, Lifecycle, MessageContext, Store, Traversable, View,
-    ViewEl, ViewNode, Visitor,
+    ViewNode, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::backend::GtkBackend;
 
-pub fn r#box<Children, S, M>(
-    builder: BoxBuilder,
-    children: Children,
-) -> ViewEl<Box<Children>, S, M, GtkBackend>
-where
-    Children: ElementSeq<S, M, GtkBackend>,
-    Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, GtkBackend>,
-{
-    Box::new(builder).el_with(children)
-}
-
-#[derive(Debug)]
-pub struct Box<Children> {
-    builder: BoxBuilder,
-    _phantom: PhantomData<Children>,
-}
-
-impl<Children> Box<Children> {
-    pub fn new(builder: BoxBuilder) -> Self {
-        Self {
-            builder,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<Children, S, M> View<S, M, GtkBackend> for Box<Children>
-where
-    Children: ElementSeq<S, M, GtkBackend>,
-    Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, GtkBackend>,
-{
-    type Children = Children;
-
-    type State = gtk::Box;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        backend: &mut GtkBackend,
-    ) {
-        match lifecycle {
-            Lifecycle::Mount => {
-                let mut visitor = ReconcileChildrenVisitor::new(view_state);
-                children.for_each(&mut visitor, context, store, backend);
-            }
-            Lifecycle::Update(old_view) => {
-                self.builder.update(&old_view.builder, view_state);
-                let mut visitor = ReconcileChildrenVisitor::new(view_state);
-                children.for_each(&mut visitor, context, store, backend);
-            }
-            Lifecycle::Unmount => {}
-        }
-    }
-
-    fn build(
-        &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        _store: &Store<S>,
-        _backend: &mut GtkBackend,
-    ) -> Self::State {
-        self.builder.build()
-    }
-}
-
-impl<'event, Children> EventListener<'event> for Box<Children> {
-    type Event = ();
-}
-
 #[derive(Debug, WidgetBuilder)]
 #[widget(gtk::Box)]
-pub struct BoxBuilder {
+pub struct Box<Children> {
     baseline_position: Option<gtk::BaselinePosition>,
     homogeneous: Option<bool>,
     spacing: Option<i32>,
@@ -119,6 +45,55 @@ pub struct BoxBuilder {
     width_request: Option<i32>,
     accessible_role: Option<gtk::AccessibleRole>,
     orientation: Option<gtk::Orientation>,
+    #[property(false)]
+    _phantom: PhantomData<Children>,
+}
+
+impl<Children, S, M> View<S, M, GtkBackend> for Box<Children>
+where
+    Children: ElementSeq<S, M, GtkBackend>,
+    Children::Storage:
+        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, GtkBackend>,
+{
+    type Children = Children;
+
+    type State = gtk::Box;
+
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<Self>,
+        view_state: &mut Self::State,
+        children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        context: &mut MessageContext<M>,
+        store: &Store<S>,
+        backend: &mut GtkBackend,
+    ) {
+        match lifecycle {
+            Lifecycle::Mount => {
+                let mut visitor = ReconcileChildrenVisitor::new(view_state);
+                children.for_each(&mut visitor, context, store, backend);
+            }
+            Lifecycle::Update(old_view) => {
+                self.update(&old_view, view_state);
+                let mut visitor = ReconcileChildrenVisitor::new(view_state);
+                children.for_each(&mut visitor, context, store, backend);
+            }
+            Lifecycle::Unmount => {}
+        }
+    }
+
+    fn build(
+        &self,
+        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _store: &Store<S>,
+        _backend: &mut GtkBackend,
+    ) -> Self::State {
+        self.build()
+    }
+}
+
+impl<'event, Children> EventListener<'event> for Box<Children> {
+    type Event = ();
 }
 
 pub struct ReconcileChildrenVisitor<'a> {

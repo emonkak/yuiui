@@ -1,64 +1,12 @@
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, Store, View, ViewEl};
+use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::backend::GtkBackend;
 
-pub fn label<S, M>(builder: LabelBuilder) -> ViewEl<Label, S, M, GtkBackend> {
-    Label::new(builder).el()
-}
-
-#[derive(Debug)]
-pub struct Label {
-    builder: LabelBuilder,
-}
-
-impl Label {
-    pub fn new(builder: LabelBuilder) -> Self {
-        Self { builder }
-    }
-}
-
-impl<S, M> View<S, M, GtkBackend> for Label {
-    type Children = hlist::HNil;
-
-    type State = gtk::Label;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        _context: &mut MessageContext<M>,
-        _store: &Store<S>,
-        _backend: &mut GtkBackend,
-    ) {
-        match lifecycle {
-            Lifecycle::Mount => {}
-            Lifecycle::Update(old_view) => {
-                self.builder.update(&old_view.builder, view_state);
-            }
-            Lifecycle::Unmount => {}
-        }
-    }
-
-    fn build(
-        &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
-        _store: &Store<S>,
-        _backend: &mut GtkBackend,
-    ) -> Self::State {
-        self.builder.build()
-    }
-}
-
-impl<'event> EventListener<'event> for Label {
-    type Event = ();
-}
-
 #[derive(Debug, WidgetBuilder)]
 #[widget(gtk::Label)]
-pub struct LabelBuilder {
+pub struct Label {
     attributes: Option<pango::AttrList>,
     ellipsize: Option<pango::EllipsizeMode>,
     extra_menu: Option<gio::MenuModel>,
@@ -106,4 +54,41 @@ pub struct LabelBuilder {
     visible: Option<bool>,
     width_request: Option<i32>,
     accessible_role: Option<gtk::AccessibleRole>,
+}
+
+impl<S, M> View<S, M, GtkBackend> for Label {
+    type Children = hlist::HNil;
+
+    type State = gtk::Label;
+
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<Self>,
+        view_state: &mut Self::State,
+        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _context: &mut MessageContext<M>,
+        _store: &Store<S>,
+        _backend: &mut GtkBackend,
+    ) {
+        match lifecycle {
+            Lifecycle::Mount => {}
+            Lifecycle::Update(old_view) => {
+                self.update(&old_view, view_state);
+            }
+            Lifecycle::Unmount => {}
+        }
+    }
+
+    fn build(
+        &self,
+        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _store: &Store<S>,
+        _backend: &mut GtkBackend,
+    ) -> Self::State {
+        self.build()
+    }
+}
+
+impl<'event> EventListener<'event> for Label {
+    type Event = ();
 }

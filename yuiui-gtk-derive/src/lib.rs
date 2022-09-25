@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use std::mem;
 
-#[proc_macro_derive(WidgetBuilder, attributes(widget))]
+#[proc_macro_derive(WidgetBuilder, attributes(property, widget))]
 pub fn gtk_view(input: TokenStream) -> TokenStream {
     let mut parsed = syn::parse_macro_input!(input as syn::ItemStruct);
     for attr in mem::take(&mut parsed.attrs) {
