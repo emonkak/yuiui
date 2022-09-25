@@ -16,7 +16,7 @@ use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
-pub trait Element<S, M, B>: Sized {
+pub trait Element<S, M, B>: Sized + ElementSeq<S, M, B> {
     type View: View<S, M, B>;
 
     type Components: ComponentStack<S, M, B, View = Self::View>;
@@ -69,7 +69,8 @@ pub trait DebuggableElement<S, M, B>:
 
     type State: fmt::Debug;
 
-    type Children: ElementSeq<S, M, B, Storage = Self::Storage> + fmt::Debug;
+    type Children: ElementSeq<S, M, B, Storage = <Self as DebuggableElement<S, M, B>>::Storage>
+        + fmt::Debug;
 
     type Storage: ViewNodeSeq<S, M, B> + fmt::Debug;
 
