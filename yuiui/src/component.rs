@@ -25,24 +25,24 @@ pub trait Component<S, M, B>: Sized {
 
 pub struct FunctionComponent<Props, E, S, M, B> {
     props: Props,
-    render: fn(&Props, &S) -> E,
-    lifecycle: Option<fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B)>,
+    render_fn: fn(&Props, &S) -> E,
+    lifecycle_fn: Option<fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B)>,
 }
 
 impl<Props, E, S, M, B> FunctionComponent<Props, E, S, M, B> {
-    pub fn new(props: Props, render: fn(&Props, &S) -> E) -> Self {
+    pub fn new(props: Props, render_fn: fn(&Props, &S) -> E) -> Self {
         Self {
             props,
-            render,
-            lifecycle: None,
+            render_fn,
+            lifecycle_fn: None,
         }
     }
 
     pub fn lifecycle(
         mut self,
-        lifecycle: impl Into<Option<fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B)>>,
+        lifecycle_fn: fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
     ) -> Self {
-        self.lifecycle = lifecycle.into();
+        self.lifecycle_fn = Some(lifecycle_fn);
         self
     }
 }
@@ -60,14 +60,27 @@ where
         state: &S,
         backend: &mut B,
     ) {
-        if let Some(callback) = self.lifecycle {
+        if let Some(lifecycle_fn) = self.lifecycle_fn {
             let lifecycle = lifecycle.map(|component| component.props);
-            callback(&self.props, lifecycle, context, state, backend)
+            lifecycle_fn(&self.props, lifecycle, context, state, backend)
         }
     }
 
     fn render(&self, state: &S) -> Self::Element {
-        (self.render)(&self.props, state)
+        (self.render_fn)(&self.props, state)
+    }
+}
+
+impl<Props, E, S, M, B> Clone for FunctionComponent<Props, E, S, M, B>
+where
+    Props: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            props: self.props.clone(),
+            render_fn: self.render_fn.clone(),
+            lifecycle_fn: self.lifecycle_fn.clone(),
+        }
     }
 }
 
