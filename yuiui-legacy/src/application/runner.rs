@@ -72,7 +72,7 @@ where
             UIEvent::Message(InternalMessage::Broadcast(message)) => {
                 if store.dispatch(message) {
                     render_loop.dispatch(
-                        Event::StateChanged(store.state()),
+                        Event::StateChanged(store),
                         &|command, id, component_index| {
                             run_command(context, command, id, component_index)
                         },

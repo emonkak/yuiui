@@ -19,7 +19,7 @@ pub trait ComponentStack<S, M, B> {
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool;
 
     fn commit(
@@ -28,7 +28,7 @@ pub trait ComponentStack<S, M, B> {
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool;
 }
@@ -48,7 +48,7 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         let (head, tail) = node.components;
         let mut node = ViewNodeMut {
@@ -59,7 +59,7 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            let element = head.component.render(store.state());
+            let element = head.component.render(store);
             element.update(&mut node, context, store)
         } else {
             CS::update(&mut node, target_depth, current_depth + 1, context, store)
@@ -72,7 +72,7 @@ where
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         if target_depth <= current_depth {
@@ -109,7 +109,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut RenderContext,
-        _store: &mut Store<S>,
+        _store: &Store<S>,
     ) -> bool {
         false
     }
@@ -120,7 +120,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut MessageContext<M>,
-        _store: &mut Store<S>,
+        _store: &Store<S>,
         _backend: &mut B,
     ) -> bool {
         false

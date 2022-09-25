@@ -41,7 +41,7 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let element = ComponentElement::new(AsComponent::new(self));
         element.render(context, store)
@@ -51,7 +51,7 @@ where
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
@@ -71,7 +71,7 @@ where
 {
     type Storage = ViewNode<E::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)
     }
 
@@ -79,7 +79,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         self.update(&mut storage.borrow_mut(), context, store)
     }

@@ -30,7 +30,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Self::Output {
         if let (Some(&depth), true) = (self.cursor.current().value(), store.dirty()) {

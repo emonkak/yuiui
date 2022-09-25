@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use std::marker::PhantomData;
-use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, View, ViewElement};
+use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, Store, View, ViewElement};
 
 use crate::backend::Backend;
 
@@ -57,7 +57,7 @@ where
         view_state: &mut Self::State,
         _children: &<Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _context: &mut MessageContext<M>,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &mut Backend,
     ) {
         match lifecycle {
@@ -78,7 +78,7 @@ where
     fn build(
         &self,
         child: &<Self::Children as ElementSeq<S, M, Backend>>::Storage,
-        _state: &S,
+        _store: &Store<S>,
         backend: &mut Backend,
     ) -> Self::State {
         let mut builder = gtk::ApplicationWindow::builder();

@@ -96,7 +96,7 @@ where
     pub fn update_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
         context: &mut RenderContext,
     ) -> Vec<(IdPathBuf, Depth)> {
@@ -109,7 +109,7 @@ where
         mode: CommitMode,
         depth: Depth,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         if !self.dirty && !mode.is_propagatable() {
@@ -129,13 +129,13 @@ where
 
         let (result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut view_state = view.build(&self.children, store.state(), backend);
+                let mut view_state = view.build(&self.children, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 (true, ViewNodeState::Prepared(view, view_state))
@@ -146,7 +146,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 (true, ViewNodeState::Prepared(view, view_state))
@@ -157,7 +157,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 pending_view.lifecycle(
@@ -165,7 +165,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 (true, ViewNodeState::Prepared(pending_view, view_state))
@@ -182,7 +182,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 (true, ViewNodeState::Prepared(pending_view, view_state))
@@ -196,7 +196,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 (true, ViewNodeState::Prepared(view, view_state))
@@ -207,7 +207,7 @@ where
                     &mut view_state,
                     &self.children,
                     context,
-                    store.state(),
+                    store,
                     backend,
                 );
                 (true, ViewNodeState::Pending(view, pending_view, view_state))
@@ -233,7 +233,7 @@ where
         &mut self,
         id_tree: &IdTree<Depth>,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
@@ -244,7 +244,7 @@ where
         &mut self,
         event: &dyn Any,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
@@ -256,7 +256,7 @@ where
         event: &dyn Any,
         id_path: &IdPath,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut visitor = DownwardEventVisitor::new(event);
@@ -269,7 +269,7 @@ where
         event: &dyn Any,
         id_path: &IdPath,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut visitor = UpwardEventVisitor::new(event, id_path);
@@ -281,7 +281,7 @@ where
         event: &dyn Any,
         id_path: &IdPath,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event);
@@ -313,7 +313,7 @@ pub trait ViewNodeSeq<S, M, B>:
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool;
 }
@@ -353,7 +353,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         self.commit_within(mode, 0, context, store, backend)
@@ -373,7 +373,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Visitor::Output {
         context.begin_id(self.id);
@@ -387,7 +387,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         context.begin_id(self.id);
@@ -418,7 +418,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Visitor::Output {
         context.begin_id(self.id);
@@ -432,7 +432,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         context.begin_id(self.id);

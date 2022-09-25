@@ -31,7 +31,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Self::Output {
         if let Some(depth) = self.cursor.current().value() {

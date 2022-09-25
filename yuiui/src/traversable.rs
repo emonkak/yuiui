@@ -6,7 +6,7 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Output;
 
@@ -15,7 +15,7 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output>;
 }
@@ -29,7 +29,7 @@ pub trait Visitor<Node, S, B> {
         &mut self,
         node: &mut Node,
         context: &mut Self::Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Self::Output;
 }

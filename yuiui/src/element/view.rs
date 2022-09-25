@@ -33,7 +33,7 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         context.with_id(|id, context| {
             let children = self.children.render_children(context, store);
@@ -45,7 +45,7 @@ where
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         context.begin_id(node.id);
 
@@ -73,7 +73,7 @@ where
     type Storage =
         ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)
     }
 
@@ -81,7 +81,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         self.update(&mut storage.borrow_mut(), context, store)
     }

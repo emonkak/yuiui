@@ -28,7 +28,7 @@ where
     E: Element<S, M, B>,
     S: State<Message = M>,
 {
-    pub fn create(element: E, store: &mut Store<S>) -> Self {
+    pub fn create(element: E, store: &Store<S>) -> Self {
         let mut context = RenderContext::new();
         let node = element.render(&mut context, store);
         Self {
@@ -152,7 +152,7 @@ where
         &mut self,
         event: Box<dyn Any + Send>,
         destination: EventDestination,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) {
         let mut context = MessageContext::new();

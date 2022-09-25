@@ -30,13 +30,13 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         match mode {
             CommitMode::Mount => {
                 self.component
-                    .lifecycle(Lifecycle::Mount, context, store.state(), backend);
+                    .lifecycle(Lifecycle::Mount, context, store, backend);
                 true
             }
             CommitMode::Update => {
@@ -45,7 +45,7 @@ where
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
                         context,
-                        store.state(),
+                        store,
                         backend,
                     );
                     true
@@ -55,7 +55,7 @@ where
             }
             CommitMode::Unmount => {
                 self.component
-                    .lifecycle(Lifecycle::Unmount, context, store.state(), backend);
+                    .lifecycle(Lifecycle::Unmount, context, store, backend);
                 true
             }
         }

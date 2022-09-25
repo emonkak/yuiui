@@ -33,7 +33,7 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         OptionStorage::new(self.map(|element| element.render_children(context, store)))
     }
 
@@ -41,7 +41,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
@@ -91,7 +91,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut result = false;
@@ -127,7 +127,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Output {
         if let Some(node) = &mut self.active {
@@ -142,7 +142,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         if let Some(node) = &mut self.active {

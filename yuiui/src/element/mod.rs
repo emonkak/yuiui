@@ -24,14 +24,14 @@ pub trait Element<S, M, B>: Sized {
     fn render(
         self,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B>;
 
     fn update(
         self,
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool;
 
     fn connect<PS, PM>(
@@ -46,13 +46,13 @@ pub trait Element<S, M, B>: Sized {
 pub trait ElementSeq<S, M, B> {
     type Storage: ViewNodeSeq<S, M, B>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage;
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage;
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool;
 }
 

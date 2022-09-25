@@ -32,7 +32,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
@@ -45,7 +45,7 @@ where
                         view_state,
                         &node.children,
                         context,
-                        store.state(),
+                        store,
                         backend,
                     );
                     result = true;

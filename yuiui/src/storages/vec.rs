@@ -37,7 +37,7 @@ where
 {
     type Storage = VecStorage<ViewNode<E::View, E::Components, S, M, B>>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
                 .map(|element| element.render(context, store))
@@ -49,7 +49,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         let mut has_changed = false;
 
@@ -109,7 +109,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut result = false;
@@ -163,7 +163,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Visitor::Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Visitor::Output {
         let mut result = Visitor::Output::default();
@@ -178,7 +178,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Visitor::Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         let id = Id::from_top(id_path);

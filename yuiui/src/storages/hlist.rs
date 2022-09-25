@@ -12,7 +12,7 @@ use crate::view_node::{CommitMode, ViewNodeSeq};
 impl<S, M, B> ElementSeq<S, M, B> for HNil {
     type Storage = HNil;
 
-    fn render_children(self, _context: &mut RenderContext, _store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, _context: &mut RenderContext, _store: &Store<S>) -> Self::Storage {
         HNil
     }
 
@@ -20,7 +20,7 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
         self,
         _nodes: &mut Self::Storage,
         _context: &mut RenderContext,
-        _store: &mut Store<S>,
+        _store: &Store<S>,
     ) -> bool {
         false
     }
@@ -40,7 +40,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         &mut self,
         _mode: CommitMode,
         _context: &mut MessageContext<M>,
-        _store: &mut Store<S>,
+        _store: &Store<S>,
         _backend: &mut B,
     ) -> bool {
         false
@@ -55,7 +55,7 @@ where
         &mut self,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _store: &mut Store<S>,
+        _store: &Store<S>,
         _backend: &mut B,
     ) -> Output {
         Output::default()
@@ -66,7 +66,7 @@ where
         _id_path: &IdPath,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _store: &mut Store<S>,
+        _store: &Store<S>,
         _backend: &mut B,
     ) -> Option<Output> {
         None
@@ -81,7 +81,7 @@ where
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         HCons {
             head: self.head.render_children(context, store),
             tail: self.tail.render_children(context, store),
@@ -92,7 +92,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self.head.update_children(&mut storage.head, context, store);
@@ -135,7 +135,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let head_result = self.head.commit(mode, context, store, backend);
@@ -155,7 +155,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Output {
         self.head
@@ -168,7 +168,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         self.head

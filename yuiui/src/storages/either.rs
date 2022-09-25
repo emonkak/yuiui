@@ -36,7 +36,7 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &mut Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         match self {
             Either::Left(element) => {
                 EitherStorage::new(Either::Left(element.render_children(context, store)))
@@ -51,7 +51,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &mut Store<S>,
+        store: &Store<S>,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
@@ -141,7 +141,7 @@ where
         &mut self,
         mode: CommitMode,
         context: &mut MessageContext<M>,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> bool {
         let mut result = false;
@@ -182,7 +182,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Output {
         match &mut self.active {
@@ -196,7 +196,7 @@ where
         id_path: &IdPath,
         visitor: &mut Visitor,
         context: &mut Context,
-        store: &mut Store<S>,
+        store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         match &mut self.active {
