@@ -1,7 +1,7 @@
 use hlist::HNil;
 
 use crate::context::MessageContext;
-use crate::element::{ElementSeq, ViewElement};
+use crate::element::{ElementSeq, ViewEl};
 use crate::event::{EventListener, Lifecycle};
 use crate::state::Store;
 
@@ -39,14 +39,14 @@ pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
         backend: &mut B,
     ) -> Self::State;
 
-    fn el(self) -> ViewElement<Self, S, M, B>
+    fn el(self) -> ViewEl<Self, S, M, B>
     where
         Self: View<S, M, B, Children = HNil>,
     {
-        ViewElement::new(self, HNil)
+        ViewEl::new(self, HNil)
     }
 
-    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, M, B> {
-        ViewElement::new(self, children)
+    fn el_with(self, children: Self::Children) -> ViewEl<Self, S, M, B> {
+        ViewEl::new(self, children)
     }
 }

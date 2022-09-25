@@ -10,7 +10,7 @@ pub trait State {
     fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>);
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Store<T> {
     state: T,
     dirty: Cell<bool>,

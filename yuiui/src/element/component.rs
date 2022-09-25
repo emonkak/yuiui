@@ -8,17 +8,17 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
-pub struct ComponentElement<C> {
+pub struct ComponentEl<C> {
     component: C,
 }
 
-impl<C> ComponentElement<C> {
-    pub const fn new(component: C) -> ComponentElement<C> {
+impl<C> ComponentEl<C> {
+    pub const fn new(component: C) -> ComponentEl<C> {
         Self { component }
     }
 }
 
-impl<C, S, M, B> Element<S, M, B> for ComponentElement<C>
+impl<C, S, M, B> Element<S, M, B> for ComponentEl<C>
 where
     C: Component<S, M, B>,
 {
@@ -68,7 +68,7 @@ where
     }
 }
 
-impl<C, S, M, B> ElementSeq<S, M, B> for ComponentElement<C>
+impl<C, S, M, B> ElementSeq<S, M, B> for ComponentEl<C>
 where
     C: Component<S, M, B>,
 {
@@ -89,12 +89,12 @@ where
     }
 }
 
-impl<C> fmt::Debug for ComponentElement<C>
+impl<C> fmt::Debug for ComponentEl<C>
 where
     C: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ComponentElement")
+        f.debug_struct("ComponentEl")
             .field("component", &self.component)
             .finish()
     }

@@ -3,10 +3,10 @@ mod connect;
 mod memoize;
 mod view;
 
-pub use component::ComponentElement;
+pub use component::ComponentEl;
 pub use connect::Connect;
 pub use memoize::Memoize;
-pub use view::ViewElement;
+pub use view::ViewEl;
 
 use std::fmt;
 

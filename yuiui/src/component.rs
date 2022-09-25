@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::context::MessageContext;
-use crate::element::{ComponentElement, Element};
+use crate::element::{ComponentEl, Element};
 use crate::event::Lifecycle;
 
 pub trait Component<S, M, B>: Sized {
@@ -18,8 +18,8 @@ pub trait Component<S, M, B>: Sized {
 
     fn render(&self, state: &S) -> Self::Element;
 
-    fn el(self) -> ComponentElement<Self> {
-        ComponentElement::new(self)
+    fn el(self) -> ComponentEl<Self> {
+        ComponentEl::new(self)
     }
 }
 

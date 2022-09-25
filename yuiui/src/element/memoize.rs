@@ -6,7 +6,7 @@ use crate::context::RenderContext;
 use crate::state::Store;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
-use super::{ComponentElement, Element, ElementSeq};
+use super::{ComponentEl, Element, ElementSeq};
 
 pub struct Memoize<F: Fn(&D) -> E, D, E> {
     render_fn: F,
@@ -43,7 +43,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
-        let element = ComponentElement::new(AsComponent::new(self));
+        let element = ComponentEl::new(AsComponent::new(self));
         element.render(context, store)
     }
 
@@ -55,7 +55,7 @@ where
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
-            let element = ComponentElement::new(AsComponent::new(self));
+            let element = ComponentEl::new(AsComponent::new(self));
             Element::update(element, node, context, store)
         } else {
             false
