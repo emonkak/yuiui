@@ -5,7 +5,7 @@ use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
 use crate::element::ElementSeq;
 use crate::event::{Event, EventListener, EventMask};
-use crate::id::{Id, IdPath};
+use crate::id::IdPath;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
@@ -126,8 +126,10 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
-        let id = Id::from_top(id_path);
-        if let Ok(index) = self.nodes.binary_search_by_key(&id, |node| node.id) {
+        if let Some(index) = id_path
+            .first()
+            .and_then(|id| self.nodes.binary_search_by_key(id, |node| node.id).ok())
+        {
             let node = &mut self.nodes[index];
             node.for_id_path(id_path, visitor, context, store, backend)
         } else {

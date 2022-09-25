@@ -35,10 +35,12 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
-        context.with_id(|id, context| {
-            let children = self.children.render_children(context, store);
-            ViewNode::new(id, self.view, children, ComponentEnd::new())
-        })
+        let id = context.next_id();
+        context.begin_id(id);
+        let children = self.children.render_children(context, store);
+        let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
+        context.end_id();
+        node
     }
 
     fn update(

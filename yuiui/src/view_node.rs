@@ -391,9 +391,9 @@ where
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         context.begin_id(self.id);
-        let result = if self.id == Id::from_bottom(id_path) {
+        let result = if id_path.last() == Some(&self.id) {
             Some(visitor.visit(self, context, store, backend))
-        } else if self.id == Id::from_top(id_path) {
+        } else if id_path.first() == Some(&self.id) {
             debug_assert!(id_path.len() > 0);
             self.children
                 .for_id_path(&id_path[1..], visitor, context, store, backend)
@@ -436,9 +436,9 @@ where
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         context.begin_id(self.id);
-        let result = if self.id == Id::from_top(id_path) {
+        let result = if id_path.last() == Some(&self.id) {
             Some(visitor.visit(self, context, store, backend))
-        } else if self.id == Id::from_bottom(id_path) {
+        } else if id_path.first() == Some(&self.id) {
             debug_assert!(id_path.len() > 0);
             let id_path = &id_path[1..];
             self.children

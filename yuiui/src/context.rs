@@ -23,12 +23,8 @@ impl RenderContext {
         debug_assert!(old_id.is_some());
     }
 
-    pub(crate) fn with_id<F: FnOnce(Id, &mut Self) -> T, T>(&mut self, f: F) -> T {
-        let id = self.id_counter.next();
-        self.id_path.push(id);
-        let result = f(id, self);
-        self.id_path.pop();
-        result
+    pub(crate) fn next_id(&mut self) -> Id {
+        self.id_counter.next()
     }
 
     pub fn id_path(&self) -> &IdPath {
