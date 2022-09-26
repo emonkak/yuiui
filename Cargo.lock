@@ -825,7 +825,6 @@ dependencies = [
  "futures",
  "gtk4",
  "hlist",
- "slot_vec",
  "yuiui",
  "yuiui-gtk-derive",
 ]

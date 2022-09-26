@@ -11,7 +11,6 @@ either-macro = { path = "../either-macro" }
 futures = "0.3"
 gtk = { package = "gtk4", version = "0.4" }
 hlist = { path = "../hlist" }
-slot_vec = { path = "../slot_vec" }
 yuiui = { path = "../yuiui" }
 yuiui-gtk-derive = { path = "../yuiui-gtk-derive" }
 
