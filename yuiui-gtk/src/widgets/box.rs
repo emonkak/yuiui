@@ -70,16 +70,14 @@ where
     ) {
         match lifecycle {
             Lifecycle::Mount => {
-                let mut visitor = ReconcileChildrenVisitor::new(view_state);
-                children.for_each(&mut visitor, context, store, backend);
             }
             Lifecycle::Update(old_view) => {
                 self.update(&old_view, view_state);
-                let mut visitor = ReconcileChildrenVisitor::new(view_state);
-                children.for_each(&mut visitor, context, store, backend);
             }
             Lifecycle::Unmount => {}
         }
+        let mut visitor = ReconcileChildrenVisitor::new(view_state);
+        children.for_each(&mut visitor, context, store, backend);
     }
 
     fn build(
