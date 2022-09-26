@@ -2,7 +2,7 @@ use gtk::prelude::*;
 use hlist::hlist;
 use yuiui::{Effect, HigherOrderComponent, State, View};
 use yuiui_gtk::widgets::{Box as BoxView, Button, Label};
-use yuiui_gtk::{GtkElement, EntryPoint};
+use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
 struct AppState {
@@ -65,9 +65,10 @@ fn on_activate(application: &gtk::Application) {
         .default_width(320)
         .default_height(240)
         .build();
+    let entry_point = DefaultEntryPoint::from(window);
     let element = app.el();
     let state = AppState::default();
-    window.boot(element, state);
+    entry_point.boot(element, state);
 }
 
 fn main() {

@@ -74,7 +74,7 @@ where
     ) {
         match lifecycle {
             Lifecycle::Mount => {
-                let event_port = backend.event_port();
+                let event_port = backend.event_port().clone();
                 let id_path = context.id_path().to_vec();
                 view_state.clicked_signal = view_state
                     .widget

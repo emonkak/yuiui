@@ -69,8 +69,7 @@ where
         backend: &mut GtkBackend,
     ) {
         match lifecycle {
-            Lifecycle::Mount => {
-            }
+            Lifecycle::Mount => {}
             Lifecycle::Update(old_view) => {
                 self.update(&old_view, view_state);
             }
