@@ -1,4 +1,5 @@
 use std::fmt;
+use std::marker::PhantomData;
 
 use crate::context::MessageContext;
 use crate::element::{ComponentEl, Element};
@@ -23,32 +24,87 @@ pub trait Component<S, M, B>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, E, S, M, B> {
-    props: Props,
-    render_fn: fn(&Props, &S) -> E,
-    lifecycle_fn: Option<fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B)>,
+pub trait HigherOrderComponent<Props, S, M, B> {
+    type Component: Component<S, M, B>;
+
+    fn into_component(self, props: Props) -> Self::Component;
+
+    fn el(self) -> ComponentEl<Self::Component>
+    where
+        Self: Sized,
+        Props: Default,
+    {
+        self.into_component(Props::default()).el()
+    }
+
+    fn el_with(self, props: Props) -> ComponentEl<Self::Component>
+    where
+        Self: Sized,
+    {
+        self.into_component(props).el()
+    }
 }
 
-impl<Props, E, S, M, B> FunctionComponent<Props, E, S, M, B> {
-    pub fn new(props: Props, render_fn: fn(&Props, &S) -> E) -> Self {
-        Self {
+impl<Props, RenderFn, E, S, M, B> HigherOrderComponent<Props, S, M, B> for RenderFn
+where
+    RenderFn: Fn(&Props, &S) -> E,
+    E: Element<S, M, B>,
+{
+    type Component = FunctionComponent<
+        Props,
+        RenderFn,
+        fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+        E,
+        S,
+        M,
+        B,
+    >;
+
+    fn into_component(self, props: Props) -> Self::Component {
+        FunctionComponent {
             props,
-            render_fn,
-            lifecycle_fn: None,
+            render_fn: self,
+            lifecycle_fn: |_props, _lifecycle, _context, _state, _backend| {},
+            _phantom: PhantomData,
         }
     }
+}
 
-    pub fn lifecycle(
-        mut self,
-        lifecycle_fn: fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
-    ) -> Self {
-        self.lifecycle_fn = Some(lifecycle_fn);
-        self
+impl<Props, RenderFn, LifeCycleFn, E, S, M, B> HigherOrderComponent<Props, S, M, B>
+    for (RenderFn, LifeCycleFn)
+where
+    RenderFn: Fn(&Props, &S) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    E: Element<S, M, B>,
+{
+    type Component = FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>;
+
+    fn into_component(self, props: Props) -> Self::Component {
+        FunctionComponent {
+            props,
+            render_fn: self.0,
+            lifecycle_fn: self.1,
+            _phantom: PhantomData,
+        }
     }
 }
 
-impl<Props, E, S, M, B> Component<S, M, B> for FunctionComponent<Props, E, S, M, B>
+pub struct FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>
 where
+    RenderFn: Fn(&Props, &S) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+{
+    props: Props,
+    render_fn: RenderFn,
+    lifecycle_fn: LifeCycleFn,
+    _phantom: PhantomData<(E, S, M, B)>,
+}
+
+impl<Props, RenderFn, LifeCycleFn, E, S, M, B> Component<S, M, B>
+    for FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>
+where
+    RenderFn: Fn(&Props, &S) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
     E: Element<S, M, B>,
 {
     type Element = E;
@@ -60,10 +116,8 @@ where
         state: &S,
         backend: &mut B,
     ) {
-        if let Some(lifecycle_fn) = self.lifecycle_fn {
-            let lifecycle = lifecycle.map(|component| component.props);
-            lifecycle_fn(&self.props, lifecycle, context, state, backend)
-        }
+        let lifecycle = lifecycle.map(|component| component.props);
+        (self.lifecycle_fn)(&self.props, lifecycle, context, state, backend)
     }
 
     fn render(&self, state: &S) -> Self::Element {
@@ -71,21 +125,11 @@ where
     }
 }
 
-impl<Props, E, S, M, B> Clone for FunctionComponent<Props, E, S, M, B>
+impl<Props, RenderFn, LifeCycleFn, E, S, M, B> fmt::Debug
+    for FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>
 where
-    Props: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            props: self.props.clone(),
-            render_fn: self.render_fn.clone(),
-            lifecycle_fn: self.lifecycle_fn.clone(),
-        }
-    }
-}
-
-impl<Props, E, S, M, B> fmt::Debug for FunctionComponent<Props, E, S, M, B>
-where
+    RenderFn: Fn(&Props, &S) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
     Props: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

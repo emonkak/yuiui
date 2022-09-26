@@ -51,7 +51,7 @@ where
 
 impl<Head, Tail: HList> private::Sealed for HCons<Head, Tail> {}
 
-#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct HNil;
 
 impl HList for HNil {

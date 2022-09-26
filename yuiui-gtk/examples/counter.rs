@@ -1,8 +1,8 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Component, ComponentEl, Effect, FunctionComponent, State, Store, View};
+use yuiui::{Effect, HigherOrderComponent, State, Store, View};
 use yuiui_gtk::widgets::{Box as BoxView, Button, Label};
-use yuiui_gtk::{Application, GtkBackend, GtkElement};
+use yuiui_gtk::{Application, GtkElement};
 
 fn main() {
     let application = gtk::Application::new(None, Default::default());
@@ -18,7 +18,7 @@ fn on_activate(application: &gtk::Application) {
         .build();
 
     let application = Application::new(application.clone(), window.clone());
-    let element = app();
+    let element = app.el();
     let store = Store::new(AppState::default());
 
     application.start(element, store);
@@ -26,37 +26,32 @@ fn on_activate(application: &gtk::Application) {
     window.show();
 }
 
-fn app() -> ComponentEl<
-    FunctionComponent<(), impl GtkElement<AppState, AppMessage>, AppState, AppMessage, GtkBackend>,
-> {
-    FunctionComponent::new((), |_props, state: &AppState| {
-        BoxView::new()
-            .orientation(gtk::Orientation::Vertical)
-            .el_with(hlist![
-                BoxView::new()
-                    .orientation(gtk::Orientation::Horizontal)
-                    .el_with(hlist![
-                        Button::new()
-                            .on_click(Box::new(|_| AppMessage::Decrement))
-                            .el_with(
-                                Label::new()
-                                    .label("-".to_owned())
-                                    .halign(gtk::Align::Center)
-                                    .el()
-                            ),
-                        Button::new()
-                            .on_click(Box::new(|_| AppMessage::Increment))
-                            .el_with(
-                                Label::new()
-                                    .label("+".to_owned())
-                                    .halign(gtk::Align::Center)
-                                    .el()
-                            ),
-                    ]),
-                Label::new().label(state.count.to_string()).el(),
-            ])
-    })
-    .el()
+fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
+    BoxView::new()
+        .orientation(gtk::Orientation::Vertical)
+        .el_with(hlist![
+            BoxView::new()
+                .orientation(gtk::Orientation::Horizontal)
+                .el_with(hlist![
+                    Button::new()
+                        .on_click(Box::new(|_| AppMessage::Decrement))
+                        .el_with(
+                            Label::new()
+                                .label("-".to_owned())
+                                .halign(gtk::Align::Center)
+                                .el()
+                        ),
+                    Button::new()
+                        .on_click(Box::new(|_| AppMessage::Increment))
+                        .el_with(
+                            Label::new()
+                                .label("+".to_owned())
+                                .halign(gtk::Align::Center)
+                                .el()
+                        ),
+                ]),
+            Label::new().label(state.count.to_string()).el(),
+        ])
 }
 
 #[derive(Default)]

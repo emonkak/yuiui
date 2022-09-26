@@ -42,10 +42,10 @@ fn app() -> impl DebuggableElement<AppState, AppMessage, ()> {
             }
         }),
         Text::new("!").el(),
-        button(ButtonProps {
+        button.el_with(ButtonProps {
             label: "click me!".into(),
         }),
-        counter().connect(
+        counter.el().connect(
             |state: &AppState| &state.counter_store,
             AppMessage::CounterMessage,
         ),
@@ -141,13 +141,8 @@ pub struct ButtonProps {
     pub label: Cow<'static, str>,
 }
 
-pub fn button<S, M, B>(
-    props: ButtonProps,
-) -> ComponentEl<FunctionComponent<ButtonProps, impl DebuggableElement<S, M, B>, S, M, B>> {
-    FunctionComponent::new(props, |props, _state| {
-        Block::new().el_with(Text::new(props.label.clone()).el())
-    })
-    .el()
+pub fn button<S, M, B>(props: &ButtonProps, _state: &S) -> impl DebuggableElement<S, M, B> {
+    Block::new().el_with(Text::new(props.label.clone()).el())
 }
 
 #[derive(Debug)]
@@ -178,17 +173,9 @@ impl State for CounterState {
     }
 }
 
-fn counter<B>() -> ComponentEl<
-    FunctionComponent<
-        (),
-        impl DebuggableElement<CounterState, CounterMessage, B>,
-        CounterState,
-        CounterMessage,
-        B,
-    >,
-> {
-    FunctionComponent::new((), |_props, state: &CounterState| {
-        Block::new().el_with(Text::new(format!("{}", state.count)).el())
-    })
-    .el()
+fn counter<B>(
+    _props: &(),
+    state: &CounterState,
+) -> impl DebuggableElement<CounterState, CounterMessage, B> {
+    Block::new().el_with(Text::new(format!("{}", state.count)).el())
 }
