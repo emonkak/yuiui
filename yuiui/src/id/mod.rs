@@ -1,17 +1,29 @@
 pub mod id_tree;
 
 pub use id_tree::IdTree;
+pub use std::num::NonZeroUsize;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Id(usize);
+pub struct Id(NonZeroUsize);
 
 impl Id {
-    pub const ROOT: Self = Self(0);
+    pub const ROOT: Self = Self(unsafe { NonZeroUsize::new_unchecked(1) });
+
+    fn new(id: usize) -> Self {
+        assert!(id > 0);
+        Self(unsafe { NonZeroUsize::new_unchecked(id) })
+    }
+}
+
+impl Into<NonZeroUsize> for Id {
+    fn into(self) -> NonZeroUsize {
+        self.0
+    }
 }
 
 impl Into<usize> for Id {
     fn into(self) -> usize {
-        self.0
+        self.0.get()
     }
 }
 
@@ -28,12 +40,12 @@ pub struct IdCounter {
 
 impl IdCounter {
     pub fn new() -> Self {
-        Self { count: 0 }
+        Self { count: 1 }
     }
 
     pub fn next(&mut self) -> Id {
         let id = self.count;
         self.count += 1;
-        Id(id)
+        Id::new(id)
     }
 }
