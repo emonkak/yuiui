@@ -45,52 +45,53 @@ pub trait HigherOrderComponent<Props, S, M, B> {
     }
 }
 
-impl<Props, RenderFn, E, S, M, B> HigherOrderComponent<Props, S, M, B> for RenderFn
+impl<Props, E, S, M, B, RenderFn> HigherOrderComponent<Props, S, M, B> for RenderFn
 where
-    RenderFn: Fn(&Props, &S) -> E,
     E: Element<S, M, B>,
+    RenderFn: Fn(&Props, &S) -> E,
 {
     type Component = FunctionComponent<
         Props,
-        RenderFn,
-        fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
         E,
         S,
         M,
         B,
+        RenderFn,
+        fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
     >;
 
     fn into_component(self, props: Props) -> Self::Component {
-        FunctionComponent {
+        FunctionComponent::new(
             props,
-            render_fn: self,
-            lifecycle_fn: |_props, _lifecycle, _context, _state, _backend| {},
-            _phantom: PhantomData,
-        }
+            self,
+            |_props, _lifecycle, _context, _state, _backend| {},
+        )
     }
 }
 
-impl<Props, RenderFn, LifeCycleFn, E, S, M, B> HigherOrderComponent<Props, S, M, B>
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn> HigherOrderComponent<Props, S, M, B>
     for (RenderFn, LifeCycleFn)
 where
+    E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
-    E: Element<S, M, B>,
 {
-    type Component = FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>;
+    type Component = FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>;
 
     fn into_component(self, props: Props) -> Self::Component {
-        FunctionComponent {
-            props,
-            render_fn: self.0,
-            lifecycle_fn: self.1,
-            _phantom: PhantomData,
-        }
+        FunctionComponent::new(props, self.0, self.1)
     }
 }
 
-pub struct FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>
-where
+pub struct FunctionComponent<
+    Props,
+    E,
+    S,
+    M,
+    B,
+    RenderFn = fn(&Props, &S) -> E,
+    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+> where
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
 {
@@ -100,8 +101,24 @@ where
     _phantom: PhantomData<(E, S, M, B)>,
 }
 
-impl<Props, RenderFn, LifeCycleFn, E, S, M, B> Component<S, M, B>
-    for FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn>
+    FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
+where
+    RenderFn: Fn(&Props, &S) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+{
+    pub fn new(props: Props, render_fn: RenderFn, lifecycle_fn: LifeCycleFn) -> Self {
+        Self {
+            props,
+            render_fn,
+            lifecycle_fn,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Component<S, M, B>
+    for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
@@ -125,8 +142,8 @@ where
     }
 }
 
-impl<Props, RenderFn, LifeCycleFn, E, S, M, B> fmt::Debug
-    for FunctionComponent<Props, RenderFn, LifeCycleFn, E, S, M, B>
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
+    for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
