@@ -1,29 +1,34 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Effect, HigherOrderComponent, State, Store, View};
+use yuiui::{Effect, HigherOrderComponent, State, View};
 use yuiui_gtk::widgets::{Box as BoxView, Button, Label};
-use yuiui_gtk::{Application, GtkElement};
+use yuiui_gtk::{GtkElement, EntryPoint};
 
-fn main() {
-    let application = gtk::Application::new(None, Default::default());
-    application.connect_activate(on_activate);
-    application.run();
+#[derive(Debug, Default)]
+struct AppState {
+    count: i64,
 }
 
-fn on_activate(application: &gtk::Application) {
-    let window = gtk::ApplicationWindow::builder()
-        .application(application)
-        .default_width(320)
-        .default_height(240)
-        .build();
+impl State for AppState {
+    type Message = AppMessage;
 
-    let application = Application::new(application.clone(), window.clone());
-    let element = app.el();
-    let store = Store::new(AppState::default());
+    fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
+        match message {
+            AppMessage::Increment => {
+                self.count += 1;
+            }
+            AppMessage::Decrement => {
+                self.count -= 1;
+            }
+        }
+        (true, Effect::none())
+    }
+}
 
-    application.start(element, store);
-
-    window.show();
+#[derive(Debug)]
+enum AppMessage {
+    Increment,
+    Decrement,
 }
 
 fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
@@ -54,29 +59,19 @@ fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
         ])
 }
 
-#[derive(Default)]
-struct AppState {
-    count: i64,
+fn on_activate(application: &gtk::Application) {
+    let window = gtk::ApplicationWindow::builder()
+        .application(application)
+        .default_width(320)
+        .default_height(240)
+        .build();
+    let element = app.el();
+    let state = AppState::default();
+    window.boot(element, state);
 }
 
-impl State for AppState {
-    type Message = AppMessage;
-
-    fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
-        match message {
-            AppMessage::Increment => {
-                self.count += 1;
-            }
-            AppMessage::Decrement => {
-                self.count -= 1;
-            }
-        }
-        (true, Effect::none())
-    }
-}
-
-#[derive(Debug)]
-enum AppMessage {
-    Increment,
-    Decrement,
+fn main() {
+    let application = gtk::Application::new(None, Default::default());
+    application.connect_activate(on_activate);
+    application.run();
 }

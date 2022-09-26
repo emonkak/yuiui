@@ -8,20 +8,14 @@ use crate::execution_context::{ExecutionContext, RenderAction};
 
 const DEALINE_PERIOD: Duration = Duration::from_millis(50);
 
-pub struct Application {
-    application: gtk::Application,
-    window: gtk::ApplicationWindow,
-}
-
-impl Application {
-    pub fn new(application: gtk::Application, window: gtk::ApplicationWindow) -> Self {
-        Self {
-            application,
-            window,
-        }
+pub trait EntryPoint: AsRef<gtk::Window> {
+    fn attach_widget(&self, widget: &gtk::Widget) {
+        let window = self.as_ref();
+        window.set_child(Some(widget));
+        window.show();
     }
 
-    pub fn start<E, S, M>(self, element: E, mut store: Store<S>)
+    fn boot<E, S, M>(&self, element: E, state: S)
     where
         E: Element<S, M, GtkBackend> + 'static,
         <E::View as View<S, M, GtkBackend>>::State: AsRef<gtk::Widget>,
@@ -30,18 +24,16 @@ impl Application {
     {
         let (event_tx, event_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (action_tx, action_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-
         let context = ExecutionContext::new(glib::MainContext::default(), action_tx.clone());
 
-        let mut backend = GtkBackend::new(self.application, self.window, event_tx);
+        let mut store = Store::new(state);
+        let mut backend = GtkBackend::new(self.as_ref().clone(), event_tx);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
         render_loop.run_forever(&context, &mut store, &mut backend);
 
-        {
-            let widget = render_loop.node().state().as_view_state().unwrap().as_ref();
-            backend.window().set_child(Some(widget));
-        }
+        let widget = render_loop.node().state().as_view_state().unwrap().as_ref();
+        self.attach_widget(widget);
 
         event_rx.attach(None, move |(event, destination)| {
             action_tx
@@ -71,4 +63,10 @@ impl Application {
             glib::Continue(true)
         });
     }
+}
+
+impl EntryPoint for gtk::ApplicationWindow {
+}
+
+impl EntryPoint for gtk::Window {
 }

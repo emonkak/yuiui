@@ -4,29 +4,22 @@ use yuiui::EventDestination;
 
 #[derive(Debug)]
 pub struct GtkBackend {
-    application: gtk::Application,
-    window: gtk::ApplicationWindow,
+    window: gtk::Window,
     event_port: glib::Sender<(Box<dyn Any + Send>, EventDestination)>,
 }
 
 impl GtkBackend {
     pub(super) fn new(
-        application: gtk::Application,
-        window: gtk::ApplicationWindow,
+        window: gtk::Window,
         event_port: glib::Sender<(Box<dyn Any + Send>, EventDestination)>,
     ) -> Self {
         Self {
-            application,
             window,
             event_port,
         }
     }
 
-    pub fn application(&self) -> &gtk::Application {
-        &self.application
-    }
-
-    pub fn window(&self) -> &gtk::ApplicationWindow {
+    pub fn window(&self) -> &gtk::Window {
         &self.window
     }
 
