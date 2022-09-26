@@ -462,14 +462,14 @@ where
 }
 
 #[derive(Debug)]
-pub enum ViewNodeState<V, S> {
+pub enum ViewNodeState<V, VS> {
     Uninitialized(V),
-    Prepared(V, S),
-    Pending(V, V, S),
+    Prepared(V, VS),
+    Pending(V, V, VS),
 }
 
-impl<V, S> ViewNodeState<V, S> {
-    pub fn map_view<F, W>(self, f: F) -> ViewNodeState<W, S>
+impl<V, VS> ViewNodeState<V, VS> {
+    pub fn map_view<F, W>(self, f: F) -> ViewNodeState<W, VS>
     where
         F: Fn(V) -> W,
     {
@@ -488,7 +488,7 @@ impl<V, S> ViewNodeState<V, S> {
         }
     }
 
-    pub fn as_view_state(&self) -> Option<&S> {
+    pub fn as_view_state(&self) -> Option<&VS> {
         match self {
             ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
                 Some(view_state)
