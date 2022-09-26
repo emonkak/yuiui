@@ -15,15 +15,15 @@ pub trait ComponentStack<S, M, B> {
     type View: View<S, M, B>;
 
     fn update<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool;
 
-    fn commit(
-        &mut self,
+    fn commit<'a>(
+        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
@@ -44,14 +44,14 @@ where
     type View = <C::Element as Element<S, M, B>>::View;
 
     fn update<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
         let (head, tail) = node.components;
-        let mut node = ViewNodeMut {
+        let node = ViewNodeMut {
             id: node.id,
             state: node.state,
             children: node.children,
@@ -60,14 +60,14 @@ where
         };
         if target_depth <= current_depth {
             let element = head.component.render(store);
-            element.update(&mut node, context, store)
+            element.update(node, context, store)
         } else {
-            CS::update(&mut node, target_depth, current_depth + 1, context, store)
+            CS::update(node, target_depth, current_depth + 1, context, store)
         }
     }
 
-    fn commit(
-        &mut self,
+    fn commit<'a>(
+        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
@@ -75,10 +75,19 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
+        let (head, tail) = node.components;
+        let node = ViewNodeMut {
+            id: node.id,
+            state: node.state,
+            children: node.children,
+            components: tail,
+            dirty: node.dirty,
+        };
         if target_depth <= current_depth {
-            self.0.commit(mode, context, store, backend)
+            head.commit(mode, node.as_view_ref(), context, store, backend)
         } else {
-            self.1.commit(
+            CS::commit(
+                node,
                 mode,
                 target_depth,
                 current_depth + 1,
@@ -105,7 +114,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
     type View = V;
 
     fn update<'a>(
-        _node: &mut ViewNodeMut<'a, V, Self, S, M, B>,
+        _node: ViewNodeMut<'a, V, Self, S, M, B>,
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut RenderContext,
@@ -114,8 +123,8 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
         false
     }
 
-    fn commit(
-        &mut self,
+    fn commit<'a>(
+        _node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         _mode: CommitMode,
         _target_depth: Depth,
         _current_depth: Depth,

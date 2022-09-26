@@ -17,7 +17,7 @@ mod view_node;
 
 pub use cancellation_token::{CancellationToken, RawToken, RawTokenVTable};
 pub use command::{Command, ExecutionContext};
-pub use component::{Component, ComponentLifecycle, FunctionComponent, HigherOrderComponent};
+pub use component::{Component, ComponentProps, FunctionComponent, HigherOrderComponent};
 pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
 pub use context::{MessageContext, RenderContext};
@@ -29,4 +29,4 @@ pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{State, Store};
 pub use traversable::{Traversable, Visitor};
 pub use view::View;
-pub use view_node::{CommitMode, ViewNode, ViewNodeSeq};
+pub use view_node::{CommitMode, ViewNode, ViewNodeSeq, ViewRef};

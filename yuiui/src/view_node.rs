@@ -113,9 +113,9 @@ where
             CommitMode::Mount | CommitMode::Update => {
                 self.children.commit(mode, context, store, backend)
             }
-            CommitMode::Unmount => self
-                .components
-                .commit(mode, depth, 0, context, store, backend),
+            CommitMode::Unmount => {
+                CS::commit(self.borrow_mut(), mode, depth, 0, context, store, backend)
+            }
         };
 
         let (result, node_state) = match (mode, self.state.take().unwrap()) {
@@ -209,9 +209,9 @@ where
         self.dirty = false;
 
         let post_result = match mode {
-            CommitMode::Mount | CommitMode::Update => self
-                .components
-                .commit(mode, depth, 0, context, store, backend),
+            CommitMode::Mount | CommitMode::Update => {
+                CS::commit(self.borrow_mut(), mode, depth, 0, context, store, backend)
+            }
             CommitMode::Unmount => self.children.commit(mode, context, store, backend),
         };
 
@@ -287,6 +287,34 @@ pub struct ViewNodeMut<'a, V: View<S, M, B>, CS: ?Sized, S, M, B> {
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) dirty: &'a mut bool,
+}
+
+impl<'a, V: View<S, M, B>, CS: ?Sized, S, M, B> ViewNodeMut<'a, V, CS, S, M, B> {
+    pub(crate) fn as_view_ref(&self) -> ViewRef<'_, V, S, M, B> {
+        ViewRef {
+            state: self.state,
+            children: self.children,
+        }
+    }
+}
+
+pub struct ViewRef<'a, V: View<S, M, B>, S, M, B> {
+    state: &'a Option<ViewNodeState<V, V::State>>,
+    children: &'a <V::Children as ElementSeq<S, M, B>>::Storage,
+}
+
+impl<'a, V: View<S, M, B>, S, M, B> ViewRef<'a, V, S, M, B> {
+    pub fn view(&self) -> &V {
+        self.state.as_ref().unwrap().as_view()
+    }
+
+    pub fn view_state(&self) -> &V::State {
+        self.state.as_ref().unwrap().as_view_state().unwrap()
+    }
+
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
+        &self.children
+    }
 }
 
 pub trait ViewNodeSeq<S, M, B>:

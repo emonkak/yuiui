@@ -29,7 +29,7 @@ pub trait Element<S, M, B>: Sized + ElementSeq<S, M, B> {
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool;

@@ -43,7 +43,7 @@ where
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update(&mut node.borrow_mut(), context, store);
+            has_changed |= element.update(node.borrow_mut(), context, store);
         }
 
         storage.dirty |= has_changed;

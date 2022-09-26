@@ -49,7 +49,7 @@ where
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
@@ -81,7 +81,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, store)
+        self.update(storage.borrow_mut(), context, store)
     }
 }
 

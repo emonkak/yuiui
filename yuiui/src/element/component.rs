@@ -49,7 +49,7 @@ where
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
@@ -57,14 +57,14 @@ where
         let element = self.component.render(store);
         head_node.pending_component = Some(self.component);
         *node.dirty = true;
-        let mut node = ViewNodeMut {
+        let node = ViewNodeMut {
             id: node.id,
             state: node.state,
             children: node.children,
             components: tail_nodes,
             dirty: node.dirty,
         };
-        element.update(&mut node, context, store)
+        element.update(node, context, store)
     }
 }
 
@@ -85,7 +85,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
-        self.update(&mut storage.borrow_mut(), context, store)
+        self.update(storage.borrow_mut(), context, store)
     }
 }
 

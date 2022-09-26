@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use crate::context::MessageContext;
 use crate::element::{ComponentEl, Element};
 use crate::event::Lifecycle;
+use crate::view_node::ViewRef;
 
 pub trait Component<S, M, B>: Sized {
     type Element: Element<S, M, B>;
@@ -11,6 +12,7 @@ pub trait Component<S, M, B>: Sized {
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<Self>,
+        _view_ref: ViewRef<'_, <Self::Element as Element<S, M, B>>::View, S, M, B>,
         _context: &mut MessageContext<M>,
         _state: &S,
         _backend: &mut B,
@@ -24,7 +26,7 @@ pub trait Component<S, M, B>: Sized {
     }
 }
 
-pub trait ComponentLifecycle<S, M, B>: Sized {
+pub trait ComponentProps<S, M, B>: Sized {
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<Self>,
@@ -35,7 +37,7 @@ pub trait ComponentLifecycle<S, M, B>: Sized {
     }
 }
 
-impl<S, M, B> ComponentLifecycle<S, M, B> for () {}
+impl<S, M, B> ComponentProps<S, M, B> for () {}
 
 pub trait HigherOrderComponent<Props, S, M, B> {
     type Component: Component<S, M, B>;
@@ -62,7 +64,7 @@ impl<Props, E, S, M, B, RenderFn> HigherOrderComponent<Props, S, M, B> for Rende
 where
     E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
-    Props: ComponentLifecycle<S, M, B>,
+    Props: ComponentProps<S, M, B>,
 {
     type Component = FunctionComponent<
         Props,
@@ -125,6 +127,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
+        _view_ref: ViewRef<'_, <Self::Element as Element<S, M, B>>::View, S, M, B>,
         context: &mut MessageContext<M>,
         state: &S,
         backend: &mut B,

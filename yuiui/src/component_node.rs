@@ -4,9 +4,10 @@ use std::mem;
 
 use crate::component::Component;
 use crate::context::MessageContext;
+use crate::element::Element;
 use crate::event::Lifecycle;
 use crate::state::Store;
-use crate::view_node::CommitMode;
+use crate::view_node::{CommitMode, ViewRef};
 
 pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
     pub(crate) component: C,
@@ -29,6 +30,7 @@ where
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,
+        view_ref: ViewRef<'_, <C::Element as Element<S, M, B>>::View, S, M, B>,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         backend: &mut B,
@@ -36,7 +38,7 @@ where
         match mode {
             CommitMode::Mount => {
                 self.component
-                    .lifecycle(Lifecycle::Mount, context, store, backend);
+                    .lifecycle(Lifecycle::Mount, view_ref, context, store, backend);
                 true
             }
             CommitMode::Update => {
@@ -44,6 +46,7 @@ where
                     let old_component = mem::replace(&mut self.component, pending_component);
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
+                        view_ref,
                         context,
                         store,
                         backend,
@@ -55,7 +58,7 @@ where
             }
             CommitMode::Unmount => {
                 self.component
-                    .lifecycle(Lifecycle::Unmount, context, store, backend);
+                    .lifecycle(Lifecycle::Unmount, view_ref, context, store, backend);
                 true
             }
         }

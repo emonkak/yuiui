@@ -86,12 +86,12 @@ where
 
     fn update(
         self,
-        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        mut node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
-        with_sub_node(node, |sub_node| {
+        with_sub_node(&mut node, |sub_node| {
             self.target.update(sub_node, context, sub_store)
         })
     }
@@ -231,7 +231,7 @@ where
     type View = Connect<T::View, S, M, SS, SM>;
 
     fn update<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        mut node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
@@ -239,13 +239,13 @@ where
     ) -> bool {
         let store_selector = &node.components.store_selector;
         let sub_store = store_selector(store);
-        with_sub_node(node, |sub_node| {
+        with_sub_node(&mut node, |sub_node| {
             T::update(sub_node, target_depth, current_depth, context, sub_store)
         })
     }
 
-    fn commit(
-        &mut self,
+    fn commit<'a>(
+        mut node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
@@ -253,22 +253,27 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let store_selector = &node.components.store_selector;
+        let sub_store = (store_selector)(store);
         match mode {
             CommitMode::Mount => sub_store.subscribe(context.id_path().to_vec(), current_depth),
             CommitMode::Unmount => sub_store.unsubscribe(context.id_path(), current_depth),
             CommitMode::Update => {}
         }
         let mut sub_context = context.new_sub_context();
-        let result = self.target.commit(
-            mode,
-            target_depth,
-            current_depth,
-            &mut sub_context,
-            sub_store,
-            backend,
-        );
-        context.merge_sub_context(sub_context, &self.message_selector);
+        let result = with_sub_node(&mut node, |sub_node| {
+            T::commit(
+                sub_node,
+                mode,
+                target_depth,
+                current_depth,
+                &mut sub_context,
+                sub_store,
+                backend,
+            )
+        });
+        let message_selector = &node.components.message_selector;
+        context.merge_sub_context(sub_context, message_selector);
         result
     }
 }
@@ -349,7 +354,7 @@ fn with_sub_node<Callback, Output, S, M, SS, SM, V, CS, B>(
     callback: Callback,
 ) -> Output
 where
-    Callback: FnOnce(&mut ViewNodeMut<V, CS, SS, SM, B>) -> Output,
+    Callback: FnOnce(ViewNodeMut<V, CS, SS, SM, B>) -> Output,
     V: View<SS, SM, B>,
     CS: ComponentStack<SS, SM, B, View = V>,
 {
@@ -359,14 +364,14 @@ where
         .state
         .take()
         .map(|state| state.map_view(|view| view.target));
-    let mut sub_node = ViewNodeMut {
+    let sub_node = ViewNodeMut {
         id: node.id,
         state: &mut sub_node_state,
         children: &mut node.children.target,
         components: &mut node.components.target,
         dirty: &mut node.dirty,
     };
-    let result = callback(&mut sub_node);
+    let result = callback(sub_node);
     *node.state = sub_node_state.map(|state| {
         state.map_view(|view| Connect::new(view, store_selector.clone(), message_selector.clone()))
     });
