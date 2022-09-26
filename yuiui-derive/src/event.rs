@@ -7,26 +7,11 @@ pub struct EventDerive {
 }
 
 impl EventDerive {
-    pub fn from_struct(name: syn::Ident, data: syn::DataStruct) -> Self {
+    pub fn from_enum(item: syn::ItemEnum) -> Self {
+        let name = item.ident;
         let mut variants = vec![];
 
-        assert_eq!(data.fields.len(), 1, "struct must have only one field");
-
-        for field in data.fields {
-            let construct = match &field.ident {
-                Some(field_name) => quote!(#name { #field_name: event }),
-                None => quote!(#name(event)),
-            };
-            variants.push((field.ty, construct));
-        }
-
-        Self { name, variants }
-    }
-
-    pub fn from_enum(name: syn::Ident, data: syn::DataEnum) -> Self {
-        let mut variants = vec![];
-
-        for variant in data.variants {
+        for variant in item.variants {
             assert_eq!(
                 variant.fields.len(),
                 1,
