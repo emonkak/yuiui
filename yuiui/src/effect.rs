@@ -64,15 +64,3 @@ impl<T> From<Vec<(Command<T>, Option<CancellationToken>)>> for Effect<T> {
         }
     }
 }
-
-impl<T> Extend<Self> for Effect<T> {
-    fn extend<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = Self>,
-    {
-        for effect in iter {
-            self.commands.extend(effect.commands);
-            self.subscribers.extend(effect.subscribers);
-        }
-    }
-}
