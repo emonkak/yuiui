@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentEnd;
-use crate::context::RenderContext;
+use crate::context::{IdContext, RenderContext};
 use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
@@ -36,10 +36,10 @@ where
         store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let id = context.next_id();
-        context.begin_id(id);
+        context.push_id(id);
         let children = self.children.render_children(context, store);
         let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
-        context.end_id();
+        context.pop_id();
         node
     }
 
@@ -49,7 +49,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
-        context.begin_id(node.id);
+        context.push_id(node.id);
 
         self.children.update_children(node.children, context, store);
 
@@ -62,7 +62,7 @@ where
         });
         *node.dirty = true;
 
-        context.end_id();
+        context.pop_id();
 
         true
     }

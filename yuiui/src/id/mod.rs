@@ -13,6 +13,16 @@ impl Id {
         assert!(id > 0);
         Self(unsafe { NonZeroUsize::new_unchecked(id) })
     }
+
+    pub fn is_root(&self) -> bool {
+        self.0.get() == 1
+    }
+}
+
+impl<'a> From<&'a IdPath> for Id {
+    fn from(id_path: &'a IdPath) -> Self {
+        id_path.last().copied().unwrap_or(Id::ROOT)
+    }
 }
 
 impl Into<NonZeroUsize> for Id {

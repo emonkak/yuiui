@@ -212,16 +212,16 @@ mod tests {
         //      +--- 3 ---- 7 --- *8
         let id_tree = IdTree::from_iter([
             (vec![], 1),
-            (vec![Id::new(1)], 2),
-            (vec![Id::new(1), Id::new(4)], 3),
-            (vec![Id::new(2), Id::new(5)], 4),
-            (vec![Id::new(2), Id::new(6)], 5),
-            (vec![Id::new(3), Id::new(7), Id::new(8)], 6),
+            (vec![Id::new(2)], 2),
+            (vec![Id::new(2), Id::new(5)], 3),
+            (vec![Id::new(3), Id::new(6)], 4),
+            (vec![Id::new(3), Id::new(7)], 5),
+            (vec![Id::new(4), Id::new(8), Id::new(9)], 6),
         ]);
 
         assert_eq!(
             id_tree.root().current(),
-            &Node::new(Id::ROOT, Some(1), vec![1, 2, 3])
+            &Node::new(Id::new(1), Some(1), vec![1, 2, 3])
         );
 
         let children = id_tree
@@ -232,9 +232,9 @@ mod tests {
         assert_eq!(
             children,
             vec![
-                Node::new(Id::new(1), Some(2), vec![4]),
-                Node::new(Id::new(2), None, vec![5, 6]),
-                Node::new(Id::new(3), None, vec![7]),
+                Node::new(Id::new(2), Some(2), vec![4]),
+                Node::new(Id::new(3), None, vec![5, 6]),
+                Node::new(Id::new(4), None, vec![7]),
             ]
         );
 
@@ -245,15 +245,15 @@ mod tests {
         assert_eq!(
             descendants,
             vec![
-                Node::new(Id::new(0), Some(1), vec![1, 2, 3]),
-                Node::new(Id::new(1), Some(2), vec![4]),
-                Node::new(Id::new(2), None, vec![5, 6]),
-                Node::new(Id::new(3), None, vec![7]),
-                Node::new(Id::new(4), Some(3), vec![]),
-                Node::new(Id::new(5), Some(4), vec![]),
-                Node::new(Id::new(6), Some(5), vec![]),
-                Node::new(Id::new(7), None, vec![8]),
-                Node::new(Id::new(8), Some(6), vec![]),
+                Node::new(Id::new(1), Some(1), vec![1, 2, 3]),
+                Node::new(Id::new(2), Some(2), vec![4]),
+                Node::new(Id::new(3), None, vec![5, 6]),
+                Node::new(Id::new(4), None, vec![7]),
+                Node::new(Id::new(5), Some(3), vec![]),
+                Node::new(Id::new(6), Some(4), vec![]),
+                Node::new(Id::new(7), Some(5), vec![]),
+                Node::new(Id::new(8), None, vec![8]),
+                Node::new(Id::new(9), Some(6), vec![]),
             ]
         );
     }

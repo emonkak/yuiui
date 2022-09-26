@@ -9,7 +9,7 @@ use std::fmt;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{MessageContext, RenderContext};
+use crate::context::{IdContext, MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
 use crate::event::{Event, EventListener, EventMask};
@@ -107,7 +107,7 @@ where
             return false;
         }
 
-        context.begin_id(self.id);
+        context.push_id(self.id);
 
         let pre_result = match mode {
             CommitMode::Mount | CommitMode::Update => {
@@ -215,7 +215,7 @@ where
             CommitMode::Unmount => self.children.commit(mode, context, store, backend),
         };
 
-        context.end_id();
+        context.pop_id();
 
         pre_result | result | post_result
     }
@@ -351,25 +351,26 @@ where
     }
 }
 
-impl<'a, V, CS, S, M, B, Visitor> Traversable<Visitor, RenderContext, Visitor::Output, S, B>
+impl<'a, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, Visitor::Output, S, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,
     <V::Children as ElementSeq<S, M, B>>::Storage:
-        Traversable<Visitor, RenderContext, Visitor::Output, S, B>,
+        Traversable<Visitor, Context, Visitor::Output, S, B>,
     CS: ComponentStack<S, M, B, View = V>,
-    Visitor: self::Visitor<Self, S, B, Context = RenderContext>,
+    Visitor: self::Visitor<Self, S, B, Context = Context>,
+    Context: IdContext,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut RenderContext,
+        context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
     ) -> Visitor::Output {
-        context.begin_id(self.id);
+        context.push_id(self.id);
         let result = visitor.visit(self, context, store, backend);
-        context.end_id();
+        context.pop_id();
         result
     }
 
@@ -377,67 +378,23 @@ where
         &mut self,
         id_path: &IdPath,
         visitor: &mut Visitor,
-        context: &mut RenderContext,
+        context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
-        context.begin_id(self.id);
-        let result = if id_path.last() == Some(&self.id) {
+        context.push_id(self.id);
+        let result = if Id::from(id_path) == self.id {
             Some(visitor.visit(self, context, store, backend))
-        } else if id_path.first() == Some(&self.id) {
-            debug_assert!(id_path.len() > 0);
+        } else if self.id.is_root() {
             self.children
-                .for_id_path(&id_path[1..], visitor, context, store, backend)
-        } else {
-            None
-        };
-        context.end_id();
-        result
-    }
-}
-
-impl<'a, V, CS, S, M, B, Visitor> Traversable<Visitor, MessageContext<M>, Visitor::Output, S, B>
-    for ViewNode<V, CS, S, M, B>
-where
-    V: View<S, M, B>,
-    <V::Children as ElementSeq<S, M, B>>::Storage:
-        Traversable<Visitor, MessageContext<M>, Visitor::Output, S, B>,
-    CS: ComponentStack<S, M, B, View = V>,
-    Visitor: self::Visitor<Self, S, B, Context = MessageContext<M>>,
-{
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        backend: &mut B,
-    ) -> Visitor::Output {
-        context.begin_id(self.id);
-        let result = visitor.visit(self, context, store, backend);
-        context.end_id();
-        result
-    }
-
-    fn for_id_path(
-        &mut self,
-        id_path: &IdPath,
-        visitor: &mut Visitor,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        backend: &mut B,
-    ) -> Option<Visitor::Output> {
-        context.begin_id(self.id);
-        let result = if id_path.last() == Some(&self.id) {
-            Some(visitor.visit(self, context, store, backend))
-        } else if id_path.first() == Some(&self.id) {
-            debug_assert!(id_path.len() > 0);
-            let id_path = &id_path[1..];
+                .for_id_path(id_path, visitor, context, store, backend)
+        } else if let Some((_, id_path)) = id_path.split_first().filter(|(&id, _)| id == self.id) {
             self.children
                 .for_id_path(id_path, visitor, context, store, backend)
         } else {
             None
         };
-        context.end_id();
+        context.pop_id();
         result
     }
 }

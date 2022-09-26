@@ -1,5 +1,11 @@
 use crate::id::{Id, IdCounter, IdPath, IdPathBuf};
 
+pub trait IdContext {
+    fn push_id(&mut self, id: Id);
+
+    fn pop_id(&mut self);
+}
+
 #[derive(Debug)]
 pub struct RenderContext {
     id_path: IdPathBuf,
@@ -14,21 +20,24 @@ impl RenderContext {
         }
     }
 
-    pub(crate) fn begin_id(&mut self, id: Id) {
-        self.id_path.push(id);
-    }
-
-    pub(crate) fn end_id(&mut self) {
-        let old_id = self.id_path.pop();
-        debug_assert!(old_id.is_some());
-    }
-
     pub(crate) fn next_id(&mut self) -> Id {
         self.id_counter.next()
     }
 
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
+    }
+}
+
+impl IdContext for RenderContext {
+    fn push_id(&mut self, id: Id) {
+        if !id.is_root() {
+            self.id_path.push(id);
+        }
+    }
+
+    fn pop_id(&mut self) {
+        self.id_path.pop();
     }
 }
 
@@ -63,15 +72,6 @@ impl<T> MessageContext<T> {
         self.messages.extend(new_messages);
     }
 
-    pub(crate) fn begin_id(&mut self, id: Id) {
-        self.id_path.push(id);
-    }
-
-    pub(crate) fn end_id(&mut self) {
-        let old_id = self.id_path.pop();
-        debug_assert!(old_id.is_some());
-    }
-
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
     }
@@ -82,5 +82,17 @@ impl<T> MessageContext<T> {
 
     pub fn into_messages(self) -> Vec<T> {
         self.messages
+    }
+}
+
+impl<T> IdContext for MessageContext<T> {
+    fn push_id(&mut self, id: Id) {
+        if !id.is_root() {
+            self.id_path.push(id);
+        }
+    }
+
+    fn pop_id(&mut self) {
+        self.id_path.pop();
     }
 }
