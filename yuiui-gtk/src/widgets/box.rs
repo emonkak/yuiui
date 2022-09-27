@@ -124,23 +124,23 @@ where
         _store: &Store<S>,
         _backend: &mut B,
     ) -> Self::Output {
-        let widget = node.state().as_view_state().unwrap().as_ref();
+        let new_widget = node.state().as_view_state().unwrap().as_ref();
         if let Some(current_widget) = &self.current_widget {
-            if widget == current_widget {
+            if new_widget == current_widget {
                 self.current_widget = current_widget.next_sibling();
             } else {
                 let prev_sibling = current_widget.prev_sibling();
-                if let Some(parent) = widget.parent() {
+                if let Some(parent) = new_widget.parent() {
                     assert!(&parent == self.container);
                     self.container
-                        .reorder_child_after(widget, prev_sibling.as_ref());
+                        .reorder_child_after(new_widget, prev_sibling.as_ref());
                 } else {
                     self.container
-                        .insert_child_after(widget, prev_sibling.as_ref());
+                        .insert_child_after(new_widget, prev_sibling.as_ref());
                 }
             }
         } else {
-            self.container.append(widget);
+            self.container.append(new_widget);
         }
     }
 }
