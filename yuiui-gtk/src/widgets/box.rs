@@ -45,7 +45,7 @@ pub struct Box<Children> {
     width_request: Option<i32>,
     accessible_role: Option<gtk::AccessibleRole>,
     orientation: Option<gtk::Orientation>,
-    #[property(bind = false)]
+    #[property(bind = false, setter = false)]
     _phantom: PhantomData<Children>,
 }
 

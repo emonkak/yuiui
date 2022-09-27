@@ -51,7 +51,7 @@ pub struct Button<Child, S, M> {
     action_target: Option<glib::Variant>,
     #[property(bind = false)]
     on_click: Option<Box<dyn Fn(&S) -> M>>,
-    #[property(bind = false, argument = false, setter = false)]
+    #[property(bind = false, setter = false)]
     _phantom: PhantomData<Child>,
 }
 
