@@ -138,6 +138,23 @@ where
     }
 }
 
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Clone
+    for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
+where
+    RenderFn: Clone + Fn(&Props, &S) -> E,
+    LifeCycleFn: Clone + Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    Props: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            props: self.props.clone(),
+            render_fn: self.render_fn.clone(),
+            lifecycle_fn: self.lifecycle_fn.clone(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
     for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
