@@ -24,7 +24,7 @@ pub use context::{MessageContext, RenderContext};
 pub use effect::Effect;
 pub use element::{ComponentEl, DebuggableElement, Element, ElementSeq, Memoize, ViewEl};
 pub use event::{Event, EventDestination, EventListener, EventMask, Lifecycle};
-pub use id::{id_tree, Depth, Id, IdPath, IdPathBuf, IdTree};
+pub use id::{Depth, Id, IdPath, IdPathBuf};
 pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{State, Store};
 pub use traversable::{Traversable, Visitor};
