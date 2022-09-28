@@ -24,6 +24,19 @@ pub trait Component<S, M, B>: Sized {
     }
 }
 
+pub trait ComponentLifecycle<S, M, B>: Sized {
+    fn lifecycle(
+        &self,
+        _lifecycle: Lifecycle<Self>,
+        _context: &mut MessageContext<M>,
+        _state: &S,
+        _backend: &mut B,
+    ) {
+    }
+}
+
+impl<S, M, B> ComponentLifecycle<S, M, B> for () {}
+
 pub trait HigherOrderComponent<Props, S, M, B> {
     type Component: Component<S, M, B>;
 
@@ -49,6 +62,7 @@ impl<Props, E, S, M, B, RenderFn> HigherOrderComponent<Props, S, M, B> for Rende
 where
     E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
+    Props: ComponentLifecycle<S, M, B>,
 {
     type Component = FunctionComponent<
         Props,
@@ -61,25 +75,7 @@ where
     >;
 
     fn into_component(self, props: Props) -> Self::Component {
-        FunctionComponent::new(
-            props,
-            self,
-            |_props, _lifecycle, _context, _state, _backend| {},
-        )
-    }
-}
-
-impl<Props, E, S, M, B, RenderFn, LifeCycleFn> HigherOrderComponent<Props, S, M, B>
-    for (RenderFn, LifeCycleFn)
-where
-    E: Element<S, M, B>,
-    RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
-{
-    type Component = FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>;
-
-    fn into_component(self, props: Props) -> Self::Component {
-        FunctionComponent::new(props, self.0, self.1)
+        FunctionComponent::new(props, self, Props::lifecycle)
     }
 }
 

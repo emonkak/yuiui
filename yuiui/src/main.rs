@@ -145,6 +145,8 @@ pub fn button<S, M, B>(props: &ButtonProps, _state: &S) -> impl DebuggableElemen
     Block::new().el_with(Text::new(props.label.clone()).el())
 }
 
+impl<S, M, B> ComponentLifecycle<S, M, B> for ButtonProps {}
+
 #[derive(Debug)]
 struct CounterState {
     count: i64,
