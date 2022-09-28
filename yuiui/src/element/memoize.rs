@@ -8,18 +8,17 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentEl, Element, ElementSeq};
 
-pub struct Memoize<F: Fn(&D) -> E, D, E> {
+pub struct Memoize<F: Fn(&DS) -> E, DS, E> {
     render_fn: F,
-    deps: D,
+    deps: DS,
     phantom: PhantomData<E>,
 }
 
-impl<F, D, E> Memoize<F, D, E>
+impl<F, DS, E> Memoize<F, DS, E>
 where
-    F: Fn(&D) -> E,
-    D: PartialEq,
+    F: Fn(&DS) -> E,
 {
-    pub fn new(render_fn: F, deps: D) -> Self {
+    pub fn new(render_fn: F, deps: DS) -> Self {
         Self {
             render_fn,
             deps,
@@ -28,22 +27,22 @@ where
     }
 }
 
-impl<F, D, E, S, M, B> Element<S, M, B> for Memoize<F, D, E>
+impl<F, DS, E, S, M, B> Element<S, M, B> for Memoize<F, DS, E>
 where
-    F: Fn(&D) -> E,
-    D: PartialEq,
+    F: Fn(&DS) -> E,
+    DS: PartialEq,
     E: Element<S, M, B>,
 {
     type View = E::View;
 
-    type Components = (ComponentNode<AsComponent<Self>, S, M, B>, E::Components);
+    type Components = (ComponentNode<Memoized<Self>, S, M, B>, E::Components);
 
     fn render(
         self,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
-        let element = ComponentEl::new(AsComponent::new(self));
+        let element = ComponentEl::new(Memoized::new(self));
         element.render(context, store)
     }
 
@@ -55,7 +54,7 @@ where
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component.inner.deps != self.deps {
-            let element = ComponentEl::new(AsComponent::new(self));
+            let element = ComponentEl::new(Memoized::new(self));
             Element::update(element, node, context, store)
         } else {
             false
@@ -63,10 +62,10 @@ where
     }
 }
 
-impl<F, D, E, S, M, B> ElementSeq<S, M, B> for Memoize<F, D, E>
+impl<F, DS, E, S, M, B> ElementSeq<S, M, B> for Memoize<F, DS, E>
 where
-    F: Fn(&D) -> E,
-    D: PartialEq,
+    F: Fn(&DS) -> E,
+    DS: PartialEq,
     E: Element<S, M, B>,
 {
     type Storage = ViewNode<E::View, <Self as Element<S, M, B>>::Components, S, M, B>;
@@ -85,20 +84,20 @@ where
     }
 }
 
-pub struct AsComponent<T> {
+pub struct Memoized<T> {
     inner: T,
 }
 
-impl<T> AsComponent<T> {
+impl<T> Memoized<T> {
     fn new(inner: T) -> Self {
         Self { inner }
     }
 }
 
-impl<F, D, E, S, M, B> Component<S, M, B> for AsComponent<Memoize<F, D, E>>
+impl<F, DS, E, S, M, B> Component<S, M, B> for Memoized<Memoize<F, DS, E>>
 where
-    F: Fn(&D) -> E,
-    D: PartialEq,
+    F: Fn(&DS) -> E,
+    DS: PartialEq,
     E: Element<S, M, B>,
 {
     type Element = E;
