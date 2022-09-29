@@ -42,21 +42,21 @@ impl<S, M, B> ComponentProps<S, M, B> for () {}
 pub trait HigherOrderComponent<Props, S, M, B> {
     type Component: Component<S, M, B>;
 
-    fn into_component(self, props: Props) -> Self::Component;
+    fn build_component(self, props: Props) -> Self::Component;
 
     fn el(self) -> ComponentEl<Self::Component>
     where
         Self: Sized,
         Props: Default,
     {
-        self.into_component(Props::default()).el()
+        self.build_component(Props::default()).el()
     }
 
     fn el_with(self, props: Props) -> ComponentEl<Self::Component>
     where
         Self: Sized,
     {
-        self.into_component(props).el()
+        self.build_component(props).el()
     }
 }
 
@@ -76,7 +76,7 @@ where
         fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
     >;
 
-    fn into_component(self, props: Props) -> Self::Component {
+    fn build_component(self, props: Props) -> Self::Component {
         FunctionComponent::new(props, self, Props::lifecycle)
     }
 }
