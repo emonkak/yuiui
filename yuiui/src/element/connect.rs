@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::event::{EventListener, EventMask, Lifecycle};
-use crate::id::{Depth, IdPath};
+use crate::id::{Depth, Id};
 use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view::View;
@@ -169,17 +169,16 @@ where
         self.target.for_each(visitor, context, sub_store, backend)
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut RenderContext,
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         let sub_store = (self.store_selector)(store);
-        self.target
-            .for_id_path(id_path, visitor, context, sub_store, backend)
+        self.target.for_id(id, visitor, context, sub_store, backend)
     }
 }
 
@@ -204,9 +203,9 @@ where
         result
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -214,9 +213,9 @@ where
     ) -> Option<Output> {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
-        let result =
-            self.target
-                .for_id_path(id_path, visitor, &mut sub_context, sub_store, backend);
+        let result = self
+            .target
+            .for_id(id, visitor, &mut sub_context, sub_store, backend);
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }

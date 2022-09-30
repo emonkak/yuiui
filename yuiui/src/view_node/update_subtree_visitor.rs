@@ -52,9 +52,7 @@ where
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                if let Some(child_result) =
-                    node.children
-                        .for_id_path(&[id], self, context, store, backend)
+                if let Some(child_result) = node.children.for_id(id, self, context, store, backend)
                 {
                     result.extend(child_result);
                 }

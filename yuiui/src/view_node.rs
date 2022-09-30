@@ -238,7 +238,7 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
-        let mut visitor = DownwardEventVisitor::new(event);
+        let mut visitor = DownwardEventVisitor::new(event, &[]);
         visitor.visit(self, context, store, backend)
     }
 
@@ -250,9 +250,8 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
-        let mut visitor = DownwardEventVisitor::new(event);
-        self.for_id_path(id_path, &mut visitor, context, store, backend)
-            .unwrap_or_default()
+        let mut visitor = DownwardEventVisitor::new(event, id_path);
+        visitor.visit(self, context, store, backend)
     }
 
     pub fn upward_event(
@@ -275,9 +274,8 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> bool {
-        let mut visitor = LocalEventVisitor::new(event);
-        self.for_id_path(id_path, &mut visitor, context, store, backend)
-            .unwrap_or(false)
+        let mut visitor = LocalEventVisitor::new(event, id_path);
+        visitor.visit(self, context, store, backend)
     }
 }
 
@@ -383,8 +381,6 @@ impl<'a, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, Visitor
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,
-    <V::Children as ElementSeq<S, M, B>>::Storage:
-        Traversable<Visitor, Context, Visitor::Output, S, B>,
     CS: ComponentStack<S, M, B, View = V>,
     Visitor: self::Visitor<Self, S, B, Context = Context>,
     Context: IdContext,
@@ -402,23 +398,17 @@ where
         result
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
         context.push_id(self.id);
-        let result = if Id::from(id_path) == self.id {
+        let result = if id == self.id {
             Some(visitor.visit(self, context, store, backend))
-        } else if self.id.is_root() {
-            self.children
-                .for_id_path(id_path, visitor, context, store, backend)
-        } else if let Some((_, id_path)) = id_path.split_first().filter(|(&id, _)| id == self.id) {
-            self.children
-                .for_id_path(id_path, visitor, context, store, backend)
         } else {
             None
         };

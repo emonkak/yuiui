@@ -3,6 +3,7 @@ use std::any::Any;
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
 use crate::event::{Event, EventListener};
+use crate::id::IdPath;
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -11,11 +12,12 @@ use super::{ViewNode, ViewNodeState};
 
 pub struct DownwardEventVisitor<'a> {
     event: &'a dyn Any,
+    id_path: &'a IdPath,
 }
 
 impl<'a> DownwardEventVisitor<'a> {
-    pub fn new(event: &'a dyn Any) -> Self {
-        Self { event }
+    pub fn new(event: &'a dyn Any, id_path: &'a IdPath) -> Self {
+        Self { event, id_path }
     }
 }
 
@@ -35,27 +37,34 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Self::Output {
-        match node.state.as_mut().unwrap() {
-            ViewNodeState::Prepared(view, view_state)
-            | ViewNodeState::Pending(view, _, view_state) => {
-                let mut result = false;
-                if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
-                    view.event(
-                        event,
-                        view_state,
-                        &mut node.children,
-                        context,
-                        store,
-                        backend,
-                    );
-                    result = true;
+        if let Some((head, tail)) = self.id_path.split_first() {
+            self.id_path = tail;
+            node.children
+                .for_id(*head, self, context, store, backend)
+                .unwrap_or(false)
+        } else {
+            match node.state.as_mut().unwrap() {
+                ViewNodeState::Prepared(view, view_state)
+                | ViewNodeState::Pending(view, _, view_state) => {
+                    let mut result = false;
+                    if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
+                        view.event(
+                            event,
+                            view_state,
+                            &mut node.children,
+                            context,
+                            store,
+                            backend,
+                        );
+                        result = true;
+                    }
+                    if node.event_mask.contains(&self.event.type_id()) {
+                        result |= node.children.for_each(self, context, store, backend);
+                    }
+                    result
                 }
-                if node.event_mask.contains(&self.event.type_id()) {
-                    result |= node.children.for_each(self, context, store, backend);
-                }
-                result
+                _ => false,
             }
-            _ => false,
         }
     }
 }

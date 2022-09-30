@@ -45,7 +45,7 @@ where
                     self.id_path = tail;
                     result |= node
                         .children
-                        .for_id_path(&[*head], self, context, store, backend)
+                        .for_id(*head, self, context, store, backend)
                         .unwrap_or(false);
                 }
                 if let Some(event) = <V as EventListener>::Event::from_any(self.event) {

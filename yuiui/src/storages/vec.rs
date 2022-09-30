@@ -6,7 +6,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::event::{Event, EventListener, EventMask};
-use crate::id::IdPath;
+use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable, Visitor};
 use crate::view::View;
@@ -173,20 +173,17 @@ where
         result
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut Visitor::Context,
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Visitor::Output> {
-        if let Some(index) = id_path
-            .first()
-            .and_then(|id| self.active.binary_search_by_key(id, |node| node.id).ok())
-        {
+        if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            node.for_id_path(id_path, visitor, context, store, backend)
+            node.for_id(id, visitor, context, store, backend)
         } else {
             None
         }

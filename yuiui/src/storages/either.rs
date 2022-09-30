@@ -5,7 +5,7 @@ use std::sync::Once;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::id::IdPath;
+use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
@@ -191,17 +191,17 @@ where
         }
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         match &mut self.active {
-            Either::Left(node) => node.for_id_path(id_path, visitor, context, store, backend),
-            Either::Right(node) => node.for_id_path(id_path, visitor, context, store, backend),
+            Either::Left(node) => node.for_id(id, visitor, context, store, backend),
+            Either::Right(node) => node.for_id(id, visitor, context, store, backend),
         }
     }
 }

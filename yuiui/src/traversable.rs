@@ -1,4 +1,4 @@
-use crate::id::IdPath;
+use crate::id::Id;
 use crate::state::Store;
 
 pub trait Traversable<Visitor, Context, Output, S, B> {
@@ -10,9 +10,9 @@ pub trait Traversable<Visitor, Context, Output, S, B> {
         backend: &mut B,
     ) -> Output;
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,

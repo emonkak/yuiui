@@ -4,7 +4,7 @@ use std::sync::Once;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::EventMask;
-use crate::id::IdPath;
+use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
@@ -132,9 +132,9 @@ where
         Output::default()
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        _id_path: &IdPath,
+        _id: Id,
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
@@ -163,19 +163,16 @@ where
             .combine(self.tail.for_each(visitor, context, store, backend))
     }
 
-    fn for_id_path(
+    fn for_id(
         &mut self,
-        id_path: &IdPath,
+        id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
         self.head
-            .for_id_path(id_path, visitor, context, store, backend)
-            .or_else(|| {
-                self.tail
-                    .for_id_path(id_path, visitor, context, store, backend)
-            })
+            .for_id(id, visitor, context, store, backend)
+            .or_else(|| self.tail.for_id(id, visitor, context, store, backend))
     }
 }
