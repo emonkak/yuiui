@@ -4,7 +4,7 @@ use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::backend::GtkBackend;
 
-#[derive(Debug, WidgetBuilder)]
+#[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Label)]
 pub struct Label {
     attributes: Option<pango::AttrList>,

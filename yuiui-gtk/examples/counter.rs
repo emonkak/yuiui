@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use hlist::hlist;
 use yuiui::{Effect, HigherOrderComponent, State, View};
-use yuiui_gtk::widgets::{Box as BoxView, Button, Label};
+use yuiui_gtk::views::{Button, Grid, GridCell, GridChild, Label};
 use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
@@ -32,31 +32,42 @@ enum AppMessage {
 }
 
 fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
-    BoxView::new()
-        .orientation(gtk::Orientation::Vertical)
-        .el_with(hlist![
-            BoxView::new()
-                .orientation(gtk::Orientation::Horizontal)
-                .el_with(hlist![
-                    Button::new()
-                        .on_click(Box::new(|_| AppMessage::Decrement))
-                        .el_with(
-                            Label::new()
-                                .label("-".to_owned())
-                                .halign(gtk::Align::Center)
-                                .el()
-                        ),
-                    Button::new()
-                        .on_click(Box::new(|_| AppMessage::Increment))
-                        .el_with(
-                            Label::new()
-                                .label("+".to_owned())
-                                .halign(gtk::Align::Center)
-                                .el()
-                        ),
-                ]),
-            Label::new().label(state.count.to_string()).el(),
-        ])
+    Grid::new().hexpand(true).vexpand(true).el_with(hlist![
+        GridChild::new(
+            Button::new()
+                .hexpand(true)
+                .vexpand(true)
+                .on_click(Box::new(|_| AppMessage::Decrement)),
+            GridCell::new(0, 0, 1, 1)
+        )
+        .el_with(
+            Label::new()
+                .label("-".to_owned())
+                .halign(gtk::Align::Center)
+                .el()
+        ),
+        GridChild::new(
+            Button::new()
+                .hexpand(true)
+                .vexpand(true)
+                .on_click(Box::new(|_| AppMessage::Increment)),
+            GridCell::new(1, 0, 1, 1)
+        )
+        .el_with(
+            Label::new()
+                .label("+".to_owned())
+                .halign(gtk::Align::Center)
+                .el()
+        ),
+        GridChild::new(
+            Label::new()
+                .hexpand(true)
+                .vexpand(true)
+                .label(state.count.to_string()),
+            GridCell::new(0, 1, 2, 1)
+        )
+        .el(),
+    ])
 }
 
 fn on_activate(application: &gtk::Application) {

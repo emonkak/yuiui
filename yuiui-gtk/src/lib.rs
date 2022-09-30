@@ -1,4 +1,4 @@
-pub mod widgets;
+pub mod views;
 
 mod backend;
 mod element;

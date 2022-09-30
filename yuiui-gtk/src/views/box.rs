@@ -8,7 +8,7 @@ use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::backend::GtkBackend;
 
-#[derive(Debug, WidgetBuilder)]
+#[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Box)]
 pub struct Box<Children> {
     baseline_position: Option<gtk::BaselinePosition>,
@@ -95,14 +95,23 @@ impl<'event, Children> EventListener<'event> for Box<Children> {
 
 pub struct ReconcileChildrenVisitor<'a> {
     container: &'a gtk::Box,
-    current_widget: Option<gtk::Widget>,
+    current_child: Option<gtk::Widget>,
 }
 
 impl<'a> ReconcileChildrenVisitor<'a> {
     fn new(container: &'a gtk::Box) -> Self {
         Self {
             container,
-            current_widget: container.first_child(),
+            current_child: container.first_child(),
+        }
+    }
+}
+
+impl<'a> Drop for ReconcileChildrenVisitor<'a> {
+    fn drop(&mut self) {
+        while let Some(current_child) = self.current_child.take() {
+            self.container.remove(&current_child);
+            self.current_child = current_child.next_sibling();
         }
     }
 }
@@ -124,32 +133,28 @@ where
         _store: &Store<S>,
         _backend: &mut B,
     ) -> Self::Output {
-        let new_widget = node.state().as_view_state().unwrap().as_ref();
-        if let Some(current_widget) = &self.current_widget {
-            if new_widget == current_widget {
-                self.current_widget = current_widget.next_sibling();
-            } else {
-                let prev_sibling = current_widget.prev_sibling();
-                if let Some(parent) = new_widget.parent() {
-                    assert!(&parent == self.container);
-                    self.container
-                        .reorder_child_after(new_widget, prev_sibling.as_ref());
-                } else {
+        let new_widget: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+        loop {
+            match &self.current_child {
+                Some(child) if new_widget == child => {
+                    self.current_child = child.next_sibling();
+                    break;
+                }
+                Some(child) if new_widget.parent().is_some() => {
+                    self.container.remove(child);
+                    self.current_child = child.next_sibling();
+                }
+                Some(child) => {
+                    let prev_sibling = child.prev_sibling();
                     self.container
                         .insert_child_after(new_widget, prev_sibling.as_ref());
+                    break;
+                }
+                None => {
+                    self.container.append(new_widget);
+                    break;
                 }
             }
-        } else {
-            self.container.append(new_widget);
-        }
-    }
-}
-
-impl<'a> Drop for ReconcileChildrenVisitor<'a> {
-    fn drop(&mut self) {
-        while let Some(current_widget) = self.current_widget.take() {
-            self.container.remove(&current_widget);
-            self.current_widget = current_widget.next_sibling();
         }
     }
 }
