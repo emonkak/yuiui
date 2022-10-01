@@ -73,6 +73,10 @@ where
         self.state.as_ref().unwrap()
     }
 
+    pub fn state_mut(&mut self) -> &mut ViewNodeState<V, V::State> {
+        self.state.as_mut().unwrap()
+    }
+
     pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
         &self.children
     }
@@ -280,6 +284,68 @@ where
     }
 }
 
+#[derive(Debug)]
+pub enum ViewNodeState<V, VS> {
+    Uninitialized(V),
+    Prepared(V, VS),
+    Pending(V, V, VS),
+}
+
+impl<V, VS> ViewNodeState<V, VS> {
+    pub fn map_view<F, W>(self, f: F) -> ViewNodeState<W, VS>
+    where
+        F: Fn(V) -> W,
+    {
+        match self {
+            Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
+            Self::Prepared(view, view_state) => ViewNodeState::Prepared(f(view), view_state),
+            Self::Pending(view, pending_view, view_state) => {
+                ViewNodeState::Pending(f(view), f(pending_view), view_state)
+            }
+        }
+    }
+
+    pub fn extract(&self) -> (&V, Option<&VS>) {
+        match self {
+            ViewNodeState::Prepared(view, view_state)
+            | ViewNodeState::Pending(view, _, view_state) => (view, Some(view_state)),
+            ViewNodeState::Uninitialized(view) => (view, None),
+        }
+    }
+
+    pub fn extract_mut(&mut self) -> (&V, Option<&mut VS>) {
+        match self {
+            ViewNodeState::Prepared(view, view_state)
+            | ViewNodeState::Pending(view, _, view_state) => (view, Some(view_state)),
+            ViewNodeState::Uninitialized(view) => (view, None),
+        }
+    }
+
+    pub fn as_view(&self) -> &V {
+        match self {
+            Self::Prepared(view, _) | Self::Pending(view, _, _) | Self::Uninitialized(view) => view,
+        }
+    }
+
+    pub fn as_view_state(&self) -> Option<&VS> {
+        match self {
+            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
+                Some(view_state)
+            }
+            ViewNodeState::Uninitialized(_) => None,
+        }
+    }
+
+    pub fn as_view_state_mut(&mut self) -> Option<&mut VS> {
+        match self {
+            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
+                Some(view_state)
+            }
+            ViewNodeState::Uninitialized(_) => None,
+        }
+    }
+}
+
 pub struct ViewNodeMut<'a, V: View<S, M, B>, CS: ?Sized, S, M, B> {
     pub(crate) id: Id,
     pub(crate) state: &'a mut Option<ViewNodeState<V, V::State>>,
@@ -452,43 +518,6 @@ where
             .field("event_mask", &self.event_mask)
             .field("dirty", &self.dirty)
             .finish()
-    }
-}
-
-#[derive(Debug)]
-pub enum ViewNodeState<V, VS> {
-    Uninitialized(V),
-    Prepared(V, VS),
-    Pending(V, V, VS),
-}
-
-impl<V, VS> ViewNodeState<V, VS> {
-    pub fn map_view<F, W>(self, f: F) -> ViewNodeState<W, VS>
-    where
-        F: Fn(V) -> W,
-    {
-        match self {
-            Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
-            Self::Prepared(view, view_state) => ViewNodeState::Prepared(f(view), view_state),
-            Self::Pending(view, pending_view, view_state) => {
-                ViewNodeState::Pending(f(view), f(pending_view), view_state)
-            }
-        }
-    }
-
-    pub fn as_view(&self) -> &V {
-        match self {
-            Self::Prepared(view, _) | Self::Pending(view, _, _) | Self::Uninitialized(view) => view,
-        }
-    }
-
-    pub fn as_view_state(&self) -> Option<&VS> {
-        match self {
-            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
-                Some(view_state)
-            }
-            ViewNodeState::Uninitialized(_) => None,
-        }
     }
 }
 

@@ -1,52 +1,37 @@
-use yuiui::{ComponentStack, Element, ElementSeq, View, ViewNode, ViewNodeSeq};
+use yuiui::{ComponentStack, Element, ElementSeq, View, ViewNodeSeq};
 
-use crate::backend::GtkBackend;
-
-pub trait GtkElement<S, M>:
+pub trait GtkElement<S, M, B>:
     Element<
-        S,
-        M,
-        GtkBackend,
-        View = <Self as GtkElement<S, M>>::View,
-        Components = <Self as GtkElement<S, M>>::Components,
-    > + ElementSeq<
-        S,
-        M,
-        GtkBackend,
-        Storage = ViewNode<
-            <Self as GtkElement<S, M>>::View,
-            <Self as GtkElement<S, M>>::Components,
-            S,
-            M,
-            GtkBackend,
-        >,
-    >
+    S,
+    M,
+    B,
+    View = <Self as GtkElement<S, M, B>>::View,
+    Components = <Self as GtkElement<S, M, B>>::Components,
+>
 {
-    type View: View<S, M, GtkBackend, State = Self::State, Children = Self::Children>;
+    type View: View<S, M, B, State = Self::State, Children = Self::Children>;
 
     type State: AsRef<gtk::Widget>;
 
-    type Children: ElementSeq<S, M, GtkBackend, Storage = <Self as GtkElement<S, M>>::Storage>;
+    type Children: ElementSeq<S, M, B, Storage = <Self as GtkElement<S, M, B>>::Storage>;
 
-    type Storage: ViewNodeSeq<S, M, GtkBackend>;
+    type Storage: ViewNodeSeq<S, M, B>;
 
-    type Components: ComponentStack<S, M, GtkBackend, View = <Self as GtkElement<S, M>>::View>;
+    type Components: ComponentStack<S, M, B, View = <Self as GtkElement<S, M, B>>::View>;
 }
 
-impl<E, S, M> GtkElement<S, M> for E
+impl<E, S, M, B> GtkElement<S, M, B> for E
 where
-    E: Element<S, M, GtkBackend>
-        + ElementSeq<S, M, GtkBackend, Storage = ViewNode<E::View, E::Components, S, M, GtkBackend>>,
-    <E::View as View<S, M, GtkBackend>>::State: AsRef<gtk::Widget>,
+    E: Element<S, M, B>,
+    <E::View as View<S, M, B>>::State: AsRef<gtk::Widget>,
 {
     type View = E::View;
 
-    type State = <E::View as View<S, M, GtkBackend>>::State;
+    type State = <E::View as View<S, M, B>>::State;
 
-    type Children = <E::View as View<S, M, GtkBackend>>::Children;
+    type Children = <E::View as View<S, M, B>>::Children;
 
-    type Storage =
-        <<E::View as View<S, M, GtkBackend>>::Children as ElementSeq<S, M, GtkBackend>>::Storage;
+    type Storage = <<E::View as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage;
 
     type Components = E::Components;
 }

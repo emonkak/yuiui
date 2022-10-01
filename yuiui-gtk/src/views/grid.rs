@@ -6,8 +6,6 @@ use yuiui::{
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::backend::GtkBackend;
-
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Grid)]
 pub struct Grid<Children> {
@@ -51,11 +49,11 @@ pub struct Grid<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M> View<S, M, GtkBackend> for Grid<Children>
+impl<Children, S, M, B> View<S, M, B> for Grid<Children>
 where
-    Children: ElementSeq<S, M, GtkBackend>,
+    Children: ElementSeq<S, M, B>,
     Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, GtkBackend>,
+        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, B>,
 {
     type Children = Children;
 
@@ -65,12 +63,12 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut GtkBackend,
+        backend: &mut B,
     ) {
-        let is_dynamic = <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage::IS_DYNAMIC;
+        let is_dynamic = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_DYNAMIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
@@ -87,9 +85,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut GtkBackend,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }
@@ -97,81 +95,6 @@ where
 
 impl<'event, Children> EventListener<'event> for Grid<Children> {
     type Event = ();
-}
-
-pub struct ReconcileChildrenVisitor<'a> {
-    container: &'a gtk::Grid,
-    current_child: Option<gtk::Widget>,
-}
-
-impl<'a> ReconcileChildrenVisitor<'a> {
-    fn new(container: &'a gtk::Grid) -> Self {
-        Self {
-            container,
-            current_child: container.first_child(),
-        }
-    }
-}
-
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<GridChild<V>, CS, S, M, B>, S, B>
-    for ReconcileChildrenVisitor<'a>
-where
-    V: View<S, M, B>,
-    V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, B, View = GridChild<V>>,
-    GridChild<V>: View<S, M, B, Children = V::Children, State = V::State>,
-{
-    type Context = MessageContext<M>;
-
-    type Output = ();
-
-    fn visit(
-        &mut self,
-        node: &mut ViewNode<GridChild<V>, CS, S, M, B>,
-        _context: &mut MessageContext<M>,
-        _store: &Store<S>,
-        _backend: &mut B,
-    ) -> Self::Output {
-        let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
-        loop {
-            match &self.current_child {
-                Some(child) if new_child == child => {
-                    self.current_child = child.next_sibling();
-                    break;
-                }
-                Some(child) if new_child.parent().is_some() => {
-                    self.container.remove(new_child);
-                    self.current_child = child.next_sibling();
-                }
-                Some(child) => {
-                    let prev_sibling = child.prev_sibling();
-                    new_child.insert_after(self.container, prev_sibling.as_ref());
-                    node.state()
-                        .as_view()
-                        .grid_cell
-                        .attach_grid_child(self.container, new_child);
-                    break;
-                }
-                None => {
-                    new_child.set_parent(self.container);
-                    node.state()
-                        .as_view()
-                        .grid_cell
-                        .attach_grid_child(self.container, new_child);
-                    break;
-                }
-            }
-        }
-    }
-}
-
-impl<'a> Drop for ReconcileChildrenVisitor<'a> {
-    fn drop(&mut self) {
-        while let Some(current_child) = self.current_child.take() {
-            self.container.remove(&current_child);
-            self.current_child = current_child.next_sibling();
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -218,18 +141,6 @@ impl GridCell {
 
     pub fn row_span(&self) -> i32 {
         self.row_span
-    }
-
-    fn attach_grid_child(&self, container: &gtk::Grid, child: &gtk::Widget) {
-        let layout_manager = container.layout_manager().expect("get layout manager");
-        let layout_child: gtk::GridLayoutChild = layout_manager
-            .layout_child(child)
-            .downcast()
-            .expect("downcast the widget to GridLayoutChild");
-        layout_child.set_column(self.column);
-        layout_child.set_column_span(self.column_span);
-        layout_child.set_row(self.row);
-        layout_child.set_row_span(self.row_span);
     }
 }
 
@@ -280,4 +191,86 @@ where
 
 impl<'event, Child: EventListener<'event>> EventListener<'event> for GridChild<Child> {
     type Event = Child::Event;
+}
+
+pub struct ReconcileChildrenVisitor<'a> {
+    container: &'a gtk::Grid,
+    current_child: Option<gtk::Widget>,
+}
+
+impl<'a> ReconcileChildrenVisitor<'a> {
+    fn new(container: &'a gtk::Grid) -> Self {
+        Self {
+            container,
+            current_child: container.first_child(),
+        }
+    }
+}
+
+impl<'a, V, CS, S, M, B> Visitor<ViewNode<GridChild<V>, CS, S, M, B>, S, B>
+    for ReconcileChildrenVisitor<'a>
+where
+    V: View<S, M, B>,
+    V::State: AsRef<gtk::Widget>,
+    CS: ComponentStack<S, M, B, View = GridChild<V>>,
+    GridChild<V>: View<S, M, B, Children = V::Children, State = V::State>,
+{
+    type Context = MessageContext<M>;
+
+    type Output = ();
+
+    fn visit(
+        &mut self,
+        node: &mut ViewNode<GridChild<V>, CS, S, M, B>,
+        _context: &mut MessageContext<M>,
+        _store: &Store<S>,
+        _backend: &mut B,
+    ) -> Self::Output {
+        let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+        loop {
+            match self.current_child.take() {
+                Some(child) if new_child == &child => {
+                    self.current_child = child.next_sibling();
+                    break;
+                }
+                Some(child) if new_child.parent().is_some() => {
+                    self.current_child = child.next_sibling();
+                    self.container.remove(&child);
+                }
+                Some(child) => {
+                    let grid_cell = &node.state().as_view().grid_cell;
+                    self.container.attach(
+                        new_child,
+                        grid_cell.column,
+                        grid_cell.row,
+                        grid_cell.column_span,
+                        grid_cell.row_span,
+                    );
+                    new_child.insert_before(self.container, Some(&child));
+                    self.current_child = Some(child);
+                    break;
+                }
+                None => {
+                    let grid_cell = &node.state().as_view().grid_cell;
+                    self.container.attach(
+                        new_child,
+                        grid_cell.column,
+                        grid_cell.row,
+                        grid_cell.column_span,
+                        grid_cell.row_span,
+                    );
+                    break;
+                }
+            }
+        }
+    }
+}
+
+impl<'a> Drop for ReconcileChildrenVisitor<'a> {
+    fn drop(&mut self) {
+        while let Some(current_child) = self.current_child.take() {
+            self.container.remove(&current_child);
+            self.current_child = current_child.next_sibling();
+        }
+    }
 }

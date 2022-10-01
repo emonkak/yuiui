@@ -3,11 +3,12 @@ use std::marker::PhantomData;
 use gtk::glib::object::ObjectExt;
 use gtk::glib::SignalHandlerId;
 use gtk::{gdk, glib, prelude::*};
-use yuiui::{ElementSeq, EventDestination, EventListener, Lifecycle, MessageContext, Store, View};
+use yuiui::{
+    Element, ElementSeq, EventDestination, EventListener, Lifecycle, MessageContext, Store, View,
+};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::backend::GtkBackend;
-use crate::element::GtkElement;
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
@@ -57,7 +58,8 @@ pub struct Button<Child, S, M> {
 
 impl<Child, S, M> View<S, M, GtkBackend> for Button<Child, S, M>
 where
-    Child: GtkElement<S, M>,
+    Child: Element<S, M, GtkBackend>,
+    <Child::View as View<S, M, GtkBackend>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 

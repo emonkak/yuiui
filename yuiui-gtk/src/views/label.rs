@@ -1,8 +1,6 @@
-use gtk::{gdk, gio, glib, pango};
+use gtk::{gdk, gio, glib, pango, prelude::*};
 use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
-
-use crate::backend::GtkBackend;
 
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Label)]
@@ -56,7 +54,7 @@ pub struct Label {
     accessible_role: Option<gtk::AccessibleRole>,
 }
 
-impl<S, M> View<S, M, GtkBackend> for Label {
+impl<S, M, B> View<S, M, B> for Label {
     type Children = ();
 
     type State = gtk::Label;
@@ -65,10 +63,10 @@ impl<S, M> View<S, M, GtkBackend> for Label {
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut GtkBackend,
+        _backend: &mut B,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -80,9 +78,9 @@ impl<S, M> View<S, M, GtkBackend> for Label {
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut GtkBackend,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }

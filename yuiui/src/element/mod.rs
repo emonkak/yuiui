@@ -4,7 +4,7 @@ mod memoize;
 mod view;
 
 pub use component::ComponentEl;
-pub use connect::Connect;
+pub use connect::ConnectEl;
 pub use memoize::Memoize;
 pub use view::ViewEl;
 
@@ -16,7 +16,9 @@ use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
-pub trait Element<S, M, B>: Sized + ElementSeq<S, M, B> {
+pub trait Element<S, M, B>:
+    Sized + ElementSeq<S, M, B, Storage = ViewNode<Self::View, Self::Components, S, M, B>>
+{
     type View: View<S, M, B>;
 
     type Components: ComponentStack<S, M, B, View = Self::View>;
@@ -38,8 +40,8 @@ pub trait Element<S, M, B>: Sized + ElementSeq<S, M, B> {
         self,
         state_selector: fn(&PS) -> &Store<S>,
         message_selector: fn(M) -> PM,
-    ) -> Connect<Self, PS, PM, S, M> {
-        Connect::new(self, state_selector, message_selector)
+    ) -> ConnectEl<Self, PS, PM, S, M> {
+        ConnectEl::new(self, state_selector, message_selector)
     }
 }
 

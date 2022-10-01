@@ -129,6 +129,14 @@ impl ToTokens for WidgetBuilderDerive {
                         .expect(concat!("Failed to create an instance of ", stringify!(#widget_type)))
                 }
 
+                pub fn force_update(&self, object: &#widget_type) {
+                    let mut properties: Vec<(&str, &dyn glib::ToValue)> = vec![];
+                    #(#build_body)*
+                    if !properties.is_empty() {
+                        object.set_properties(&properties);
+                    }
+                }
+
                 pub fn update(&self, old: &Self, object: &#widget_type) -> bool {
                     use glib::object::ObjectExt;
                     use glib::value::ToValue;

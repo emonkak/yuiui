@@ -6,8 +6,6 @@ use yuiui::{
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::backend::GtkBackend;
-
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Box)]
 pub struct Box<Children> {
@@ -49,11 +47,11 @@ pub struct Box<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M> View<S, M, GtkBackend> for Box<Children>
+impl<Children, S, M, B> View<S, M, B> for Box<Children>
 where
-    Children: ElementSeq<S, M, GtkBackend>,
+    Children: ElementSeq<S, M, B>,
     Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, GtkBackend>,
+        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, B>,
 {
     type Children = Children;
 
@@ -63,12 +61,12 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut GtkBackend,
+        backend: &mut B,
     ) {
-        let is_dynamic = <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage::IS_DYNAMIC;
+        let is_dynamic = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_DYNAMIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
@@ -85,9 +83,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut GtkBackend,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }
@@ -139,19 +137,20 @@ where
     ) -> Self::Output {
         let new_widget: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
         loop {
-            match &self.current_child {
-                Some(child) if new_widget == child => {
+            match self.current_child.take() {
+                Some(child) if new_widget == &child => {
                     self.current_child = child.next_sibling();
                     break;
                 }
                 Some(child) if new_widget.parent().is_some() => {
-                    self.container.remove(child);
                     self.current_child = child.next_sibling();
+                    self.container.remove(&child);
                 }
                 Some(child) => {
                     let prev_sibling = child.prev_sibling();
                     self.container
                         .insert_child_after(new_widget, prev_sibling.as_ref());
+                    self.current_child = Some(child);
                     break;
                 }
                 None => {
