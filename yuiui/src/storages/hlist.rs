@@ -55,6 +55,8 @@ where
 }
 
 impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
+    const IS_DYNAMIC: bool = false;
+
     fn event_mask() -> &'static EventMask {
         static MASK: EventMask = EventMask::new();
         &MASK
@@ -80,6 +82,8 @@ where
     H: ViewNodeSeq<S, M, B>,
     T: ViewNodeSeq<S, M, B> + HList,
 {
+    const IS_DYNAMIC: bool = H::IS_DYNAMIC && T::IS_DYNAMIC;
+
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
         static mut EVENT_MASK: EventMask = EventMask::new();

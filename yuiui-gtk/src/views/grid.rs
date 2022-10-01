@@ -2,7 +2,7 @@ use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
     ComponentStack, ElementSeq, EventListener, Lifecycle, MessageContext, Store, Traversable, View,
-    ViewNode, Visitor,
+    ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -70,14 +70,19 @@ where
         store: &Store<S>,
         backend: &mut GtkBackend,
     ) {
-        match lifecycle {
+        let is_dynamic = <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage::IS_DYNAMIC;
+        let needs_reconcile = match lifecycle {
+            Lifecycle::Mount => true,
+            Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
             Lifecycle::Update(old_view) => {
                 self.update(&old_view, view_state);
+                is_dynamic
             }
-            _ => {}
+        };
+        if needs_reconcile {
+            let mut visitor = ReconcileChildrenVisitor::new(view_state);
+            children.for_each(&mut visitor, context, store, backend);
         }
-        let mut visitor = ReconcileChildrenVisitor::new(view_state);
-        children.for_each(&mut visitor, context, store, backend);
     }
 
     fn build(

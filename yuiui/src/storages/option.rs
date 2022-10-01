@@ -76,6 +76,8 @@ impl<T, S, M, B> ViewNodeSeq<S, M, B> for OptionStorage<T>
 where
     T: ViewNodeSeq<S, M, B>,
 {
+    const IS_DYNAMIC: bool = true;
+
     fn event_mask() -> &'static EventMask {
         T::event_mask()
     }

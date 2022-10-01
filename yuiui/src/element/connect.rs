@@ -128,6 +128,8 @@ impl<T, S, M, SS, SM, B> ViewNodeSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
     T: ViewNodeSeq<SS, SM, B>,
 {
+    const IS_DYNAMIC: bool = T::IS_DYNAMIC;
+
     fn event_mask() -> &'static EventMask {
         T::event_mask()
     }

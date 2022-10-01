@@ -322,6 +322,8 @@ pub trait ViewNodeSeq<S, M, B>:
     + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, B>
     + for<'a> Traversable<UpwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
 {
+    const IS_DYNAMIC: bool;
+
     fn event_mask() -> &'static EventMask;
 
     fn len(&self) -> usize;
@@ -340,6 +342,8 @@ where
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
 {
+    const IS_DYNAMIC: bool = false;
+
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
         static mut EVENT_MASK: EventMask = EventMask::new();

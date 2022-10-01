@@ -86,6 +86,8 @@ where
     V: View<S, M, B>,
     CS: ComponentStack<S, M, B, View = V>,
 {
+    const IS_DYNAMIC: bool = true;
+
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
         static mut EVENT_MASK: EventMask = EventMask::new();

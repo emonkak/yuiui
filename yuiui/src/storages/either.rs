@@ -109,6 +109,8 @@ where
     L: ViewNodeSeq<S, M, B>,
     R: ViewNodeSeq<S, M, B>,
 {
+    const IS_DYNAMIC: bool = true;
+
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
         static mut EVENT_MASK: EventMask = EventMask::new();
