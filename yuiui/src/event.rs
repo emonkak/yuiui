@@ -38,6 +38,7 @@ pub trait EventListener<'event> {
 #[derive(Debug)]
 pub enum Lifecycle<T> {
     Mount,
+    Remount,
     Update(T),
     Unmount,
 }
@@ -49,6 +50,7 @@ impl<T> Lifecycle<T> {
     {
         match self {
             Self::Mount => Lifecycle::Mount,
+            Self::Remount => Lifecycle::Mount,
             Self::Update(value) => Lifecycle::Update(f(value)),
             Self::Unmount => Lifecycle::Unmount,
         }

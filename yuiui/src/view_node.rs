@@ -133,7 +133,7 @@ where
             }
             (CommitMode::Mount, ViewNodeState::Prepared(view, mut view_state)) => {
                 view.lifecycle(
-                    Lifecycle::Mount,
+                    Lifecycle::Remount,
                     &mut view_state,
                     &mut self.children,
                     context,
@@ -144,7 +144,7 @@ where
             }
             (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
                 view.lifecycle(
-                    Lifecycle::Mount,
+                    Lifecycle::Remount,
                     &mut view_state,
                     &mut self.children,
                     context,
@@ -161,8 +161,8 @@ where
                 );
                 (true, ViewNodeState::Prepared(pending_view, view_state))
             }
-            (CommitMode::Update, ViewNodeState::Uninitialized(_)) => {
-                unreachable!()
+            (CommitMode::Update, ViewNodeState::Uninitialized(view)) => {
+                (false, ViewNodeState::Uninitialized(view))
             }
             (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
                 (false, ViewNodeState::Prepared(view, view_state))
@@ -178,8 +178,8 @@ where
                 );
                 (true, ViewNodeState::Prepared(pending_view, view_state))
             }
-            (CommitMode::Unmount, ViewNodeState::Uninitialized(_)) => {
-                unreachable!()
+            (CommitMode::Unmount, ViewNodeState::Uninitialized(view)) => {
+                (false, ViewNodeState::Uninitialized(view))
             }
             (CommitMode::Unmount, ViewNodeState::Prepared(view, mut view_state)) => {
                 view.lifecycle(

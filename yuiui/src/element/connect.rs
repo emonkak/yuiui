@@ -16,7 +16,7 @@ pub struct Connect<T, S, M, SS, SM> {
     target: T,
     store_selector: fn(&S) -> &Store<SS>,
     message_selector: fn(SM) -> M,
-    phantom: PhantomData<(SS, SM)>,
+    _phantom: PhantomData<(SS, SM)>,
 }
 
 impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
@@ -29,7 +29,7 @@ impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
             target,
             store_selector,
             message_selector,
-            phantom: PhantomData,
+            _phantom: PhantomData,
         }
     }
 }

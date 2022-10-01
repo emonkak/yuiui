@@ -71,11 +71,10 @@ where
         backend: &mut GtkBackend,
     ) {
         match lifecycle {
-            Lifecycle::Mount => {}
             Lifecycle::Update(old_view) => {
                 self.update(&old_view, view_state);
             }
-            Lifecycle::Unmount => {}
+            _ => {}
         }
         let mut visitor = ReconcileChildrenVisitor::new(view_state);
         children.for_each(&mut visitor, context, store, backend);

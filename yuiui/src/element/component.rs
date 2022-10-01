@@ -35,7 +35,7 @@ where
         store: &Store<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.component.render(store);
+        let element = component_node.component().render(store);
         let node = element.render(context, store);
         ViewNode {
             id: node.id,
@@ -55,7 +55,7 @@ where
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
         let element = self.component.render(store);
-        head_node.pending_component = Some(self.component);
+        head_node.update(self.component);
         *node.dirty = true;
         let node = ViewNodeMut {
             id: node.id,

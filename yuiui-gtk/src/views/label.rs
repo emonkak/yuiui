@@ -71,11 +71,10 @@ impl<S, M> View<S, M, GtkBackend> for Label {
         _backend: &mut GtkBackend,
     ) {
         match lifecycle {
-            Lifecycle::Mount => {}
             Lifecycle::Update(old_view) => {
                 self.update(&old_view, view_state);
             }
-            Lifecycle::Unmount => {}
+            _ => {}
         }
     }
 

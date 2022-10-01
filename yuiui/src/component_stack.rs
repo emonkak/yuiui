@@ -59,7 +59,7 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            let element = head.component.render(store);
+            let element = head.component().render(store);
             element.update(node, context, store)
         } else {
             CS::update(node, target_depth, current_depth + 1, context, store)

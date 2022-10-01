@@ -73,7 +73,7 @@ where
         backend: &mut GtkBackend,
     ) {
         match lifecycle {
-            Lifecycle::Mount => {
+            Lifecycle::Mount | Lifecycle::Remount => {
                 let event_port = backend.event_port().clone();
                 let id_path = context.id_path().to_vec();
                 view_state.clicked_signal = view_state

@@ -11,7 +11,7 @@ use super::{ComponentEl, Element, ElementSeq};
 pub struct Memoize<F: Fn(&DS) -> E, DS, E> {
     render_fn: F,
     deps: DS,
-    phantom: PhantomData<E>,
+    _phantom: PhantomData<E>,
 }
 
 impl<F, DS, E> Memoize<F, DS, E>
@@ -22,7 +22,7 @@ where
         Self {
             render_fn,
             deps,
-            phantom: PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
@@ -53,7 +53,7 @@ where
         store: &Store<S>,
     ) -> bool {
         let (head_node, _) = node.components;
-        if head_node.component.inner.deps != self.deps {
+        if head_node.component().inner.deps != self.deps {
             let element = ComponentEl::new(Memoized::new(self));
             Element::update(element, node, context, store)
         } else {

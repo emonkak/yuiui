@@ -10,9 +10,10 @@ use crate::state::Store;
 use crate::view_node::{CommitMode, ViewRef};
 
 pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
-    pub(crate) component: C,
-    pub(crate) pending_component: Option<C>,
-    phantom: PhantomData<(S, M, B)>,
+    component: C,
+    pending_component: Option<C>,
+    is_mounted: bool,
+    _phantom: PhantomData<(S, M, B)>,
 }
 
 impl<C, S, M, B> ComponentNode<C, S, M, B>
@@ -23,8 +24,13 @@ where
         Self {
             component,
             pending_component: None,
-            phantom: PhantomData,
+            is_mounted: false,
+            _phantom: PhantomData,
         }
+    }
+
+    pub(crate) fn update(&mut self, component: C) {
+        self.pending_component = Some(component);
     }
 
     pub(crate) fn commit(
@@ -37,8 +43,14 @@ where
     ) -> bool {
         match mode {
             CommitMode::Mount => {
+                let lifecycle = if self.is_mounted {
+                    Lifecycle::Remount
+                } else {
+                    Lifecycle::Mount
+                };
                 self.component
-                    .lifecycle(Lifecycle::Mount, view_ref, context, store, backend);
+                    .lifecycle(lifecycle, view_ref, context, store, backend);
+                self.is_mounted = true;
                 true
             }
             CommitMode::Update => {
@@ -63,6 +75,10 @@ where
             }
         }
     }
+
+    pub fn component(&self) -> &C {
+        &self.component
+    }
 }
 
 impl<C, S, M, B> fmt::Debug for ComponentNode<C, S, M, B>
@@ -73,6 +89,7 @@ where
         f.debug_struct("ComponentNode")
             .field("component", &self.component)
             .field("pending_component", &self.pending_component)
+            .field("is_mounted", &self.is_mounted)
             .finish()
     }
 }
