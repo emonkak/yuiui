@@ -1,3 +1,4 @@
+use std::ops::RangeInclusive;
 use std::sync::Once;
 
 use crate::context::{MessageContext, RenderContext};
@@ -6,7 +7,7 @@ use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
-use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
 
 impl<S, M, B> ElementSeq<S, M, B> for () {
     type Storage = ();
@@ -75,21 +76,21 @@ where
 }
 
 macro_rules! define_tuple_impls {
-    ([$($TSS:tt),*; $($nss:tt),*], $t:tt, $($TS:tt),*; $n:tt, $($ns:tt),*) => {
-        define_tuple_impl!($($TSS),*; $($nss),*);
-        define_tuple_impls!([$($TSS),*, $t; $($nss),*, $n], $($TS),*; $($ns),*);
+    ([$($TSS:tt),*; $($nss:tt),*; $last_n:tt], $t:tt, $($TS:tt),*; $n:tt, $($ns:tt),*) => {
+        define_tuple_impl!($($TSS),*; $($nss),*; $last_n);
+        define_tuple_impls!([$($TSS),*, $t; $($nss),*, $n; $n], $($TS),*; $($ns),*);
     };
-    ([$($TSS:tt),*; $($nss:tt),*], $T:tt; $n:tt) => {
-        define_tuple_impl!($($TSS),*; $($nss),*);
-        define_tuple_impl!($($TSS),*, $T; $($nss),*, $n);
+    ([$($TSS:tt),*; $($nss:tt),*; $last_n:tt], $T:tt; $n:tt) => {
+        define_tuple_impl!($($TSS),*; $($nss),*; $last_n);
+        define_tuple_impl!($($TSS),*, $T; $($nss),*, $n; $n);
     };
     ($T:tt, $($TS:tt),*; $n:tt, $($ns:tt),*) => {
-        define_tuple_impls!([$T; $n], $($TS),*; $($ns),*);
+        define_tuple_impls!([$T; $n; $n], $($TS),*; $($ns),*);
     };
 }
 
 macro_rules! define_tuple_impl {
-    ($($T:tt),*; $($n:tt),*) => {
+    ($($T:tt),*; $($n:tt),*; $last_n:tt) => {
         impl<$($T,)* S, M, B> ElementSeq<S, M, B> for ($($T,)*)
         where
             $($T: ElementSeq<S, M, B>,)*
@@ -139,7 +140,7 @@ macro_rules! define_tuple_impl {
             }
 
             fn len(&self) -> usize {
-                [$(self.$n.len(),)*].into_iter().sum()
+                0 $(+ self.$n.len())*
             }
 
             fn commit(
@@ -150,6 +151,17 @@ macro_rules! define_tuple_impl {
                 backend: &mut B,
             ) -> bool {
                 $(self.$n.commit(mode, context, store, backend))||*
+            }
+        }
+
+        impl<$($T),*> ViewNodeRange for ($($T,)*)
+        where
+            $($T: ViewNodeRange,)*
+        {
+            fn id_range(&self) -> RangeInclusive<Id> {
+                let start = self.0.id_range();
+                let end = self.$last_n.id_range();
+                *start.start()..=*end.end()
             }
         }
 
@@ -166,9 +178,11 @@ macro_rules! define_tuple_impl {
                 store: &Store<S>,
                 backend: &mut B,
             ) -> Output {
-                [$(self.$n.for_each(visitor, context, store, backend),)*]
-                    .into_iter()
-                    .fold(Output::default(), |acc, x| acc.combine(x))
+                let result = Output::default();
+                $(
+                    let result = result.combine(self.$n.for_each(visitor, context, store, backend));
+                )*
+                result
             }
 
             fn for_id(

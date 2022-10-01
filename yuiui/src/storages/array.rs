@@ -1,15 +1,12 @@
-use std::sync::Once;
+use std::cmp::Ordering;
 
-use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
-use crate::element::Element;
 use crate::element::ElementSeq;
-use crate::event::{Event, EventListener, EventMask};
+use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
-use crate::traversable::{Monoid, Traversable, Visitor};
-use crate::view::View;
-use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
+use crate::traversable::{Monoid, Traversable};
+use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStorage<T, const N: usize> {
@@ -23,14 +20,15 @@ impl<T, const N: usize> ArrayStorage<T, N> {
     }
 }
 
-impl<E, S, M, B, const N: usize> ElementSeq<S, M, B> for [E; N]
+impl<T, S, M, B, const N: usize> ElementSeq<S, M, B> for [T; N]
 where
-    E: Element<S, M, B>,
+    T: ElementSeq<S, M, B>,
+    T::Storage: ViewNodeRange,
 {
-    type Storage = ArrayStorage<ViewNode<E::View, E::Components, S, M, B>, N>;
+    type Storage = ArrayStorage<T::Storage, N>;
 
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render(context, store)))
+        ArrayStorage::new(self.map(|element| element.render_children(context, store)))
     }
 
     fn update_children(
@@ -43,7 +41,7 @@ where
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update(node.borrow_mut(), context, store);
+            has_changed |= element.update_children(node, context, store);
         }
 
         storage.dirty |= has_changed;
@@ -52,31 +50,18 @@ where
     }
 }
 
-impl<'a, V, CS, S, M, B, const N: usize> ViewNodeSeq<S, M, B>
-    for ArrayStorage<ViewNode<V, CS, S, M, B>, N>
+impl<'a, T, S, M, B, const N: usize> ViewNodeSeq<S, M, B> for ArrayStorage<T, N>
 where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
+    T: ViewNodeSeq<S, M, B> + ViewNodeRange,
 {
-    const IS_DYNAMIC: bool = false;
+    const IS_DYNAMIC: bool = T::IS_DYNAMIC;
 
     fn event_mask() -> &'static EventMask {
-        static INIT: Once = Once::new();
-        static mut EVENT_MASK: EventMask = EventMask::new();
-
-        INIT.call_once(|| unsafe {
-            let mut types = Vec::new();
-            <V as EventListener>::Event::collect_types(&mut types);
-            if !types.is_empty() {
-                EVENT_MASK.extend(types);
-            }
-        });
-
-        unsafe { &EVENT_MASK }
+        T::event_mask()
     }
 
     fn len(&self) -> usize {
-        N
+        self.nodes.iter().map(|node| node.len()).sum()
     }
 
     fn commit(
@@ -97,14 +82,11 @@ where
     }
 }
 
-impl<V, CS, S, M, B, Visitor, Context, const N: usize>
-    Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>
-    for ArrayStorage<ViewNode<V, CS, S, M, B>, N>
+impl<T, S, B, Visitor, Context, Output, const N: usize> Traversable<Visitor, Context, Output, S, B>
+    for ArrayStorage<T, N>
 where
-    ViewNode<V, CS, S, M, B>: Traversable<Visitor, Context, Visitor::Output, S, B>,
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
-    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, S, B, Context = Context>,
+    T: Traversable<Visitor, Context, Output, S, B> + ViewNodeRange,
+    Output: Monoid,
 {
     fn for_each(
         &mut self,
@@ -112,8 +94,8 @@ where
         context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
-    ) -> Visitor::Output {
-        let mut result = Visitor::Output::default();
+    ) -> Output {
+        let mut result = Output::default();
         for node in &mut self.nodes {
             result = result.combine(node.for_each(visitor, context, store, backend));
         }
@@ -127,8 +109,17 @@ where
         context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
-    ) -> Option<Visitor::Output> {
-        if let Ok(index) = self.nodes.binary_search_by_key(&id, |node| node.id) {
+    ) -> Option<Output> {
+        if let Ok(index) = self.nodes.binary_search_by(|node| {
+            let range = node.id_range();
+            if range.start() < &id {
+                Ordering::Less
+            } else if range.end() > &id {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        }) {
             let node = &mut self.nodes[index];
             node.for_id(id, visitor, context, store, backend)
         } else {

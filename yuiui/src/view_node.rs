@@ -6,6 +6,7 @@ mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
+use std::ops::RangeInclusive;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
@@ -378,6 +379,20 @@ where
         backend: &mut B,
     ) -> bool {
         self.commit_within(mode, 0, context, store, backend)
+    }
+}
+
+pub trait ViewNodeRange {
+    fn id_range(&self) -> RangeInclusive<Id>;
+}
+
+impl<V, CS, S, M, B> ViewNodeRange for ViewNode<V, CS, S, M, B>
+where
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
+{
+    fn id_range(&self) -> RangeInclusive<Id> {
+        self.id..=self.id
     }
 }
 

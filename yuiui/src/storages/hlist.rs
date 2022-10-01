@@ -1,4 +1,5 @@
 use hlist::{HCons, HList, HNil};
+use std::ops::RangeInclusive;
 use std::sync::Once;
 
 use crate::context::{MessageContext, RenderContext};
@@ -7,7 +8,7 @@ use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
-use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
 
 impl<S, M, B> ElementSeq<S, M, B> for HNil {
     type Storage = HNil;
@@ -119,6 +120,18 @@ where
         let head_result = self.head.commit(mode, context, store, backend);
         let tail_result = self.tail.commit(mode, context, store, backend);
         head_result || tail_result
+    }
+}
+
+impl<H, T> ViewNodeRange for HCons<H, T>
+where
+    H: ViewNodeRange,
+    T: ViewNodeRange + HList,
+{
+    fn id_range(&self) -> RangeInclusive<Id> {
+        let head = self.head.id_range();
+        let tail = self.tail.id_range();
+        *head.start()..=*tail.end()
     }
 }
 

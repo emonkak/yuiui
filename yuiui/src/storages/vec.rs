@@ -1,16 +1,13 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
-use std::sync::Once;
 
-use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
-use crate::element::{Element, ElementSeq};
-use crate::event::{Event, EventListener, EventMask};
+use crate::element::ElementSeq;
+use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
-use crate::traversable::{Monoid, Traversable, Visitor};
-use crate::view::View;
-use crate::view_node::{CommitMode, ViewNode, ViewNodeSeq};
+use crate::traversable::{Monoid, Traversable};
+use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
 
 #[derive(Debug)]
 pub struct VecStorage<T> {
@@ -31,16 +28,17 @@ impl<T> VecStorage<T> {
     }
 }
 
-impl<E, S, M, B> ElementSeq<S, M, B> for Vec<E>
+impl<T, S, M, B> ElementSeq<S, M, B> for Vec<T>
 where
-    E: Element<S, M, B>,
+    T: ElementSeq<S, M, B>,
+    T::Storage: ViewNodeRange,
 {
-    type Storage = VecStorage<ViewNode<E::View, E::Components, S, M, B>>;
+    type Storage = VecStorage<T::Storage>;
 
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(context, store))
+                .map(|element| element.render_children(context, store))
                 .collect(),
         )
     }
@@ -61,14 +59,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(node.borrow_mut(), context, store);
+                has_changed |= element.update_children(node, context, store);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(node.borrow_mut(), context, store);
+                    has_changed |= element.update_children(node, context, store);
                 } else {
-                    let node = element.render(context, store);
+                    let node = element.render_children(context, store);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -81,26 +79,14 @@ where
     }
 }
 
-impl<V, CS, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<ViewNode<V, CS, S, M, B>>
+impl<T, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<T>
 where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
+    T: ViewNodeSeq<S, M, B> + ViewNodeRange,
 {
-    const IS_DYNAMIC: bool = true;
+    const IS_DYNAMIC: bool = T::IS_DYNAMIC;
 
     fn event_mask() -> &'static EventMask {
-        static INIT: Once = Once::new();
-        static mut EVENT_MASK: EventMask = EventMask::new();
-
-        INIT.call_once(|| unsafe {
-            let mut types = Vec::new();
-            <V as EventListener>::Event::collect_types(&mut types);
-            if !types.is_empty() {
-                EVENT_MASK.extend(types);
-            }
-        });
-
-        unsafe { &EVENT_MASK }
+        T::event_mask()
     }
 
     fn len(&self) -> usize {
@@ -153,22 +139,20 @@ where
     }
 }
 
-impl<V, CS, S, M, B, Visitor> Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>
-    for VecStorage<ViewNode<V, CS, S, M, B>>
+impl<T, S, B, Visitor, Context, Output> Traversable<Visitor, Context, Output, S, B>
+    for VecStorage<T>
 where
-    ViewNode<V, CS, S, M, B>: Traversable<Visitor, Visitor::Context, Visitor::Output, S, B>,
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
-    Visitor: self::Visitor<ViewNode<V, CS, S, M, B>, S, B>,
+    T: Traversable<Visitor, Context, Output, S, B> + ViewNodeRange,
+    Output: Monoid,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Visitor::Context,
+        context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
-    ) -> Visitor::Output {
-        let mut result = Visitor::Output::default();
+    ) -> Output {
+        let mut result = Output::default();
         for node in &mut self.active {
             result = result.combine(node.for_each(visitor, context, store, backend));
         }
@@ -179,11 +163,20 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Visitor::Context,
+        context: &mut Context,
         store: &Store<S>,
         backend: &mut B,
-    ) -> Option<Visitor::Output> {
-        if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
+    ) -> Option<Output> {
+        if let Ok(index) = self.active.binary_search_by(|node| {
+            let range = node.id_range();
+            if range.start() < &id {
+                Ordering::Less
+            } else if range.end() > &id {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        }) {
             let node = &mut self.active[index];
             node.for_id(id, visitor, context, store, backend)
         } else {
