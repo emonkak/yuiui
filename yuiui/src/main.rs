@@ -79,7 +79,7 @@ impl Text {
 impl<S, M, B> View<S, M, B> for Text {
     type State = TextState;
 
-    type Children = hlist::HNil;
+    type Children = ();
 
     fn build(
         &self,

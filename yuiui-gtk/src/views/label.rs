@@ -57,7 +57,7 @@ pub struct Label {
 }
 
 impl<S, M> View<S, M, GtkBackend> for Label {
-    type Children = hlist::HNil;
+    type Children = ();
 
     type State = gtk::Label;
 

@@ -2,6 +2,7 @@ mod array;
 mod either;
 mod hlist;
 mod option;
+mod tuple;
 mod vec;
 
 use bitflags::bitflags;
