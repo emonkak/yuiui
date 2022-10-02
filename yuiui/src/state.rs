@@ -37,7 +37,7 @@ impl<T> Store<T> {
             .iter()
             .position(|(x, y)| x == id_path && *y == depth)
         {
-            self.subscribers.borrow_mut().swap_remove(position);
+            self.subscribers.borrow_mut().remove(position);
         }
     }
 
