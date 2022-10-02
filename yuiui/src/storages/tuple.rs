@@ -29,6 +29,8 @@ impl<S, M, B> ElementSeq<S, M, B> for () {
 impl<S, M, B> ViewNodeSeq<S, M, B> for () {
     const IS_DYNAMIC: bool = false;
 
+    const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
+
     fn event_mask() -> &'static EventMask {
         static MASK: EventMask = EventMask::new();
         &MASK
@@ -116,6 +118,18 @@ macro_rules! define_tuple_impl {
             $($T: ViewNodeSeq<S, M, B>,)*
         {
             const IS_DYNAMIC: bool = $($T::IS_DYNAMIC)||*;
+
+            const SIZE_HINT: (usize, Option<usize>) = {
+                let lower = 0usize $(.saturating_add($T::SIZE_HINT.0))*;
+                let upper = Some(0);
+                $(
+                    let upper = match (upper, $T::SIZE_HINT.1) {
+                        (Some(x), Some(y)) => Some(x + y),
+                        _ => None,
+                    };
+                )*
+                (lower, upper)
+            };
 
             fn event_mask() -> &'static EventMask {
                 static INIT: Once = Once::new();

@@ -58,6 +58,8 @@ where
 impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
     const IS_DYNAMIC: bool = false;
 
+    const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
+
     fn event_mask() -> &'static EventMask {
         static MASK: EventMask = EventMask::new();
         &MASK
@@ -84,6 +86,17 @@ where
     T: ViewNodeSeq<S, M, B> + HList,
 {
     const IS_DYNAMIC: bool = H::IS_DYNAMIC && T::IS_DYNAMIC;
+
+    const SIZE_HINT: (usize, Option<usize>) = {
+        let (head_lower, head_upper) = H::SIZE_HINT;
+        let (tail_lower, tail_upper) = T::SIZE_HINT;
+        let lower = head_lower.saturating_add(tail_lower);
+        let upper = match (head_upper, tail_upper) {
+            (Some(x), Some(y)) => x.checked_add(y),
+            _ => None,
+        };
+        (lower, upper)
+    };
 
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();

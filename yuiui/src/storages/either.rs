@@ -111,6 +111,17 @@ where
 {
     const IS_DYNAMIC: bool = true;
 
+    const SIZE_HINT: (usize, Option<usize>) = {
+        let (left_lower, left_upper) = L::SIZE_HINT;
+        let (right_lower, right_upper) = R::SIZE_HINT;
+        let lower = left_lower.saturating_add(right_lower);
+        let upper = match (left_upper, right_upper) {
+            (Some(x), Some(y)) => x.checked_add(y),
+            _ => None,
+        };
+        (lower, upper)
+    };
+
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
         static mut EVENT_MASK: EventMask = EventMask::new();

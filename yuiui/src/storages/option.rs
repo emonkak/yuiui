@@ -78,6 +78,11 @@ where
 {
     const IS_DYNAMIC: bool = true;
 
+    const SIZE_HINT: (usize, Option<usize>) = {
+        let (_, upper) = T::SIZE_HINT;
+        (0, upper)
+    };
+
     fn event_mask() -> &'static EventMask {
         T::event_mask()
     }

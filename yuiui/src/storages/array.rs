@@ -56,6 +56,8 @@ where
 {
     const IS_DYNAMIC: bool = T::IS_DYNAMIC;
 
+    const SIZE_HINT: (usize, Option<usize>) = (N, Some(N));
+
     fn event_mask() -> &'static EventMask {
         T::event_mask()
     }

@@ -391,6 +391,8 @@ pub trait ViewNodeSeq<S, M, B>:
 {
     const IS_DYNAMIC: bool;
 
+    const SIZE_HINT: (usize, Option<usize>);
+
     fn event_mask() -> &'static EventMask;
 
     fn len(&self) -> usize;
@@ -410,6 +412,8 @@ where
     CS: ComponentStack<S, M, B, View = V>,
 {
     const IS_DYNAMIC: bool = false;
+
+    const SIZE_HINT: (usize, Option<usize>) = (1, Some(1));
 
     fn event_mask() -> &'static EventMask {
         static INIT: Once = Once::new();
