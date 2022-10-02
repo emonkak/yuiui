@@ -1,4 +1,3 @@
-use std::ops::RangeInclusive;
 use std::sync::Once;
 
 use crate::context::{MessageContext, RenderContext};
@@ -7,7 +6,7 @@ use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
-use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, M, B> ElementSeq<S, M, B> for () {
     type Storage = ();
@@ -40,6 +39,10 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for () {
         0
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        None
+    }
+
     fn commit(
         &mut self,
         _mode: CommitMode,
@@ -51,7 +54,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for () {
     }
 }
 
-impl<Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B> for ()
+impl<Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B> for ()
 where
     Output: Default,
 {
@@ -120,9 +123,10 @@ macro_rules! define_tuple_impl {
             const IS_DYNAMIC: bool = $($T::IS_DYNAMIC)||*;
 
             const SIZE_HINT: (usize, Option<usize>) = {
-                let lower = 0usize $(.saturating_add($T::SIZE_HINT.0))*;
+                let lower = 0;
                 let upper = Some(0);
                 $(
+                    let lower = lower + $T::SIZE_HINT.0;
                     let upper = match (upper, $T::SIZE_HINT.1) {
                         (Some(x), Some(y)) => Some(x + y),
                         _ => None,
@@ -157,6 +161,17 @@ macro_rules! define_tuple_impl {
                 0 $(+ self.$n.len())*
             }
 
+            fn id_range(&self) -> Option<(Id, Id)> {
+                let first = self.0.id_range();
+                let last = self.$last_n.id_range();
+                match (first, last) {
+                    (Some((start, _)), Some((_, end))) => {
+                        Some((start, end))
+                    },
+                    _ => None
+                }
+            }
+
             fn commit(
                 &mut self,
                 mode: CommitMode,
@@ -168,21 +183,10 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T),*> ViewNodeRange for ($($T,)*)
-        where
-            $($T: ViewNodeRange,)*
-        {
-            fn id_range(&self) -> RangeInclusive<Id> {
-                let start = self.0.id_range();
-                let end = self.$last_n.id_range();
-                *start.start()..=*end.end()
-            }
-        }
-
-        impl<$($T,)* Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+        impl<$($T,)* Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Context, Output, S, B>,)*
+            $($T: Traversable<Visitor, Context, Output, S, M, B>,)*
             Output: Monoid,
         {
             fn for_each(

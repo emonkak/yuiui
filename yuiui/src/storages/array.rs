@@ -6,7 +6,9 @@ use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
-use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
+
+use super::binary_search_by;
 
 #[derive(Debug)]
 pub struct ArrayStorage<T, const N: usize> {
@@ -23,7 +25,6 @@ impl<T, const N: usize> ArrayStorage<T, N> {
 impl<T, S, M, B, const N: usize> ElementSeq<S, M, B> for [T; N]
 where
     T: ElementSeq<S, M, B>,
-    T::Storage: ViewNodeRange,
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
@@ -52,7 +53,7 @@ where
 
 impl<'a, T, S, M, B, const N: usize> ViewNodeSeq<S, M, B> for ArrayStorage<T, N>
 where
-    T: ViewNodeSeq<S, M, B> + ViewNodeRange,
+    T: ViewNodeSeq<S, M, B>,
 {
     const IS_DYNAMIC: bool = T::IS_DYNAMIC;
 
@@ -63,7 +64,23 @@ where
     }
 
     fn len(&self) -> usize {
-        self.nodes.iter().map(|node| node.len()).sum()
+        match T::SIZE_HINT {
+            (lower, Some(upper)) if lower == upper => lower * self.nodes.len(),
+            _ => self.nodes.iter().map(|node| node.len()).sum(),
+        }
+    }
+
+    fn id_range(&self) -> Option<(Id, Id)> {
+        if N > 0 {
+            let first = self.nodes[0].id_range();
+            let last = self.nodes[N - 1].id_range();
+            match (first, last) {
+                (Some((start, _)), Some((_, end))) => Some((start, end)),
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 
     fn commit(
@@ -84,10 +101,10 @@ where
     }
 }
 
-impl<T, S, B, Visitor, Context, Output, const N: usize> Traversable<Visitor, Context, Output, S, B>
-    for ArrayStorage<T, N>
+impl<T, S, M, B, Visitor, Context, Output, const N: usize>
+    Traversable<Visitor, Context, Output, S, M, B> for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Context, Output, S, B> + ViewNodeRange,
+    T: Traversable<Visitor, Context, Output, S, M, B> + ViewNodeSeq<S, M, B>,
     Output: Monoid,
 {
     fn for_each(
@@ -112,20 +129,28 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
-        if let Ok(index) = self.nodes.binary_search_by(|node| {
-            let range = node.id_range();
-            if range.start() < &id {
-                Ordering::Less
-            } else if range.end() > &id {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
+        if T::SIZE_HINT.1.is_some() {
+            if let Ok(index) = binary_search_by(&self.nodes, |node| {
+                node.id_range().map(|(start, end)| {
+                    if start < id {
+                        Ordering::Less
+                    } else if end > id {
+                        Ordering::Greater
+                    } else {
+                        Ordering::Equal
+                    }
+                })
+            }) {
+                let node = &mut self.nodes[index];
+                return node.for_id(id, visitor, context, store, backend);
             }
-        }) {
-            let node = &mut self.nodes[index];
-            node.for_id(id, visitor, context, store, backend)
         } else {
-            None
+            for node in &mut self.nodes {
+                if let Some(result) = node.for_id(id, visitor, context, store, backend) {
+                    return Some(result);
+                }
+            }
         }
+        None
     }
 }

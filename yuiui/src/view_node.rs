@@ -6,7 +6,6 @@ mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
-use std::ops::RangeInclusive;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
@@ -383,11 +382,11 @@ impl<'a, V: View<S, M, B>, S, M, B> ViewRef<'a, V, S, M, B> {
 }
 
 pub trait ViewNodeSeq<S, M, B>:
-    for<'a> Traversable<CommitSubtreeVisitor<'a>, MessageContext<M>, bool, S, B>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
-    + for<'a> Traversable<UpdateSubtreeVisitor<'a>, RenderContext, Vec<(IdPathBuf, Depth)>, S, B>
-    + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, B>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, MessageContext<M>, bool, S, B>
+    for<'a> Traversable<CommitSubtreeVisitor<'a>, MessageContext<M>, bool, S, M, B>
+    + for<'a> Traversable<DownwardEventVisitor<'a>, MessageContext<M>, bool, S, M, B>
+    + for<'a> Traversable<UpdateSubtreeVisitor<'a>, RenderContext, Vec<(IdPathBuf, Depth)>, S, M, B>
+    + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, M, B>
+    + for<'a> Traversable<UpwardEventVisitor<'a>, MessageContext<M>, bool, S, M, B>
 {
     const IS_DYNAMIC: bool;
 
@@ -396,6 +395,8 @@ pub trait ViewNodeSeq<S, M, B>:
     fn event_mask() -> &'static EventMask;
 
     fn len(&self) -> usize;
+
+    fn id_range(&self) -> Option<(Id, Id)>;
 
     fn commit(
         &mut self,
@@ -441,6 +442,10 @@ where
         1
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        Some((self.id, self.id))
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -452,21 +457,7 @@ where
     }
 }
 
-pub trait ViewNodeRange {
-    fn id_range(&self) -> RangeInclusive<Id>;
-}
-
-impl<V, CS, S, M, B> ViewNodeRange for ViewNode<V, CS, S, M, B>
-where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
-{
-    fn id_range(&self) -> RangeInclusive<Id> {
-        self.id..=self.id
-    }
-}
-
-impl<'a, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, Visitor::Output, S, B>
+impl<'a, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, Visitor::Output, S, M, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,

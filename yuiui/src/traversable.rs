@@ -1,7 +1,7 @@
 use crate::id::Id;
 use crate::state::Store;
 
-pub trait Traversable<Visitor, Context, Output, S, B> {
+pub trait Traversable<Visitor, Context, Output, S, M, B> {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,

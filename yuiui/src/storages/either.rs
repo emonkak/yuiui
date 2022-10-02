@@ -43,7 +43,7 @@ where
             Either::Left(element) => {
                 let reserved_ids = R::Storage::SIZE_HINT
                     .1
-                    .map(|upper| Vec::from_iter(context.take_ids(upper)))
+                    .map(|upper| context.take_ids(upper).collect())
                     .unwrap_or_default();
                 EitherStorage::new(
                     Either::Left(element.render_children(context, store)),
@@ -53,7 +53,7 @@ where
             Either::Right(element) => {
                 let reserved_ids = L::Storage::SIZE_HINT
                     .1
-                    .map(|upper| Vec::from_iter(context.take_ids(upper)))
+                    .map(|upper| context.take_ids(upper).collect())
                     .unwrap_or_default();
                 EitherStorage::new(
                     Either::Right(element.render_children(context, store)),
@@ -168,6 +168,33 @@ where
         }
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        let active = match &self.active {
+            Either::Left(node) => node.id_range(),
+            Either::Right(node) => node.id_range(),
+        };
+        let staging = match &self.staging {
+            Some(Either::Left(node)) => node.id_range(),
+            Some(Either::Right(node)) => node.id_range(),
+            None => {
+                if self.reserved_ids.len() > 0 {
+                    Some((
+                        self.reserved_ids[0],
+                        self.reserved_ids[self.reserved_ids.len() - 1],
+                    ))
+                } else {
+                    None
+                }
+            }
+        };
+        match (active, staging) {
+            (Some((x_start, x_end)), Some((y_start, y_end))) => {
+                Some((x_start.min(y_start), x_end.max(y_end)))
+            }
+            _ => None,
+        }
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -203,11 +230,11 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+impl<L, R, Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
     for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, Output, S, B>,
-    R: Traversable<Visitor, Context, Output, S, B>,
+    L: Traversable<Visitor, Context, Output, S, M, B>,
+    R: Traversable<Visitor, Context, Output, S, M, B>,
 {
     fn for_each(
         &mut self,

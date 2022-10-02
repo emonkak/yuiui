@@ -1,5 +1,4 @@
 use hlist::{HCons, HList, HNil};
-use std::ops::RangeInclusive;
 use std::sync::Once;
 
 use crate::context::{MessageContext, RenderContext};
@@ -8,7 +7,7 @@ use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
-use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, M, B> ElementSeq<S, M, B> for HNil {
     type Storage = HNil;
@@ -69,6 +68,10 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         0
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        None
+    }
+
     fn commit(
         &mut self,
         _mode: CommitMode,
@@ -85,7 +88,7 @@ where
     H: ViewNodeSeq<S, M, B>,
     T: ViewNodeSeq<S, M, B> + HList,
 {
-    const IS_DYNAMIC: bool = H::IS_DYNAMIC && T::IS_DYNAMIC;
+    const IS_DYNAMIC: bool = H::IS_DYNAMIC || T::IS_DYNAMIC;
 
     const SIZE_HINT: (usize, Option<usize>) = {
         let (head_lower, head_upper) = H::SIZE_HINT;
@@ -123,6 +126,15 @@ where
         self.head.len() + self.tail.len()
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        let head = self.head.id_range();
+        let tail = self.tail.id_range();
+        match (head, tail) {
+            (Some((start, _)), Some((_, end))) => Some((start, end)),
+            _ => None,
+        }
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -136,19 +148,7 @@ where
     }
 }
 
-impl<H, T> ViewNodeRange for HCons<H, T>
-where
-    H: ViewNodeRange,
-    T: ViewNodeRange + HList,
-{
-    fn id_range(&self) -> RangeInclusive<Id> {
-        let head = self.head.id_range();
-        let tail = self.tail.id_range();
-        *head.start()..=*tail.end()
-    }
-}
-
-impl<Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B> for HNil
+impl<Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B> for HNil
 where
     Output: Default,
 {
@@ -174,11 +174,11 @@ where
     }
 }
 
-impl<H, T, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+impl<H, T, Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
     for HCons<H, T>
 where
-    H: Traversable<Visitor, Context, Output, S, B>,
-    T: Traversable<Visitor, Context, Output, S, B> + HList,
+    H: Traversable<Visitor, Context, Output, S, M, B>,
+    T: Traversable<Visitor, Context, Output, S, M, B> + HList,
     Output: Monoid,
 {
     fn for_each(

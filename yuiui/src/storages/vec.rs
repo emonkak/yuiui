@@ -7,7 +7,9 @@ use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
-use crate::view_node::{CommitMode, ViewNodeRange, ViewNodeSeq};
+use crate::view_node::{CommitMode, ViewNodeSeq};
+
+use super::binary_search_by;
 
 #[derive(Debug)]
 pub struct VecStorage<T> {
@@ -31,7 +33,6 @@ impl<T> VecStorage<T> {
 impl<T, S, M, B> ElementSeq<S, M, B> for Vec<T>
 where
     T: ElementSeq<S, M, B>,
-    T::Storage: ViewNodeRange,
 {
     type Storage = VecStorage<T::Storage>;
 
@@ -81,9 +82,9 @@ where
 
 impl<T, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<T>
 where
-    T: ViewNodeSeq<S, M, B> + ViewNodeRange,
+    T: ViewNodeSeq<S, M, B>,
 {
-    const IS_DYNAMIC: bool = T::IS_DYNAMIC;
+    const IS_DYNAMIC: bool = true;
 
     const SIZE_HINT: (usize, Option<usize>) = (0, None);
 
@@ -92,7 +93,23 @@ where
     }
 
     fn len(&self) -> usize {
-        self.active.len()
+        match T::SIZE_HINT {
+            (lower, Some(upper)) if lower == upper => lower * self.active.len(),
+            _ => self.active.iter().map(|node| node.len()).sum(),
+        }
+    }
+
+    fn id_range(&self) -> Option<(Id, Id)> {
+        if self.active.len() > 0 {
+            let first = self.active[0].id_range();
+            let last = self.active[self.active.len() - 1].id_range();
+            match (first, last) {
+                (Some((start, _)), Some((_, end))) => Some((start, end)),
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 
     fn commit(
@@ -141,10 +158,10 @@ where
     }
 }
 
-impl<T, S, B, Visitor, Context, Output> Traversable<Visitor, Context, Output, S, B>
+impl<T, S, M, B, Visitor, Context, Output> Traversable<Visitor, Context, Output, S, M, B>
     for VecStorage<T>
 where
-    T: Traversable<Visitor, Context, Output, S, B> + ViewNodeRange,
+    T: Traversable<Visitor, Context, Output, S, M, B> + ViewNodeSeq<S, M, B>,
     Output: Monoid,
 {
     fn for_each(
@@ -169,20 +186,28 @@ where
         store: &Store<S>,
         backend: &mut B,
     ) -> Option<Output> {
-        if let Ok(index) = self.active.binary_search_by(|node| {
-            let range = node.id_range();
-            if range.start() < &id {
-                Ordering::Less
-            } else if range.end() > &id {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
+        if T::SIZE_HINT.1.is_some() {
+            if let Ok(index) = binary_search_by(&self.active, |node| {
+                node.id_range().map(|(start, end)| {
+                    if start < id {
+                        Ordering::Less
+                    } else if end > id {
+                        Ordering::Greater
+                    } else {
+                        Ordering::Equal
+                    }
+                })
+            }) {
+                let node = &mut self.active[index];
+                return node.for_id(id, visitor, context, store, backend);
             }
-        }) {
-            let node = &mut self.active[index];
-            node.for_id(id, visitor, context, store, backend)
         } else {
-            None
+            for node in &mut self.active {
+                if let Some(result) = node.for_id(id, visitor, context, store, backend) {
+                    return Some(result);
+                }
+            }
         }
+        None
     }
 }

@@ -53,7 +53,7 @@ impl<Children, S, M, B> View<S, M, B> for Grid<Children>
 where
     Children: ElementSeq<S, M, B>,
     Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, B>,
+        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, B>,
 {
     type Children = Children;
 

@@ -39,7 +39,7 @@ where
         let reserved_ids = if self.is_none() {
             T::Storage::SIZE_HINT
                 .1
-                .map(|upper| Vec::from_iter(context.take_ids(upper)))
+                .map(|upper| context.take_ids(upper).collect())
                 .unwrap_or_default()
         } else {
             Vec::new()
@@ -108,6 +108,25 @@ where
         }
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        self.active
+            .as_ref()
+            .or_else(|| self.staging.as_ref())
+            .map_or_else(
+                || {
+                    if self.reserved_ids.len() > 0 {
+                        Some((
+                            self.reserved_ids[0],
+                            self.reserved_ids[self.reserved_ids.len() - 1],
+                        ))
+                    } else {
+                        None
+                    }
+                },
+                |node| node.id_range(),
+            )
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -138,10 +157,10 @@ where
     }
 }
 
-impl<T, Visitor, Context, Output, S, B> Traversable<Visitor, Context, Output, S, B>
+impl<T, Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
     for OptionStorage<T>
 where
-    T: Traversable<Visitor, Context, Output, S, B>,
+    T: Traversable<Visitor, Context, Output, S, M, B>,
     Output: Default,
 {
     fn for_each(

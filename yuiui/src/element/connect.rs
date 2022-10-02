@@ -306,6 +306,10 @@ where
         self.target.len()
     }
 
+    fn id_range(&self) -> Option<(Id, Id)> {
+        self.target.id_range()
+    }
+
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -323,10 +327,10 @@ where
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, RenderContext, Output, S, B>
+impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, RenderContext, Output, S, M, B>
     for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, RenderContext, Output, SS, B>,
+    T: Traversable<Visitor, RenderContext, Output, SS, SM, B>,
 {
     fn for_each(
         &mut self,
@@ -352,10 +356,10 @@ where
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, MessageContext<M>, Output, S, B>
-    for Connect<T, S, M, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, Output, B>
+    Traversable<Visitor, MessageContext<M>, Output, S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, MessageContext<SM>, Output, SS, B>,
+    T: Traversable<Visitor, MessageContext<SM>, Output, SS, SM, B>,
 {
     fn for_each(
         &mut self,
