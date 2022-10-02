@@ -109,15 +109,6 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a> Drop for ReconcileChildrenVisitor<'a> {
-    fn drop(&mut self) {
-        while let Some(current_child) = self.current_child.take() {
-            self.container.remove(&current_child);
-            self.current_child = current_child.next_sibling();
-        }
-    }
-}
-
 impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for ReconcileChildrenVisitor<'a>
 where
     V: View<S, M, B>,
@@ -158,6 +149,15 @@ where
                     break;
                 }
             }
+        }
+    }
+}
+
+impl<'a> Drop for ReconcileChildrenVisitor<'a> {
+    fn drop(&mut self) {
+        while let Some(current_child) = self.current_child.take() {
+            self.container.remove(&current_child);
+            self.current_child = current_child.next_sibling();
         }
     }
 }
