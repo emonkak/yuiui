@@ -64,31 +64,7 @@ where
         }
     }
 
-    pub fn id(&self) -> Id {
-        self.id
-    }
-
-    pub fn state(&self) -> &ViewNodeState<V, V::State> {
-        self.state.as_ref().unwrap()
-    }
-
-    pub fn state_mut(&mut self) -> &mut ViewNodeState<V, V::State> {
-        self.state.as_mut().unwrap()
-    }
-
-    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
-        &self.children
-    }
-
-    pub fn components(&self) -> &CS {
-        &self.components
-    }
-
-    pub fn event_mask(&self) -> &EventMask {
-        &self.event_mask
-    }
-
-    pub fn update_subtree(
+    pub(crate) fn update_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
         store: &Store<S>,
@@ -99,7 +75,7 @@ where
         visitor.visit(self, context, store, backend)
     }
 
-    pub fn commit_within(
+    pub(crate) fn commit_within(
         &mut self,
         mode: CommitMode,
         depth: Depth,
@@ -224,7 +200,7 @@ where
         pre_result | result | post_result
     }
 
-    pub fn commit_subtree(
+    pub(crate) fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
         context: &mut MessageContext<M>,
@@ -235,7 +211,7 @@ where
         visitor.visit(self, context, store, backend)
     }
 
-    pub fn global_event(
+    pub(crate) fn global_event(
         &mut self,
         event: &dyn Any,
         context: &mut MessageContext<M>,
@@ -246,7 +222,7 @@ where
         visitor.visit(self, context, store, backend)
     }
 
-    pub fn downward_event(
+    pub(crate) fn downward_event(
         &mut self,
         event: &dyn Any,
         id_path: &IdPath,
@@ -258,7 +234,7 @@ where
         visitor.visit(self, context, store, backend)
     }
 
-    pub fn upward_event(
+    pub(crate) fn upward_event(
         &mut self,
         event: &dyn Any,
         id_path: &IdPath,
@@ -270,7 +246,7 @@ where
         visitor.visit(self, context, store, backend)
     }
 
-    pub fn local_event(
+    pub(crate) fn local_event(
         &mut self,
         event: &dyn Any,
         id_path: &IdPath,
@@ -280,6 +256,30 @@ where
     ) -> bool {
         let mut visitor = LocalEventVisitor::new(event, id_path);
         visitor.visit(self, context, store, backend)
+    }
+
+    pub fn id(&self) -> Id {
+        self.id
+    }
+
+    pub fn state(&self) -> &ViewNodeState<V, V::State> {
+        self.state.as_ref().unwrap()
+    }
+
+    pub fn state_mut(&mut self) -> &mut ViewNodeState<V, V::State> {
+        self.state.as_mut().unwrap()
+    }
+
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
+        &self.children
+    }
+
+    pub fn components(&self) -> &CS {
+        &self.components
+    }
+
+    pub fn event_mask(&self) -> &EventMask {
+        &self.event_mask
     }
 }
 
@@ -329,13 +329,6 @@ impl<V, VS> ViewNodeState<V, VS> {
     }
 
     pub fn as_view_state(&self) -> Option<&VS> {
-        match self {
-            ViewNodeState::Prepared(_, state) | ViewNodeState::Pending(_, _, state) => Some(state),
-            ViewNodeState::Uninitialized(_) => None,
-        }
-    }
-
-    pub fn as_view_state_mut(&mut self) -> Option<&mut VS> {
         match self {
             ViewNodeState::Prepared(_, state) | ViewNodeState::Pending(_, _, state) => Some(state),
             ViewNodeState::Uninitialized(_) => None,

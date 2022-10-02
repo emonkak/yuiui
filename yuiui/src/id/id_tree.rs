@@ -12,11 +12,6 @@ impl<T> IdTree<T> {
     pub fn root(&self) -> Cursor<'_, T> {
         Cursor::new(&self.arena)
     }
-
-    #[inline]
-    pub fn descendants(&self) -> Descendants<'_, T> {
-        Descendants::new(&self.arena)
-    }
 }
 
 impl<T> FromIterator<(IdPathBuf, T)> for IdTree<T> {
@@ -134,35 +129,6 @@ impl<'a, T> Cursor<'a, T> {
 }
 
 #[derive(Debug)]
-pub struct Descendants<'a, T> {
-    arena: &'a Vec<Node<T>>,
-    current: usize,
-}
-
-impl<'a, T> Descendants<'a, T> {
-    fn new(arena: &'a Vec<Node<T>>) -> Self {
-        Self { arena, current: 0 }
-    }
-}
-
-impl<'a, T> Iterator for Descendants<'a, T> {
-    type Item = Cursor<'a, T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current < self.arena.len() {
-            let cursor = Cursor {
-                arena: self.arena,
-                node: &self.arena[self.current],
-            };
-            self.current += 1;
-            Some(cursor)
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Children<'a, T> {
     arena: &'a Vec<Node<T>>,
     children: &'a Vec<usize>,
@@ -235,25 +201,6 @@ mod tests {
                 Node::new(Id::new(2), Some(2), vec![4]),
                 Node::new(Id::new(3), None, vec![5, 6]),
                 Node::new(Id::new(4), None, vec![7]),
-            ]
-        );
-
-        let descendants = id_tree
-            .descendants()
-            .map(|cursor| cursor.current().clone())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            descendants,
-            vec![
-                Node::new(Id::new(1), Some(1), vec![1, 2, 3]),
-                Node::new(Id::new(2), Some(2), vec![4]),
-                Node::new(Id::new(3), None, vec![5, 6]),
-                Node::new(Id::new(4), None, vec![7]),
-                Node::new(Id::new(5), Some(3), vec![]),
-                Node::new(Id::new(6), Some(4), vec![]),
-                Node::new(Id::new(7), Some(5), vec![]),
-                Node::new(Id::new(8), None, vec![8]),
-                Node::new(Id::new(9), Some(6), vec![]),
             ]
         );
     }
