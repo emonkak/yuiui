@@ -17,7 +17,7 @@ impl Id {
     }
 
     pub fn is_root(&self) -> bool {
-        self.0.get() == 1
+        self == &Self::ROOT
     }
 }
 
