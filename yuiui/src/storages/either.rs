@@ -17,14 +17,16 @@ pub struct EitherStorage<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
     flags: RenderFlags,
+    reserved_ids: Vec<Id>,
 }
 
 impl<L, R> EitherStorage<L, R> {
-    fn new(active: Either<L, R>) -> Self {
+    fn new(active: Either<L, R>, reserved_ids: Vec<Id>) -> Self {
         Self {
             active,
             staging: None,
             flags: RenderFlags::NONE,
+            reserved_ids,
         }
     }
 }
@@ -39,10 +41,24 @@ where
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         match self {
             Either::Left(element) => {
-                EitherStorage::new(Either::Left(element.render_children(context, store)))
+                let reserved_ids = R::Storage::SIZE_HINT
+                    .1
+                    .map(|upper| Vec::from_iter(context.take_ids(upper)))
+                    .unwrap_or_default();
+                EitherStorage::new(
+                    Either::Left(element.render_children(context, store)),
+                    reserved_ids,
+                )
             }
             Either::Right(element) => {
-                EitherStorage::new(Either::Right(element.render_children(context, store)))
+                let reserved_ids = L::Storage::SIZE_HINT
+                    .1
+                    .map(|upper| Vec::from_iter(context.take_ids(upper)))
+                    .unwrap_or_default();
+                EitherStorage::new(
+                    Either::Right(element.render_children(context, store)),
+                    reserved_ids,
+                )
             }
         }
     }
@@ -78,6 +94,7 @@ where
                         element.update_children(node, context, store);
                     }
                     None => {
+                        context.reserve_ids(mem::take(&mut storage.reserved_ids));
                         storage.staging =
                             Some(Either::Right(element.render_children(context, store)));
                     }
@@ -92,6 +109,7 @@ where
                         element.update_children(node, context, store);
                     }
                     None => {
+                        context.reserve_ids(mem::take(&mut storage.reserved_ids));
                         storage.staging =
                             Some(Either::Left(element.render_children(context, store)));
                     }

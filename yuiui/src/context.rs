@@ -1,4 +1,6 @@
-use crate::id::{Id, IdCounter, IdPath, IdPathBuf};
+use crate::id::{id_counter, Id, IdCounter, IdPath, IdPathBuf};
+
+use std::collections::VecDeque;
 
 pub trait IdContext {
     fn push_id(&mut self, id: Id);
@@ -10,6 +12,7 @@ pub trait IdContext {
 pub struct RenderContext {
     id_path: IdPathBuf,
     id_counter: IdCounter,
+    id_pool: VecDeque<Id>,
 }
 
 impl RenderContext {
@@ -17,11 +20,22 @@ impl RenderContext {
         Self {
             id_path: IdPathBuf::new(),
             id_counter: IdCounter::new(),
+            id_pool: VecDeque::new(),
         }
     }
 
     pub(crate) fn next_id(&mut self) -> Id {
-        self.id_counter.next()
+        self.id_pool
+            .pop_front()
+            .unwrap_or_else(|| self.id_counter.next())
+    }
+
+    pub(crate) fn take_ids(&mut self, n: usize) -> id_counter::Take<'_> {
+        self.id_counter.take(n)
+    }
+
+    pub(crate) fn reserve_ids(&mut self, ids: impl IntoIterator<Item = Id>) {
+        self.id_pool.extend(ids)
     }
 
     pub fn id_path(&self) -> &IdPath {
