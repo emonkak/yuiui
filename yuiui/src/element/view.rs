@@ -55,9 +55,8 @@ where
 
         *node.state = Some(match node.state.take().unwrap() {
             ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
-            ViewNodeState::Prepared(view, view_state)
-            | ViewNodeState::Pending(view, _, view_state) => {
-                ViewNodeState::Pending(view, self.view, view_state)
+            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
+                ViewNodeState::Pending(view, self.view, state)
             }
         });
         *node.dirty = true;

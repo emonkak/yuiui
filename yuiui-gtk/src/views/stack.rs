@@ -62,7 +62,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -73,12 +73,12 @@ where
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, view_state);
+                self.update(&old_view, state);
                 is_dynamic
             }
         };
         if needs_reconcile {
-            let mut visitor = ReconcileChildrenVisitor::new(view_state);
+            let mut visitor = ReconcileChildrenVisitor::new(state);
             children.for_each(&mut visitor, context, store, backend);
         }
     }
@@ -147,7 +147,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
@@ -155,7 +155,7 @@ where
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, &view_state.stack_switcher);
+                self.update(&old_view, &state.stack_switcher);
             }
             _ => {}
         }
@@ -222,7 +222,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -230,7 +230,7 @@ where
     ) {
         match &lifecycle {
             Lifecycle::Update(old_view) => {
-                if let Some(stack_page) = &view_state.stack_page {
+                if let Some(stack_page) = &state.stack_page {
                     self.update(old_view, stack_page);
                 }
             }
@@ -239,7 +239,7 @@ where
         let lifecycle = lifecycle.map(|view| view.child);
         self.child.lifecycle(
             lifecycle,
-            &mut view_state.child_state,
+            &mut state.child_state,
             children,
             context,
             store,
@@ -250,7 +250,7 @@ where
     fn event(
         &self,
         event: <Self as EventListener>::Event,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -258,7 +258,7 @@ where
     ) {
         self.child.event(
             event,
-            &mut view_state.child_state,
+            &mut state.child_state,
             children,
             context,
             store,
@@ -335,8 +335,8 @@ where
         _store: &Store<S>,
         _backend: &mut B,
     ) -> Self::Output {
-        let (view, view_state) = node.state_mut().extract_mut();
-        let new_child: &gtk::Widget = view_state.as_ref().unwrap().child_state.as_ref();
+        let (view, state) = node.state_mut().extract_mut();
+        let new_child: &gtk::Widget = state.as_ref().unwrap().child_state.as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_child == &child => {
@@ -351,14 +351,14 @@ where
                     let stack_page = self.container.add_child(new_child);
                     new_child.insert_before(self.container, Some(&child));
                     view.force_update(&stack_page);
-                    view_state.unwrap().stack_page = Some(stack_page);
+                    state.unwrap().stack_page = Some(stack_page);
                     self.current_child = Some(child);
                     break;
                 }
                 None => {
                     let stack_page = self.container.add_child(new_child);
                     view.force_update(&stack_page);
-                    view_state.unwrap().stack_page = Some(stack_page);
+                    state.unwrap().stack_page = Some(stack_page);
                     break;
                 }
             }

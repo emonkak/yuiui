@@ -102,7 +102,7 @@ where
 {
     type Element = E;
 
-    fn render(&self, _state: &S) -> Self::Element {
+    fn render(&self, _state: &Store<S>) -> Self::Element {
         (self.inner.render_fn)(&self.inner.deps)
     }
 }

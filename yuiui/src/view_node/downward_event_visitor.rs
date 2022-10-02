@@ -44,18 +44,10 @@ where
                 .unwrap_or(false)
         } else {
             match node.state.as_mut().unwrap() {
-                ViewNodeState::Prepared(view, view_state)
-                | ViewNodeState::Pending(view, _, view_state) => {
+                ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
                     let mut result = false;
                     if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
-                        view.event(
-                            event,
-                            view_state,
-                            &mut node.children,
-                            context,
-                            store,
-                            backend,
-                        );
+                        view.event(event, state, &mut node.children, context, store, backend);
                         result = true;
                     }
                     if node.event_mask.contains(&self.event.type_id()) {

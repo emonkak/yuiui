@@ -60,7 +60,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -71,12 +71,12 @@ where
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, view_state);
+                self.update(&old_view, state);
                 is_dynamic
             }
         };
         if needs_reconcile {
-            let mut visitor = ReconcileChildrenVisitor::new(view_state);
+            let mut visitor = ReconcileChildrenVisitor::new(state);
             children.for_each(&mut visitor, context, store, backend);
         }
     }

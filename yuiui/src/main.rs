@@ -141,7 +141,7 @@ pub struct ButtonProps {
     pub label: Cow<'static, str>,
 }
 
-pub fn button<S, M, B>(props: &ButtonProps, _state: &S) -> impl DebuggableElement<S, M, B> {
+pub fn button<S, M, B>(props: &ButtonProps, _store: &Store<S>) -> impl DebuggableElement<S, M, B> {
     Block::new().el_with(Text::new(props.label.clone()).el())
 }
 
@@ -177,7 +177,7 @@ impl State for CounterState {
 
 fn counter<B>(
     _props: &(),
-    state: &CounterState,
+    store: &Store<CounterState>,
 ) -> impl DebuggableElement<CounterState, CounterMessage, B> {
-    Block::new().el_with(Text::new(format!("{}", state.count)).el())
+    Block::new().el_with(Text::new(format!("{}", store.count)).el())
 }

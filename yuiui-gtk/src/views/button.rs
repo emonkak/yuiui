@@ -68,7 +68,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
         context: &mut MessageContext<M>,
         _store: &Store<S>,
@@ -78,7 +78,7 @@ where
             Lifecycle::Mount | Lifecycle::Remount => {
                 let event_port = backend.event_port().clone();
                 let id_path = context.id_path().to_vec();
-                view_state.clicked_signal = view_state
+                state.clicked_signal = state
                     .widget
                     .connect_clicked(move |_| {
                         event_port
@@ -91,11 +91,11 @@ where
                     .into();
             }
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, &view_state.widget);
+                self.update(&old_view, &state.widget);
             }
             Lifecycle::Unmount => {
-                if let Some(signal_id) = view_state.clicked_signal.take() {
-                    view_state.widget.disconnect(signal_id);
+                if let Some(signal_id) = state.clicked_signal.take() {
+                    state.widget.disconnect(signal_id);
                 }
             }
         }
@@ -104,7 +104,7 @@ where
     fn event(
         &self,
         _event: <Self as EventListener>::Event,
-        _view_state: &mut Self::State,
+        _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,

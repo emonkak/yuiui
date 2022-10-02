@@ -147,7 +147,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -158,7 +158,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.lifecycle(
             sub_lifecycle,
-            view_state,
+            state,
             &mut children.target,
             &mut sub_context,
             sub_store,
@@ -170,7 +170,7 @@ where
     fn event(
         &self,
         event: <Self as EventListener>::Event,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
@@ -180,7 +180,7 @@ where
         let mut sub_context = context.new_sub_context();
         self.target.event(
             event,
-            view_state,
+            state,
             &mut children.target,
             &mut sub_context,
             sub_store,

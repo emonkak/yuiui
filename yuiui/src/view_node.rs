@@ -124,32 +124,32 @@ where
 
         let (result, node_state) = match (mode, self.state.take().unwrap()) {
             (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut view_state = view.build(&mut self.children, store, backend);
+                let mut state = view.build(&mut self.children, store, backend);
                 view.lifecycle(
                     Lifecycle::Mount,
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
                     backend,
                 );
-                (true, ViewNodeState::Prepared(view, view_state))
+                (true, ViewNodeState::Prepared(view, state))
             }
-            (CommitMode::Mount, ViewNodeState::Prepared(view, mut view_state)) => {
+            (CommitMode::Mount, ViewNodeState::Prepared(view, mut state)) => {
                 view.lifecycle(
                     Lifecycle::Remount,
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
                     backend,
                 );
-                (true, ViewNodeState::Prepared(view, view_state))
+                (true, ViewNodeState::Prepared(view, state))
             }
-            (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
+            (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut state)) => {
                 view.lifecycle(
                     Lifecycle::Remount,
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
@@ -157,55 +157,55 @@ where
                 );
                 pending_view.lifecycle(
                     Lifecycle::Update(view),
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
                     backend,
                 );
-                (true, ViewNodeState::Prepared(pending_view, view_state))
+                (true, ViewNodeState::Prepared(pending_view, state))
             }
             (CommitMode::Update, ViewNodeState::Uninitialized(view)) => {
                 (false, ViewNodeState::Uninitialized(view))
             }
-            (CommitMode::Update, ViewNodeState::Prepared(view, view_state)) => {
-                (false, ViewNodeState::Prepared(view, view_state))
+            (CommitMode::Update, ViewNodeState::Prepared(view, state)) => {
+                (false, ViewNodeState::Prepared(view, state))
             }
-            (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
+            (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut state)) => {
                 pending_view.lifecycle(
                     Lifecycle::Update(view),
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
                     backend,
                 );
-                (true, ViewNodeState::Prepared(pending_view, view_state))
+                (true, ViewNodeState::Prepared(pending_view, state))
             }
             (CommitMode::Unmount, ViewNodeState::Uninitialized(view)) => {
                 (false, ViewNodeState::Uninitialized(view))
             }
-            (CommitMode::Unmount, ViewNodeState::Prepared(view, mut view_state)) => {
+            (CommitMode::Unmount, ViewNodeState::Prepared(view, mut state)) => {
                 view.lifecycle(
                     Lifecycle::Unmount,
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
                     backend,
                 );
-                (true, ViewNodeState::Prepared(view, view_state))
+                (true, ViewNodeState::Prepared(view, state))
             }
-            (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut view_state)) => {
+            (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut state)) => {
                 view.lifecycle(
                     Lifecycle::Unmount,
-                    &mut view_state,
+                    &mut state,
                     &mut self.children,
                     context,
                     store,
                     backend,
                 );
-                (true, ViewNodeState::Pending(view, pending_view, view_state))
+                (true, ViewNodeState::Pending(view, pending_view, state))
             }
         };
 
@@ -297,25 +297,27 @@ impl<V, VS> ViewNodeState<V, VS> {
     {
         match self {
             Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
-            Self::Prepared(view, view_state) => ViewNodeState::Prepared(f(view), view_state),
-            Self::Pending(view, pending_view, view_state) => {
-                ViewNodeState::Pending(f(view), f(pending_view), view_state)
+            Self::Prepared(view, state) => ViewNodeState::Prepared(f(view), state),
+            Self::Pending(view, pending_view, state) => {
+                ViewNodeState::Pending(f(view), f(pending_view), state)
             }
         }
     }
 
     pub fn extract(&self) -> (&V, Option<&VS>) {
         match self {
-            ViewNodeState::Prepared(view, view_state)
-            | ViewNodeState::Pending(view, _, view_state) => (view, Some(view_state)),
+            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
+                (view, Some(state))
+            }
             ViewNodeState::Uninitialized(view) => (view, None),
         }
     }
 
     pub fn extract_mut(&mut self) -> (&V, Option<&mut VS>) {
         match self {
-            ViewNodeState::Prepared(view, view_state)
-            | ViewNodeState::Pending(view, _, view_state) => (view, Some(view_state)),
+            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
+                (view, Some(state))
+            }
             ViewNodeState::Uninitialized(view) => (view, None),
         }
     }
@@ -328,18 +330,14 @@ impl<V, VS> ViewNodeState<V, VS> {
 
     pub fn as_view_state(&self) -> Option<&VS> {
         match self {
-            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
-                Some(view_state)
-            }
+            ViewNodeState::Prepared(_, state) | ViewNodeState::Pending(_, _, state) => Some(state),
             ViewNodeState::Uninitialized(_) => None,
         }
     }
 
     pub fn as_view_state_mut(&mut self) -> Option<&mut VS> {
         match self {
-            ViewNodeState::Prepared(_, view_state) | ViewNodeState::Pending(_, _, view_state) => {
-                Some(view_state)
-            }
+            ViewNodeState::Prepared(_, state) | ViewNodeState::Pending(_, _, state) => Some(state),
             ViewNodeState::Uninitialized(_) => None,
         }
     }
@@ -372,7 +370,7 @@ impl<'a, V: View<S, M, B>, S, M, B> ViewRef<'a, V, S, M, B> {
         self.state.as_ref().unwrap().as_view()
     }
 
-    pub fn view_state(&self) -> &V::State {
+    pub fn state(&self) -> &V::State {
         self.state.as_ref().unwrap().as_view_state().unwrap()
     }
 

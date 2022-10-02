@@ -44,8 +44,7 @@ where
                 .unwrap_or(false)
         } else {
             match node.state.as_mut().unwrap() {
-                ViewNodeState::Prepared(view, view_state)
-                | ViewNodeState::Pending(view, _, view_state) => {
+                ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
                     let event =
                         <V as EventListener>::Event::from_any(self.event).unwrap_or_else(|| {
                             panic!(
@@ -53,14 +52,7 @@ where
                                 any::type_name::<<V as EventListener>::Event>()
                             )
                         });
-                    view.event(
-                        event,
-                        view_state,
-                        &mut node.children,
-                        context,
-                        store,
-                        backend,
-                    );
+                    view.event(event, state, &mut node.children, context, store, backend);
                     true
                 }
                 ViewNodeState::Uninitialized(_) => false,

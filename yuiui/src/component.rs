@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use crate::context::MessageContext;
 use crate::element::{ComponentEl, Element};
 use crate::event::Lifecycle;
+use crate::state::Store;
 use crate::view_node::ViewRef;
 
 pub trait Component<S, M, B>: Sized {
@@ -14,12 +15,12 @@ pub trait Component<S, M, B>: Sized {
         _lifecycle: Lifecycle<Self>,
         _view_ref: ViewRef<'_, <Self::Element as Element<S, M, B>>::View, S, M, B>,
         _context: &mut MessageContext<M>,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &mut B,
     ) {
     }
 
-    fn render(&self, state: &S) -> Self::Element;
+    fn render(&self, state: &Store<S>) -> Self::Element;
 
     fn el(self) -> ComponentEl<Self> {
         ComponentEl::new(self)
@@ -31,7 +32,7 @@ pub trait ComponentProps<S, M, B>: Sized {
         &self,
         _lifecycle: Lifecycle<Self>,
         _context: &mut MessageContext<M>,
-        _state: &S,
+        _store: &Store<S>,
         _backend: &mut B,
     ) {
     }
@@ -63,7 +64,7 @@ pub trait HigherOrderComponent<Props, S, M, B> {
 impl<Props, E, S, M, B, RenderFn> HigherOrderComponent<Props, S, M, B> for RenderFn
 where
     E: Element<S, M, B>,
-    RenderFn: Fn(&Props, &S) -> E,
+    RenderFn: Fn(&Props, &Store<S>) -> E,
     Props: ComponentProps<S, M, B>,
 {
     type Component = FunctionComponent<
@@ -73,7 +74,7 @@ where
         M,
         B,
         RenderFn,
-        fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+        fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
     >;
 
     fn build_component(self, props: Props) -> Self::Component {
@@ -87,11 +88,11 @@ pub struct FunctionComponent<
     S,
     M,
     B,
-    RenderFn = fn(&Props, &S) -> E,
-    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    RenderFn = fn(&Props, &Store<S>) -> E,
+    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
 > where
-    RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    RenderFn: Fn(&Props, &Store<S>) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
 {
     props: Props,
     render_fn: RenderFn,
@@ -102,8 +103,8 @@ pub struct FunctionComponent<
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn>
     FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
-    RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    RenderFn: Fn(&Props, &Store<S>) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
 {
     pub fn new(props: Props, render_fn: RenderFn, lifecycle_fn: LifeCycleFn) -> Self {
         Self {
@@ -118,8 +119,8 @@ where
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Component<S, M, B>
     for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
-    RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    RenderFn: Fn(&Props, &Store<S>) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
     E: Element<S, M, B>,
 {
     type Element = E;
@@ -129,23 +130,23 @@ where
         lifecycle: Lifecycle<Self>,
         _view_ref: ViewRef<'_, <Self::Element as Element<S, M, B>>::View, S, M, B>,
         context: &mut MessageContext<M>,
-        state: &S,
+        store: &Store<S>,
         backend: &mut B,
     ) {
         let lifecycle = lifecycle.map(|component| component.props);
-        (self.lifecycle_fn)(&self.props, lifecycle, context, state, backend)
+        (self.lifecycle_fn)(&self.props, lifecycle, context, store, backend)
     }
 
-    fn render(&self, state: &S) -> Self::Element {
-        (self.render_fn)(&self.props, state)
+    fn render(&self, store: &Store<S>) -> Self::Element {
+        (self.render_fn)(&self.props, store)
     }
 }
 
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Clone
     for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
-    RenderFn: Clone + Fn(&Props, &S) -> E,
-    LifeCycleFn: Clone + Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    RenderFn: Clone + Fn(&Props, &Store<S>) -> E,
+    LifeCycleFn: Clone + Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
     Props: Clone,
 {
     fn clone(&self) -> Self {
@@ -161,8 +162,8 @@ where
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
     for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
-    RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &S, &mut B),
+    RenderFn: Fn(&Props, &Store<S>) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut B),
     Props: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -62,7 +62,7 @@ impl<S, M, B> View<S, M, B> for Label {
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
+        state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
@@ -70,7 +70,7 @@ impl<S, M, B> View<S, M, B> for Label {
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, view_state);
+                self.update(&old_view, state);
             }
             _ => {}
         }

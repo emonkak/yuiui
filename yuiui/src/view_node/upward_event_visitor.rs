@@ -38,8 +38,7 @@ where
         backend: &mut B,
     ) -> Self::Output {
         match node.state.as_mut().unwrap() {
-            ViewNodeState::Prepared(view, view_state)
-            | ViewNodeState::Pending(view, _, view_state) => {
+            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
                 let mut result = false;
                 if let Some((head, tail)) = self.id_path.split_first() {
                     self.id_path = tail;
@@ -49,14 +48,7 @@ where
                         .unwrap_or(false);
                 }
                 if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
-                    view.event(
-                        event,
-                        view_state,
-                        &mut node.children,
-                        context,
-                        store,
-                        backend,
-                    );
+                    view.event(event, state, &mut node.children, context, store, backend);
                     result = true;
                 }
                 result
