@@ -13,8 +13,8 @@ use crate::state::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
-pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
-    node: ViewNode<E::View, E::Components, S, M, B>,
+pub struct RenderLoop<E: Element<S, M, R>, S, M, R> {
+    node: ViewNode<E::View, E::Components, S, M, R>,
     render_context: RenderContext,
     message_queue: VecDeque<M>,
     event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
@@ -23,9 +23,9 @@ pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     is_mounted: bool,
 }
 
-impl<E, S, M, B> RenderLoop<E, S, M, B>
+impl<E, S, M, R> RenderLoop<E, S, M, R>
 where
-    E: Element<S, M, B>,
+    E: Element<S, M, R>,
     S: State<Message = M>,
 {
     pub fn create(element: E, store: &Store<S>) -> Self {
@@ -47,7 +47,7 @@ where
         deadline: &impl Deadline,
         execution_context: &impl ExecutionContext<M>,
         store: &mut Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> RenderFlow {
         loop {
             while let Some(message) = self.message_queue.pop_front() {
@@ -73,7 +73,7 @@ where
             }
 
             while let Some((event, destination)) = self.event_queue.pop_front() {
-                self.dispatch_event(event, destination, store, backend);
+                self.dispatch_event(event, destination, store, renderer);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -87,7 +87,7 @@ where
                 let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_update));
                 let changed_nodes =
                     self.node
-                        .update_subtree(&id_tree, store, backend, &mut self.render_context);
+                        .update_subtree(&id_tree, store, renderer, &mut self.render_context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         if let Some(current_depth) = self.nodes_to_commit.get_mut(&id_path) {
@@ -107,7 +107,7 @@ where
                     let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_commit));
                     let mut context = MessageContext::new();
                     self.node
-                        .commit_subtree(&id_tree, &mut context, store, backend);
+                        .commit_subtree(&id_tree, &mut context, store, renderer);
                     self.message_queue.extend(context.into_messages());
                     if deadline.did_timeout() {
                         return self.render_flow();
@@ -116,7 +116,7 @@ where
             } else {
                 let mut context = MessageContext::new();
                 self.node
-                    .commit_within(CommitMode::Mount, 0, &mut context, store, backend);
+                    .commit_within(CommitMode::Mount, 0, &mut context, store, renderer);
                 self.message_queue.extend(context.into_messages());
                 self.is_mounted = true;
                 if deadline.did_timeout() {
@@ -134,9 +134,9 @@ where
         &mut self,
         execution_context: &impl ExecutionContext<M>,
         store: &mut Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
-        let render_flow = self.run(&Forever, execution_context, store, backend);
+        let render_flow = self.run(&Forever, execution_context, store, renderer);
         assert_eq!(render_flow, RenderFlow::Done);
     }
 
@@ -148,7 +148,7 @@ where
         self.event_queue.push_back((event, destination));
     }
 
-    pub fn node(&self) -> &ViewNode<E::View, E::Components, S, M, B> {
+    pub fn node(&self) -> &ViewNode<E::View, E::Components, S, M, R> {
         &self.node
     }
 
@@ -157,25 +157,25 @@ where
         event: Box<dyn Any + Send>,
         destination: EventDestination,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
         let mut context = MessageContext::new();
         match destination {
             EventDestination::Global => {
                 self.node
-                    .global_event(&*event, &mut context, store, backend);
+                    .global_event(&*event, &mut context, store, renderer);
             }
             EventDestination::Downward(id_path) => {
                 self.node
-                    .downward_event(&*event, &id_path, &mut context, store, backend);
+                    .downward_event(&*event, &id_path, &mut context, store, renderer);
             }
             EventDestination::Upward(id_path) => {
                 self.node
-                    .upward_event(&*event, &id_path, &mut context, store, backend);
+                    .upward_event(&*event, &id_path, &mut context, store, renderer);
             }
             EventDestination::Local(id_path) => {
                 self.node
-                    .local_event(&*event, &id_path, &mut context, store, backend);
+                    .local_event(&*event, &id_path, &mut context, store, renderer);
             }
         }
         self.message_queue.extend(context.into_messages());
@@ -195,15 +195,15 @@ where
     }
 }
 
-impl<E, S, M, B> fmt::Debug for RenderLoop<E, S, M, B>
+impl<E, S, M, R> fmt::Debug for RenderLoop<E, S, M, R>
 where
-    E: Element<S, M, B>,
+    E: Element<S, M, R>,
     E::View: fmt::Debug,
-    <E::View as View<S, M, B>>::State: fmt::Debug,
-    <<E::View as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
+    <E::View as View<S, M, R>>::State: fmt::Debug,
+    <<E::View as View<S, M, R>>::Children as ElementSeq<S, M, R>>::Storage: fmt::Debug,
     E::Components: fmt::Debug,
     M: fmt::Debug,
-    B: fmt::Debug,
+    R: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderLoop")

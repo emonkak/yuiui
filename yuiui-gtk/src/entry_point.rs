@@ -3,8 +3,8 @@ use gtk::prelude::*;
 use std::time::{Duration, Instant};
 use yuiui::{Element, RenderFlow, RenderLoop, State, Store, View};
 
-use crate::backend::{EventPort, GtkBackend};
 use crate::execution_context::{ExecutionContext, RenderAction};
+use crate::renderer::{EventPort, GtkRenderer};
 
 pub trait EntryPoint<M>: Sized + 'static {
     fn window(&self) -> &gtk::Window;
@@ -19,8 +19,8 @@ pub trait EntryPoint<M>: Sized + 'static {
 
     fn boot<E, S>(self, element: E, state: S)
     where
-        E: Element<S, M, GtkBackend> + 'static,
-        <E::View as View<S, M, GtkBackend>>::State: AsRef<gtk::Widget>,
+        E: Element<S, M, GtkRenderer> + 'static,
+        <E::View as View<S, M, GtkRenderer>>::State: AsRef<gtk::Widget>,
         S: State<Message = M> + 'static,
         M: Send + 'static,
     {
@@ -31,14 +31,14 @@ pub trait EntryPoint<M>: Sized + 'static {
         let context = ExecutionContext::new(glib::MainContext::default(), action_tx.clone());
 
         let mut store = Store::new(state);
-        let mut backend = GtkBackend::new(self.window().clone(), event_tx);
+        let mut renderer = GtkRenderer::new(self.window().clone(), event_tx);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
-        render_loop.run_forever(&context, &mut store, &mut backend);
+        render_loop.run_forever(&context, &mut store, &mut renderer);
 
         let widget = render_loop.node().state().as_view_state().unwrap().as_ref();
 
-        self.attach(widget, backend.event_port());
+        self.attach(widget, renderer.event_port());
 
         event_rx.attach(None, move |(event, destination)| {
             action_tx
@@ -61,7 +61,8 @@ pub trait EntryPoint<M>: Sized + 'static {
                 }
             }
 
-            if render_loop.run(&deadline, &context, &mut store, &mut backend) == RenderFlow::Suspend
+            if render_loop.run(&deadline, &context, &mut store, &mut renderer)
+                == RenderFlow::Suspend
             {
                 context.request_render();
             }

@@ -52,11 +52,11 @@ pub struct FlowBox<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, B> View<S, M, B> for FlowBox<Children>
+impl<Children, S, M, R> View<S, M, R> for FlowBox<Children>
 where
-    Children: ElementSeq<S, M, B>,
+    Children: ElementSeq<S, M, R>,
     Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, B>,
+        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, R>,
 {
     type Children = Children;
 
@@ -66,12 +66,12 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
-        let is_dynamic = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_DYNAMIC;
+        let is_dynamic = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_DYNAMIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
@@ -82,15 +82,15 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, context, store, backend);
+            children.for_each(&mut visitor, context, store, renderer);
         }
     }
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::State {
         self.build()
     }
@@ -137,10 +137,10 @@ pub struct FlowBoxChild<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M, B> View<S, M, B> for FlowBoxChild<Child>
+impl<Child, S, M, R> View<S, M, R> for FlowBoxChild<Child>
 where
-    Child: Element<S, M, B>,
-    <Child::View as View<S, M, B>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, R>,
+    <Child::View as View<S, M, R>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -150,10 +150,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -165,9 +165,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::State {
         let container = self.build();
         let child = child.state().as_view_state().unwrap();
@@ -196,10 +196,10 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for ReconcileChildrenVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, B, State = gtk::FlowBoxChild>,
-    CS: ComponentStack<S, M, B, View = V>,
+    V: View<S, M, R, State = gtk::FlowBoxChild>,
+    CS: ComponentStack<S, M, R, View = V>,
 {
     type Context = MessageContext<M>;
 
@@ -207,10 +207,10 @@ where
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, B>,
+        node: &mut ViewNode<V, CS, S, M, R>,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::Output {
         let new_child = node.state().as_view_state().unwrap();
         loop {

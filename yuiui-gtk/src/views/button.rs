@@ -8,7 +8,7 @@ use yuiui::{
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::backend::GtkBackend;
+use crate::renderer::GtkRenderer;
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
@@ -56,10 +56,10 @@ pub struct Button<Child, S, M> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, GtkBackend> for Button<Child, S, M>
+impl<Child, S, M> View<S, M, GtkRenderer> for Button<Child, S, M>
 where
-    Child: Element<S, M, GtkBackend>,
-    <Child::View as View<S, M, GtkBackend>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, GtkRenderer>,
+    <Child::View as View<S, M, GtkRenderer>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -69,14 +69,14 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, GtkRenderer>>::Storage,
         context: &mut MessageContext<M>,
         _store: &Store<S>,
-        backend: &mut GtkBackend,
+        renderer: &mut GtkRenderer,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
-                let event_port = backend.event_port().clone();
+                let event_port = renderer.event_port().clone();
                 let id_path = context.id_path().to_vec();
                 state.clicked_signal = state
                     .widget
@@ -105,10 +105,10 @@ where
         &self,
         _event: <Self as EventListener>::Event,
         _state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, GtkRenderer>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        _backend: &mut GtkBackend,
+        _renderer: &mut GtkRenderer,
     ) {
         if let Some(on_click) = &self.on_click {
             let message = on_click(store);
@@ -118,9 +118,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, GtkBackend>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, GtkRenderer>>::Storage,
         _store: &Store<S>,
-        _backend: &mut GtkBackend,
+        _renderer: &mut GtkRenderer,
     ) -> Self::State {
         let widget = self.build();
         widget.set_child(Some(child.state().as_view_state().unwrap().as_ref()));

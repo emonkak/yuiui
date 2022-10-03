@@ -21,10 +21,10 @@ impl<'a> DownwardEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for DownwardEventVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for DownwardEventVisitor<'a>
 where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
+    V: View<S, M, R>,
+    CS: ComponentStack<S, M, R, View = V>,
 {
     type Context = MessageContext<M>;
 
@@ -32,26 +32,26 @@ where
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, B>,
+        node: &mut ViewNode<V, CS, S, M, R>,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::Output {
         if let Some((head, tail)) = self.id_path.split_first() {
             self.id_path = tail;
             node.children
-                .for_id(*head, self, context, store, backend)
+                .for_id(*head, self, context, store, renderer)
                 .unwrap_or(false)
         } else {
             match node.state.as_mut().unwrap() {
                 ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
                     let mut result = false;
                     if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
-                        view.event(event, state, &mut node.children, context, store, backend);
+                        view.event(event, state, &mut node.children, context, store, renderer);
                         result = true;
                     }
                     if node.event_mask.contains(&self.event.type_id()) {
-                        result |= node.children.for_each(self, context, store, backend);
+                        result |= node.children.for_each(self, context, store, renderer);
                     }
                     result
                 }

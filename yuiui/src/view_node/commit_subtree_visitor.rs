@@ -18,10 +18,10 @@ impl<'a> CommitSubtreeVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for CommitSubtreeVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for CommitSubtreeVisitor<'a>
 where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
+    V: View<S, M, R>,
+    CS: ComponentStack<S, M, R, View = V>,
 {
     type Context = MessageContext<M>;
 
@@ -29,13 +29,13 @@ where
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, B>,
+        node: &mut ViewNode<V, CS, S, M, R>,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::Output {
         if let Some(depth) = self.cursor.current().value() {
-            node.commit_within(self.mode, *depth, context, store, backend)
+            node.commit_within(self.mode, *depth, context, store, renderer)
         } else {
             let mut result = false;
             for cursor in self.cursor.children() {
@@ -43,7 +43,7 @@ where
                 self.cursor = cursor;
                 result |= node
                     .children
-                    .for_id(id, self, context, store, backend)
+                    .for_id(id, self, context, store, renderer)
                     .unwrap_or(false);
             }
             result

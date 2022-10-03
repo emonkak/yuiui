@@ -17,10 +17,10 @@ impl<'a> UpdateSubtreeVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<V, CS, S, M, B>, S, B> for UpdateSubtreeVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for UpdateSubtreeVisitor<'a>
 where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
+    V: View<S, M, R>,
+    CS: ComponentStack<S, M, R, View = V>,
 {
     type Context = RenderContext;
 
@@ -28,10 +28,10 @@ where
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, B>,
+        node: &mut ViewNode<V, CS, S, M, R>,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::Output {
         if let (Some(&depth), true) = (self.cursor.current().value(), store.dirty()) {
             store.mark_clean();
@@ -39,7 +39,7 @@ where
                 CS::update(node.borrow_mut(), depth, 0, context, store)
             } else {
                 node.dirty = true;
-                node.children.for_each(self, context, store, backend);
+                node.children.for_each(self, context, store, renderer);
                 true
             };
             if is_updated {
@@ -52,7 +52,7 @@ where
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                if let Some(child_result) = node.children.for_id(id, self, context, store, backend)
+                if let Some(child_result) = node.children.for_id(id, self, context, store, renderer)
                 {
                     result.extend(child_result);
                 }

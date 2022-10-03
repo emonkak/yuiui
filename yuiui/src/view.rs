@@ -3,8 +3,8 @@ use crate::element::{ElementSeq, ViewEl};
 use crate::event::{EventListener, Lifecycle};
 use crate::state::Store;
 
-pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
-    type Children: ElementSeq<S, M, B>;
+pub trait View<S, M, R>: Sized + for<'event> EventListener<'event> {
+    type Children: ElementSeq<S, M, R>;
 
     type State;
 
@@ -12,10 +12,10 @@ pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
         &self,
         _lifecycle: Lifecycle<Self>,
         _view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) {
     }
 
@@ -23,28 +23,28 @@ pub trait View<S, M, B>: Sized + for<'event> EventListener<'event> {
         &self,
         _event: <Self as EventListener>::Event,
         _view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) {
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::State;
 
-    fn el(self) -> ViewEl<Self, S, M, B>
+    fn el(self) -> ViewEl<Self, S, M, R>
     where
         Self::Children: Default,
     {
         ViewEl::new(self, Self::Children::default())
     }
 
-    fn el_with(self, children: Self::Children) -> ViewEl<Self, S, M, B> {
+    fn el_with(self, children: Self::Children) -> ViewEl<Self, S, M, R> {
         ViewEl::new(self, children)
     }
 }

@@ -1,13 +1,13 @@
 use crate::id::Id;
 use crate::state::Store;
 
-pub trait Traversable<Visitor, Context, Output, S, M, B> {
+pub trait Traversable<Visitor, Context, Output, S, M, R> {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output;
 
     fn for_id(
@@ -16,11 +16,11 @@ pub trait Traversable<Visitor, Context, Output, S, M, B> {
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output>;
 }
 
-pub trait Visitor<Node, S, B> {
+pub trait Visitor<Node, S, R> {
     type Context;
 
     type Output: Monoid;
@@ -30,7 +30,7 @@ pub trait Visitor<Node, S, B> {
         node: &mut Node,
         context: &mut Self::Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::Output;
 }
 

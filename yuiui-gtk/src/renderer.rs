@@ -5,12 +5,12 @@ use yuiui::EventDestination;
 pub type EventPort = glib::Sender<(Box<dyn Any + Send>, EventDestination)>;
 
 #[derive(Debug)]
-pub struct GtkBackend {
+pub struct GtkRenderer {
     window: gtk::Window,
     event_port: EventPort,
 }
 
-impl GtkBackend {
+impl GtkRenderer {
     pub(crate) fn new(window: gtk::Window, event_port: EventPort) -> Self {
         Self { window, event_port }
     }

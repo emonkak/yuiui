@@ -76,16 +76,16 @@ impl Text {
     }
 }
 
-impl<S, M, B> View<S, M, B> for Text {
+impl<S, M, R> View<S, M, R> for Text {
     type State = TextState;
 
     type Children = ();
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::State {
         TextState
     }
@@ -111,9 +111,9 @@ impl<C> Block<C> {
     }
 }
 
-impl<C, S, M, B> View<S, M, B> for Block<C>
+impl<C, S, M, R> View<S, M, R> for Block<C>
 where
-    C: ElementSeq<S, M, B>,
+    C: ElementSeq<S, M, R>,
 {
     type State = BlockState;
 
@@ -121,9 +121,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::State {
         BlockState
     }
@@ -141,11 +141,11 @@ pub struct ButtonProps {
     pub label: Cow<'static, str>,
 }
 
-pub fn button<S, M, B>(props: &ButtonProps, _store: &Store<S>) -> impl DebuggableElement<S, M, B> {
+pub fn button<S, M, R>(props: &ButtonProps, _store: &Store<S>) -> impl DebuggableElement<S, M, R> {
     Block::new().el_with(Text::new(props.label.clone()).el())
 }
 
-impl<S, M, B> ComponentProps<S, M, B> for ButtonProps {}
+impl<S, M, R> ComponentProps<S, M, R> for ButtonProps {}
 
 #[derive(Debug)]
 struct CounterState {
@@ -175,9 +175,9 @@ impl State for CounterState {
     }
 }
 
-fn counter<B>(
+fn counter<R>(
     _props: &(),
     store: &Store<CounterState>,
-) -> impl DebuggableElement<CounterState, CounterMessage, B> {
+) -> impl DebuggableElement<CounterState, CounterMessage, R> {
     Block::new().el_with(Text::new(format!("{}", store.count)).el())
 }

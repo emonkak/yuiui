@@ -18,22 +18,22 @@ impl<C> ComponentEl<C> {
     }
 }
 
-impl<C, S, M, B> Element<S, M, B> for ComponentEl<C>
+impl<C, S, M, R> Element<S, M, R> for ComponentEl<C>
 where
-    C: Component<S, M, B>,
+    C: Component<S, M, R>,
 {
-    type View = <C::Element as Element<S, M, B>>::View;
+    type View = <C::Element as Element<S, M, R>>::View;
 
     type Components = (
-        ComponentNode<C, S, M, B>,
-        <C::Element as Element<S, M, B>>::Components,
+        ComponentNode<C, S, M, R>,
+        <C::Element as Element<S, M, R>>::Components,
     );
 
     fn render(
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, R> {
         let component_node = ComponentNode::new(self.component);
         let element = component_node.component().render(store);
         let node = element.render(context, store);
@@ -49,7 +49,7 @@ where
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
@@ -68,12 +68,12 @@ where
     }
 }
 
-impl<C, S, M, B> ElementSeq<S, M, B> for ComponentEl<C>
+impl<C, S, M, R> ElementSeq<S, M, R> for ComponentEl<C>
 where
-    C: Component<S, M, B>,
+    C: Component<S, M, R>,
 {
     type Storage =
-        ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
+        ViewNode<<Self as Element<S, M, R>>::View, <Self as Element<S, M, R>>::Components, S, M, R>;
 
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)

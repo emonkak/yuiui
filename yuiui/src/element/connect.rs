@@ -34,9 +34,9 @@ impl<T, S, M, SS, SM> ConnectEl<T, S, M, SS, SM> {
     }
 }
 
-impl<T, S, M, SS, SM, B> Element<S, M, B> for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, R> Element<S, M, R> for ConnectEl<T, S, M, SS, SM>
 where
-    T: Element<SS, SM, B>,
+    T: Element<SS, SM, R>,
 {
     type View = Connect<T::View, S, M, SS, SM>;
 
@@ -46,7 +46,7 @@ where
         self,
         context: &mut RenderContext,
         store: &Store<S>,
-    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, R> {
         let sub_store = (self.store_selector)(store);
         let sub_node = self.target.render(context, sub_store);
         ViewNode {
@@ -77,7 +77,7 @@ where
 
     fn update(
         self,
-        mut node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        mut node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
@@ -88,12 +88,12 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, B> ElementSeq<S, M, B> for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, R> ElementSeq<S, M, R> for ConnectEl<T, S, M, SS, SM>
 where
-    T: Element<SS, SM, B>,
+    T: Element<SS, SM, R>,
 {
     type Storage =
-        ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, B>;
+        ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, R>;
 
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
         self.render(context, store)
@@ -136,9 +136,9 @@ impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
     }
 }
 
-impl<T, S, M, SS, SM, B> View<S, M, B> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, R> View<S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: View<SS, SM, B>,
+    T: View<SS, SM, R>,
 {
     type Children = Connect<T::Children, S, M, SS, SM>;
 
@@ -148,10 +148,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
         let sub_store = (self.store_selector)(store);
@@ -162,7 +162,7 @@ where
             &mut children.target,
             &mut sub_context,
             sub_store,
-            backend,
+            renderer,
         );
         context.merge_sub_context(sub_context, &self.message_selector);
     }
@@ -171,10 +171,10 @@ where
         &self,
         event: <Self as EventListener>::Event,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
@@ -184,19 +184,19 @@ where
             &mut children.target,
             &mut sub_context,
             sub_store,
-            backend,
+            renderer,
         );
         context.merge_sub_context(sub_context, &self.message_selector);
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::State {
         let sub_store = (self.store_selector)(store);
-        self.target.build(&mut children.target, sub_store, backend)
+        self.target.build(&mut children.target, sub_store, renderer)
     }
 }
 
@@ -207,16 +207,16 @@ where
     type Event = T::Event;
 }
 
-impl<T, S, M, SS, SM, B> ComponentStack<S, M, B> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, R> ComponentStack<S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: ComponentStack<SS, SM, B>,
+    T: ComponentStack<SS, SM, R>,
 {
     const LEN: usize = T::LEN;
 
     type View = Connect<T::View, S, M, SS, SM>;
 
     fn update<'a>(
-        mut node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        mut node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
@@ -230,13 +230,13 @@ where
     }
 
     fn commit<'a>(
-        mut node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        mut node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
         let store_selector = &node.components.store_selector;
         let sub_store = (store_selector)(store);
@@ -254,7 +254,7 @@ where
                 current_depth,
                 &mut sub_context,
                 sub_store,
-                backend,
+                renderer,
             )
         });
         let message_selector = &node.components.message_selector;
@@ -263,9 +263,9 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, B> ElementSeq<S, M, B> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, R> ElementSeq<S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: ElementSeq<SS, SM, B>,
+    T: ElementSeq<SS, SM, R>,
 {
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
@@ -290,9 +290,9 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, B> ViewNodeSeq<S, M, B> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, R> ViewNodeSeq<S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: ViewNodeSeq<SS, SM, B>,
+    T: ViewNodeSeq<SS, SM, R>,
 {
     const IS_DYNAMIC: bool = T::IS_DYNAMIC;
 
@@ -315,32 +315,32 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
-            .commit(mode, &mut sub_context, sub_store, backend);
+            .commit(mode, &mut sub_context, sub_store, renderer);
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, B> Traversable<Visitor, RenderContext, Output, S, M, B>
+impl<'a, T, S, M, SS, SM, Visitor, Output, R> Traversable<Visitor, RenderContext, Output, S, M, R>
     for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, RenderContext, Output, SS, SM, B>,
+    T: Traversable<Visitor, RenderContext, Output, SS, SM, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output {
         let sub_store = (self.store_selector)(store);
-        self.target.for_each(visitor, context, sub_store, backend)
+        self.target.for_each(visitor, context, sub_store, renderer)
     }
 
     fn for_id(
@@ -349,30 +349,31 @@ where
         visitor: &mut Visitor,
         context: &mut RenderContext,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output> {
         let sub_store = (self.store_selector)(store);
-        self.target.for_id(id, visitor, context, sub_store, backend)
+        self.target
+            .for_id(id, visitor, context, sub_store, renderer)
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, B>
-    Traversable<Visitor, MessageContext<M>, Output, S, M, B> for Connect<T, S, M, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, Output, R>
+    Traversable<Visitor, MessageContext<M>, Output, S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, MessageContext<SM>, Output, SS, SM, B>,
+    T: Traversable<Visitor, MessageContext<SM>, Output, SS, SM, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
-            .for_each(visitor, &mut sub_context, sub_store, backend);
+            .for_each(visitor, &mut sub_context, sub_store, renderer);
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
@@ -383,13 +384,13 @@ where
         visitor: &mut Visitor,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output> {
         let sub_store = (self.store_selector)(store);
         let mut sub_context = context.new_sub_context();
         let result = self
             .target
-            .for_id(id, visitor, &mut sub_context, sub_store, backend);
+            .for_id(id, visitor, &mut sub_context, sub_store, renderer);
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
@@ -404,14 +405,14 @@ where
     }
 }
 
-fn with_sub_node<Callback, Output, S, M, SS, SM, V, CS, B>(
-    node: &mut ViewNodeMut<Connect<V, S, M, SS, SM>, Connect<CS, S, M, SS, SM>, S, M, B>,
+fn with_sub_node<Callback, Output, S, M, SS, SM, V, CS, R>(
+    node: &mut ViewNodeMut<Connect<V, S, M, SS, SM>, Connect<CS, S, M, SS, SM>, S, M, R>,
     callback: Callback,
 ) -> Output
 where
-    Callback: FnOnce(ViewNodeMut<V, CS, SS, SM, B>) -> Output,
-    V: View<SS, SM, B>,
-    CS: ComponentStack<SS, SM, B, View = V>,
+    Callback: FnOnce(ViewNodeMut<V, CS, SS, SM, R>) -> Output,
+    V: View<SS, SM, R>,
+    CS: ComponentStack<SS, SM, R, View = V>,
 {
     let store_selector = &node.components.store_selector;
     let message_selector = &node.components.message_selector;

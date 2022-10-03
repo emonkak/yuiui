@@ -22,9 +22,9 @@ impl<T, const N: usize> ArrayStorage<T, N> {
     }
 }
 
-impl<T, S, M, B, const N: usize> ElementSeq<S, M, B> for [T; N]
+impl<T, S, M, R, const N: usize> ElementSeq<S, M, R> for [T; N]
 where
-    T: ElementSeq<S, M, B>,
+    T: ElementSeq<S, M, R>,
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
@@ -51,9 +51,9 @@ where
     }
 }
 
-impl<'a, T, S, M, B, const N: usize> ViewNodeSeq<S, M, B> for ArrayStorage<T, N>
+impl<'a, T, S, M, R, const N: usize> ViewNodeSeq<S, M, R> for ArrayStorage<T, N>
 where
-    T: ViewNodeSeq<S, M, B>,
+    T: ViewNodeSeq<S, M, R>,
 {
     const IS_DYNAMIC: bool = T::IS_DYNAMIC;
 
@@ -88,12 +88,12 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                result |= node.commit(mode, context, store, backend);
+                result |= node.commit(mode, context, store, renderer);
             }
             self.dirty = false;
         }
@@ -101,10 +101,10 @@ where
     }
 }
 
-impl<T, S, M, B, Visitor, Context, Output, const N: usize>
-    Traversable<Visitor, Context, Output, S, M, B> for ArrayStorage<T, N>
+impl<T, S, M, R, Visitor, Context, Output, const N: usize>
+    Traversable<Visitor, Context, Output, S, M, R> for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Context, Output, S, M, B> + ViewNodeSeq<S, M, B>,
+    T: Traversable<Visitor, Context, Output, S, M, R> + ViewNodeSeq<S, M, R>,
     Output: Monoid,
 {
     fn for_each(
@@ -112,11 +112,11 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output {
         let mut result = Output::default();
         for node in &mut self.nodes {
-            result = result.combine(node.for_each(visitor, context, store, backend));
+            result = result.combine(node.for_each(visitor, context, store, renderer));
         }
         result
     }
@@ -127,7 +127,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output> {
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.nodes, |node| {
@@ -142,11 +142,11 @@ where
                 })
             }) {
                 let node = &mut self.nodes[index];
-                return node.for_id(id, visitor, context, store, backend);
+                return node.for_id(id, visitor, context, store, renderer);
             }
         } else {
             for node in &mut self.nodes {
-                if let Some(result) = node.for_id(id, visitor, context, store, backend) {
+                if let Some(result) = node.for_id(id, visitor, context, store, renderer) {
                     return Some(result);
                 }
             }

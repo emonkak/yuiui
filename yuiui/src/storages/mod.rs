@@ -74,14 +74,14 @@ mod tests {
 
         let xs: Vec<Option<u32>> = vec![
             Some(1), // 0
-            None, // 1
-            None, // 2
-            None, // 3
-            None, // 4
-            None, // 5
-            None, // 6
-            None, // 7
-            None, // 8
+            None,    // 1
+            None,    // 2
+            None,    // 3
+            None,    // 4
+            None,    // 5
+            None,    // 6
+            None,    // 7
+            None,    // 8
             Some(2), // 9
         ];
         assert_eq!(binary_search_by(&xs, |x| x.map(|x| x.cmp(&0))), Err(0));
@@ -90,16 +90,16 @@ mod tests {
         assert_eq!(binary_search_by(&xs, |x| x.map(|x| x.cmp(&3))), Err(10));
 
         let xs: Vec<Option<u32>> = vec![
-            None, // 0
+            None,    // 0
             Some(1), // 1
-            None, // 2
+            None,    // 2
             Some(3), // 3
             Some(4), // 4
             Some(5), // 5
             Some(6), // 6
-            None, // 7
+            None,    // 7
             Some(8), // 8
-            None, // 9
+            None,    // 9
         ];
         assert_eq!(binary_search_by(&xs, |x| x.map(|x| x.cmp(&0))), Err(0));
         assert_eq!(binary_search_by(&xs, |x| x.map(|x| x.cmp(&1))), Ok(1));

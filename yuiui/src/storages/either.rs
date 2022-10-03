@@ -31,10 +31,10 @@ impl<L, R> EitherStorage<L, R> {
     }
 }
 
-impl<L, R, S, M, B> ElementSeq<S, M, B> for Either<L, R>
+impl<L, R, S, M, Renderer> ElementSeq<S, M, Renderer> for Either<L, R>
 where
-    L: ElementSeq<S, M, B>,
-    R: ElementSeq<S, M, B>,
+    L: ElementSeq<S, M, Renderer>,
+    R: ElementSeq<S, M, Renderer>,
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
@@ -122,10 +122,10 @@ where
     }
 }
 
-impl<L, R, S, M, B> ViewNodeSeq<S, M, B> for EitherStorage<L, R>
+impl<L, R, S, M, Renderer> ViewNodeSeq<S, M, Renderer> for EitherStorage<L, R>
 where
-    L: ViewNodeSeq<S, M, B>,
-    R: ViewNodeSeq<S, M, B>,
+    L: ViewNodeSeq<S, M, Renderer>,
+    R: ViewNodeSeq<S, M, Renderer>,
 {
     const IS_DYNAMIC: bool = true;
 
@@ -200,29 +200,31 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut Renderer,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Unmount, context, store, backend),
+                    Either::Left(node) => {
+                        node.commit(CommitMode::Unmount, context, store, renderer)
+                    }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, context, store, backend)
+                        node.commit(CommitMode::Unmount, context, store, renderer)
                     }
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Mount, context, store, backend),
-                    Either::Right(node) => node.commit(CommitMode::Mount, context, store, backend),
+                    Either::Left(node) => node.commit(CommitMode::Mount, context, store, renderer),
+                    Either::Right(node) => node.commit(CommitMode::Mount, context, store, renderer),
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, context, store, backend),
-                Either::Right(node) => node.commit(mode, context, store, backend),
+                Either::Left(node) => node.commit(mode, context, store, renderer),
+                Either::Right(node) => node.commit(mode, context, store, renderer),
             };
         }
         self.flags = RenderFlags::COMMITED;
@@ -230,22 +232,22 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
-    for EitherStorage<L, R>
+impl<L, R, Visitor, Context, Output, S, M, Renderer>
+    Traversable<Visitor, Context, Output, S, M, Renderer> for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, Output, S, M, B>,
-    R: Traversable<Visitor, Context, Output, S, M, B>,
+    L: Traversable<Visitor, Context, Output, S, M, Renderer>,
+    R: Traversable<Visitor, Context, Output, S, M, Renderer>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut Renderer,
     ) -> Output {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, context, store, backend),
-            Either::Right(node) => node.for_each(visitor, context, store, backend),
+            Either::Left(node) => node.for_each(visitor, context, store, renderer),
+            Either::Right(node) => node.for_each(visitor, context, store, renderer),
         }
     }
 
@@ -255,11 +257,11 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut Renderer,
     ) -> Option<Output> {
         match &mut self.active {
-            Either::Left(node) => node.for_id(id, visitor, context, store, backend),
-            Either::Right(node) => node.for_id(id, visitor, context, store, backend),
+            Either::Left(node) => node.for_id(id, visitor, context, store, renderer),
+            Either::Right(node) => node.for_id(id, visitor, context, store, renderer),
         }
     }
 }

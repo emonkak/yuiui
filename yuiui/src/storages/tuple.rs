@@ -8,7 +8,7 @@ use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
-impl<S, M, B> ElementSeq<S, M, B> for () {
+impl<S, M, R> ElementSeq<S, M, R> for () {
     type Storage = ();
 
     fn render_children(self, _context: &mut RenderContext, _store: &Store<S>) -> Self::Storage {
@@ -25,7 +25,7 @@ impl<S, M, B> ElementSeq<S, M, B> for () {
     }
 }
 
-impl<S, M, B> ViewNodeSeq<S, M, B> for () {
+impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     const IS_DYNAMIC: bool = false;
 
     const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
@@ -48,13 +48,13 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for () {
         _mode: CommitMode,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> bool {
         false
     }
 }
 
-impl<Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B> for ()
+impl<Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R> for ()
 where
     Output: Default,
 {
@@ -63,7 +63,7 @@ where
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Output {
         Output::default()
     }
@@ -74,7 +74,7 @@ where
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Option<Output> {
         None
     }
@@ -96,9 +96,9 @@ macro_rules! define_tuple_impls {
 
 macro_rules! define_tuple_impl {
     ($($T:tt),*; $($n:tt),*; $last_n:tt) => {
-        impl<$($T,)* S, M, B> ElementSeq<S, M, B> for ($($T,)*)
+        impl<$($T,)* S, M, R> ElementSeq<S, M, R> for ($($T,)*)
         where
-            $($T: ElementSeq<S, M, B>,)*
+            $($T: ElementSeq<S, M, R>,)*
         {
             type Storage = ($($T::Storage,)*);
 
@@ -116,9 +116,9 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* S, M, B> ViewNodeSeq<S, M, B> for ($($T,)*)
+        impl<$($T,)* S, M, R> ViewNodeSeq<S, M, R> for ($($T,)*)
         where
-            $($T: ViewNodeSeq<S, M, B>,)*
+            $($T: ViewNodeSeq<S, M, R>,)*
         {
             const IS_DYNAMIC: bool = $($T::IS_DYNAMIC)||*;
 
@@ -177,16 +177,16 @@ macro_rules! define_tuple_impl {
                 mode: CommitMode,
                 context: &mut MessageContext<M>,
                 store: &Store<S>,
-                backend: &mut B,
+                renderer: &mut R,
             ) -> bool {
-                $(self.$n.commit(mode, context, store, backend))||*
+                $(self.$n.commit(mode, context, store, renderer))||*
             }
         }
 
-        impl<$($T,)* Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
+        impl<$($T,)* Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Context, Output, S, M, B>,)*
+            $($T: Traversable<Visitor, Context, Output, S, M, R>,)*
             Output: Monoid,
         {
             fn for_each(
@@ -194,11 +194,11 @@ macro_rules! define_tuple_impl {
                 visitor: &mut Visitor,
                 context: &mut Context,
                 store: &Store<S>,
-                backend: &mut B,
+                renderer: &mut R,
             ) -> Output {
                 let result = Output::default();
                 $(
-                    let result = result.combine(self.$n.for_each(visitor, context, store, backend));
+                    let result = result.combine(self.$n.for_each(visitor, context, store, renderer));
                 )*
                 result
             }
@@ -209,10 +209,10 @@ macro_rules! define_tuple_impl {
                 visitor: &mut Visitor,
                 context: &mut Context,
                 store: &Store<S>,
-                backend: &mut B,
+                renderer: &mut R,
             ) -> Option<Output> {
                 $(
-                    if let Some(result) = self.$n.for_id(id, visitor, context, store, backend) {
+                    if let Some(result) = self.$n.for_id(id, visitor, context, store, renderer) {
                         return Some(result);
                     }
                 )*

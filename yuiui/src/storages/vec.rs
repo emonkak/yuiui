@@ -30,9 +30,9 @@ impl<T> VecStorage<T> {
     }
 }
 
-impl<T, S, M, B> ElementSeq<S, M, B> for Vec<T>
+impl<T, S, M, R> ElementSeq<S, M, R> for Vec<T>
 where
-    T: ElementSeq<S, M, B>,
+    T: ElementSeq<S, M, R>,
 {
     type Storage = VecStorage<T::Storage>;
 
@@ -80,9 +80,9 @@ where
     }
 }
 
-impl<T, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<T>
+impl<T, S, M, R> ViewNodeSeq<S, M, R> for VecStorage<T>
 where
-    T: ViewNodeSeq<S, M, B>,
+    T: ViewNodeSeq<S, M, R>,
 {
     const IS_DYNAMIC: bool = true;
 
@@ -117,7 +117,7 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagatable() {
@@ -125,28 +125,28 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, context, store, backend);
+                        result |= node.commit(mode, context, store, renderer);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result |= node.commit(mode, context, store, backend);
+                        result |= node.commit(mode, context, store, renderer);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        result |= node.commit(CommitMode::Unmount, context, store, backend);
+                        result |= node.commit(CommitMode::Unmount, context, store, renderer);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, context, store, backend);
+                        result |= node.commit(mode, context, store, renderer);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.active.len() - self.new_len {
                             let mut node = self.staging.pop_front().unwrap();
-                            result |= node.commit(CommitMode::Mount, context, store, backend);
+                            result |= node.commit(CommitMode::Mount, context, store, renderer);
                             self.active.push(node);
                         }
                     }
@@ -158,10 +158,10 @@ where
     }
 }
 
-impl<T, S, M, B, Visitor, Context, Output> Traversable<Visitor, Context, Output, S, M, B>
+impl<T, S, M, R, Visitor, Context, Output> Traversable<Visitor, Context, Output, S, M, R>
     for VecStorage<T>
 where
-    T: Traversable<Visitor, Context, Output, S, M, B> + ViewNodeSeq<S, M, B>,
+    T: Traversable<Visitor, Context, Output, S, M, R> + ViewNodeSeq<S, M, R>,
     Output: Monoid,
 {
     fn for_each(
@@ -169,11 +169,11 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output {
         let mut result = Output::default();
         for node in &mut self.active {
-            result = result.combine(node.for_each(visitor, context, store, backend));
+            result = result.combine(node.for_each(visitor, context, store, renderer));
         }
         result
     }
@@ -184,7 +184,7 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output> {
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.active, |node| {
@@ -199,11 +199,11 @@ where
                 })
             }) {
                 let node = &mut self.active[index];
-                return node.for_id(id, visitor, context, store, backend);
+                return node.for_id(id, visitor, context, store, renderer);
             }
         } else {
             for node in &mut self.active {
-                if let Some(result) = node.for_id(id, visitor, context, store, backend) {
+                if let Some(result) = node.for_id(id, visitor, context, store, renderer) {
                     return Some(result);
                 }
             }

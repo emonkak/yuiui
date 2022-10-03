@@ -29,9 +29,9 @@ impl<T> OptionStorage<T> {
     }
 }
 
-impl<T, S, M, B> ElementSeq<S, M, B> for Option<T>
+impl<T, S, M, R> ElementSeq<S, M, R> for Option<T>
 where
-    T: ElementSeq<S, M, B>,
+    T: ElementSeq<S, M, R>,
 {
     type Storage = OptionStorage<T::Storage>;
 
@@ -86,9 +86,9 @@ where
     }
 }
 
-impl<T, S, M, B> ViewNodeSeq<S, M, B> for OptionStorage<T>
+impl<T, S, M, R> ViewNodeSeq<S, M, R> for OptionStorage<T>
 where
-    T: ViewNodeSeq<S, M, B>,
+    T: ViewNodeSeq<S, M, R>,
 {
     const IS_DYNAMIC: bool = true;
 
@@ -132,24 +132,24 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Unmount, context, store, backend);
+                    result |= node.commit(CommitMode::Unmount, context, store, renderer);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Mount, context, store, backend);
+                    result |= node.commit(CommitMode::Mount, context, store, renderer);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, context, store, backend);
+                result |= node.commit(mode, context, store, renderer);
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -157,10 +157,10 @@ where
     }
 }
 
-impl<T, Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
+impl<T, Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R>
     for OptionStorage<T>
 where
-    T: Traversable<Visitor, Context, Output, S, M, B>,
+    T: Traversable<Visitor, Context, Output, S, M, R>,
     Output: Default,
 {
     fn for_each(
@@ -168,10 +168,10 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, context, store, backend)
+            node.for_each(visitor, context, store, renderer)
         } else {
             Output::default()
         }
@@ -183,10 +183,10 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output> {
         if let Some(node) = &mut self.active {
-            node.for_id(id, visitor, context, store, backend)
+            node.for_id(id, visitor, context, store, renderer)
         } else {
             None
         }

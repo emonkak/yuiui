@@ -1,10 +1,10 @@
 pub mod views;
 
-mod backend;
 mod element;
 mod entry_point;
 mod execution_context;
+mod renderer;
 
-pub use backend::GtkBackend;
 pub use element::GtkElement;
 pub use entry_point::{DefaultEntryPoint, EntryPoint};
+pub use renderer::GtkRenderer;

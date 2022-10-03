@@ -9,13 +9,13 @@ use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
-pub trait ComponentStack<S, M, B> {
+pub trait ComponentStack<S, M, R> {
     const LEN: usize;
 
-    type View: View<S, M, B>;
+    type View: View<S, M, R>;
 
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
@@ -23,28 +23,28 @@ pub trait ComponentStack<S, M, B> {
     ) -> bool;
 
     fn commit<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool;
 }
 
-impl<C, CS, S, M, B> ComponentStack<S, M, B> for (ComponentNode<C, S, M, B>, CS)
+impl<C, CS, S, M, R> ComponentStack<S, M, R> for (ComponentNode<C, S, M, R>, CS)
 where
-    C: Component<S, M, B>,
-    C::Element: Element<S, M, B, Components = CS>,
-    CS: ComponentStack<S, M, B, View = <C::Element as Element<S, M, B>>::View>,
+    C: Component<S, M, R>,
+    C::Element: Element<S, M, R, Components = CS>,
+    CS: ComponentStack<S, M, R, View = <C::Element as Element<S, M, R>>::View>,
 {
     const LEN: usize = 1 + CS::LEN;
 
-    type View = <C::Element as Element<S, M, B>>::View;
+    type View = <C::Element as Element<S, M, R>>::View;
 
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut RenderContext,
@@ -67,13 +67,13 @@ where
     }
 
     fn commit<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
         let (head, tail) = node.components;
         let node = ViewNodeMut {
@@ -84,7 +84,7 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            head.commit(mode, node.as_view_ref(), context, store, backend)
+            head.commit(mode, node.as_view_ref(), context, store, renderer)
         } else {
             CS::commit(
                 node,
@@ -93,7 +93,7 @@ where
                 current_depth + 1,
                 context,
                 store,
-                backend,
+                renderer,
             )
         }
     }
@@ -108,13 +108,13 @@ impl<V> ComponentEnd<V> {
     }
 }
 
-impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
+impl<V: View<S, M, R>, S, M, R> ComponentStack<S, M, R> for ComponentEnd<V> {
     const LEN: usize = 0;
 
     type View = V;
 
     fn update<'a>(
-        _node: ViewNodeMut<'a, V, Self, S, M, B>,
+        _node: ViewNodeMut<'a, V, Self, S, M, R>,
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut RenderContext,
@@ -124,13 +124,13 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
     }
 
     fn commit<'a>(
-        _node: ViewNodeMut<'a, Self::View, Self, S, M, B>,
+        _node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         _mode: CommitMode,
         _target_depth: Depth,
         _current_depth: Depth,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> bool {
         false
     }

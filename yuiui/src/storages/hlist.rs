@@ -9,7 +9,7 @@ use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
-impl<S, M, B> ElementSeq<S, M, B> for HNil {
+impl<S, M, R> ElementSeq<S, M, R> for HNil {
     type Storage = HNil;
 
     fn render_children(self, _context: &mut RenderContext, _store: &Store<S>) -> Self::Storage {
@@ -26,10 +26,10 @@ impl<S, M, B> ElementSeq<S, M, B> for HNil {
     }
 }
 
-impl<H, T, S, M, B> ElementSeq<S, M, B> for HCons<H, T>
+impl<H, T, S, M, R> ElementSeq<S, M, R> for HCons<H, T>
 where
-    H: ElementSeq<S, M, B>,
-    T: ElementSeq<S, M, B> + HList,
+    H: ElementSeq<S, M, R>,
+    T: ElementSeq<S, M, R> + HList,
     T::Storage: HList,
 {
     type Storage = HCons<H::Storage, T::Storage>;
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
+impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
     const IS_DYNAMIC: bool = false;
 
     const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
@@ -77,16 +77,16 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         _mode: CommitMode,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> bool {
         false
     }
 }
 
-impl<H, T, S, M, B> ViewNodeSeq<S, M, B> for HCons<H, T>
+impl<H, T, S, M, R> ViewNodeSeq<S, M, R> for HCons<H, T>
 where
-    H: ViewNodeSeq<S, M, B>,
-    T: ViewNodeSeq<S, M, B> + HList,
+    H: ViewNodeSeq<S, M, R>,
+    T: ViewNodeSeq<S, M, R> + HList,
 {
     const IS_DYNAMIC: bool = H::IS_DYNAMIC || T::IS_DYNAMIC;
 
@@ -140,15 +140,15 @@ where
         mode: CommitMode,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> bool {
-        let head_result = self.head.commit(mode, context, store, backend);
-        let tail_result = self.tail.commit(mode, context, store, backend);
+        let head_result = self.head.commit(mode, context, store, renderer);
+        let tail_result = self.tail.commit(mode, context, store, renderer);
         head_result || tail_result
     }
 }
 
-impl<Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B> for HNil
+impl<Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R> for HNil
 where
     Output: Default,
 {
@@ -157,7 +157,7 @@ where
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Output {
         Output::default()
     }
@@ -168,17 +168,17 @@ where
         _visitor: &mut Visitor,
         _context: &mut Context,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Option<Output> {
         None
     }
 }
 
-impl<H, T, Visitor, Context, Output, S, M, B> Traversable<Visitor, Context, Output, S, M, B>
+impl<H, T, Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R>
     for HCons<H, T>
 where
-    H: Traversable<Visitor, Context, Output, S, M, B>,
-    T: Traversable<Visitor, Context, Output, S, M, B> + HList,
+    H: Traversable<Visitor, Context, Output, S, M, R>,
+    T: Traversable<Visitor, Context, Output, S, M, R> + HList,
     Output: Monoid,
 {
     fn for_each(
@@ -186,11 +186,11 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Output {
         self.head
-            .for_each(visitor, context, store, backend)
-            .combine(self.tail.for_each(visitor, context, store, backend))
+            .for_each(visitor, context, store, renderer)
+            .combine(self.tail.for_each(visitor, context, store, renderer))
     }
 
     fn for_id(
@@ -199,10 +199,10 @@ where
         visitor: &mut Visitor,
         context: &mut Context,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Option<Output> {
         self.head
-            .for_id(id, visitor, context, store, backend)
-            .or_else(|| self.tail.for_id(id, visitor, context, store, backend))
+            .for_id(id, visitor, context, store, renderer)
+            .or_else(|| self.tail.for_id(id, visitor, context, store, renderer))
     }
 }

@@ -49,11 +49,11 @@ pub struct Stack<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, B> View<S, M, B> for Stack<Children>
+impl<Children, S, M, R> View<S, M, R> for Stack<Children>
 where
-    Children: ElementSeq<S, M, B>,
+    Children: ElementSeq<S, M, R>,
     Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, B>,
+        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, R>,
 {
     type Children = Children;
 
@@ -63,12 +63,12 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
-        let is_dynamic = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_DYNAMIC;
+        let is_dynamic = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_DYNAMIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
@@ -79,15 +79,15 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, context, store, backend);
+            children.for_each(&mut visitor, context, store, renderer);
         }
     }
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::State {
         self.build()
     }
@@ -135,10 +135,10 @@ pub struct StackSwitcher<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M, B> View<S, M, B> for StackSwitcher<Child>
+impl<Child, S, M, R> View<S, M, R> for StackSwitcher<Child>
 where
-    Child: Element<S, M, B>,
-    Child::View: View<S, M, B, State = gtk::Stack>,
+    Child: Element<S, M, R>,
+    Child::View: View<S, M, R, State = gtk::Stack>,
 {
     type Children = Child;
 
@@ -148,10 +148,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -163,9 +163,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::State {
         let container = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -211,9 +211,9 @@ pub struct StackPage<Child> {
     visible: Option<bool>,
 }
 
-impl<Child, S, M, B> View<S, M, B> for StackPage<Child>
+impl<Child, S, M, R> View<S, M, R> for StackPage<Child>
 where
-    Child: View<S, M, B>,
+    Child: View<S, M, R>,
 {
     type Children = Child::Children;
 
@@ -223,10 +223,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
         match &lifecycle {
             Lifecycle::Update(old_view) => {
@@ -243,7 +243,7 @@ where
             children,
             context,
             store,
-            backend,
+            renderer,
         )
     }
 
@@ -251,10 +251,10 @@ where
         &self,
         event: <Self as EventListener>::Event,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) {
         self.child.event(
             event,
@@ -262,17 +262,17 @@ where
             children,
             context,
             store,
-            backend,
+            renderer,
         )
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         store: &Store<S>,
-        backend: &mut B,
+        renderer: &mut R,
     ) -> Self::State {
-        let child_state = self.child.build(children, store, backend);
+        let child_state = self.child.build(children, store, renderer);
         StackPageState::new(child_state)
     }
 }
@@ -316,13 +316,13 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B> Visitor<ViewNode<StackPage<V>, CS, S, M, B>, S, B>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<StackPage<V>, CS, S, M, R>, S, R>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, B>,
+    V: View<S, M, R>,
     V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, B, View = StackPage<V>>,
-    StackPage<V>: View<S, M, B, Children = V::Children, State = StackPageState<V::State>>,
+    CS: ComponentStack<S, M, R, View = StackPage<V>>,
+    StackPage<V>: View<S, M, R, Children = V::Children, State = StackPageState<V::State>>,
 {
     type Context = MessageContext<M>;
 
@@ -330,10 +330,10 @@ where
 
     fn visit(
         &mut self,
-        node: &mut ViewNode<StackPage<V>, CS, S, M, B>,
+        node: &mut ViewNode<StackPage<V>, CS, S, M, R>,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
-        _backend: &mut B,
+        _renderer: &mut R,
     ) -> Self::Output {
         let (view, state) = node.state_mut().extract_mut();
         let new_child: &gtk::Widget = state.as_ref().unwrap().child_state.as_ref();
