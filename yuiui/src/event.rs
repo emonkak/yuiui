@@ -6,7 +6,9 @@ use std::iter::{ExactSizeIterator, FusedIterator};
 use crate::id::IdPathBuf;
 
 pub trait Event<'event> {
-    fn collect_types(type_ids: &mut Vec<TypeId>);
+    type Types: IntoIterator<Item = TypeId>;
+
+    fn types() -> Self::Types;
 
     fn from_any(event: &'event dyn Any) -> Option<Self>
     where
@@ -14,7 +16,11 @@ pub trait Event<'event> {
 }
 
 impl<'event> Event<'event> for () {
-    fn collect_types(_type_ids: &mut Vec<TypeId>) {}
+    type Types = [TypeId; 0];
+
+    fn types() -> Self::Types {
+        []
+    }
 
     fn from_any(_event: &'event dyn Any) -> Option<Self> {
         None
@@ -22,8 +28,10 @@ impl<'event> Event<'event> for () {
 }
 
 impl<'event, T: 'static> Event<'event> for &'event T {
-    fn collect_types(type_ids: &mut Vec<TypeId>) {
-        type_ids.push(TypeId::of::<T>())
+    type Types = [TypeId; 1];
+
+    fn types() -> Self::Types {
+        [TypeId::of::<T>()]
     }
 
     fn from_any(event: &'event dyn Any) -> Option<Self> {
@@ -112,7 +120,12 @@ where
     where
         I: IntoIterator<Item = T>,
     {
-        self.entries.get_or_insert_with(HashSet::new).extend(iter);
+        let mut iter = iter.into_iter();
+        if let Some(type_id) = iter.next() {
+            let entries = self.entries.get_or_insert_with(HashSet::new);
+            entries.insert(type_id);
+            entries.extend(iter);
+        }
     }
 }
 
@@ -125,7 +138,12 @@ where
     where
         I: IntoIterator<Item = &'a T>,
     {
-        self.entries.get_or_insert_with(HashSet::new).extend(iter);
+        let mut iter = iter.into_iter();
+        if let Some(type_id) = iter.next() {
+            let entries = self.entries.get_or_insert_with(HashSet::new);
+            entries.insert(*type_id);
+            entries.extend(iter);
+        }
     }
 }
 

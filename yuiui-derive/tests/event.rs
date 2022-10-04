@@ -20,8 +20,7 @@ enum EnumEvent<'event> {
 
 #[test]
 fn test_event() {
-    let mut types = Vec::new();
-    EnumEvent::collect_types(&mut types);
+    let types: Vec<TypeId> = EnumEvent::types().into_iter().collect();
     assert_eq!(
         types,
         vec![
