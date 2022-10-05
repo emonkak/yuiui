@@ -448,18 +448,18 @@ where
     }
 }
 
-impl<'a, V, CS, S, M, R, Visitor, Context> Traversable<Visitor, Context, Visitor::Output, S, M, R>
+impl<'a, V, CS, S, M, R, Visitor> Traversable<Visitor, Visitor::Context, Visitor::Output, S, M, R>
     for ViewNode<V, CS, S, M, R>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
-    Visitor: self::Visitor<Self, S, R, Context = Context>,
-    Context: IdContext,
+    Visitor: self::Visitor<Self, S, R>,
+    Visitor::Context: IdContext,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        context: &mut Visitor::Context,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Visitor::Output {
@@ -473,7 +473,7 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Context,
+        context: &mut Visitor::Context,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Option<Visitor::Output> {
