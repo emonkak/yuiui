@@ -2,7 +2,7 @@ use gtk::prelude::*;
 use hlist::hlist;
 use yuiui::{Effect, HigherOrderComponent, State, Store, View};
 use yuiui_gtk::views::{Button, Grid, GridChild, Label};
-use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement, Renderer};
+use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
 struct AppState {
@@ -31,7 +31,7 @@ enum AppMessage {
     Decrement,
 }
 
-fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage, Renderer> {
+fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage> {
     Grid::new().hexpand(true).vexpand(true).el_with(hlist![
         GridChild::new(
             Button::new()

@@ -3,7 +3,7 @@ use hlist::hlist;
 use std::rc::Rc;
 use yuiui::{Effect, HigherOrderComponent, Memoize, State, Store, View};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
-use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement, Renderer};
+use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
 struct AppState {
@@ -54,7 +54,7 @@ enum AppMessage {
     ChangeText(String),
 }
 
-fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage, Renderer> {
+fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
     let id = todo.id;
     hbox().hexpand(true).el_with(hlist![
         Label::new()
@@ -68,10 +68,7 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage, Renderer> {
     ])
 }
 
-fn todo_list(
-    _props: &(),
-    store: &Store<AppState>,
-) -> impl GtkElement<AppState, AppMessage, Renderer> {
+fn todo_list(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage> {
     ListBox::new()
         .hexpand(true)
         .el_with(Vec::from_iter(store.todos.iter().map(|todo| {
@@ -82,7 +79,7 @@ fn todo_list(
         })))
 }
 
-fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage, Renderer> {
+fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage> {
     vbox().hexpand(true).vexpand(true).el_with(hlist![
         Entry::new()
             .text(store.text.to_owned())
