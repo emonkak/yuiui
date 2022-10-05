@@ -12,7 +12,7 @@ use crate::renderer::{EventPort, Renderer};
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
-pub struct Button<Child, S, M> {
+pub struct Button<Child, M> {
     child: Option<gtk::Widget>,
     has_frame: Option<bool>,
     icon_name: Option<String>,
@@ -51,12 +51,12 @@ pub struct Button<Child, S, M> {
     action_name: Option<String>,
     action_target: Option<glib::Variant>,
     #[property(bind = false)]
-    on_click: Option<Box<dyn Fn(&S) -> M>>,
+    on_click: Option<Box<dyn Fn() -> M>>,
     #[property(bind = false, setter = false)]
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, Renderer> for Button<Child, S, M>
+impl<Child, S, M> View<S, M, Renderer> for Button<Child, M>
 where
     Child: Element<S, M, Renderer>,
     <Child::View as View<S, M, Renderer>>::State: AsRef<gtk::Widget>,
@@ -108,13 +108,13 @@ where
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         context: &mut MessageContext<M>,
-        store: &Store<S>,
+        _store: &Store<S>,
         _renderer: &mut Renderer,
     ) {
         match event {
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
-                    let message = on_click(store);
+                    let message = on_click();
                     context.push_message(message);
                 }
             }
@@ -134,7 +134,7 @@ where
     }
 }
 
-impl<'event, Child, S, M> EventListener<'event> for Button<Child, S, M> {
+impl<'event, Child, M> EventListener<'event> for Button<Child, M> {
     type Event = &'event Event;
 }
 

@@ -37,7 +37,7 @@ fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMes
             Button::new()
                 .hexpand(true)
                 .vexpand(true)
-                .on_click(Box::new(|_| AppMessage::Decrement)),
+                .on_click(Box::new(|| AppMessage::Decrement)),
             0,
             0,
             1,
@@ -53,7 +53,7 @@ fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMes
             Button::new()
                 .hexpand(true)
                 .vexpand(true)
-                .on_click(Box::new(|_| AppMessage::Increment)),
+                .on_click(Box::new(|| AppMessage::Increment)),
             1,
             0,
             1,

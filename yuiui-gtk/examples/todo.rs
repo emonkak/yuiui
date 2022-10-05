@@ -63,7 +63,7 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage, Renderer> {
             .label(todo.text.to_owned())
             .el(),
         Button::new()
-            .on_click(Box::new(move |_| AppMessage::RemoveTodo(id)))
+            .on_click(Box::new(move || AppMessage::RemoveTodo(id)))
             .el_with(Label::new().label("Delete".to_owned()).el())
     ])
 }
@@ -87,8 +87,8 @@ fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMes
         Entry::new()
             .text(store.text.to_owned())
             .hexpand(true)
-            .on_activate(Box::new(|text, _| AppMessage::AddTodo(text.to_owned())))
-            .on_change(Box::new(|text, _| AppMessage::ChangeText(text.to_owned())))
+            .on_activate(Box::new(|text| AppMessage::AddTodo(text.to_owned())))
+            .on_change(Box::new(|text| AppMessage::ChangeText(text.to_owned())))
             .el(),
         ScrolledWindow::new()
             .hexpand(true)
