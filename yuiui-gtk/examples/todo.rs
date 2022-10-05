@@ -1,12 +1,13 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Effect, HigherOrderComponent, State, Store, View};
+use std::rc::Rc;
+use yuiui::{Effect, HigherOrderComponent, Memoize, State, Store, View};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement, Renderer};
 
 #[derive(Debug, Default)]
 struct AppState {
-    todos: Vec<Todo>,
+    todos: Vec<Rc<Todo>>,
     text: String,
 }
 
@@ -20,7 +21,7 @@ impl State for AppState {
                     id: self.todos.len(),
                     text,
                 };
-                self.todos.push(todo);
+                self.todos.push(Rc::new(todo));
                 self.text = "".to_owned();
                 (true, Effect::none())
             }
@@ -38,7 +39,7 @@ impl State for AppState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct Todo {
     id: TodoId,
     text: String,
@@ -53,6 +54,20 @@ enum AppMessage {
     ChangeText(String),
 }
 
+fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage, Renderer> {
+    let id = todo.id;
+    hbox().hexpand(true).el_with(hlist![
+        Label::new()
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .label(todo.text.to_owned())
+            .el(),
+        Button::new()
+            .on_click(Box::new(move |_| AppMessage::RemoveTodo(id)))
+            .el_with(Label::new().label("Delete".to_owned()).el())
+    ])
+}
+
 fn todo_list(
     _props: &(),
     store: &Store<AppState>,
@@ -60,19 +75,10 @@ fn todo_list(
     ListBox::new()
         .hexpand(true)
         .el_with(Vec::from_iter(store.todos.iter().map(|todo| {
-            let id = todo.id;
-            ListBoxRow::new()
-                .hexpand(true)
-                .el_with(hbox().hexpand(true).el_with(hlist![
-                            Label::new()
-                                .hexpand(true)
-                                .halign(gtk::Align::Start)
-                                .label(todo.text.to_owned())
-                                .el(),
-                            Button::new()
-                                .on_click(Box::new(move |_| AppMessage::RemoveTodo(id)))
-                                .el_with(Label::new().label("Delete".to_owned()).el())
-                        ]))
+            Memoize::new(
+                |todo| ListBoxRow::new().hexpand(true).el_with(todo_item(todo)),
+                todo.clone(),
+            )
         })))
 }
 
