@@ -44,13 +44,13 @@ where
                 .unwrap_or(false)
         } else {
             let mut result = false;
-            if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
-                let view = &mut node.view;
-                let state = node.state.as_mut().unwrap();
-                view.event(event, state, &mut node.children, context, store, renderer);
-                result = true;
-            }
             if node.event_mask.contains(&self.event.type_id()) {
+                if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
+                    let view = &mut node.view;
+                    let state = node.state.as_mut().unwrap();
+                    view.event(event, state, &mut node.children, context, store, renderer);
+                    result = true;
+                }
                 result |= node.children.for_each(self, context, store, renderer);
             }
             result

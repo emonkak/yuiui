@@ -54,7 +54,7 @@ where
             state: None,
             children,
             components,
-            event_mask: <V::Children as ElementSeq<S, M, R>>::Storage::event_mask(),
+            event_mask: <Self as ViewNodeSeq<S, M, R>>::event_mask(),
             dirty: true,
         }
     }
@@ -400,9 +400,7 @@ where
             let children_mask = <V::Children as ElementSeq<S, M, R>>::Storage::event_mask();
 
             INIT.call_once(|| unsafe {
-                if !children_mask.is_empty() {
-                    EVENT_MASK.extend(children_mask);
-                }
+                EVENT_MASK.extend(children_mask);
                 let types = <V as EventListener>::Event::types().into_iter();
                 EVENT_MASK.extend(types);
             });

@@ -142,9 +142,7 @@ macro_rules! define_tuple_impl {
 
                     INIT.call_once(|| unsafe {
                         $(
-                            if !$T.is_empty() {
-                                EVENT_MASK.extend($T);
-                            }
+                            EVENT_MASK.extend($T);
                         )*
                     });
                 }
