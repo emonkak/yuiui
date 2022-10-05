@@ -9,47 +9,47 @@ pub use renderer::Renderer;
 
 use yuiui::{ComponentStack, Element, ElementSeq, View};
 
-pub trait GtkElement<S, M, B>:
+pub trait GtkElement<S, M, R>:
     Element<
     S,
     M,
-    B,
-    View = <Self as GtkElement<S, M, B>>::View,
-    Components = <Self as GtkElement<S, M, B>>::Components,
+    R,
+    View = <Self as GtkElement<S, M, R>>::View,
+    Components = <Self as GtkElement<S, M, R>>::Components,
 >
 {
-    type View: GtkView<S, M, B>;
+    type View: GtkView<S, M, R>;
 
-    type Components: ComponentStack<S, M, B, View = <Self as GtkElement<S, M, B>>::View>;
+    type Components: ComponentStack<S, M, R, View = <Self as GtkElement<S, M, R>>::View>;
 }
 
-impl<E, S, M, B> GtkElement<S, M, B> for E
+impl<E, S, M, R> GtkElement<S, M, R> for E
 where
-    E: Element<S, M, B>,
-    <E::View as View<S, M, B>>::State: AsRef<gtk::Widget>,
+    E: Element<S, M, R>,
+    E::View: GtkView<S, M, R>,
 {
     type View = E::View;
 
     type Components = E::Components;
 }
 
-pub trait GtkView<S, M, B>:
+pub trait GtkView<S, M, R>:
     View<
     S,
     M,
-    B,
-    Children = <Self as GtkView<S, M, B>>::Children,
-    State = <Self as GtkView<S, M, B>>::State,
+    R,
+    Children = <Self as GtkView<S, M, R>>::Children,
+    State = <Self as GtkView<S, M, R>>::State,
 >
 {
     type State: AsRef<gtk::Widget>;
 
-    type Children: ElementSeq<S, M, B>;
+    type Children: ElementSeq<S, M, R>;
 }
 
-impl<V, S, M, B> GtkView<S, M, B> for V
+impl<V, S, M, R> GtkView<S, M, R> for V
 where
-    V: View<S, M, B>,
+    V: View<S, M, R>,
     V::State: AsRef<gtk::Widget>,
 {
     type State = V::State;
