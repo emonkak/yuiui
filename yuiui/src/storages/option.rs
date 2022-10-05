@@ -90,8 +90,6 @@ impl<T, S, M, R> ViewNodeSeq<S, M, R> for OptionStorage<T>
 where
     T: ViewNodeSeq<S, M, R>,
 {
-    const IS_DYNAMIC: bool = true;
-
     const SIZE_HINT: (usize, Option<usize>) = {
         let (_, upper) = T::SIZE_HINT;
         (0, upper)

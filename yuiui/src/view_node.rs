@@ -379,9 +379,14 @@ pub trait ViewNodeSeq<S, M, R>:
     + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, M, R>
     + for<'a> Traversable<UpwardEventVisitor<'a>, MessageContext<M>, bool, S, M, R>
 {
-    const IS_DYNAMIC: bool;
-
     const SIZE_HINT: (usize, Option<usize>);
+
+    const IS_STATIC: bool = {
+        match Self::SIZE_HINT {
+            (lower, Some(upper)) => lower == upper,
+            _ => false,
+        }
+    };
 
     fn event_mask() -> &'static EventMask;
 
@@ -403,8 +408,6 @@ where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    const IS_DYNAMIC: bool = false;
-
     const SIZE_HINT: (usize, Option<usize>) = (1, Some(1));
 
     fn event_mask() -> &'static EventMask {

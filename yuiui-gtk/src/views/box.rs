@@ -66,13 +66,13 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) {
-        let is_dynamic = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_DYNAMIC;
+        let is_static = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
-            Lifecycle::Remount | Lifecycle::Unmount => is_dynamic,
+            Lifecycle::Remount | Lifecycle::Unmount => !is_static,
             Lifecycle::Update(old_view) => {
                 self.update(&old_view, state);
-                is_dynamic
+                !is_static
             }
         };
         if needs_reconcile {

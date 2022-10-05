@@ -55,8 +55,6 @@ impl<'a, T, S, M, R, const N: usize> ViewNodeSeq<S, M, R> for ArrayStorage<T, N>
 where
     T: ViewNodeSeq<S, M, R>,
 {
-    const IS_DYNAMIC: bool = T::IS_DYNAMIC;
-
     const SIZE_HINT: (usize, Option<usize>) = (N, Some(N));
 
     fn event_mask() -> &'static EventMask {

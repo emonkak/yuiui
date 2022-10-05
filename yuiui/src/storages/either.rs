@@ -127,12 +127,14 @@ where
     L: ViewNodeSeq<S, M, Renderer>,
     R: ViewNodeSeq<S, M, Renderer>,
 {
-    const IS_DYNAMIC: bool = true;
-
     const SIZE_HINT: (usize, Option<usize>) = {
         let (left_lower, left_upper) = L::SIZE_HINT;
         let (right_lower, right_upper) = R::SIZE_HINT;
-        let lower = left_lower.saturating_add(right_lower);
+        let lower = if left_lower < right_lower {
+            left_lower
+        } else {
+            right_lower
+        };
         let upper = match (left_upper, right_upper) {
             (Some(x), Some(y)) => x.checked_add(y),
             _ => None,

@@ -55,8 +55,6 @@ where
 }
 
 impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
-    const IS_DYNAMIC: bool = false;
-
     const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
 
     fn event_mask() -> &'static EventMask {
@@ -88,8 +86,6 @@ where
     H: ViewNodeSeq<S, M, R>,
     T: ViewNodeSeq<S, M, R> + HList,
 {
-    const IS_DYNAMIC: bool = H::IS_DYNAMIC || T::IS_DYNAMIC;
-
     const SIZE_HINT: (usize, Option<usize>) = {
         let (head_lower, head_upper) = H::SIZE_HINT;
         let (tail_lower, tail_upper) = T::SIZE_HINT;

@@ -84,8 +84,6 @@ impl<T, S, M, R> ViewNodeSeq<S, M, R> for VecStorage<T>
 where
     T: ViewNodeSeq<S, M, R>,
 {
-    const IS_DYNAMIC: bool = true;
-
     const SIZE_HINT: (usize, Option<usize>) = (0, None);
 
     fn event_mask() -> &'static EventMask {
