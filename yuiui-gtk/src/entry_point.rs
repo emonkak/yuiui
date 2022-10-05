@@ -9,7 +9,7 @@ use crate::renderer::{EventPort, Renderer};
 pub trait EntryPoint<M>: Sized + 'static {
     fn window(&self) -> &gtk::Window;
 
-    fn message(&self, _message: &M) {}
+    fn on_message(&self, _message: &M) {}
 
     fn attach(&self, widget: &gtk::Widget, _event_port: &EventPort) {
         let window = self.window();
@@ -53,7 +53,7 @@ pub trait EntryPoint<M>: Sized + 'static {
             match action {
                 RenderAction::RequestRender => {}
                 RenderAction::Message(message) => {
-                    self.message(&message);
+                    self.on_message(&message);
                     render_loop.push_message(message);
                 }
                 RenderAction::Event(event, destination) => {
