@@ -119,12 +119,11 @@ macro_rules! define_tuple_impl {
             $($T: ViewNodeSeq<S, M, R>,)*
         {
             const SIZE_HINT: (usize, Option<usize>) = {
-                let lower = 0;
-                let upper = Some(0);
+                let lower = 0usize $(.saturating_add($T::SIZE_HINT.0))*;
+                let upper = Some(0usize);
                 $(
-                    let lower = lower + $T::SIZE_HINT.0;
                     let upper = match (upper, $T::SIZE_HINT.1) {
-                        (Some(x), Some(y)) => Some(x + y),
+                        (Some(x), Some(y)) => x.checked_add(y),
                         _ => None,
                     };
                 )*
