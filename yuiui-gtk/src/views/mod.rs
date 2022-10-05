@@ -6,6 +6,7 @@ mod flow_box;
 mod grid;
 mod label;
 mod list_box;
+mod notebook;
 mod stack;
 
 pub use button::Button;
@@ -15,5 +16,6 @@ pub use flow_box::{FlowBox, FlowBoxChild};
 pub use grid::{Grid, GridCell, GridChild};
 pub use label::Label;
 pub use list_box::ListBox;
+pub use notebook::Notebook;
 pub use r#box::Box;
 pub use stack::{Stack, StackPage, StackSwitcher};
