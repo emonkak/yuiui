@@ -1,8 +1,8 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, ElementSeq, EventListener, Lifecycle, MessageContext, Store, Traversable, View,
-    ViewNode, ViewNodeSeq, Visitor,
+    ComponentStack, Element, ElementSeq, EventListener, Lifecycle, MessageContext, Store,
+    Traversable, View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -95,6 +95,90 @@ impl<'event, Children> EventListener<'event> for ListBox<Children> {
     type Event = ();
 }
 
+#[derive(Debug, WidgetBuilder)]
+#[widget(gtk::ListBoxRow)]
+pub struct ListBoxRow<Child> {
+    activatable: Option<bool>,
+    selectable: Option<bool>,
+    can_focus: Option<bool>,
+    can_target: Option<bool>,
+    css_classes: Option<Vec<String>>,
+    css_name: Option<String>,
+    cursor: Option<gdk::Cursor>,
+    focus_on_click: Option<bool>,
+    focusable: Option<bool>,
+    halign: Option<gtk::Align>,
+    has_tooltip: Option<bool>,
+    height_request: Option<i32>,
+    hexpand: Option<bool>,
+    hexpand_set: Option<bool>,
+    layout_manager: Option<gtk::LayoutManager>,
+    margin_bottom: Option<i32>,
+    margin_end: Option<i32>,
+    margin_start: Option<i32>,
+    margin_top: Option<i32>,
+    name: Option<String>,
+    opacity: Option<f64>,
+    overflow: Option<gtk::Overflow>,
+    receives_default: Option<bool>,
+    sensitive: Option<bool>,
+    tooltip_markup: Option<String>,
+    tooltip_text: Option<String>,
+    valign: Option<gtk::Align>,
+    vexpand: Option<bool>,
+    vexpand_set: Option<bool>,
+    visible: Option<bool>,
+    width_request: Option<i32>,
+    accessible_role: Option<gtk::AccessibleRole>,
+    action_name: Option<String>,
+    action_target: Option<glib::Variant>,
+    #[property(bind = false, setter = false)]
+    _phantom: PhantomData<Child>,
+}
+
+impl<Child, S, M, R> View<S, M, R> for ListBoxRow<Child>
+where
+    Child: Element<S, M, R>,
+    <Child::View as View<S, M, R>>::State: AsRef<gtk::Widget>,
+{
+    type Children = Child;
+
+    type State = gtk::ListBoxRow;
+
+    fn lifecycle(
+        &self,
+        lifecycle: Lifecycle<Self>,
+        state: &mut Self::State,
+        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _context: &mut MessageContext<M>,
+        _store: &Store<S>,
+        _renderer: &mut R,
+    ) {
+        match lifecycle {
+            Lifecycle::Update(old_view) => {
+                self.update(&old_view, state);
+            }
+            _ => {}
+        }
+    }
+
+    fn build(
+        &self,
+        child: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _store: &Store<S>,
+        _renderer: &mut R,
+    ) -> Self::State {
+        let container = self.build();
+        let child = child.state().as_view_state().unwrap();
+        container.set_child(Some(child.as_ref()));
+        container
+    }
+}
+
+impl<'event, Child> EventListener<'event> for ListBoxRow<Child> {
+    type Event = ();
+}
+
 pub struct ReconcileChildrenVisitor<'a> {
     container: &'a gtk::ListBox,
     current_child: Option<gtk::Widget>,
@@ -113,8 +197,7 @@ impl<'a> ReconcileChildrenVisitor<'a> {
 
 impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, R>,
-    V::State: AsRef<gtk::Widget>,
+    V: View<S, M, R, State = gtk::ListBoxRow>,
     CS: ComponentStack<S, M, R, View = V>,
 {
     type Context = MessageContext<M>;

@@ -6,6 +6,14 @@ use yuiui::{
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
+pub fn vbox<Children>() -> Box<Children> {
+    Box::new().orientation(gtk::Orientation::Vertical)
+}
+
+pub fn hbox<Children>() -> Box<Children> {
+    Box::new().orientation(gtk::Orientation::Horizontal)
+}
+
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Box)]
 pub struct Box<Children> {

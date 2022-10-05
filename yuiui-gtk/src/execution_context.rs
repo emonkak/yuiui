@@ -68,7 +68,7 @@ fn create_token(source_id: glib::SourceId) -> RawToken {
     }
 
     unsafe fn drop(data: *const ()) {
-        Box::from_raw(data as *mut glib::SourceId);
+        let _ = Box::from_raw(data as *mut glib::SourceId);
     }
 
     let data = Box::into_raw(Box::new(source_id)) as *const ();

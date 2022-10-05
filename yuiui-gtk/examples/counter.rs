@@ -1,8 +1,8 @@
 use gtk::prelude::*;
 use hlist::hlist;
 use yuiui::{Effect, HigherOrderComponent, State, Store, View};
-use yuiui_gtk::views::{Button, Grid, GridCell, GridChild, Label};
-use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement, GtkRenderer};
+use yuiui_gtk::views::{Button, Grid, GridChild, Label};
+use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement, Renderer};
 
 #[derive(Debug, Default)]
 struct AppState {
@@ -31,14 +31,17 @@ enum AppMessage {
     Decrement,
 }
 
-fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage, GtkRenderer> {
+fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage, Renderer> {
     Grid::new().hexpand(true).vexpand(true).el_with(hlist![
         GridChild::new(
             Button::new()
                 .hexpand(true)
                 .vexpand(true)
                 .on_click(Box::new(|_| AppMessage::Decrement)),
-            GridCell::new(0, 0, 1, 1)
+            0,
+            0,
+            1,
+            1,
         )
         .el_with(
             Label::new()
@@ -51,7 +54,10 @@ fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMes
                 .hexpand(true)
                 .vexpand(true)
                 .on_click(Box::new(|_| AppMessage::Increment)),
-            GridCell::new(1, 0, 1, 1)
+            1,
+            0,
+            1,
+            1,
         )
         .el_with(
             Label::new()
@@ -64,7 +70,10 @@ fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMes
                 .hexpand(true)
                 .vexpand(true)
                 .label(store.count.to_string()),
-            GridCell::new(0, 1, 2, 1)
+            0,
+            1,
+            2,
+            1,
         )
         .el(),
     ])

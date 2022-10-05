@@ -33,7 +33,7 @@ where
         let node = element.render(&mut context, store);
         Self {
             node,
-            render_context: RenderContext::new(),
+            render_context: context,
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
             nodes_to_update: BTreeMap::new(),

@@ -100,47 +100,21 @@ impl<'event, Children> EventListener<'event> for Grid<Children> {
 #[derive(Debug, Clone)]
 pub struct GridChild<Child> {
     child: Child,
-    grid_cell: GridCell,
-}
-
-impl<Child> GridChild<Child> {
-    pub fn new(child: Child, grid_cell: GridCell) -> Self {
-        Self { child, grid_cell }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct GridCell {
     column: i32,
     row: i32,
     column_span: i32,
     row_span: i32,
 }
 
-impl GridCell {
-    pub fn new(column: i32, row: i32, column_span: i32, row_span: i32) -> Self {
+impl<Child> GridChild<Child> {
+    pub fn new(child: Child, column: i32, row: i32, column_span: i32, row_span: i32) -> Self {
         Self {
+            child,
             column,
             row,
             column_span,
             row_span,
         }
-    }
-
-    pub fn column(&self) -> i32 {
-        self.column
-    }
-
-    pub fn row(&self) -> i32 {
-        self.row
-    }
-
-    pub fn column_span(&self) -> i32 {
-        self.column_span
-    }
-
-    pub fn row_span(&self) -> i32 {
-        self.row_span
     }
 }
 
@@ -238,26 +212,26 @@ where
                     self.container.remove(&child);
                 }
                 Some(child) => {
-                    let grid_cell = &node.state().as_view().grid_cell;
+                    let grid_child = &node.state().as_view();
                     self.container.attach(
                         new_child,
-                        grid_cell.column,
-                        grid_cell.row,
-                        grid_cell.column_span,
-                        grid_cell.row_span,
+                        grid_child.column,
+                        grid_child.row,
+                        grid_child.column_span,
+                        grid_child.row_span,
                     );
                     new_child.insert_before(self.container, Some(&child));
                     self.current_child = Some(child);
                     break;
                 }
                 None => {
-                    let grid_cell = &node.state().as_view().grid_cell;
+                    let grid_child = &node.state().as_view();
                     self.container.attach(
                         new_child,
-                        grid_cell.column,
-                        grid_cell.row,
-                        grid_cell.column_span,
-                        grid_cell.row_span,
+                        grid_child.column,
+                        grid_child.row,
+                        grid_child.column_span,
+                        grid_child.row_span,
                     );
                     break;
                 }

@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use yuiui::{Element, RenderFlow, RenderLoop, State, Store, View};
 
 use crate::execution_context::{ExecutionContext, RenderAction};
-use crate::renderer::{EventPort, GtkRenderer};
+use crate::renderer::{EventPort, Renderer};
 
 pub trait EntryPoint<M>: Sized + 'static {
     fn window(&self) -> &gtk::Window;
@@ -19,8 +19,8 @@ pub trait EntryPoint<M>: Sized + 'static {
 
     fn boot<E, S>(self, element: E, state: S)
     where
-        E: Element<S, M, GtkRenderer> + 'static,
-        <E::View as View<S, M, GtkRenderer>>::State: AsRef<gtk::Widget>,
+        E: Element<S, M, Renderer> + 'static,
+        <E::View as View<S, M, Renderer>>::State: AsRef<gtk::Widget>,
         S: State<Message = M> + 'static,
         M: Send + 'static,
     {
@@ -31,7 +31,7 @@ pub trait EntryPoint<M>: Sized + 'static {
         let context = ExecutionContext::new(glib::MainContext::default(), action_tx.clone());
 
         let mut store = Store::new(state);
-        let mut renderer = GtkRenderer::new(self.window().clone(), event_tx);
+        let mut renderer = Renderer::new(self.window().clone(), event_tx);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
         render_loop.run_forever(&context, &mut store, &mut renderer);

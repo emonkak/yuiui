@@ -820,8 +820,6 @@ dependencies = [
 name = "yuiui-gtk"
 version = "0.0.0"
 dependencies = [
- "either",
- "either-macro",
  "futures",
  "gtk4",
  "hlist",

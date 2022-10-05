@@ -50,7 +50,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
-        let mut has_changed = false;
+        let mut has_changed = storage.active.len() != self.len();
 
         storage
             .staging
@@ -142,7 +142,7 @@ where
                         result |= node.commit(mode, context, store, renderer);
                     }
                     if mode != CommitMode::Unmount {
-                        for _ in 0..self.active.len() - self.new_len {
+                        for _ in 0..self.new_len - self.active.len() {
                             let mut node = self.staging.pop_front().unwrap();
                             result |= node.commit(CommitMode::Mount, context, store, renderer);
                             self.active.push(node);

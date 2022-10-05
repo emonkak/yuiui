@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
 use gtk::glib::object::ObjectExt;
-use gtk::glib::SignalHandlerId;
 use gtk::{gdk, glib, prelude::*};
 use yuiui::{
-    Element, ElementSeq, EventDestination, EventListener, Lifecycle, MessageContext, Store, View,
+    Element, ElementSeq, EventDestination, EventListener, IdPathBuf, Lifecycle, MessageContext,
+    Store, View,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::renderer::GtkRenderer;
+use crate::renderer::{EventPort, Renderer};
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
@@ -56,10 +56,10 @@ pub struct Button<Child, S, M> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, GtkRenderer> for Button<Child, S, M>
+impl<Child, S, M> View<S, M, Renderer> for Button<Child, S, M>
 where
-    Child: Element<S, M, GtkRenderer>,
-    <Child::View as View<S, M, GtkRenderer>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, Renderer>,
+    <Child::View as View<S, M, Renderer>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -69,61 +69,67 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, GtkRenderer>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         context: &mut MessageContext<M>,
         _store: &Store<S>,
-        renderer: &mut GtkRenderer,
+        renderer: &mut Renderer,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
-                let event_port = renderer.event_port().clone();
-                let id_path = context.id_path().to_vec();
-                state.clicked_signal = state
-                    .widget
-                    .connect_clicked(move |_| {
-                        event_port
-                            .send((
-                                Box::new(Event::Clicked),
-                                EventDestination::Local(id_path.clone()),
-                            ))
-                            .unwrap();
-                    })
-                    .into();
+                if self.on_click.is_some() {
+                    state
+                        .connect_clicked(context.id_path().to_vec(), renderer.event_port().clone());
+                }
             }
             Lifecycle::Update(old_view) => {
+                match (&self.on_click, &old_view.on_click) {
+                    (Some(_), None) => {
+                        state.disconnect_clicked();
+                    }
+                    (None, Some(_)) => {
+                        state.connect_clicked(
+                            context.id_path().to_vec(),
+                            renderer.event_port().clone(),
+                        );
+                    }
+                    _ => {}
+                }
                 self.update(&old_view, &state.widget);
             }
             Lifecycle::Unmount => {
-                if let Some(signal_id) = state.clicked_signal.take() {
-                    state.widget.disconnect(signal_id);
-                }
+                state.disconnect_clicked();
             }
         }
     }
 
     fn event(
         &self,
-        _event: <Self as EventListener>::Event,
+        event: <Self as EventListener>::Event,
         _state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, GtkRenderer>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         context: &mut MessageContext<M>,
         store: &Store<S>,
-        _renderer: &mut GtkRenderer,
+        _renderer: &mut Renderer,
     ) {
-        if let Some(on_click) = &self.on_click {
-            let message = on_click(store);
-            context.push_message(message);
+        match event {
+            Event::Clicked => {
+                if let Some(on_click) = &self.on_click {
+                    let message = on_click(store);
+                    context.push_message(message);
+                }
+            }
         }
     }
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, GtkRenderer>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut GtkRenderer,
+        _renderer: &mut Renderer,
     ) -> Self::State {
         let widget = self.build();
-        widget.set_child(Some(child.state().as_view_state().unwrap().as_ref()));
+        let child = child.state().as_view_state().unwrap().as_ref();
+        widget.set_child(Some(child));
         ButtonState::new(widget)
     }
 }
@@ -135,7 +141,7 @@ impl<'event, Child, S, M> EventListener<'event> for Button<Child, S, M> {
 #[derive(Debug)]
 pub struct ButtonState {
     widget: gtk::Button,
-    clicked_signal: Option<SignalHandlerId>,
+    clicked_signal: Option<glib::SignalHandlerId>,
 }
 
 impl ButtonState {
@@ -143,6 +149,26 @@ impl ButtonState {
         Self {
             widget,
             clicked_signal: None,
+        }
+    }
+
+    fn connect_clicked(&mut self, id_path: IdPathBuf, event_port: EventPort) {
+        self.clicked_signal = self
+            .widget
+            .connect_clicked(move |_| {
+                event_port
+                    .send((
+                        Box::new(Event::Clicked),
+                        EventDestination::Local(id_path.clone()),
+                    ))
+                    .unwrap();
+            })
+            .into();
+    }
+
+    fn disconnect_clicked(&mut self) {
+        if let Some(signal_id) = self.clicked_signal.take() {
+            self.widget.disconnect(signal_id);
         }
     }
 }

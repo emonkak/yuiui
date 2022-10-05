@@ -6,13 +6,17 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-either = { path = "../either" }
-either-macro = { path = "../either-macro" }
 futures = "0.3"
 gtk = { package = "gtk4", version = "0.4" }
 hlist = { path = "../hlist" }
 yuiui = { path = "../yuiui" }
 yuiui-gtk-derive = { path = "../yuiui-gtk-derive" }
 
+[dev-dependencies]
+hlist = { path = "../hlist" }
+
 [[example]]
 name = "counter"
+
+[[example]]
+name = "todo"

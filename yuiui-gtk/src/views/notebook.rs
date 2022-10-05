@@ -99,25 +99,31 @@ impl<'event, Children> EventListener<'event> for Notebook<Children> {
 }
 
 #[derive(Debug, Clone)]
-pub enum NotebookChild<Child> {
-    Tab(Child),
-    Content(Child),
+pub struct NotebookChild<Child> {
+    child: Child,
+    child_type: NotebookChildType,
 }
 
 impl<Child> NotebookChild<Child> {
-    pub fn child(&self) -> &Child {
-        match self {
-            Self::Tab(child) => child,
-            Self::Content(child) => child,
+    pub fn from_tab(child: Child) -> Self {
+        Self {
+            child,
+            child_type: NotebookChildType::TabLabel,
         }
     }
 
-    pub fn into_child(self) -> Child {
-        match self {
-            Self::Tab(child) => child,
-            Self::Content(child) => child,
+    pub fn from_content(child: Child) -> Self {
+        Self {
+            child,
+            child_type: NotebookChildType::Content,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum NotebookChildType {
+    TabLabel,
+    Content,
 }
 
 impl<Child, S, M, R> View<S, M, R> for NotebookChild<Child>
@@ -137,8 +143,8 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) {
-        let lifecycle = lifecycle.map(|view| view.into_child());
-        self.child()
+        let lifecycle = lifecycle.map(|view| view.child);
+        self.child
             .lifecycle(lifecycle, state, children, context, store, renderer)
     }
 
@@ -151,7 +157,7 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) {
-        self.child()
+        self.child
             .event(event, state, children, context, store, renderer)
     }
 
@@ -161,7 +167,7 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::State {
-        self.child().build(children, store, renderer)
+        self.child.build(children, store, renderer)
     }
 }
 
@@ -206,12 +212,12 @@ where
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
-        match node.state().as_view() {
-            NotebookChild::Tab(_) => {
+        match node.state().as_view().child_type {
+            NotebookChildType::TabLabel => {
                 let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
                 self.current_tab = Some(new_child.clone());
             }
-            NotebookChild::Content(_) => {
+            NotebookChildType::Content => {
                 let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
                 loop {
                     match self.current_child.take() {
