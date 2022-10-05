@@ -8,7 +8,7 @@ use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
-use super::{ViewNode, ViewNodeState};
+use super::ViewNode;
 
 pub struct LocalEventVisitor<'a> {
     event: &'a dyn Any,
@@ -43,20 +43,16 @@ where
                 .for_id(*head, self, context, store, renderer)
                 .unwrap_or(false)
         } else {
-            match node.state.as_mut().unwrap() {
-                ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
-                    let event =
-                        <V as EventListener>::Event::from_any(self.event).unwrap_or_else(|| {
-                            panic!(
-                                "cast the event to {}",
-                                any::type_name::<<V as EventListener>::Event>()
-                            )
-                        });
-                    view.event(event, state, &mut node.children, context, store, renderer);
-                    true
-                }
-                ViewNodeState::Uninitialized(_) => false,
-            }
+            let view = &mut node.view;
+            let state = node.state.as_mut().unwrap();
+            let event = <V as EventListener>::Event::from_any(self.event).unwrap_or_else(|| {
+                panic!(
+                    "cast the event to {}",
+                    any::type_name::<<V as EventListener>::Event>()
+                )
+            });
+            view.event(event, state, &mut node.children, context, store, renderer);
+            true
         }
     }
 }

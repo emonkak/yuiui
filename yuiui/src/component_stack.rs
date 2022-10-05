@@ -53,6 +53,8 @@ where
         let (head, tail) = node.components;
         let node = ViewNodeMut {
             id: node.id,
+            view: node.view,
+            pending_view: node.pending_view,
             state: node.state,
             children: node.children,
             components: tail,
@@ -78,6 +80,8 @@ where
         let (head, tail) = node.components;
         let node = ViewNodeMut {
             id: node.id,
+            view: node.view,
+            pending_view: node.pending_view,
             state: node.state,
             children: node.children,
             components: tail,

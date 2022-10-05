@@ -171,7 +171,7 @@ where
             .orientation(gtk::Orientation::Vertical)
             .build();
         let stack_switcher = self.build();
-        let stack = child.state().as_view_state().unwrap();
+        let stack = child.state().unwrap();
         container.append(&stack_switcher);
         container.append(stack);
         stack_switcher.set_stack(Some(stack));
@@ -335,8 +335,7 @@ where
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
-        let (view, state) = node.state_mut().extract_mut();
-        let new_child: &gtk::Widget = state.as_ref().unwrap().child_state.as_ref();
+        let new_child: &gtk::Widget = node.state().as_ref().unwrap().child_state.as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_child == &child => {
@@ -350,15 +349,15 @@ where
                 Some(child) => {
                     let stack_page = self.container.add_child(new_child);
                     new_child.insert_before(self.container, Some(&child));
-                    view.force_update(&stack_page);
-                    state.unwrap().stack_page = Some(stack_page);
+                    node.view_mut().force_update(&stack_page);
+                    node.state_mut().unwrap().stack_page = Some(stack_page);
                     self.current_child = Some(child);
                     break;
                 }
                 None => {
                     let stack_page = self.container.add_child(new_child);
-                    view.force_update(&stack_page);
-                    state.unwrap().stack_page = Some(stack_page);
+                    node.view_mut().force_update(&stack_page);
+                    node.state_mut().unwrap().stack_page = Some(stack_page);
                     break;
                 }
             }

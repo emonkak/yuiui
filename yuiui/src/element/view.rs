@@ -4,7 +4,7 @@ use crate::component_stack::ComponentEnd;
 use crate::context::{IdContext, RenderContext};
 use crate::state::Store;
 use crate::view::View;
-use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeState};
+use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
@@ -53,12 +53,7 @@ where
 
         self.children.update_children(node.children, context, store);
 
-        *node.state = Some(match node.state.take().unwrap() {
-            ViewNodeState::Uninitialized(_) => ViewNodeState::Uninitialized(self.view),
-            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
-                ViewNodeState::Pending(view, self.view, state)
-            }
-        });
+        *node.pending_view = Some(self.view);
         *node.dirty = true;
 
         context.pop_id();

@@ -8,7 +8,7 @@ use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
-use super::{ViewNode, ViewNodeState};
+use super::ViewNode;
 
 pub struct DownwardEventVisitor<'a> {
     event: &'a dyn Any,
@@ -43,20 +43,17 @@ where
                 .for_id(*head, self, context, store, renderer)
                 .unwrap_or(false)
         } else {
-            match node.state.as_mut().unwrap() {
-                ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
-                    let mut result = false;
-                    if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
-                        view.event(event, state, &mut node.children, context, store, renderer);
-                        result = true;
-                    }
-                    if node.event_mask.contains(&self.event.type_id()) {
-                        result |= node.children.for_each(self, context, store, renderer);
-                    }
-                    result
-                }
-                _ => false,
+            let mut result = false;
+            if let Some(event) = <V as EventListener>::Event::from_any(self.event) {
+                let view = &mut node.view;
+                let state = node.state.as_mut().unwrap();
+                view.event(event, state, &mut node.children, context, store, renderer);
+                result = true;
             }
+            if node.event_mask.contains(&self.event.type_id()) {
+                result |= node.children.for_each(self, context, store, renderer);
+            }
+            result
         }
     }
 }

@@ -134,7 +134,7 @@ where
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
-        let new_widget: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+        let new_widget: &gtk::Widget = node.state().unwrap().as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_widget == &child => {

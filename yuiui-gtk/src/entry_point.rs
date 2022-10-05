@@ -36,7 +36,7 @@ pub trait EntryPoint<M>: Sized + 'static {
 
         render_loop.run_forever(&context, &mut store, &mut renderer);
 
-        let widget = render_loop.node().state().as_view_state().unwrap().as_ref();
+        let widget = render_loop.node().state().unwrap().as_ref();
 
         self.attach(widget, renderer.event_port());
 

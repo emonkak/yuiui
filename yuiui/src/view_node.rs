@@ -6,6 +6,7 @@ mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
+use std::mem;
 use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
@@ -26,7 +27,9 @@ use upward_event_visitor::UpwardEventVisitor;
 
 pub struct ViewNode<V: View<S, M, R>, CS: ComponentStack<S, M, R, View = V>, S, M, R> {
     pub(crate) id: Id,
-    pub(crate) state: Option<ViewNodeState<V, V::State>>,
+    pub(crate) view: V,
+    pub(crate) pending_view: Option<V>,
+    pub(crate) state: Option<V::State>,
     pub(crate) children: <V::Children as ElementSeq<S, M, R>>::Storage,
     pub(crate) components: CS,
     pub(crate) event_mask: &'static EventMask,
@@ -46,7 +49,9 @@ where
     ) -> Self {
         Self {
             id,
-            state: Some(ViewNodeState::Uninitialized(view)),
+            view,
+            pending_view: None,
+            state: None,
             children,
             components,
             event_mask: <V::Children as ElementSeq<S, M, R>>::Storage::event_mask(),
@@ -57,6 +62,8 @@ where
     pub(crate) fn borrow_mut(&mut self) -> ViewNodeMut<V, CS, S, M, R> {
         ViewNodeMut {
             id: self.id,
+            view: &mut self.view,
+            pending_view: &mut self.pending_view,
             state: &mut self.state,
             children: &mut self.children,
             components: &mut self.components,
@@ -89,7 +96,7 @@ where
 
         context.push_id(self.id);
 
-        let pre_result = match mode {
+        let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => {
                 self.children.commit(mode, context, store, renderer)
             }
@@ -98,10 +105,10 @@ where
             }
         };
 
-        let (result, node_state) = match (mode, self.state.take().unwrap()) {
-            (CommitMode::Mount, ViewNodeState::Uninitialized(view)) => {
-                let mut state = view.build(&mut self.children, store, renderer);
-                view.lifecycle(
+        result |= match (mode, self.pending_view.take(), self.state.as_mut()) {
+            (CommitMode::Mount, None, None) => {
+                let mut state = self.view.build(&mut self.children, store, renderer);
+                self.view.lifecycle(
                     Lifecycle::Mount,
                     &mut state,
                     &mut self.children,
@@ -109,86 +116,102 @@ where
                     store,
                     renderer,
                 );
-                (true, ViewNodeState::Prepared(view, state))
+                self.state = Some(state);
+                true
             }
-            (CommitMode::Mount, ViewNodeState::Prepared(view, mut state)) => {
-                view.lifecycle(
-                    Lifecycle::Remount,
-                    &mut state,
-                    &mut self.children,
-                    context,
-                    store,
-                    renderer,
-                );
-                (true, ViewNodeState::Prepared(view, state))
-            }
-            (CommitMode::Mount, ViewNodeState::Pending(view, pending_view, mut state)) => {
-                view.lifecycle(
-                    Lifecycle::Remount,
-                    &mut state,
-                    &mut self.children,
-                    context,
-                    store,
-                    renderer,
-                );
+            (CommitMode::Mount, Some(pending_view), None) => {
+                let mut state = pending_view.build(&mut self.children, store, renderer);
                 pending_view.lifecycle(
-                    Lifecycle::Update(view),
+                    Lifecycle::Mount,
                     &mut state,
                     &mut self.children,
                     context,
                     store,
                     renderer,
                 );
-                (true, ViewNodeState::Prepared(pending_view, state))
+                self.state = Some(state);
+                true
             }
-            (CommitMode::Update, ViewNodeState::Uninitialized(view)) => {
-                (false, ViewNodeState::Uninitialized(view))
-            }
-            (CommitMode::Update, ViewNodeState::Prepared(view, state)) => {
-                (false, ViewNodeState::Prepared(view, state))
-            }
-            (CommitMode::Update, ViewNodeState::Pending(view, pending_view, mut state)) => {
-                pending_view.lifecycle(
-                    Lifecycle::Update(view),
-                    &mut state,
+            (CommitMode::Mount, None, Some(state)) => {
+                self.view.lifecycle(
+                    Lifecycle::Remount,
+                    state,
                     &mut self.children,
                     context,
                     store,
                     renderer,
                 );
-                (true, ViewNodeState::Prepared(pending_view, state))
+                true
             }
-            (CommitMode::Unmount, ViewNodeState::Uninitialized(view)) => {
-                (false, ViewNodeState::Uninitialized(view))
+            (CommitMode::Mount, Some(pending_view), Some(state)) => {
+                self.view.lifecycle(
+                    Lifecycle::Remount,
+                    state,
+                    &mut self.children,
+                    context,
+                    store,
+                    renderer,
+                );
+                let old_view = mem::replace(&mut self.view, pending_view);
+                self.view.lifecycle(
+                    Lifecycle::Update(old_view),
+                    state,
+                    &mut self.children,
+                    context,
+                    store,
+                    renderer,
+                );
+                true
             }
-            (CommitMode::Unmount, ViewNodeState::Prepared(view, mut state)) => {
-                view.lifecycle(
+            (CommitMode::Update, None, None) => false,
+            (CommitMode::Update, None, Some(_)) => false,
+            (CommitMode::Update, Some(_), None) => {
+                unreachable!()
+            }
+            (CommitMode::Update, Some(pending_view), Some(state)) => {
+                let old_view = mem::replace(&mut self.view, pending_view);
+                self.view.lifecycle(
+                    Lifecycle::Update(old_view),
+                    state,
+                    &mut self.children,
+                    context,
+                    store,
+                    renderer,
+                );
+                true
+            }
+            (CommitMode::Unmount, None, None) => false,
+            (CommitMode::Unmount, None, Some(state)) => {
+                self.view.lifecycle(
                     Lifecycle::Unmount,
-                    &mut state,
+                    state,
                     &mut self.children,
                     context,
                     store,
                     renderer,
                 );
-                (true, ViewNodeState::Prepared(view, state))
+                true
             }
-            (CommitMode::Unmount, ViewNodeState::Pending(view, pending_view, mut state)) => {
-                view.lifecycle(
+            (CommitMode::Unmount, Some(pending_view), Some(state)) => {
+                self.view.lifecycle(
                     Lifecycle::Unmount,
-                    &mut state,
+                    state,
                     &mut self.children,
                     context,
                     store,
                     renderer,
                 );
-                (true, ViewNodeState::Pending(view, pending_view, state))
+                self.pending_view = Some(pending_view);
+                true
+            }
+            (CommitMode::Unmount, Some(_), None) => {
+                unreachable!()
             }
         };
 
-        self.state = Some(node_state);
         self.dirty = false;
 
-        let post_result = match mode {
+        result |= match mode {
             CommitMode::Mount | CommitMode::Update => {
                 CS::commit(self.borrow_mut(), mode, depth, 0, context, store, renderer)
             }
@@ -197,7 +220,7 @@ where
 
         context.pop_id();
 
-        pre_result | result | post_result
+        result
     }
 
     pub(crate) fn commit_subtree(
@@ -262,12 +285,20 @@ where
         self.id
     }
 
-    pub fn state(&self) -> &ViewNodeState<V, V::State> {
-        self.state.as_ref().unwrap()
+    pub fn view(&self) -> &V {
+        &self.view
     }
 
-    pub fn state_mut(&mut self) -> &mut ViewNodeState<V, V::State> {
-        self.state.as_mut().unwrap()
+    pub fn state(&self) -> Option<&V::State> {
+        self.state.as_ref()
+    }
+
+    pub fn view_mut(&mut self) -> &mut V {
+        &mut self.view
+    }
+
+    pub fn state_mut(&mut self) -> Option<&mut V::State> {
+        self.state.as_mut()
     }
 
     pub fn children(&self) -> &<V::Children as ElementSeq<S, M, R>>::Storage {
@@ -283,62 +314,11 @@ where
     }
 }
 
-#[derive(Debug)]
-pub enum ViewNodeState<V, VS> {
-    Uninitialized(V),
-    Prepared(V, VS),
-    Pending(V, V, VS),
-}
-
-impl<V, VS> ViewNodeState<V, VS> {
-    pub fn map_view<F, W>(self, f: F) -> ViewNodeState<W, VS>
-    where
-        F: Fn(V) -> W,
-    {
-        match self {
-            Self::Uninitialized(view) => ViewNodeState::Uninitialized(f(view)),
-            Self::Prepared(view, state) => ViewNodeState::Prepared(f(view), state),
-            Self::Pending(view, pending_view, state) => {
-                ViewNodeState::Pending(f(view), f(pending_view), state)
-            }
-        }
-    }
-
-    pub fn extract(&self) -> (&V, Option<&VS>) {
-        match self {
-            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
-                (view, Some(state))
-            }
-            ViewNodeState::Uninitialized(view) => (view, None),
-        }
-    }
-
-    pub fn extract_mut(&mut self) -> (&V, Option<&mut VS>) {
-        match self {
-            ViewNodeState::Prepared(view, state) | ViewNodeState::Pending(view, _, state) => {
-                (view, Some(state))
-            }
-            ViewNodeState::Uninitialized(view) => (view, None),
-        }
-    }
-
-    pub fn as_view(&self) -> &V {
-        match self {
-            Self::Prepared(view, _) | Self::Pending(view, _, _) | Self::Uninitialized(view) => view,
-        }
-    }
-
-    pub fn as_view_state(&self) -> Option<&VS> {
-        match self {
-            ViewNodeState::Prepared(_, state) | ViewNodeState::Pending(_, _, state) => Some(state),
-            ViewNodeState::Uninitialized(_) => None,
-        }
-    }
-}
-
 pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
     pub(crate) id: Id,
-    pub(crate) state: &'a mut Option<ViewNodeState<V, V::State>>,
+    pub(crate) view: &'a mut V,
+    pub(crate) pending_view: &'a mut Option<V>,
+    pub(crate) state: &'a mut Option<V::State>,
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, R>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) dirty: &'a mut bool,
@@ -347,6 +327,7 @@ pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
 impl<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> ViewNodeMut<'a, V, CS, S, M, R> {
     pub(crate) fn as_view_ref(&self) -> ViewRef<'_, V, S, M, R> {
         ViewRef {
+            view: self.view,
             state: self.state,
             children: self.children,
         }
@@ -354,17 +335,18 @@ impl<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> ViewNodeMut<'a, V, CS, S, M, R> 
 }
 
 pub struct ViewRef<'a, V: View<S, M, R>, S, M, R> {
-    state: &'a Option<ViewNodeState<V, V::State>>,
+    view: &'a V,
+    state: &'a Option<V::State>,
     children: &'a <V::Children as ElementSeq<S, M, R>>::Storage,
 }
 
 impl<'a, V: View<S, M, R>, S, M, R> ViewRef<'a, V, S, M, R> {
     pub fn view(&self) -> &V {
-        self.state.as_ref().unwrap().as_view()
+        self.view
     }
 
     pub fn state(&self) -> &V::State {
-        self.state.as_ref().unwrap().as_view_state().unwrap()
+        self.state.as_ref().unwrap()
     }
 
     pub fn children(&self) -> &<V::Children as ElementSeq<S, M, R>>::Storage {
@@ -498,6 +480,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ViewNode")
             .field("id", &self.id)
+            .field("view", &self.view)
+            .field("pending_view", &self.pending_view)
             .field("state", &self.state)
             .field("children", &self.children)
             .field("components", &self.components)

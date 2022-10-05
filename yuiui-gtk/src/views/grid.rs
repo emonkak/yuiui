@@ -200,7 +200,7 @@ where
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
-        let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+        let new_child: &gtk::Widget = node.state().unwrap().as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_child == &child => {
@@ -212,7 +212,7 @@ where
                     self.container.remove(&child);
                 }
                 Some(child) => {
-                    let grid_child = &node.state().as_view();
+                    let grid_child = node.view();
                     self.container.attach(
                         new_child,
                         grid_child.column,
@@ -225,7 +225,7 @@ where
                     break;
                 }
                 None => {
-                    let grid_child = &node.state().as_view();
+                    let grid_child = &node.view();
                     self.container.attach(
                         new_child,
                         grid_child.column,

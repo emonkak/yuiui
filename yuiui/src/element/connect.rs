@@ -51,15 +51,19 @@ where
         let sub_node = self.target.render(context, sub_store);
         ViewNode {
             id: sub_node.id,
-            state: sub_node.state.map(|state| {
-                state.map_view(|view| {
-                    Connect::new(
-                        view,
-                        self.store_selector.clone(),
-                        self.message_selector.clone(),
-                    )
-                })
+            view: Connect::new(
+                sub_node.view,
+                self.store_selector.clone(),
+                self.message_selector.clone(),
+            ),
+            pending_view: sub_node.pending_view.map(|view| {
+                Connect::new(
+                    view,
+                    self.store_selector.clone(),
+                    self.message_selector.clone(),
+                )
             }),
+            state: sub_node.state,
             children: Connect::new(
                 sub_node.children,
                 self.store_selector.clone(),
@@ -414,20 +418,18 @@ where
 {
     let store_selector = &node.components.store_selector;
     let message_selector = &node.components.message_selector;
-    let mut sub_node_state = node
-        .state
-        .take()
-        .map(|state| state.map_view(|view| view.target));
+    let mut sub_pending_view = node.pending_view.take().map(|view| view.target);
     let sub_node = ViewNodeMut {
         id: node.id,
-        state: &mut sub_node_state,
+        view: &mut node.view.target,
+        pending_view: &mut sub_pending_view,
+        state: node.state,
         children: &mut node.children.target,
         components: &mut node.components.target,
         dirty: &mut node.dirty,
     };
     let result = callback(sub_node);
-    *node.state = sub_node_state.map(|state| {
-        state.map_view(|view| Connect::new(view, store_selector.clone(), message_selector.clone()))
-    });
+    *node.pending_view = sub_pending_view
+        .map(|view| Connect::new(view, store_selector.clone(), message_selector.clone()));
     result
 }

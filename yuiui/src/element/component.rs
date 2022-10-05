@@ -39,6 +39,8 @@ where
         let node = element.render(context, store);
         ViewNode {
             id: node.id,
+            view: node.view,
+            pending_view: node.pending_view,
             state: node.state,
             children: node.children,
             components: (component_node, node.components),
@@ -59,6 +61,8 @@ where
         *node.dirty = true;
         let node = ViewNodeMut {
             id: node.id,
+            view: node.view,
+            pending_view: node.pending_view,
             state: node.state,
             children: node.children,
             components: tail_nodes,

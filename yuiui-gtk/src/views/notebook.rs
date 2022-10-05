@@ -212,13 +212,13 @@ where
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
-        match node.state().as_view().child_type {
+        match node.view().child_type {
             NotebookChildType::TabLabel => {
-                let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+                let new_child: &gtk::Widget = node.state().unwrap().as_ref();
                 self.current_tab = Some(new_child.clone());
             }
             NotebookChildType::Content => {
-                let new_child: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+                let new_child: &gtk::Widget = node.state().unwrap().as_ref();
                 loop {
                     match self.current_child.take() {
                         Some(child) if new_child == &child => {

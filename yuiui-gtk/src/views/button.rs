@@ -128,7 +128,7 @@ where
         _renderer: &mut Renderer,
     ) -> Self::State {
         let widget = self.build();
-        let child = child.state().as_view_state().unwrap().as_ref();
+        let child = child.state().unwrap().as_ref();
         widget.set_child(Some(child));
         ButtonState::new(widget)
     }

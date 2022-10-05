@@ -169,7 +169,7 @@ where
         _renderer: &mut R,
     ) -> Self::State {
         let container = self.build();
-        let child = child.state().as_view_state().unwrap();
+        let child = child.state().unwrap();
         container.set_child(Some(child.as_ref()));
         container
     }
@@ -211,7 +211,7 @@ where
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
-        let new_widget: &gtk::Widget = node.state().as_view_state().unwrap().as_ref();
+        let new_widget: &gtk::Widget = node.state().unwrap().as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_widget == &child => {
