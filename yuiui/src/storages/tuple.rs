@@ -79,21 +79,20 @@ where
 }
 
 macro_rules! define_tuple_impls {
-    ([$($TSS:tt),*; $($nss:tt),*; $last_n:tt], $t:tt, $($TS:tt),*; $n:tt, $($ns:tt),*) => {
-        define_tuple_impl!($($TSS),*; $($nss),*; $last_n);
-        define_tuple_impls!([$($TSS),*, $t; $($nss),*, $n; $n], $($TS),*; $($ns),*);
+    ([$($T:ident),*] [$($n:tt),*] $T_head:ident; $n_head:tt) => {
+        define_tuple_impl!($($T,)* $T_head; $($n,)* $n_head; $n_head);
     };
-    ([$($TSS:tt),*; $($nss:tt),*; $last_n:tt], $T:tt; $n:tt) => {
-        define_tuple_impl!($($TSS),*; $($nss),*; $last_n);
-        define_tuple_impl!($($TSS),*, $T; $($nss),*, $n; $n);
+    ([$($T:ident),*] [$($n:tt),*] $T_head:ident, $($T_tail:tt),*; $n_head:tt, $($n_tail:tt),*) => {
+        define_tuple_impl!($($T,)* $T_head; $($n,)* $n_head; $n_head);
+        define_tuple_impls!([$($T,)* $T_head] [$($n,)* $n_head] $($T_tail),*; $($n_tail),*);
     };
-    ($T:tt, $($TS:tt),*; $n:tt, $($ns:tt),*) => {
-        define_tuple_impls!([$T; $n; $n], $($TS),*; $($ns),*);
+    ($($T:ident),*; $($n:tt),*) => {
+        define_tuple_impls!([] [] $($T),*; $($n),*);
     };
 }
 
 macro_rules! define_tuple_impl {
-    ($($T:tt),*; $($n:tt),*; $last_n:tt) => {
+    ($($T:ident),*; $($n:tt),*; $last_n:tt) => {
         impl<$($T,)* S, M, R> ElementSeq<S, M, R> for ($($T,)*)
         where
             $($T: ElementSeq<S, M, R>,)*
