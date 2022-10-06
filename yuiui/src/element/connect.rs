@@ -327,6 +327,10 @@ where
         context.merge_sub_context(sub_context, &self.message_selector);
         result
     }
+
+    fn gc(&mut self) {
+        self.target.gc();
+    }
 }
 
 impl<'a, T, S, M, SS, SM, Visitor, Output, R> Traversable<Visitor, RenderContext, Output, S, M, R>

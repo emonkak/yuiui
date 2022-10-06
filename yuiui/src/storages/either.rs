@@ -228,6 +228,18 @@ where
         self.flags = RenderFlags::COMMITED;
         result
     }
+
+    fn gc(&mut self) {
+        match &mut self.active {
+            Either::Left(node) => node.gc(),
+            Either::Right(node) => node.gc(),
+        }
+        match &mut self.staging {
+            Some(Either::Left(node)) => node.gc(),
+            Some(Either::Right(node)) => node.gc(),
+            None => {}
+        }
+    }
 }
 
 impl<L, R, Visitor, Context, Output, S, M, Renderer>

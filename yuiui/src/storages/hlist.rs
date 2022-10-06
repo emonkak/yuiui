@@ -79,6 +79,8 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
     ) -> bool {
         false
     }
+
+    fn gc(&mut self) {}
 }
 
 impl<H, T, S, M, R> ViewNodeSeq<S, M, R> for HCons<H, T>
@@ -137,6 +139,11 @@ where
         let head_result = self.head.commit(mode, context, store, renderer);
         let tail_result = self.tail.commit(mode, context, store, renderer);
         head_result || tail_result
+    }
+
+    fn gc(&mut self) {
+        self.head.gc();
+        self.tail.gc();
     }
 }
 

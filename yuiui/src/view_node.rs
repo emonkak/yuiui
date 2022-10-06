@@ -302,6 +302,16 @@ where
     }
 }
 
+pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
+    pub(crate) id: Id,
+    pub(crate) view: &'a mut V,
+    pub(crate) pending_view: &'a mut Option<V>,
+    pub(crate) state: &'a mut Option<V::State>,
+    pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, R>>::Storage,
+    pub(crate) components: &'a mut CS,
+    pub(crate) dirty: &'a mut bool,
+}
+
 impl<'a, V, CS, S, M, R> From<&'a mut ViewNode<V, CS, S, M, R>> for ViewNodeMut<'a, V, CS, S, M, R>
 where
     V: View<S, M, R>,
@@ -318,16 +328,6 @@ where
             dirty: &mut node.dirty,
         }
     }
-}
-
-pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
-    pub(crate) id: Id,
-    pub(crate) view: &'a mut V,
-    pub(crate) pending_view: &'a mut Option<V>,
-    pub(crate) state: &'a mut Option<V::State>,
-    pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, R>>::Storage,
-    pub(crate) components: &'a mut CS,
-    pub(crate) dirty: &'a mut bool,
 }
 
 pub struct ViewNodeRef<'a, V: View<S, M, R>, S, M, R> {
@@ -391,6 +391,8 @@ pub trait ViewNodeSeq<S, M, R>:
         store: &Store<S>,
         renderer: &mut R,
     ) -> bool;
+
+    fn gc(&mut self);
 }
 
 impl<V, CS, S, M, R> ViewNodeSeq<S, M, R> for ViewNode<V, CS, S, M, R>
@@ -433,6 +435,12 @@ where
         renderer: &mut R,
     ) -> bool {
         self.commit_within(mode, 0, context, store, renderer)
+    }
+
+    fn gc(&mut self) {
+        if Self::SIZE_HINT.1.is_none() {
+            self.children.gc();
+        }
     }
 }
 

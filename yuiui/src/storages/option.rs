@@ -153,6 +153,15 @@ where
         self.flags = RenderFlags::COMMITED;
         result
     }
+
+    fn gc(&mut self) {
+        if let Some(node) = &mut self.active {
+            node.gc();
+        }
+        if let Some(node) = &mut self.staging {
+            node.gc();
+        }
+    }
 }
 
 impl<T, Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R>

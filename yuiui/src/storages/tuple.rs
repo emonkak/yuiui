@@ -50,6 +50,8 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     ) -> bool {
         false
     }
+
+    fn gc(&mut self) {}
 }
 
 impl<Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R> for ()
@@ -172,6 +174,10 @@ macro_rules! define_tuple_impl {
                 renderer: &mut R,
             ) -> bool {
                 $(self.$n.commit(mode, context, store, renderer))||*
+            }
+
+            fn gc(&mut self) {
+                $(self.$n.gc();)*
             }
         }
 

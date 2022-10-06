@@ -97,6 +97,14 @@ where
         }
         result
     }
+
+    fn gc(&mut self) {
+        if T::SIZE_HINT.1.is_none() {
+            for node in &mut self.nodes {
+                node.gc();
+            }
+        }
+    }
 }
 
 impl<T, S, M, R, Visitor, Context, Output, const N: usize>
