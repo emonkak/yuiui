@@ -59,18 +59,6 @@ where
         }
     }
 
-    pub(crate) fn borrow_mut(&mut self) -> ViewNodeMut<V, CS, S, M, R> {
-        ViewNodeMut {
-            id: self.id,
-            view: &mut self.view,
-            pending_view: &mut self.pending_view,
-            state: &mut self.state,
-            children: &mut self.children,
-            components: &mut self.components,
-            dirty: &mut self.dirty,
-        }
-    }
-
     pub(crate) fn update_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
@@ -101,7 +89,7 @@ where
                 self.children.commit(mode, context, store, renderer)
             }
             CommitMode::Unmount => {
-                CS::commit(self.borrow_mut(), mode, depth, 0, context, store, renderer)
+                CS::commit(self.into(), mode, depth, 0, context, store, renderer)
             }
         };
 
@@ -213,7 +201,7 @@ where
 
         result |= match mode {
             CommitMode::Mount | CommitMode::Update => {
-                CS::commit(self.borrow_mut(), mode, depth, 0, context, store, renderer)
+                CS::commit(self.into(), mode, depth, 0, context, store, renderer)
             }
             CommitMode::Unmount => self.children.commit(mode, context, store, renderer),
         };
@@ -314,6 +302,24 @@ where
     }
 }
 
+impl<'a, V, CS, S, M, R> From<&'a mut ViewNode<V, CS, S, M, R>> for ViewNodeMut<'a, V, CS, S, M, R>
+where
+    V: View<S, M, R>,
+    CS: ComponentStack<S, M, R, View = V>,
+{
+    fn from(node: &'a mut ViewNode<V, CS, S, M, R>) -> Self {
+        Self {
+            id: node.id,
+            view: &mut node.view,
+            pending_view: &mut node.pending_view,
+            state: &mut node.state,
+            children: &mut node.children,
+            components: &mut node.components,
+            dirty: &mut node.dirty,
+        }
+    }
+}
+
 pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
     pub(crate) id: Id,
     pub(crate) view: &'a mut V,
@@ -324,23 +330,25 @@ pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
     pub(crate) dirty: &'a mut bool,
 }
 
-impl<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> ViewNodeMut<'a, V, CS, S, M, R> {
-    pub(crate) fn as_view_ref(&self) -> ViewRef<'_, V, S, M, R> {
-        ViewRef {
-            view: self.view,
-            state: self.state,
-            children: self.children,
-        }
-    }
-}
-
-pub struct ViewRef<'a, V: View<S, M, R>, S, M, R> {
+pub struct ViewNodeRef<'a, V: View<S, M, R>, S, M, R> {
     view: &'a V,
     state: &'a Option<V::State>,
     children: &'a <V::Children as ElementSeq<S, M, R>>::Storage,
 }
 
-impl<'a, V: View<S, M, R>, S, M, R> ViewRef<'a, V, S, M, R> {
+impl<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> From<ViewNodeMut<'a, V, CS, S, M, R>>
+    for ViewNodeRef<'a, V, S, M, R>
+{
+    fn from(node: ViewNodeMut<'a, V, CS, S, M, R>) -> Self {
+        Self {
+            view: node.view,
+            state: node.state,
+            children: node.children,
+        }
+    }
+}
+
+impl<'a, V: View<S, M, R>, S, M, R> ViewNodeRef<'a, V, S, M, R> {
     pub fn view(&self) -> &V {
         self.view
     }

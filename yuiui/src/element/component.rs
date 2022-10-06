@@ -89,7 +89,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
-        self.update(storage.borrow_mut(), context, store)
+        self.update(storage.into(), context, store)
     }
 }
 

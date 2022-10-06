@@ -36,7 +36,7 @@ where
         if let (Some(&depth), true) = (self.cursor.current().value(), store.dirty()) {
             store.mark_clean();
             let is_updated = if depth < CS::LEN {
-                CS::update(node.borrow_mut(), depth, 0, context, store)
+                CS::update(node.into(), depth, 0, context, store)
             } else {
                 node.dirty = true;
                 node.children.for_each(self, context, store, renderer);

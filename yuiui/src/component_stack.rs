@@ -88,7 +88,7 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            head.commit(mode, node.as_view_ref(), context, store, renderer)
+            head.commit(mode, node.into(), context, store, renderer)
         } else {
             CS::commit(
                 node,

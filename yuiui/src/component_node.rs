@@ -7,7 +7,7 @@ use crate::context::MessageContext;
 use crate::element::Element;
 use crate::event::Lifecycle;
 use crate::state::Store;
-use crate::view_node::{CommitMode, ViewRef};
+use crate::view_node::{CommitMode, ViewNodeRef};
 
 pub struct ComponentNode<C: Component<S, M, R>, S, M, R> {
     component: C,
@@ -36,7 +36,7 @@ where
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,
-        view_ref: ViewRef<'_, <C::Element as Element<S, M, R>>::View, S, M, R>,
+        view_node: ViewNodeRef<'_, <C::Element as Element<S, M, R>>::View, S, M, R>,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         renderer: &mut R,
@@ -49,7 +49,7 @@ where
                     Lifecycle::Mount
                 };
                 self.component
-                    .lifecycle(lifecycle, view_ref, context, store, renderer);
+                    .lifecycle(lifecycle, view_node, context, store, renderer);
                 self.is_mounted = true;
                 true
             }
@@ -58,7 +58,7 @@ where
                     let old_component = mem::replace(&mut self.component, pending_component);
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
-                        view_ref,
+                        view_node,
                         context,
                         store,
                         renderer,
@@ -70,7 +70,7 @@ where
             }
             CommitMode::Unmount => {
                 self.component
-                    .lifecycle(Lifecycle::Unmount, view_ref, context, store, renderer);
+                    .lifecycle(Lifecycle::Unmount, view_node, context, store, renderer);
                 true
             }
         }
