@@ -50,21 +50,21 @@ impl<S, M, R> ComponentProps<S, M, R> for () {}
 pub trait HigherOrderComponent<Props, S, M, R> {
     type Component: Component<S, M, R>;
 
-    fn build_component(self, props: Props) -> Self::Component;
+    fn build(self, props: Props) -> Self::Component;
 
     fn el(self) -> ComponentEl<Self::Component>
     where
         Self: Sized,
         Props: Default,
     {
-        self.build_component(Props::default()).el()
+        self.build(Props::default()).el()
     }
 
     fn el_with(self, props: Props) -> ComponentEl<Self::Component>
     where
         Self: Sized,
     {
-        self.build_component(props).el()
+        self.build(props).el()
     }
 }
 
@@ -84,7 +84,7 @@ where
         fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
     >;
 
-    fn build_component(self, props: Props) -> Self::Component {
+    fn build(self, props: Props) -> Self::Component {
         FunctionComponent::new(props, self, Props::lifecycle)
     }
 }
@@ -126,9 +126,9 @@ where
 impl<Props, E, S, M, R, RenderFn, LifeCycleFn> Component<S, M, R>
     for FunctionComponent<Props, E, S, M, R, RenderFn, LifeCycleFn>
 where
+    E: Element<S, M, R>,
     RenderFn: Fn(&Props, &Store<S>) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
-    E: Element<S, M, R>,
 {
     type Element = E;
 
@@ -159,9 +159,9 @@ where
 impl<Props, E, S, M, R, RenderFn, LifeCycleFn> Clone
     for FunctionComponent<Props, E, S, M, R, RenderFn, LifeCycleFn>
 where
+    Props: Clone,
     RenderFn: Clone + Fn(&Props, &Store<S>) -> E,
     LifeCycleFn: Clone + Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
-    Props: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -176,9 +176,9 @@ where
 impl<Props, E, S, M, R, RenderFn, LifeCycleFn> fmt::Debug
     for FunctionComponent<Props, E, S, M, R, RenderFn, LifeCycleFn>
 where
+    Props: fmt::Debug,
     RenderFn: Fn(&Props, &Store<S>) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
-    Props: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("FunctionComponent")
