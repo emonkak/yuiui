@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::hlist::{HCons, HList, HNil};
+use super::{HCons, HList, HNil};
 
 trait DebugHList: HList {
     fn fmt(&self, debug_list: &mut fmt::DebugList) -> fmt::Result;
@@ -12,12 +12,6 @@ impl DebugHList for HNil {
     }
 }
 
-impl fmt::Debug for HNil {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("hlist![]")
-    }
-}
-
 impl<Head, Tail> DebugHList for HCons<Head, Tail>
 where
     Head: fmt::Debug,
@@ -26,6 +20,12 @@ where
     fn fmt(&self, debug_list: &mut fmt::DebugList) -> fmt::Result {
         debug_list.entry(&self.head);
         self.tail.fmt(debug_list)
+    }
+}
+
+impl fmt::Debug for HNil {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("hlist![]")
     }
 }
 

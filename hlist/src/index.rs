@@ -1,5 +1,6 @@
-use crate::hlist::{HCons, HList};
 use crate::nat::{Nat, Sub, Succ, Zero};
+
+use super::{HCons, HList};
 
 pub trait Index<T, N> {
     fn index(&self) -> &T;
@@ -44,7 +45,7 @@ impl<T, N, Head, Tail> LastIndex<T, N> for HCons<Head, Tail>
 where
     N: Nat,
     Tail: HList,
-    <Tail as HList>::Len: Sub<N>,
+    Tail::Len: Sub<N>,
     Self: Index<T, <<Self as HList>::Len as Sub<Succ<N>>>::Output>,
 {
     fn last_index(&self) -> &T {
