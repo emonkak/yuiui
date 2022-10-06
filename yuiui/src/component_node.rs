@@ -7,7 +7,7 @@ use crate::context::MessageContext;
 use crate::element::Element;
 use crate::event::Lifecycle;
 use crate::state::Store;
-use crate::view_node::{CommitMode, ViewNodeRef};
+use crate::view_node::{CommitMode, ViewNodeMut};
 
 pub struct ComponentNode<C: Component<S, M, R>, S, M, R> {
     component: C,
@@ -36,7 +36,14 @@ where
     pub(crate) fn commit(
         &mut self,
         mode: CommitMode,
-        view_node: ViewNodeRef<'_, <C::Element as Element<S, M, R>>::View, S, M, R>,
+        view_node: ViewNodeMut<
+            '_,
+            <C::Element as Element<S, M, R>>::View,
+            <C::Element as Element<S, M, R>>::Components,
+            S,
+            M,
+            R,
+        >,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         renderer: &mut R,

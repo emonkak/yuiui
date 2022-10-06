@@ -29,4 +29,4 @@ pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{State, Store};
 pub use traversable::{Traversable, Visitor};
 pub use view::View;
-pub use view_node::{CommitMode, ViewNode, ViewNodeRef, ViewNodeSeq};
+pub use view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};

@@ -5,7 +5,7 @@ use crate::context::MessageContext;
 use crate::element::{ComponentEl, Element};
 use crate::event::Lifecycle;
 use crate::state::Store;
-use crate::view_node::ViewNodeRef;
+use crate::view_node::ViewNodeMut;
 
 pub trait Component<S, M, R>: Sized {
     type Element: Element<S, M, R>;
@@ -13,7 +13,14 @@ pub trait Component<S, M, R>: Sized {
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<Self>,
-        _view_node: ViewNodeRef<'_, <Self::Element as Element<S, M, R>>::View, S, M, R>,
+        _view_node: ViewNodeMut<
+            '_,
+            <Self::Element as Element<S, M, R>>::View,
+            <Self::Element as Element<S, M, R>>::Components,
+            S,
+            M,
+            R,
+        >,
         _context: &mut MessageContext<M>,
         _store: &Store<S>,
         _renderer: &mut R,
@@ -128,7 +135,14 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        _view_node: ViewNodeRef<'_, <Self::Element as Element<S, M, R>>::View, S, M, R>,
+        _view_node: ViewNodeMut<
+            '_,
+            <Self::Element as Element<S, M, R>>::View,
+            <Self::Element as Element<S, M, R>>::Components,
+            S,
+            M,
+            R,
+        >,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         renderer: &mut R,

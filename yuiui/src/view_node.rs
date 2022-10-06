@@ -330,35 +330,25 @@ where
     }
 }
 
-pub struct ViewNodeRef<'a, V: View<S, M, R>, S, M, R> {
-    view: &'a V,
-    state: &'a Option<V::State>,
-    children: &'a <V::Children as ElementSeq<S, M, R>>::Storage,
-}
-
-impl<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> From<ViewNodeMut<'a, V, CS, S, M, R>>
-    for ViewNodeRef<'a, V, S, M, R>
+impl<'a, V, CS, S, M, R> ViewNodeMut<'a, V, CS, S, M, R>
+where
+    V: View<S, M, R>,
+    CS: ComponentStack<S, M, R, View = V>,
 {
-    fn from(node: ViewNodeMut<'a, V, CS, S, M, R>) -> Self {
-        Self {
-            view: node.view,
-            state: node.state,
-            children: node.children,
-        }
+    pub fn id(&self) -> Id {
+        self.id
     }
-}
 
-impl<'a, V: View<S, M, R>, S, M, R> ViewNodeRef<'a, V, S, M, R> {
-    pub fn view(&self) -> &V {
+    pub fn view(&mut self) -> &mut V {
         self.view
     }
 
-    pub fn state(&self) -> &V::State {
-        self.state.as_ref().unwrap()
+    pub fn state(&mut self) -> &mut V::State {
+        self.state.as_mut().unwrap()
     }
 
-    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, R>>::Storage {
-        &self.children
+    pub fn children(&mut self) -> &mut <V::Children as ElementSeq<S, M, R>>::Storage {
+        self.children
     }
 }
 
