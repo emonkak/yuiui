@@ -6,12 +6,8 @@ mod tuple;
 
 pub use self::append::Append;
 pub use self::index::{Index, LastIndex};
-pub use self::nat::{Nat, Succ, Zero};
+pub use self::nat::{Compare, Equal, Greater, Less, Nat, Succ, Zero};
 pub use self::tuple::{IntoHList, IntoTuple};
-
-mod private {
-    pub trait Sealed {}
-}
 
 pub trait HList: Sized + private::Sealed {
     type Len: Nat;
@@ -62,6 +58,10 @@ macro_rules! HList {
     ($head:ty, $($tail:tt)*) => {
         $crate::HCons<$head, $crate::HList![$($tail)*]>
     };
+}
+
+mod private {
+    pub trait Sealed {}
 }
 
 #[cfg(test)]
