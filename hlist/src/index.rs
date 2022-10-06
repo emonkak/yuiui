@@ -1,4 +1,6 @@
-use crate::nat::{Nat, Sub, Succ, Zero};
+use std::ops::Sub;
+
+use crate::nat::{Nat, Succ, Zero};
 
 use super::{HCons, HList};
 
@@ -46,6 +48,7 @@ where
     N: Nat,
     Tail: HList,
     Tail::Len: Sub<N>,
+    <Tail::Len as Sub<N>>::Output: Nat,
     Self: Index<T, <<Self as HList>::Len as Sub<Succ<N>>>::Output>,
 {
     fn last_index(&self) -> &T {

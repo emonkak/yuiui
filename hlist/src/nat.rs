@@ -1,55 +1,87 @@
-use std::marker::PhantomData;
+use std::ops::{Add, Sub};
 
 pub trait Nat {
     const VALUE: usize;
 }
 
-pub enum Zero {}
+#[derive(Debug)]
+pub struct Zero;
 
 impl Nat for Zero {
     const VALUE: usize = 0;
 }
 
-pub struct Succ<T: Nat>(PhantomData<T>);
+#[derive(Debug)]
+pub struct Succ<T: Nat>(T);
 
 impl<T: Nat> Nat for Succ<T> {
     const VALUE: usize = 1 + T::VALUE;
 }
 
-pub trait Add<Rhs: Nat> {
-    type Output: Nat;
-}
-
 impl Add<Zero> for Zero {
     type Output = Zero;
+
+    fn add(self, _rhs: Zero) -> Self::Output {
+        self
+    }
 }
 
 impl<N: Nat> Add<Succ<N>> for Zero {
     type Output = Succ<N>;
+
+    fn add(self, rhs: Succ<N>) -> Self::Output {
+        rhs
+    }
 }
 
 impl<N: Nat> Add<Zero> for Succ<N> {
     type Output = Succ<N>;
+
+    fn add(self, _rhs: Zero) -> Self::Output {
+        self
+    }
 }
 
-impl<N: Nat + Add<M>, M: Nat> Add<Succ<M>> for Succ<N> {
+impl<N, M> Add<Succ<M>> for Succ<N>
+where
+    N: Add<M> + Nat,
+    N::Output: Nat,
+    M: Nat,
+{
     type Output = Succ<Succ<<N as Add<M>>::Output>>;
-}
 
-pub trait Sub<Rhs: Nat> {
-    type Output: Nat;
+    fn add(self, rhs: Succ<M>) -> Self::Output {
+        Succ(Succ(self.0 + rhs.0))
+    }
 }
 
 impl Sub<Zero> for Zero {
     type Output = Zero;
+
+    fn sub(self, _rhs: Zero) -> Self::Output {
+        self
+    }
 }
 
 impl<N: Nat> Sub<Zero> for Succ<N> {
     type Output = Succ<N>;
+
+    fn sub(self, _rhs: Zero) -> Self::Output {
+        self
+    }
 }
 
-impl<N: Nat + Sub<M>, M: Nat> Sub<Succ<M>> for Succ<N> {
+impl<N, M> Sub<Succ<M>> for Succ<N>
+where
+    N: Sub<M> + Nat,
+    N::Output: Nat,
+    M: Nat,
+{
     type Output = <N as Sub<M>>::Output;
+
+    fn sub(self, rhs: Succ<M>) -> Self::Output {
+        self.0 - rhs.0
+    }
 }
 
 #[cfg(test)]
