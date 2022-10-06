@@ -36,14 +36,11 @@ where
     type Storage = OptionStorage<T::Storage>;
 
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        let reserved_ids = if self.is_none() {
-            T::Storage::SIZE_HINT
-                .1
-                .map(|upper| context.take_ids(upper).collect())
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        };
+        let reserved_ids: Vec<Id> = T::Storage::SIZE_HINT
+            .1
+            .map(|upper| context.take_ids(upper).collect())
+            .unwrap_or_default();
+        context.preload_ids(&reserved_ids);
         OptionStorage::new(
             self.map(|element| element.render_children(context, store)),
             reserved_ids,
@@ -70,7 +67,7 @@ where
                 if let Some(node) = &mut storage.staging {
                     element.update_children(node, context, store);
                 } else {
-                    context.reserve_ids(mem::take(&mut storage.reserved_ids));
+                    context.preload_ids(&storage.reserved_ids);
                     storage.staging = Some(element.render_children(context, store));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
@@ -107,22 +104,14 @@ where
     }
 
     fn id_range(&self) -> Option<(Id, Id)> {
-        self.active
-            .as_ref()
-            .or_else(|| self.staging.as_ref())
-            .map_or_else(
-                || {
-                    if self.reserved_ids.len() > 0 {
-                        Some((
-                            self.reserved_ids[0],
-                            self.reserved_ids[self.reserved_ids.len() - 1],
-                        ))
-                    } else {
-                        None
-                    }
-                },
-                |node| node.id_range(),
-            )
+        if self.reserved_ids.len() > 0 {
+            Some((
+                self.reserved_ids[0],
+                self.reserved_ids[self.reserved_ids.len() - 1],
+            ))
+        } else {
+            None
+        }
     }
 
     fn commit(
@@ -158,8 +147,8 @@ where
         if let Some(node) = &mut self.active {
             node.gc();
         }
-        if let Some(node) = &mut self.staging {
-            node.gc();
+        if self.flags != RenderFlags::SWAPPED {
+            self.staging = None;
         }
     }
 }

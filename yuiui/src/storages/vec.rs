@@ -162,7 +162,7 @@ where
             let additional_len = self.new_len - self.active.len();
             self.staging.truncate(additional_len);
         }
-        if T::SIZE_HINT.1.is_none() {
+        if !T::IS_STATIC {
             for node in &mut self.active {
                 node.gc();
             }

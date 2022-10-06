@@ -17,16 +17,18 @@ pub struct EitherStorage<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
     flags: RenderFlags,
-    reserved_ids: Vec<Id>,
+    left_reserved_ids: Vec<Id>,
+    right_reserved_ids: Vec<Id>,
 }
 
 impl<L, R> EitherStorage<L, R> {
-    fn new(active: Either<L, R>, reserved_ids: Vec<Id>) -> Self {
+    fn new(active: Either<L, R>, left_reserved_ids: Vec<Id>, right_reserved_ids: Vec<Id>) -> Self {
         Self {
             active,
             staging: None,
             flags: RenderFlags::NONE,
-            reserved_ids,
+            left_reserved_ids,
+            right_reserved_ids,
         }
     }
 }
@@ -39,25 +41,29 @@ where
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
     fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+        let left_reserved_ids: Vec<Id> = L::Storage::SIZE_HINT
+            .1
+            .map(|upper| context.take_ids(upper).collect())
+            .unwrap_or_default();
+        let right_reserved_ids: Vec<Id> = R::Storage::SIZE_HINT
+            .1
+            .map(|upper| context.take_ids(upper).collect())
+            .unwrap_or_default();
         match self {
             Either::Left(element) => {
-                let reserved_ids = R::Storage::SIZE_HINT
-                    .1
-                    .map(|upper| context.take_ids(upper).collect())
-                    .unwrap_or_default();
+                context.preload_ids(&left_reserved_ids);
                 EitherStorage::new(
                     Either::Left(element.render_children(context, store)),
-                    reserved_ids,
+                    left_reserved_ids,
+                    right_reserved_ids,
                 )
             }
             Either::Right(element) => {
-                let reserved_ids = L::Storage::SIZE_HINT
-                    .1
-                    .map(|upper| context.take_ids(upper).collect())
-                    .unwrap_or_default();
+                context.preload_ids(&right_reserved_ids);
                 EitherStorage::new(
                     Either::Right(element.render_children(context, store)),
-                    reserved_ids,
+                    left_reserved_ids,
+                    right_reserved_ids,
                 )
             }
         }
@@ -94,7 +100,7 @@ where
                         element.update_children(node, context, store);
                     }
                     None => {
-                        context.reserve_ids(mem::take(&mut storage.reserved_ids));
+                        context.preload_ids(&storage.right_reserved_ids);
                         storage.staging =
                             Some(Either::Right(element.render_children(context, store)));
                     }
@@ -109,7 +115,7 @@ where
                         element.update_children(node, context, store);
                     }
                     None => {
-                        context.reserve_ids(mem::take(&mut storage.reserved_ids));
+                        context.preload_ids(&storage.left_reserved_ids);
                         storage.staging =
                             Some(Either::Left(element.render_children(context, store)));
                     }
@@ -167,29 +173,23 @@ where
     }
 
     fn id_range(&self) -> Option<(Id, Id)> {
-        let active = match &self.active {
-            Either::Left(node) => node.id_range(),
-            Either::Right(node) => node.id_range(),
-        };
-        let staging = match &self.staging {
-            Some(Either::Left(node)) => node.id_range(),
-            Some(Either::Right(node)) => node.id_range(),
-            None => {
-                if self.reserved_ids.len() > 0 {
-                    Some((
-                        self.reserved_ids[0],
-                        self.reserved_ids[self.reserved_ids.len() - 1],
-                    ))
-                } else {
-                    None
-                }
-            }
-        };
-        match (active, staging) {
-            (Some((x_start, x_end)), Some((y_start, y_end))) => {
-                Some((x_start.min(y_start), x_end.max(y_end)))
-            }
-            _ => None,
+        match (
+            !self.left_reserved_ids.is_empty(),
+            !self.right_reserved_ids.is_empty(),
+        ) {
+            (true, true) => Some((
+                self.left_reserved_ids[0],
+                self.right_reserved_ids[self.right_reserved_ids.len() - 1],
+            )),
+            (true, false) => Some((
+                self.left_reserved_ids[0],
+                self.left_reserved_ids[self.left_reserved_ids.len() - 1],
+            )),
+            (false, true) => Some((
+                self.right_reserved_ids[0],
+                self.right_reserved_ids[self.right_reserved_ids.len() - 1],
+            )),
+            (false, false) => None,
         }
     }
 
@@ -234,10 +234,8 @@ where
             Either::Left(node) => node.gc(),
             Either::Right(node) => node.gc(),
         }
-        match &mut self.staging {
-            Some(Either::Left(node)) => node.gc(),
-            Some(Either::Right(node)) => node.gc(),
-            None => {}
+        if self.flags != RenderFlags::SWAPPED {
+            self.staging = None;
         }
     }
 }

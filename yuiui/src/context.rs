@@ -12,7 +12,7 @@ pub trait IdContext {
 pub struct RenderContext {
     id_path: IdPathBuf,
     id_counter: IdCounter,
-    id_pool: VecDeque<Id>,
+    preloaded_ids: VecDeque<Id>,
 }
 
 impl RenderContext {
@@ -20,12 +20,12 @@ impl RenderContext {
         Self {
             id_path: IdPathBuf::new(),
             id_counter: IdCounter::new(),
-            id_pool: VecDeque::new(),
+            preloaded_ids: VecDeque::new(),
         }
     }
 
     pub(crate) fn next_id(&mut self) -> Id {
-        self.id_pool
+        self.preloaded_ids
             .pop_front()
             .unwrap_or_else(|| self.id_counter.next())
     }
@@ -34,8 +34,8 @@ impl RenderContext {
         self.id_counter.take(n)
     }
 
-    pub(crate) fn reserve_ids(&mut self, ids: impl IntoIterator<Item = Id>) {
-        self.id_pool.extend(ids)
+    pub(crate) fn preload_ids<'a>(&mut self, ids: impl IntoIterator<Item = &'a Id>) {
+        self.preloaded_ids.extend(ids)
     }
 
     pub fn id_path(&self) -> &IdPath {

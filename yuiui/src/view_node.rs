@@ -428,7 +428,7 @@ where
     }
 
     fn gc(&mut self) {
-        if Self::SIZE_HINT.1.is_none() {
+        if !<V::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC {
             self.children.gc();
         }
     }

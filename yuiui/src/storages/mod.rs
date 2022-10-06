@@ -17,7 +17,7 @@ bitflags! {
     }
 }
 
-pub fn binary_search_by<T, F>(xs: &[T], mut f: F) -> Result<usize, usize>
+fn binary_search_by<T, F>(xs: &[T], mut f: F) -> Result<usize, usize>
 where
     F: FnMut(&T) -> Option<Ordering>,
 {
