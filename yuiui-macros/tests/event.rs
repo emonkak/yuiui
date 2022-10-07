@@ -1,6 +1,6 @@
 use std::any::TypeId;
 use yuiui::Event;
-use yuiui_derive::Event;
+use yuiui_macros::Event;
 
 #[derive(Debug, Eq, PartialEq)]
 struct Foo;

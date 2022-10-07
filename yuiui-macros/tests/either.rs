@@ -1,5 +1,5 @@
 use either::Either;
-use either_macro::either;
+use yuiui_macros::either;
 
 #[test]
 fn test_if() {

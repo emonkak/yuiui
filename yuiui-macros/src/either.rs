@@ -1,34 +1,23 @@
-use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::Token;
 
-#[proc_macro]
-pub fn either(input: TokenStream) -> TokenStream {
-    let parsed = syn::parse_macro_input!(input as EitherProcedure);
-    let tokens = match parsed {
-        EitherProcedure::If(expr) => quote!(#expr),
-        EitherProcedure::Match(expr) => quote!(#expr),
-    };
-    tokens.into()
-}
-
-enum EitherProcedure {
+pub enum Procedure {
     If(syn::ExprIf),
     Match(syn::ExprMatch),
 }
 
-impl Parse for EitherProcedure {
+impl Parse for Procedure {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Token![if]) {
             let mut parsed = input.parse()?;
             process_if(&mut parsed, 0)?;
-            Ok(EitherProcedure::If(parsed))
+            Ok(Self::If(parsed))
         } else if lookahead.peek(Token![match]) {
             let mut parsed = input.parse()?;
             process_match(&mut parsed)?;
-            Ok(EitherProcedure::Match(parsed))
+            Ok(Self::Match(parsed))
         } else {
             Err(lookahead.error())
         }

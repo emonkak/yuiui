@@ -11,11 +11,6 @@ resolver = "2"
 
 [dependencies]
 bitflags = "1"
-either = { path = "../either" }
-either-macro = { path = "../either-macro" }
+either = "1"
 futures = "0.3"
 hlist = { path = "../hlist" }
-
-[[bin]]
-name = "main"
-path = "src/main.rs"
