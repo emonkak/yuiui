@@ -154,10 +154,10 @@ impl<N, M> Div<Succ<M>> for Succ<N>
 where
     N: Nat,
     M: Nat,
-    Succ<N>: Compare<M> + private::Div<Succ<M>, <Succ<N> as Compare<M>>::Output>,
+    Succ<N>: Compare<Succ<M>> + private::Div<Succ<M>, <Succ<N> as Compare<Succ<M>>>::Output>,
 {
     // N % M = (N - M) % M
-    type Output = <Succ<N> as private::Div<Succ<M>, <Succ<N> as Compare<M>>::Output>>::Output;
+    type Output = <Succ<N> as private::Div<Succ<M>, <Succ<N> as Compare<Succ<M>>>::Output>>::Output;
 
     #[inline]
     fn div(self, rhs: Succ<M>) -> Self::Output {
@@ -178,10 +178,10 @@ impl<N, M> Rem<Succ<M>> for Succ<N>
 where
     N: Nat,
     M: Nat,
-    Succ<N>: Compare<M> + private::Rem<Succ<M>, <Succ<N> as Compare<M>>::Output>,
+    Succ<N>: Compare<Succ<M>> + private::Rem<Succ<M>, <Succ<N> as Compare<Succ<M>>>::Output>,
 {
     // N % M = (N - M) % M
-    type Output = <Succ<N> as private::Rem<Succ<M>, <Succ<N> as Compare<M>>::Output>>::Output;
+    type Output = <Succ<N> as private::Rem<Succ<M>, <Succ<N> as Compare<Succ<M>>>::Output>>::Output;
 
     #[inline]
     fn rem(self, rhs: Succ<M>) -> Self::Output {
@@ -212,11 +212,11 @@ mod private {
     }
 
     impl<N: Nat, M: Nat> Div<Succ<M>, Equal> for Succ<N> {
-        type Output = Zero;
+        type Output = Succ<Zero>;
 
         #[inline]
         fn div(self, _rhs: Succ<M>) -> Self::Output {
-            Zero
+            Succ(Zero)
         }
     }
 
@@ -255,11 +255,11 @@ mod private {
     }
 
     impl<N: Nat, M: Nat> Rem<Succ<M>, Equal> for Succ<N> {
-        type Output = Succ<N>;
+        type Output = Zero;
 
         #[inline]
         fn rem(self, _rhs: Succ<M>) -> Self::Output {
-            self
+            Zero
         }
     }
 
