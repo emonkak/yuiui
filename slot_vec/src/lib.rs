@@ -1,5 +1,7 @@
-pub mod slot_tree;
-pub mod slot_vec;
+pub mod graph;
+pub mod tree;
+pub mod vec;
 
-pub use crate::slot_tree::{NodeId, SlotTree};
-pub use crate::slot_vec::{Key, SlotVec};
+pub use crate::graph::SlotGraph;
+pub use crate::tree::SlotTree;
+pub use crate::vec::SlotVec;

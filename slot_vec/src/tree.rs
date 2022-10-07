@@ -1,8 +1,41 @@
-use crate::slot_vec::{Key, SlotVec};
+use crate::vec::{Key, SlotVec};
 
 use std::collections::VecDeque;
 use std::num::NonZeroUsize;
 use std::ops::{Index, IndexMut};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Node<T> {
+    data: T,
+    parent: Option<NodeId>,
+    children: Vec<NodeId>,
+}
+
+impl<T> Node<T> {
+    fn new(data: T, parent: Option<NodeId>, children: Vec<NodeId>) -> Self {
+        Self {
+            data,
+            parent,
+            children,
+        }
+    }
+
+    pub fn data(&self) -> &T {
+        &self.data
+    }
+
+    pub fn data_mut(&mut self) -> &mut T {
+        &mut self.data
+    }
+
+    pub fn into_data(self) -> T {
+        self.data
+    }
+
+    pub fn children(&self) -> &[NodeId] {
+        &self.children
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct NodeId(NonZeroUsize);
@@ -38,8 +71,8 @@ impl<T> SlotTree<T> {
     }
 
     #[inline]
-    pub fn contains(&self, node_id: NodeId) -> bool {
-        self.arena.contains_key(node_id.into())
+    pub fn contains(&self, id: NodeId) -> bool {
+        self.arena.contains_key(id.into())
     }
 
     #[inline]
@@ -48,13 +81,13 @@ impl<T> SlotTree<T> {
     }
 
     #[inline]
-    pub fn get(&self, node_id: NodeId) -> Option<&Node<T>> {
-        self.arena.get(node_id.into())
+    pub fn get(&self, id: NodeId) -> Option<&Node<T>> {
+        self.arena.get(id.into())
     }
 
     #[inline]
-    pub fn get_mut(&mut self, node_id: NodeId) -> Option<&mut Node<T>> {
-        self.arena.get_mut(node_id.into())
+    pub fn get_mut(&mut self, id: NodeId) -> Option<&mut Node<T>> {
+        self.arena.get_mut(id.into())
     }
 
     pub fn append(&mut self, parent: NodeId, data: T) -> NodeId {
@@ -80,48 +113,15 @@ impl<T> Index<NodeId> for SlotTree<T> {
     type Output = Node<T>;
 
     #[inline]
-    fn index(&self, node_id: NodeId) -> &Self::Output {
-        &self.arena[node_id.into()]
+    fn index(&self, id: NodeId) -> &Self::Output {
+        &self.arena[id.into()]
     }
 }
 
 impl<T> IndexMut<NodeId> for SlotTree<T> {
     #[inline]
-    fn index_mut(&mut self, node_id: NodeId) -> &mut Self::Output {
-        &mut self.arena[node_id.into()]
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Node<T> {
-    data: T,
-    parent: Option<NodeId>,
-    children: Vec<NodeId>,
-}
-
-impl<T> Node<T> {
-    fn new(data: T, parent: Option<NodeId>, children: Vec<NodeId>) -> Self {
-        Self {
-            data,
-            parent,
-            children,
-        }
-    }
-
-    pub fn data(&self) -> &T {
-        &self.data
-    }
-
-    pub fn data_mut(&mut self) -> &mut T {
-        &mut self.data
-    }
-
-    pub fn into_data(self) -> T {
-        self.data
-    }
-
-    pub fn children(&self) -> &[NodeId] {
-        &self.children
+    fn index_mut(&mut self, id: NodeId) -> &mut Self::Output {
+        &mut self.arena[id.into()]
     }
 }
 
@@ -142,10 +142,10 @@ impl<'a, T> Iterator for IterFrom<'a, T> {
     type Item = (NodeId, &'a T);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(node_id) = self.queue.pop_front() {
-            let node = &self.arena[node_id.into()];
+        if let Some(id) = self.queue.pop_front() {
+            let node = &self.arena[id.into()];
             self.queue.extend(&node.children);
-            Some((node_id, &node.data))
+            Some((id, &node.data))
         } else {
             None
         }
@@ -184,7 +184,7 @@ impl<'a, T> Iterator for DetachFrom<'a, T> {
                         .iter()
                         .position(|child| *child == current)
                     {
-                        parent_node.children.swap_remove(position);
+                        parent_node.children.remove(position);
                     }
                 }
             }
