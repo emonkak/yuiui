@@ -1,4 +1,4 @@
-use yuiui_support::bit_flags::BitFlags;
+use bit_flags::{BitFlags, IntoBits};
 
 use super::keyboard::Modifier;
 use crate::geometrics::PhysicalPoint;
@@ -16,7 +16,7 @@ pub struct MouseUp(pub MouseEvent);
 pub struct MouseDown(pub MouseEvent);
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-#[repr(usize)]
+#[repr(u32)]
 #[rustfmt::skip]
 pub enum MouseButton {
     None   = 0,
@@ -27,8 +27,11 @@ pub enum MouseButton {
     X2     = 1 << 5,
 }
 
-impl Into<usize> for MouseButton {
-    fn into(self) -> usize {
-        self as usize
+impl IntoBits for MouseButton {
+    type Bits = u32;
+
+    #[inline]
+    fn into_bits(self) -> Self::Bits {
+        self as u32
     }
 }

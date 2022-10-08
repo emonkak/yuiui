@@ -1,9 +1,9 @@
+use bit_flags::BitFlags;
+use slot_vec::graph::{NodeId, SlotGraph};
 use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::VecDeque;
 use std::fmt;
-use yuiui_support::bit_flags::BitFlags;
-use yuiui_support::slot_tree::{NodeId, SlotTree};
 
 use super::event_manager::EventManager;
 use super::{Command, Effect, Event, EventMask, Lifecycle, RcWidget, UnitOfWork};
@@ -13,7 +13,7 @@ use crate::style::LayoutStyle;
 
 #[derive(Debug)]
 pub struct WidgetTree<State, Message> {
-    tree: SlotTree<WidgetNode<State, Message>>,
+    tree: SlotGraph<WidgetNode<State, Message>>,
     event_manager: EventManager<NodeId>,
 }
 
@@ -21,7 +21,7 @@ impl<State, Message> WidgetTree<State, Message> {
     pub fn new(root_widget: RcWidget<State, Message>) -> Self {
         let widget = WidgetPod::new(root_widget);
         Self {
-            tree: SlotTree::new(WidgetNode::from(widget)),
+            tree: SlotGraph::new(WidgetNode::from(widget)),
             event_manager: EventManager::new(),
         }
     }
@@ -32,7 +32,7 @@ impl<State, Message> WidgetTree<State, Message> {
     {
         match unit_of_work {
             UnitOfWork::Append(parent, widget) => {
-                let id = self.tree.next_node_id();
+                let id = self.tree.next_id();
                 let mut widget = WidgetPod::new(widget);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
@@ -40,7 +40,7 @@ impl<State, Message> WidgetTree<State, Message> {
                 cursor.append_child(WidgetNode::from(widget));
             }
             UnitOfWork::Insert(reference, widget) => {
-                let id = self.tree.next_node_id();
+                let id = self.tree.next_id();
                 let mut widget = WidgetPod::new(widget);
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
@@ -52,17 +52,17 @@ impl<State, Message> WidgetTree<State, Message> {
                 let effect = widget.on_lifecycle(Lifecycle::Mounted);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
                 let mut cursor = self.tree.cursor_mut(id);
-                cursor.node().data = WidgetNode::from(widget);
+                *cursor.current().data_mut() = WidgetNode::from(widget);
             }
             UnitOfWork::Update(id, new_widget) => {
                 let cursor = self.tree.cursor(id);
-                let mut widget = cursor.node().data.borrow_mut();
+                let mut widget = cursor.current().data().borrow_mut();
                 let effect = widget.update(new_widget);
                 process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
             }
             UnitOfWork::Move(id, reference) => {
                 let mut cursor = self.tree.cursor_mut(id);
-                cursor.move_before(reference);
+                cursor.reorder_before(reference);
             }
             UnitOfWork::Remove(id) => {
                 let cursor = self.tree.cursor_mut(id);
@@ -93,7 +93,7 @@ impl<State, Message> WidgetTree<State, Message> {
         let listeners = self.event_manager.get_listerners(event_mask);
 
         for id in listeners {
-            let mut widget = self.tree.cursor(id).node().data.borrow_mut();
+            let mut widget = self.tree.cursor(id).current().data().borrow_mut();
             let effect = widget.on_event(event);
             process_effect(effect, id, &mut widget, &handler, &mut self.event_manager);
         }
@@ -104,7 +104,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
         loop {
             let cursor = self.tree.cursor(current);
-            let mut widget = cursor.node().data.borrow_mut();
+            let mut widget = cursor.current().data().borrow_mut();
 
             let box_constraints = if id.is_root() {
                 BoxConstraints::tight(viewport.logical_size())
@@ -115,7 +115,7 @@ impl<State, Message> WidgetTree<State, Message> {
             let mut context = LayoutContext { widget_tree: self };
             let has_changed = widget.layout(box_constraints, &children, &mut context);
 
-            match (has_changed, cursor.node().parent) {
+            match (has_changed, cursor.current().parent()) {
                 (true, Some(parent)) => current = parent,
                 _ => break current,
             }
@@ -124,10 +124,10 @@ impl<State, Message> WidgetTree<State, Message> {
 
     pub fn draw(&self, id: NodeId) -> (Primitive, Rect) {
         let cursor = self.tree.cursor(id);
-        let mut widget = cursor.node().data.borrow_mut();
+        let mut widget = cursor.current().data().borrow_mut();
 
         let origin = cursor.ancestors().fold(Point::ZERO, |origin, (_, node)| {
-            let mut parent = node.data.borrow_mut();
+            let mut parent = node.data().borrow_mut();
             parent.needs_draw = true;
             origin + parent.position
         });
@@ -142,7 +142,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
     fn layout_child(&self, id: NodeId, box_constraints: BoxConstraints) -> Size {
         let cursor = self.tree.cursor(id);
-        let mut widget = cursor.node().data.borrow_mut();
+        let mut widget = cursor.current().data().borrow_mut();
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = LayoutContext { widget_tree: self };
@@ -156,7 +156,7 @@ impl<State, Message> WidgetTree<State, Message> {
 
     fn draw_child(&self, id: NodeId, origin: Point) -> Primitive {
         let cursor = self.tree.cursor(id);
-        let mut widget = cursor.node().data.borrow_mut();
+        let mut widget = cursor.current().data().borrow_mut();
 
         let children = cursor.children().map(|(id, _)| id).collect::<Vec<_>>();
         let mut context = DrawContext {
@@ -169,17 +169,20 @@ impl<State, Message> WidgetTree<State, Message> {
     }
 
     fn get(&self, id: NodeId) -> Ref<WidgetPod<State, Message>> {
-        self.tree.cursor(id).node().data.borrow()
+        self.tree.cursor(id).current().data().borrow()
     }
 
     fn get_mut(&self, id: NodeId) -> RefMut<WidgetPod<State, Message>> {
-        self.tree.cursor(id).node().data.borrow_mut()
+        self.tree.cursor(id).current().data().borrow_mut()
     }
 }
 
-impl<State, Message> fmt::Display for WidgetTree<State, Message> {
+impl<State, Message> fmt::Display for WidgetTree<State, Message>
+where
+    WidgetNode<State, Message>: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.tree.fmt(f)
+        self.tree.display(NodeId::ROOT).fmt(f)
     }
 }
 
@@ -236,7 +239,7 @@ impl<State, Message> WidgetPod<State, Message> {
         Self {
             widget,
             state,
-            event_mask: BitFlags::empty(),
+            event_mask: BitFlags::new(),
             position: Point::ZERO,
             size: Size::ZERO,
             box_constraints: BoxConstraints::LOOSE,

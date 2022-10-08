@@ -1,6 +1,6 @@
+use slot_vec::graph::NodeId;
 use std::any::Any;
 use std::marker::PhantomData;
-use yuiui_support::slot_tree::NodeId;
 
 use super::{DrawContext, Effect, Event, LayoutContext, Lifecycle, Widget};
 use crate::geometrics::{BoxConstraints, Rect, Size};

@@ -1,4 +1,4 @@
-use yuiui_support::slot_tree::NodeId;
+use slot_vec::graph::NodeId;
 
 use crate::geometrics::{BoxConstraints, Point, RectOutsets, Size};
 use crate::style::LayoutStyle;

@@ -1,7 +1,7 @@
+use slot_vec::graph::NodeId;
 use std::any::{self, Any};
 use std::fmt;
 use std::rc::Rc;
-use yuiui_support::slot_tree::NodeId;
 
 use super::{
     short_type_name_of, AsAny, DrawContext, Effect, Event, LayoutContext, Lifecycle, WidgetProxy,

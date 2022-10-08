@@ -1,6 +1,6 @@
+use bit_flags::BitFlags;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use yuiui_support::bit_flags::BitFlags;
 
 use super::EventMask;
 

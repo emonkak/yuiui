@@ -1,5 +1,5 @@
+use slot_vec::graph::NodeId;
 use std::time::Instant;
-use yuiui_support::slot_tree::NodeId;
 
 use crate::widget::ComponentIndex;
 

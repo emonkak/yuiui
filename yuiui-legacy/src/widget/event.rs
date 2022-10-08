@@ -1,3 +1,5 @@
+use bit_flags::IntoBits;
+
 use crate::event::WindowEvent;
 
 #[derive(Debug)]
@@ -18,7 +20,7 @@ impl<'a, State> Clone for Event<'a, State> {
 impl<'a, State> Copy for Event<'a, State> {}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[repr(usize)]
+#[repr(u32)]
 #[rustfmt::skip]
 pub enum EventMask {
     None            = 0,
@@ -43,8 +45,11 @@ impl<'a, State> Event<'a, State> {
     }
 }
 
-impl Into<usize> for EventMask {
-    fn into(self) -> usize {
-        self as usize
+impl IntoBits for EventMask {
+    type Bits = u32;
+
+    #[inline]
+    fn into_bits(self) -> Self::Bits {
+        self as u32
     }
 }

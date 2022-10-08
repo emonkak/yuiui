@@ -6,6 +6,7 @@ members = [
     "yuiui",
     "yuiui-gtk",
     "yuiui-gtk-derive",
+    "yuiui-legacy",
     "yuiui-macros",
 ]
 resolver = "2"

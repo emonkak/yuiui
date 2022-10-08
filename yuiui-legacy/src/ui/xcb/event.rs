@@ -1,5 +1,5 @@
+use bit_flags::BitFlags;
 use x11rb::protocol::xproto;
-use yuiui_support::bit_flags::BitFlags;
 
 use crate::event::{Modifier, MouseButton, MouseEvent};
 use crate::geometrics::PhysicalPoint;
@@ -34,7 +34,7 @@ fn to_mouse_button(button: u8) -> MouseButton {
 }
 
 fn to_mouse_buttons(state: u16) -> BitFlags<MouseButton> {
-    let mut flags = BitFlags::<MouseButton>::empty();
+    let mut flags = BitFlags::new();
     if u16::from(xproto::KeyButMask::BUTTON1) & state != 0 {
         flags |= MouseButton::Left;
     }
@@ -54,7 +54,7 @@ fn to_mouse_buttons(state: u16) -> BitFlags<MouseButton> {
 }
 
 fn to_modifiers(state: u16) -> BitFlags<Modifier> {
-    let mut flags = BitFlags::<Modifier>::empty();
+    let mut flags = BitFlags::new();
     if u16::from(xproto::KeyButMask::MOD1) & state != 0 {
         flags |= Modifier::Alt;
     }

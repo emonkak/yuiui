@@ -1,8 +1,8 @@
-use crate::vec::{Key, SlotVec};
-
 use std::collections::VecDeque;
 use std::num::NonZeroUsize;
 use std::ops::{Index, IndexMut};
+
+use super::{Key, SlotVec};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Node<T> {
@@ -46,6 +46,10 @@ impl NodeId {
     fn new(key: Key) -> Self {
         assert!(key > 0);
         Self(unsafe { NonZeroUsize::new_unchecked(key) })
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.0 == Self::ROOT.0
     }
 }
 

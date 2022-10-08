@@ -1,6 +1,8 @@
+use bit_flags::IntoBits;
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[rustfmt::skip]
-#[repr(usize)]
+#[repr(u32)]
 pub enum Modifier {
     None    = 0,
     Control = 1 << 0,
@@ -9,8 +11,11 @@ pub enum Modifier {
     Super   = 1 << 3,
 }
 
-impl Into<usize> for Modifier {
-    fn into(self) -> usize {
-        self as usize
+impl IntoBits for Modifier {
+    type Bits = u32;
+
+    #[inline]
+    fn into_bits(self) -> Self::Bits {
+        self as u32
     }
 }

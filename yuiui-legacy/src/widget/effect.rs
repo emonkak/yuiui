@@ -1,5 +1,5 @@
+use bit_flags::BitFlags;
 use std::ops::Add;
-use yuiui_support::bit_flags::BitFlags;
 
 use super::{Command, EventMask};
 

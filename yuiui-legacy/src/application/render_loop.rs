@@ -1,6 +1,6 @@
+use slot_vec::graph::NodeId;
 use std::collections::VecDeque;
 use std::mem;
-use yuiui_support::slot_tree::NodeId;
 
 use crate::geometrics::{Rect, Viewport};
 use crate::graphics::Primitive;

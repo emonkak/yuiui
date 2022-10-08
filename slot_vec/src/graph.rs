@@ -3,16 +3,16 @@ use std::num::NonZeroUsize;
 use std::ops::{Index, IndexMut};
 use std::ptr::NonNull;
 
-use crate::vec::{Key, SlotVec};
+use super::{Key, SlotVec};
 
 #[derive(Clone, Debug)]
 pub struct Node<T> {
-    pub first_child: Option<NodeId>,
-    pub last_child: Option<NodeId>,
-    pub prev_sibling: Option<NodeId>,
-    pub next_sibling: Option<NodeId>,
-    pub parent: Option<NodeId>,
-    pub data: T,
+    first_child: Option<NodeId>,
+    last_child: Option<NodeId>,
+    prev_sibling: Option<NodeId>,
+    next_sibling: Option<NodeId>,
+    parent: Option<NodeId>,
+    data: T,
 }
 
 impl<T> Node<T> {
@@ -78,6 +78,10 @@ impl NodeId {
     fn new(key: Key) -> Self {
         assert!(key > 0);
         Self(unsafe { NonZeroUsize::new_unchecked(key) })
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.0 == Self::ROOT.0
     }
 }
 

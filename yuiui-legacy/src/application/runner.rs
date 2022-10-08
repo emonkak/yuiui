@@ -1,6 +1,6 @@
 use futures::FutureExt;
+use slot_vec::graph::NodeId;
 use std::time::{Duration, Instant};
-use yuiui_support::slot_tree::NodeId;
 
 use super::message::InternalMessage;
 use super::{RenderFlow, RenderLoop, Store};
@@ -72,7 +72,7 @@ where
             UIEvent::Message(InternalMessage::Broadcast(message)) => {
                 if store.dispatch(message) {
                     render_loop.dispatch(
-                        Event::StateChanged(store),
+                        Event::StateChanged(store.state()),
                         &|command, id, component_index| {
                             run_command(context, command, id, component_index)
                         },

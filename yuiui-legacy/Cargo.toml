@@ -6,6 +6,7 @@ resolver = "2"
 
 [dependencies]
 anyhow = "1.0"
+bit_flags = { path = "../bit_flags" }
 bytemuck = { version = "1.7", features = ["derive"] }
 env_logger = "0.9"
 futures = "0.3"
@@ -15,13 +16,11 @@ log = "0.4"
 mio = { version = "0.7", features = ["os-ext"] }
 raw-window-handle = "0.3"
 servo-fontconfig = "0.5"
+slot_vec = { path = "../slot_vec" }
 tokio = { version = "1.11.0", features = ["macros", "net", "rt", "sync", "time"] }
 wgpu = "0.10"
 wgpu_glyph = "0.14"
 x11rb = { version = "0.9", features = ["allow-unsafe-code", "randr"] }
-
-[dependencies.yuiui-support]
-path = "../yuiui-support"
 
 [[bin]]
 name = "main-legacy"
