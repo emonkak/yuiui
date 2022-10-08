@@ -1,5 +1,3 @@
-use std::fmt;
-
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
@@ -8,6 +6,7 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
+#[derive(Debug)]
 pub struct ComponentEl<C> {
     component: C,
 }
@@ -90,16 +89,5 @@ where
         store: &Store<S>,
     ) -> bool {
         self.update(storage.into(), context, store)
-    }
-}
-
-impl<C> fmt::Debug for ComponentEl<C>
-where
-    C: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ComponentEl")
-            .field("component", &self.component)
-            .finish()
     }
 }
