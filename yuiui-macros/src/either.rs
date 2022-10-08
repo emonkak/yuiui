@@ -1,31 +1,36 @@
-use quote::{quote, ToTokens, TokenStreamExt as _};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::Token;
 
-pub enum Procedure {
+pub enum Expr {
     If(syn::ExprIf),
     Match(syn::ExprMatch),
 }
 
-impl ToTokens for Procedure {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        tokens.append_all(match self {
-            Procedure::If(expr) => quote!(#expr),
-            Procedure::Match(expr) => quote!(#expr),
-        });
+impl Expr {
+    pub fn into_either_expr(self) -> syn::Result<TokenStream2> {
+        match self {
+            Expr::If(mut expr) => {
+                modify_if(&mut expr, 0)?;
+                Ok(expr.to_token_stream())
+            }
+            Expr::Match(mut expr) => {
+                modify_match(&mut expr)?;
+                Ok(expr.to_token_stream())
+            }
+        }
     }
 }
 
-impl Parse for Procedure {
+impl Parse for Expr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Token![if]) {
-            let mut parsed = input.parse()?;
-            process_if(&mut parsed, 0)?;
+            let parsed = input.parse()?;
             Ok(Self::If(parsed))
         } else if lookahead.peek(Token![match]) {
-            let mut parsed = input.parse()?;
-            process_match(&mut parsed)?;
+            let parsed = input.parse()?;
             Ok(Self::Match(parsed))
         } else {
             Err(lookahead.error())
@@ -33,21 +38,21 @@ impl Parse for Procedure {
     }
 }
 
-fn process_if(expr: &mut syn::ExprIf, iterations: usize) -> syn::Result<()> {
+fn modify_if(expr: &mut syn::ExprIf, iterations: usize) -> syn::Result<()> {
     if let Some((else_token, else_branch)) = expr.else_branch.as_mut() {
         let then_branch = &expr.then_branch;
-        let mut then_branch = quote!(::either::Either::Left(#then_branch));
+        let mut then_branch = quote!(either::Either::Left(#then_branch));
         for _ in 0..iterations {
-            then_branch = quote!(::either::Either::Right(#then_branch));
+            then_branch = quote!(either::Either::Right(#then_branch));
         }
         then_branch = quote!({ #then_branch });
         expr.then_branch = syn::parse(then_branch.into_token_stream().into())?;
 
         match else_branch.as_mut() {
             syn::Expr::Block(block) => {
-                let mut else_branch = quote!(::either::Either::Right(#block));
+                let mut else_branch = quote!(either::Either::Right(#block));
                 for _ in 0..iterations {
-                    else_branch = quote!(::either::Either::Right(#else_branch));
+                    else_branch = quote!(either::Either::Right(#else_branch));
                 }
                 else_branch = quote!({ #else_branch });
                 expr.else_branch = Some((
@@ -56,7 +61,7 @@ fn process_if(expr: &mut syn::ExprIf, iterations: usize) -> syn::Result<()> {
                 ));
             }
             syn::Expr::If(next_if) => {
-                process_if(next_if, iterations + 1)?;
+                modify_if(next_if, iterations + 1)?;
             }
             _ => {}
         }
@@ -64,19 +69,19 @@ fn process_if(expr: &mut syn::ExprIf, iterations: usize) -> syn::Result<()> {
     Ok(())
 }
 
-fn process_match(expr_match: &mut syn::ExprMatch) -> syn::Result<()> {
+fn modify_match(expr_match: &mut syn::ExprMatch) -> syn::Result<()> {
     let arm_len = expr_match.arms.len();
     if arm_len > 1 {
         let mut iterations = 0;
         for arm in &mut expr_match.arms {
             let body = &arm.body;
             let mut body = if iterations < arm_len - 1 {
-                quote!(::either::Either::Left(#body))
+                quote!(either::Either::Left(#body))
             } else {
-                quote!(::either::Either::Right(#body))
+                quote!(either::Either::Right(#body))
             };
             for _ in 0..iterations.min(arm_len - 2) {
-                body = quote!(::either::Either::Right(#body));
+                body = quote!(either::Either::Right(#body));
             }
             arm.body = Box::new(syn::parse(body.into_token_stream().into())?);
             iterations += 1;

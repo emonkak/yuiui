@@ -1,178 +1,181 @@
-use darling::FromMeta;
-use proc_macro2::Literal;
-use quote::{quote, ToTokens, TokenStreamExt as _};
+use bae::FromAttributes;
+use proc_macro2::{Literal, TokenStream as TokenStream2};
+use quote::quote;
+use syn::spanned::Spanned;
 
-pub struct WidgetBuilderDerive {
-    widget_type: syn::Type,
-    item: syn::ItemStruct,
-}
-
-impl WidgetBuilderDerive {
-    pub fn new(widget_type: syn::Type, item: syn::ItemStruct) -> Self {
-        Self { widget_type, item }
-    }
-}
-
-impl ToTokens for WidgetBuilderDerive {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let mut new_arguments = Vec::new();
-        let mut new_body = Vec::with_capacity(self.item.fields.len());
-        let mut build_body = Vec::with_capacity(self.item.fields.len());
-        let mut update_body = Vec::with_capacity(self.item.fields.len());
-        let mut setter_fns = Vec::with_capacity(self.item.fields.len());
-
-        for field in self.item.fields.iter() {
-            let ty = &field.ty;
-            let name = field
-                .ident
-                .as_ref()
-                .expect("the field name must be specified");
-            let property = field
-                .attrs
-                .iter()
-                .find(|attr| attr.path.is_ident("property"))
-                .map(|attr| {
-                    let meta = attr.parse_meta().unwrap();
-                    Property::from_meta(&meta).unwrap()
-                })
-                .unwrap_or_default();
-            let property_name = Literal::string(
-                &property
-                    .name
-                    .unwrap_or_else(|| name.to_string().replace("_", "-")),
-            );
-
-            if property.argument {
-                new_arguments.push(quote!(#name: #ty));
-                new_body.push(quote!(#name));
+pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<TokenStream2> {
+    let widget_type: syn::Type = item
+        .attrs
+        .iter()
+        .find_map(|attr| {
+            if attr.path.is_ident("widget") {
+                Some(attr)
             } else {
-                new_body.push(quote!(#name: Default::default()));
+                None
             }
+        })
+        .map_or_else(
+            || {
+                Err(syn::Error::new(
+                    item.span(),
+                    "the widget type must be specified by the #[widget(..)] attribute",
+                ))
+            },
+            |attr| attr.parse_args(),
+        )?;
 
-            if let Some(inner_ty) = extract_option(ty) {
-                if property.bind {
-                    build_body.push(quote!(
-                        if let Some(ref #name) = self.#name {
-                            properties.push((#property_name, #name));
-                        }
-                    ));
+    let mut new_arguments = Vec::new();
+    let mut new_body = Vec::with_capacity(item.fields.len());
+    let mut build_body = Vec::with_capacity(item.fields.len());
+    let mut update_body = Vec::with_capacity(item.fields.len());
+    let mut setter_fns = Vec::with_capacity(item.fields.len());
 
-                    update_body.push(quote!(
-                        match (&old.#name, &self.#name) {
-                            (Some(old_value), Some(new_value)) => {
-                                if old_value != new_value {
-                                    properties.push((#property_name, new_value.to_value()));
-                                }
-                            }
-                            (Some(_), None) => {
-                                let pspec = object.find_property(#property_name)
-                                    .expect(concat!("Unable to find the property of ", #property_name));
-                                let default_value = pspec.default_value().to_value();
-                                properties.push((#property_name, default_value));
-                            }
-                            (None, Some(new_value)) => {
+    for field in &item.fields {
+        let ty = &field.ty;
+        let field_name = field
+            .ident
+            .as_ref()
+            .ok_or_else(|| syn::Error::new(field.span(), "the field name must be specified"))?;
+        let property = Property::from_attributes(&field.attrs).unwrap_or_default();
+        let property_name = &property
+            .name_literal()
+            .unwrap_or_else(|| Literal::string(&field_name.to_string()));
+
+        if property.enables_argument() {
+            new_arguments.push(quote!(#field_name: #ty));
+            new_body.push(quote!(#field_name));
+        } else {
+            new_body.push(quote!(#field_name: Default::default()));
+        }
+
+        if let Some(inner_ty) = extract_option(ty) {
+            if property.enables_bind() {
+                build_body.push(quote!(
+                    if let Some(ref #field_name) = self.#field_name {
+                        properties.push((#property_name, #field_name));
+                    }
+                ));
+
+                update_body.push(quote!(
+                    match (&old.#field_name, &self.#field_name) {
+                        (Some(old_value), Some(new_value)) => {
+                            if old_value != new_value {
                                 properties.push((#property_name, new_value.to_value()));
                             }
-                            (None, None) => {}
                         }
-                    ));
-                }
+                        (Some(_), None) => {
+                            let pspec = object.find_property(#property_name)
+                                .expect(concat!("unable to find the property of ", #property_name));
+                            let default_value = pspec.default_value().to_value();
+                            properties.push((#property_name, default_value));
+                        }
+                        (None, Some(new_value)) => {
+                            properties.push((#property_name, new_value.to_value()));
+                        }
+                        (None, None) => {}
+                    }
+                ));
+            }
 
-                if property.setter {
-                    setter_fns.push(quote!(
-                        pub fn #name(mut self, #name: #inner_ty) -> Self {
-                            self.#name = Some(#name);
-                            self
-                        }
-                    ));
-                }
-            } else {
-                if property.bind {
-                    build_body.push(quote!(
-                        properties.push((#property_name, &self.#name));
-                    ));
+            if property.enables_setter() {
+                setter_fns.push(quote!(
+                    pub fn #field_name(mut self, #field_name: #inner_ty) -> Self {
+                        self.#field_name = Some(#field_name);
+                        self
+                    }
+                ));
+            }
+        } else {
+            if property.enables_bind() {
+                build_body.push(quote!(
+                    properties.push((#property_name, &self.#field_name));
+                ));
 
-                    update_body.push(quote!(
-                        if old.#name != self.#name {
-                            properties.push((#property_name, self.#name.to_value()));
-                        }
-                    ));
-                }
+                update_body.push(quote!(
+                    if old.#field_name != self.#field_name {
+                        properties.push((#property_name, self.#field_name.to_value()));
+                    }
+                ));
+            }
 
-                if property.setter {
-                    setter_fns.push(quote!(
-                        pub fn #name(mut self, #name: #ty) -> Self {
-                            self.#name = #name;
-                            self
-                        }
-                    ));
-                }
+            if property.enables_setter() {
+                setter_fns.push(quote!(
+                    pub fn #field_name(mut self, #field_name: #ty) -> Self {
+                        self.#field_name = #field_name;
+                        self
+                    }
+                ));
             }
         }
-
-        let widget_type = &self.widget_type;
-        let ident = &self.item.ident;
-        let (impl_generics, ty_generics, where_clause) = self.item.generics.split_for_impl();
-
-        tokens.append_all(quote! {
-            impl #impl_generics #ident #ty_generics #where_clause {
-                pub fn new(#(#new_arguments),*) -> Self {
-                    Self {
-                        #(#new_body),*
-                    }
-                }
-
-                pub fn build(&self) -> #widget_type {
-                    let mut properties: Vec<(&str, &dyn glib::ToValue)> = vec![];
-                    #(#build_body)*
-                    glib::Object::new::<#widget_type>(&properties)
-                        .expect(concat!("Failed to create an instance of ", stringify!(#widget_type)))
-                }
-
-                pub fn force_update(&self, object: &#widget_type) {
-                    let mut properties: Vec<(&str, &dyn glib::ToValue)> = vec![];
-                    #(#build_body)*
-                    if !properties.is_empty() {
-                        object.set_properties(&properties);
-                    }
-                }
-
-                pub fn update(&self, old: &Self, object: &#widget_type) -> bool {
-                    use glib::object::ObjectExt;
-                    use glib::value::ToValue;
-                    let mut properties: Vec<(&str, glib::Value)> = vec![];
-                    #(#update_body)*
-                    if !properties.is_empty() {
-                        object.set_properties_from_value(&properties);
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                #(#setter_fns)*
-            }
-        });
     }
-}
 
-#[derive(FromMeta)]
-#[darling(default)]
-struct Property {
-    bind: bool,
-    argument: bool,
-    setter: bool,
-    name: Option<String>,
-}
+    let ident = &item.ident;
+    let (impl_generics, ty_generics, where_clause) = item.generics.split_for_impl();
 
-impl Default for Property {
-    fn default() -> Self {
-        Self {
-            bind: true,
-            argument: false,
-            setter: true,
-            name: None,
+    Ok(quote! {
+        impl #impl_generics #ident #ty_generics #where_clause {
+            pub fn new(#(#new_arguments),*) -> Self {
+                Self {
+                    #(#new_body),*
+                }
+            }
+
+            pub fn build(&self) -> #widget_type {
+                let mut properties: Vec<(&str, &dyn glib::ToValue)> = vec![];
+                #(#build_body)*
+                glib::Object::new::<#widget_type>(&properties)
+                    .expect(concat!("failed to create an instance of ", stringify!(#widget_type)))
+            }
+
+            pub fn force_update(&self, object: &#widget_type) {
+                let mut properties: Vec<(&str, &dyn glib::ToValue)> = vec![];
+                #(#build_body)*
+                if !properties.is_empty() {
+                    object.set_properties(&properties);
+                }
+            }
+
+            pub fn update(&self, old: &Self, object: &#widget_type) -> bool {
+                use glib::object::ObjectExt;
+                use glib::value::ToValue;
+                let mut properties: Vec<(&str, glib::Value)> = vec![];
+                #(#update_body)*
+                if !properties.is_empty() {
+                    object.set_properties_from_value(&properties);
+                    true
+                } else {
+                    false
+                }
+            }
+
+            #(#setter_fns)*
         }
+    })
+}
+
+#[derive(Default, FromAttributes)]
+struct Property {
+    bind: Option<syn::LitBool>,
+    argument: Option<syn::LitBool>,
+    setter: Option<syn::LitBool>,
+    name: Option<syn::LitStr>,
+}
+
+impl Property {
+    fn enables_bind(&self) -> bool {
+        self.bind.as_ref().map_or(true, |lit| lit.value())
+    }
+
+    fn enables_argument(&self) -> bool {
+        self.argument.as_ref().map_or(false, |lit| lit.value())
+    }
+
+    fn enables_setter(&self) -> bool {
+        self.setter.as_ref().map_or(true, |lit| lit.value())
+    }
+
+    fn name_literal(&self) -> Option<Literal> {
+        self.name.as_ref().map(|name| name.token())
     }
 }
 
