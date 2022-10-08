@@ -1,10 +1,19 @@
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens, TokenStreamExt as _};
 use syn::parse::{Parse, ParseStream};
 use syn::Token;
 
 pub enum Procedure {
     If(syn::ExprIf),
     Match(syn::ExprMatch),
+}
+
+impl ToTokens for Procedure {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.append_all(match self {
+            Procedure::If(expr) => quote!(#expr),
+            Procedure::Match(expr) => quote!(#expr),
+        });
+    }
 }
 
 impl Parse for Procedure {

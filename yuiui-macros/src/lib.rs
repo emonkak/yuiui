@@ -15,9 +15,6 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn either(input: TokenStream) -> TokenStream {
     let parsed = syn::parse_macro_input!(input as either::Procedure);
-    let tokens = match parsed {
-        either::Procedure::If(expr) => quote!(#expr),
-        either::Procedure::Match(expr) => quote!(#expr),
-    };
+    let tokens = TokenStream::from(quote!(#parsed));
     tokens.into()
 }
