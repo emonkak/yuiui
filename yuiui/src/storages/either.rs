@@ -1,3 +1,4 @@
+use bit_flags::BitFlags;
 use either::Either;
 use std::mem;
 use std::sync::Once;
@@ -10,13 +11,13 @@ use crate::state::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
-use super::RenderFlags;
+use super::RenderFlag;
 
 #[derive(Debug)]
 pub struct EitherStorage<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
-    flags: RenderFlags,
+    flags: BitFlags<RenderFlag>,
     left_reserved_ids: Vec<Id>,
     right_reserved_ids: Vec<Id>,
 }
@@ -26,7 +27,7 @@ impl<L, R> EitherStorage<L, R> {
         Self {
             active,
             staging: None,
-            flags: RenderFlags::NONE,
+            flags: BitFlags::new(),
             left_reserved_ids,
             right_reserved_ids,
         }
@@ -78,8 +79,8 @@ where
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
                 if element.update_children(node, context, store) {
-                    storage.flags |= RenderFlags::UPDATED;
-                    storage.flags -= RenderFlags::SWAPPED;
+                    storage.flags |= RenderFlag::Updated;
+                    storage.flags -= RenderFlag::Swapped;
                     true
                 } else {
                     false
@@ -87,8 +88,8 @@ where
             }
             (Either::Right(node), Either::Right(element)) => {
                 if element.update_children(node, context, store) {
-                    storage.flags |= RenderFlags::UPDATED;
-                    storage.flags -= RenderFlags::SWAPPED;
+                    storage.flags |= RenderFlag::Updated;
+                    storage.flags -= RenderFlag::Swapped;
                     true
                 } else {
                     false
@@ -106,7 +107,7 @@ where
                     }
                     _ => unreachable!(),
                 };
-                storage.flags |= RenderFlags::SWAPPED;
+                storage.flags |= RenderFlag::Swapped;
                 true
             }
             (Either::Right(_), Either::Left(element)) => {
@@ -121,7 +122,7 @@ where
                     }
                     _ => unreachable!(),
                 }
-                storage.flags |= RenderFlags::SWAPPED;
+                storage.flags |= RenderFlag::Swapped;
                 true
             }
         }
@@ -201,8 +202,8 @@ where
         renderer: &mut Renderer,
     ) -> bool {
         let mut result = false;
-        if self.flags.contains(RenderFlags::SWAPPED) {
-            if self.flags.contains(RenderFlags::COMMITED) {
+        if self.flags.contains(RenderFlag::Swapped) {
+            if self.flags.contains(RenderFlag::Commited) {
                 result |= match &mut self.active {
                     Either::Left(node) => {
                         node.commit(CommitMode::Unmount, context, store, renderer)
@@ -219,13 +220,13 @@ where
                     Either::Right(node) => node.commit(CommitMode::Mount, context, store, renderer),
                 };
             }
-        } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagatable() {
+        } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagatable() {
             result |= match &mut self.active {
                 Either::Left(node) => node.commit(mode, context, store, renderer),
                 Either::Right(node) => node.commit(mode, context, store, renderer),
             };
         }
-        self.flags = RenderFlags::COMMITED;
+        self.flags.set(RenderFlag::Commited);
         result
     }
 
@@ -234,7 +235,7 @@ where
             Either::Left(node) => node.gc(),
             Either::Right(node) => node.gc(),
         }
-        if self.flags != RenderFlags::SWAPPED {
+        if !self.flags.contains(RenderFlag::Swapped) {
             self.staging = None;
         }
     }

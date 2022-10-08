@@ -5,15 +5,23 @@ mod option;
 mod tuple;
 mod vec;
 
-use bitflags::bitflags;
+use bit_flags::IntoBits;
 use std::cmp::Ordering;
 
-bitflags! {
-    pub struct RenderFlags: u32 {
-        const NONE     = 0b000;
-        const COMMITED = 0b001;
-        const UPDATED  = 0b010;
-        const SWAPPED  = 0b100;
+#[derive(Debug)]
+#[repr(u32)]
+pub enum RenderFlag {
+    Commited = 0b001,
+    Updated = 0b010,
+    Swapped = 0b100,
+}
+
+impl IntoBits for RenderFlag {
+    type Bits = u32;
+
+    #[inline]
+    fn into_bits(self) -> Self::Bits {
+        self as u32
     }
 }
 
