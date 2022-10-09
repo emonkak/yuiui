@@ -2,10 +2,7 @@ use std::marker::PhantomData;
 
 use gtk::glib::object::ObjectExt;
 use gtk::{gdk, glib, prelude::*};
-use yuiui::{
-    Element, ElementSeq, EventDestination, EventListener, IdPathBuf, Lifecycle, MessageContext,
-    Store, View,
-};
+use yuiui::{Element, ElementSeq, EventTarget, IdPathBuf, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::renderer::{EventPort, Renderer};
@@ -104,7 +101,7 @@ where
 
     fn event(
         &self,
-        event: <Self as EventListener>::Event,
+        event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         context: &mut MessageContext<M>,
@@ -134,7 +131,7 @@ where
     }
 }
 
-impl<'event, Child, M> EventListener<'event> for Button<Child, M> {
+impl<'event, Child, M> EventTarget<'event> for Button<Child, M> {
     type Event = &'event Event;
 }
 
@@ -157,10 +154,7 @@ impl ButtonState {
             .widget
             .connect_clicked(move |_| {
                 event_port
-                    .send((
-                        Box::new(Event::Clicked),
-                        EventDestination::Local(id_path.clone()),
-                    ))
+                    .send((id_path.clone(), Box::new(Event::Clicked)))
                     .unwrap();
             })
             .into();

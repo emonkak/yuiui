@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 use crate::command::ExecutionContext;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
-use crate::event::EventDestination;
 use crate::id::{Depth, IdPath, IdPathBuf, IdTree};
 use crate::state::{State, Store};
 use crate::view::View;
@@ -17,7 +16,7 @@ pub struct RenderLoop<E: Element<S, M, R>, S, M, R> {
     node: ViewNode<E::View, E::Components, S, M, R>,
     render_context: RenderContext,
     message_queue: VecDeque<M>,
-    event_queue: VecDeque<(Box<dyn Any + Send + 'static>, EventDestination)>,
+    event_queue: VecDeque<(IdPathBuf, Box<dyn Any + Send + 'static>)>,
     nodes_to_update: BTreeMap<IdPathBuf, Depth>,
     nodes_to_commit: BTreeMap<IdPathBuf, Depth>,
     is_mounted: bool,
@@ -72,8 +71,8 @@ where
                 }
             }
 
-            while let Some((event, destination)) = self.event_queue.pop_front() {
-                self.dispatch_event(event, destination, store, renderer);
+            while let Some((id_path, event)) = self.event_queue.pop_front() {
+                self.dispatch_event(&id_path, event, store, renderer);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -144,8 +143,8 @@ where
         self.message_queue.push_back(message);
     }
 
-    pub fn push_event(&mut self, event: Box<dyn Any + Send>, destination: EventDestination) {
-        self.event_queue.push_back((event, destination));
+    pub fn push_event(&mut self, id_path: IdPathBuf, event: Box<dyn Any + Send>) {
+        self.event_queue.push_back((id_path, event));
     }
 
     pub fn node(&self) -> &ViewNode<E::View, E::Components, S, M, R> {
@@ -154,30 +153,14 @@ where
 
     fn dispatch_event(
         &mut self,
+        id_path: &IdPath,
         event: Box<dyn Any + Send>,
-        destination: EventDestination,
         store: &Store<S>,
         renderer: &mut R,
     ) {
         let mut context = MessageContext::new();
-        match destination {
-            EventDestination::Global => {
-                self.node
-                    .global_event(&*event, &mut context, store, renderer);
-            }
-            EventDestination::Downward(id_path) => {
-                self.node
-                    .downward_event(&*event, &id_path, &mut context, store, renderer);
-            }
-            EventDestination::Upward(id_path) => {
-                self.node
-                    .upward_event(&*event, &id_path, &mut context, store, renderer);
-            }
-            EventDestination::Local(id_path) => {
-                self.node
-                    .local_event(&*event, &id_path, &mut context, store, renderer);
-            }
-        }
+        self.node
+            .dispatch_event(&id_path, &*event, &mut context, store, renderer);
         self.message_queue.extend(context.into_messages());
     }
 

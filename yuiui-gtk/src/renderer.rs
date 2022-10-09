@@ -1,8 +1,6 @@
 use gtk::glib;
 use std::any::Any;
-use yuiui::EventDestination;
-
-pub type EventPort = glib::Sender<(Box<dyn Any + Send>, EventDestination)>;
+use yuiui::IdPathBuf;
 
 #[derive(Debug)]
 pub struct Renderer {
@@ -23,3 +21,5 @@ impl Renderer {
         &self.event_port
     }
 }
+
+pub type EventPort = glib::Sender<(IdPathBuf, Box<dyn Any + Send>)>;

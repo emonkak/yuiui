@@ -1,7 +1,7 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, Element, ElementSeq, EventListener, Lifecycle, MessageContext, Store,
+    ComponentStack, Element, ElementSeq, EventTarget, Lifecycle, MessageContext, Store,
     Traversable, View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -96,7 +96,7 @@ where
     }
 }
 
-impl<'event, Children> EventListener<'event> for FlowBox<Children> {
+impl<'event, Children> EventTarget<'event> for FlowBox<Children> {
     type Event = ();
 }
 
@@ -176,7 +176,7 @@ where
     }
 }
 
-impl<'event, Child> EventListener<'event> for FlowBoxChild<Child> {
+impl<'event, Child> EventTarget<'event> for FlowBoxChild<Child> {
     type Event = ();
 }
 

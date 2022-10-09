@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
-use crate::event::{EventListener, EventMask, Lifecycle};
+use crate::event::{EventTarget, Lifecycle};
 use crate::id::{Depth, Id};
 use crate::state::Store;
 use crate::traversable::Traversable;
@@ -74,7 +74,6 @@ where
                 self.store_selector,
                 self.message_selector,
             ),
-            event_mask: sub_node.event_mask,
             dirty: sub_node.dirty,
         }
     }
@@ -173,7 +172,7 @@ where
 
     fn event(
         &self,
-        event: <Self as EventListener>::Event,
+        event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
@@ -204,9 +203,9 @@ where
     }
 }
 
-impl<'event, T, S, M, SS, SM> EventListener<'event> for Connect<T, S, M, SS, SM>
+impl<'event, T, S, M, SS, SM> EventTarget<'event> for Connect<T, S, M, SS, SM>
 where
-    T: EventListener<'event>,
+    T: EventTarget<'event>,
 {
     type Event = T::Event;
 }
@@ -299,10 +298,6 @@ where
     T: ViewNodeSeq<SS, SM, R>,
 {
     const SIZE_HINT: (usize, Option<usize>) = T::SIZE_HINT;
-
-    fn event_mask() -> &'static EventMask {
-        T::event_mask()
-    }
 
     fn len(&self) -> usize {
         self.target.len()

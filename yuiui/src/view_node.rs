@@ -1,29 +1,23 @@
 mod commit_subtree_visitor;
-mod downward_event_visitor;
-mod local_event_visitor;
+mod dispatch_event_visitor;
 mod update_subtree_visitor;
-mod upward_event_visitor;
 
 use std::any::Any;
 use std::fmt;
 use std::mem;
-use std::sync::Once;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{IdContext, MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
-use crate::event::{Event, EventListener, EventMask};
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
 use crate::state::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
 use commit_subtree_visitor::CommitSubtreeVisitor;
-use downward_event_visitor::DownwardEventVisitor;
-use local_event_visitor::LocalEventVisitor;
+use dispatch_event_visitor::DispatchEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
-use upward_event_visitor::UpwardEventVisitor;
 
 pub struct ViewNode<V: View<S, M, R>, CS: ComponentStack<S, M, R, View = V>, S, M, R> {
     pub(crate) id: Id,
@@ -32,7 +26,6 @@ pub struct ViewNode<V: View<S, M, R>, CS: ComponentStack<S, M, R, View = V>, S, 
     pub(crate) state: Option<V::State>,
     pub(crate) children: <V::Children as ElementSeq<S, M, R>>::Storage,
     pub(crate) components: CS,
-    pub(crate) event_mask: &'static EventMask,
     pub(crate) dirty: bool,
 }
 
@@ -54,7 +47,6 @@ where
             state: None,
             children,
             components,
-            event_mask: <Self as ViewNodeSeq<S, M, R>>::event_mask(),
             dirty: true,
         }
     }
@@ -222,50 +214,15 @@ where
         visitor.visit(self, context, store, renderer)
     }
 
-    pub(crate) fn global_event(
+    pub(crate) fn dispatch_event(
         &mut self,
-        event: &dyn Any,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        renderer: &mut R,
-    ) -> bool {
-        let mut visitor = DownwardEventVisitor::new(event, &[]);
-        visitor.visit(self, context, store, renderer)
-    }
-
-    pub(crate) fn downward_event(
-        &mut self,
-        event: &dyn Any,
         id_path: &IdPath,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        renderer: &mut R,
-    ) -> bool {
-        let mut visitor = DownwardEventVisitor::new(event, id_path);
-        visitor.visit(self, context, store, renderer)
-    }
-
-    pub(crate) fn upward_event(
-        &mut self,
         event: &dyn Any,
-        id_path: &IdPath,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         renderer: &mut R,
     ) -> bool {
-        let mut visitor = UpwardEventVisitor::new(event, id_path);
-        visitor.visit(self, context, store, renderer)
-    }
-
-    pub(crate) fn local_event(
-        &mut self,
-        event: &dyn Any,
-        id_path: &IdPath,
-        context: &mut MessageContext<M>,
-        store: &Store<S>,
-        renderer: &mut R,
-    ) -> bool {
-        let mut visitor = LocalEventVisitor::new(event, id_path);
+        let mut visitor = DispatchEventVisitor::new(event, id_path);
         visitor.visit(self, context, store, renderer)
     }
 
@@ -295,10 +252,6 @@ where
 
     pub fn components(&self) -> &CS {
         &self.components
-    }
-
-    pub fn event_mask(&self) -> &EventMask {
-        &self.event_mask
     }
 }
 
@@ -354,10 +307,8 @@ where
 
 pub trait ViewNodeSeq<S, M, R>:
     for<'a> Traversable<CommitSubtreeVisitor<'a>, MessageContext<M>, bool, S, M, R>
-    + for<'a> Traversable<DownwardEventVisitor<'a>, MessageContext<M>, bool, S, M, R>
     + for<'a> Traversable<UpdateSubtreeVisitor<'a>, RenderContext, Vec<(IdPathBuf, Depth)>, S, M, R>
-    + for<'a> Traversable<LocalEventVisitor<'a>, MessageContext<M>, bool, S, M, R>
-    + for<'a> Traversable<UpwardEventVisitor<'a>, MessageContext<M>, bool, S, M, R>
+    + for<'a> Traversable<DispatchEventVisitor<'a>, MessageContext<M>, bool, S, M, R>
 {
     const SIZE_HINT: (usize, Option<usize>);
 
@@ -367,8 +318,6 @@ pub trait ViewNodeSeq<S, M, R>:
             _ => false,
         }
     };
-
-    fn event_mask() -> &'static EventMask;
 
     fn len(&self) -> usize;
 
@@ -391,23 +340,6 @@ where
     CS: ComponentStack<S, M, R, View = V>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (1, Some(1));
-
-    fn event_mask() -> &'static EventMask {
-        static INIT: Once = Once::new();
-        static mut EVENT_MASK: EventMask = EventMask::new();
-
-        if !INIT.is_completed() {
-            let children_mask = <V::Children as ElementSeq<S, M, R>>::Storage::event_mask();
-
-            INIT.call_once(|| unsafe {
-                EVENT_MASK.extend(children_mask);
-                let types = <V as EventListener>::Event::types().into_iter();
-                EVENT_MASK.extend(types);
-            });
-        }
-
-        unsafe { &EVENT_MASK }
-    }
 
     fn len(&self) -> usize {
         1
@@ -489,7 +421,6 @@ where
             .field("state", &self.state)
             .field("children", &self.children)
             .field("components", &self.components)
-            .field("event_mask", &self.event_mask)
             .field("dirty", &self.dirty)
             .finish()
     }

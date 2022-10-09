@@ -1,6 +1,6 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
-use yuiui::{Element, ElementSeq, EventListener, Lifecycle, MessageContext, Store, View};
+use yuiui::{Element, ElementSeq, EventTarget, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(WidgetBuilder)]
@@ -94,6 +94,6 @@ where
     }
 }
 
-impl<'event, Child> EventListener<'event> for ScrolledWindow<Child> {
+impl<'event, Child> EventTarget<'event> for ScrolledWindow<Child> {
     type Event = ();
 }

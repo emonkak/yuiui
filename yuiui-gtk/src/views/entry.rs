@@ -1,7 +1,5 @@
 use gtk::{gdk, gio, glib, pango, prelude::*};
-use yuiui::{
-    ElementSeq, EventDestination, EventListener, IdPathBuf, Lifecycle, MessageContext, Store, View,
-};
+use yuiui::{ElementSeq, EventTarget, IdPathBuf, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::renderer::{EventPort, Renderer};
@@ -176,7 +174,7 @@ impl<S, M> View<S, M, Renderer> for Entry<M> {
 
     fn event(
         &self,
-        event: <Self as EventListener>::Event,
+        event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         context: &mut MessageContext<M>,
@@ -213,7 +211,7 @@ impl<S, M> View<S, M, Renderer> for Entry<M> {
     }
 }
 
-impl<'event, M> EventListener<'event> for Entry<M> {
+impl<'event, M> EventTarget<'event> for Entry<M> {
     type Event = &'event Event;
 }
 
@@ -238,10 +236,7 @@ impl EntryState {
             .widget
             .connect_activate(move |widget| {
                 event_port
-                    .send((
-                        Box::new(Event::Activate(widget.text())),
-                        EventDestination::Local(id_path.clone()),
-                    ))
+                    .send((id_path.clone(), Box::new(Event::Activate(widget.text()))))
                     .unwrap();
             })
             .into();
@@ -252,10 +247,7 @@ impl EntryState {
             .widget
             .connect_changed(move |widget| {
                 event_port
-                    .send((
-                        Box::new(Event::Changed(widget.text())),
-                        EventDestination::Local(id_path.clone()),
-                    ))
+                    .send((id_path.clone(), Box::new(Event::Changed(widget.text()))))
                     .unwrap();
             })
             .into();

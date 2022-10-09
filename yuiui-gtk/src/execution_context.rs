@@ -1,7 +1,7 @@
 use futures::stream::StreamExt as _;
 use gtk::glib;
 use std::any::Any;
-use yuiui::{CancellationToken, Command, EventDestination, RawToken, RawTokenVTable};
+use yuiui::{CancellationToken, Command, IdPathBuf, RawToken, RawTokenVTable};
 
 #[derive(Debug)]
 pub struct ExecutionContext<T> {
@@ -79,6 +79,6 @@ fn create_token(source_id: glib::SourceId) -> RawToken {
 #[derive(Debug)]
 pub(super) enum RenderAction<T> {
     Message(T),
-    Event(Box<dyn Any + Send>, EventDestination),
+    ForwardEvent(IdPathBuf, Box<dyn Any + Send>),
     RequestRender,
 }

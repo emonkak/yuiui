@@ -1,7 +1,7 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, Element, ElementSeq, EventListener, Lifecycle, MessageContext, Store,
+    ComponentStack, Element, ElementSeq, EventTarget, Lifecycle, MessageContext, Store,
     Traversable, View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -93,7 +93,7 @@ where
     }
 }
 
-impl<'event, Children> EventListener<'event> for Stack<Children> {
+impl<'event, Children> EventTarget<'event> for Stack<Children> {
     type Event = ();
 }
 
@@ -182,7 +182,7 @@ where
     }
 }
 
-impl<'event, Children> EventListener<'event> for StackSwitcher<Children> {
+impl<'event, Children> EventTarget<'event> for StackSwitcher<Children> {
     type Event = ();
 }
 
@@ -249,7 +249,7 @@ where
 
     fn event(
         &self,
-        event: <Self as EventListener>::Event,
+        event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
@@ -277,7 +277,7 @@ where
     }
 }
 
-impl<'event, Child: EventListener<'event>> EventListener<'event> for StackPage<Child> {
+impl<'event, Child: EventTarget<'event>> EventTarget<'event> for StackPage<Child> {
     type Event = Child::Event;
 }
 

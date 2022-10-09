@@ -1,11 +1,9 @@
 use bit_flags::BitFlags;
 use either::Either;
 use std::mem;
-use std::sync::Once;
 
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::Traversable;
@@ -148,23 +146,6 @@ where
         };
         (lower, upper)
     };
-
-    fn event_mask() -> &'static EventMask {
-        static INIT: Once = Once::new();
-        static mut EVENT_MASK: EventMask = EventMask::new();
-
-        if !INIT.is_completed() {
-            let left_mask = L::event_mask();
-            let right_mask = R::event_mask();
-
-            INIT.call_once(|| unsafe {
-                EVENT_MASK.extend(left_mask);
-                EVENT_MASK.extend(right_mask);
-            });
-        }
-
-        unsafe { &EVENT_MASK }
-    }
 
     fn len(&self) -> usize {
         match &self.active {

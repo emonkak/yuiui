@@ -22,9 +22,9 @@ pub(super) fn derive_event_impl(item: &syn::ItemEnum) -> syn::Result<TokenStream
 
         let construct = match &field.ident {
             Some(field_name) => {
-                quote!(#name::#variant_name { #field_name: event })
+                quote!(#name::#variant_name { #field_name: payload })
             }
-            None => quote!(#name::#variant_name(event)),
+            None => quote!(#name::#variant_name(payload)),
         };
 
         let lifetime = extract_lifetime(ty).ok_or_else(|| {
@@ -36,24 +36,24 @@ pub(super) fn derive_event_impl(item: &syn::ItemEnum) -> syn::Result<TokenStream
                 <<#ty as yuiui::Event<#lifetime>>::Types as IntoIterator>::IntoIter
             );
             types_body.push(quote!(
-                    let iter = <#ty as yuiui::Event<#lifetime>>::types().into_iter();
+                let iter = <#ty as yuiui::Event<#lifetime>>::types().into_iter();
             ));
         } else {
             types_sinature = quote!(
                 ::std::iter::Chain<
-                #types_sinature,
-                <<#ty as yuiui::Event<#lifetime>>::Types as IntoIterator>::IntoIter
+                    #types_sinature,
+                    <<#ty as yuiui::Event<#lifetime>>::Types as IntoIterator>::IntoIter
                 >
             );
             types_body.push(quote!(
-                    let iter = iter.chain(<#ty as yuiui::Event<#lifetime>>::types());
+                let iter = iter.chain(<#ty as yuiui::Event<#lifetime>>::types());
             ));
         }
 
         from_any_body.push(quote!(
-                if let Some(event) = <#ty as yuiui::Event<#lifetime>>::from_any(event) {
-                    return Some(#construct);
-                }
+            if let Some(payload) = <#ty as yuiui::Event<#lifetime>>::from_any(payload) {
+                return Some(#construct);
+            }
         ));
     }
 
@@ -66,7 +66,7 @@ pub(super) fn derive_event_impl(item: &syn::ItemEnum) -> syn::Result<TokenStream
                 iter
             }
 
-            fn from_any(event: &'event dyn ::std::any::Any) -> Option<Self> {
+            fn from_any(payload: &'event dyn ::std::any::Any) -> Option<Self> {
                 #(#from_any_body)*
                 None
             }

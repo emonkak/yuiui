@@ -1,5 +1,5 @@
 use gtk::{gdk, glib, prelude::*};
-use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, Store, View};
+use yuiui::{ElementSeq, EventTarget, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -76,6 +76,6 @@ impl<S, M, R> View<S, M, R> for CheckButton {
     }
 }
 
-impl<'event> EventListener<'event> for CheckButton {
+impl<'event> EventTarget<'event> for CheckButton {
     type Event = ();
 }

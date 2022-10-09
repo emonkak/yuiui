@@ -1,5 +1,5 @@
 use gtk::{gdk, gio, glib, pango, prelude::*};
-use yuiui::{ElementSeq, EventListener, Lifecycle, MessageContext, Store, View};
+use yuiui::{ElementSeq, EventTarget, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -86,6 +86,6 @@ impl<S, M, R> View<S, M, R> for Label {
     }
 }
 
-impl<'event> EventListener<'event> for Label {
+impl<'event> EventTarget<'event> for Label {
     type Event = ();
 }

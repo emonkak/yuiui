@@ -40,9 +40,9 @@ pub trait EntryPoint<M>: Sized + 'static {
 
         self.attach(widget, renderer.event_port());
 
-        event_rx.attach(None, move |(event, destination)| {
+        event_rx.attach(None, move |(id_path, event)| {
             action_tx
-                .send(RenderAction::Event(event, destination))
+                .send(RenderAction::ForwardEvent(id_path, event))
                 .unwrap();
             glib::Continue(true)
         });
@@ -56,8 +56,8 @@ pub trait EntryPoint<M>: Sized + 'static {
                     self.on_message(&message);
                     render_loop.push_message(message);
                 }
-                RenderAction::Event(event, destination) => {
-                    render_loop.push_event(event, destination);
+                RenderAction::ForwardEvent(id_path, event) => {
+                    render_loop.push_event(id_path, event);
                 }
             }
 

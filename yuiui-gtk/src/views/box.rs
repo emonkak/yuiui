@@ -1,7 +1,7 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, ElementSeq, EventListener, Lifecycle, MessageContext, Store, Traversable, View,
+    ComponentStack, ElementSeq, EventTarget, Lifecycle, MessageContext, Store, Traversable, View,
     ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -99,7 +99,7 @@ where
     }
 }
 
-impl<'event, Children> EventListener<'event> for Box<Children> {
+impl<'event, Children> EventTarget<'event> for Box<Children> {
     type Event = ();
 }
 

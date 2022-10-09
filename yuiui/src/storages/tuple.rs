@@ -1,8 +1,5 @@
-use std::sync::Once;
-
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
@@ -27,11 +24,6 @@ impl<S, M, R> ElementSeq<S, M, R> for () {
 
 impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
-
-    fn event_mask() -> &'static EventMask {
-        static MASK: EventMask = EventMask::new();
-        &MASK
-    }
 
     fn len(&self) -> usize {
         0
@@ -130,26 +122,6 @@ macro_rules! define_tuple_impl {
                 )*
                 (lower, upper)
             };
-
-            fn event_mask() -> &'static EventMask {
-                static INIT: Once = Once::new();
-                static mut EVENT_MASK: EventMask = EventMask::new();
-
-                if !INIT.is_completed() {
-                    $(
-                        #[allow(non_snake_case)]
-                        let $T = $T::event_mask();
-                    )*
-
-                    INIT.call_once(|| unsafe {
-                        $(
-                            EVENT_MASK.extend($T);
-                        )*
-                    });
-                }
-
-                unsafe { &EVENT_MASK }
-            }
 
             fn len(&self) -> usize {
                 0 $(+ self.$n.len())*

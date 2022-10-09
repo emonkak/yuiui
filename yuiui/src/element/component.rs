@@ -43,7 +43,6 @@ where
             state: node.state,
             children: node.children,
             components: (component_node, node.components),
-            event_mask: node.event_mask,
             dirty: true,
         }
     }

@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::{Monoid, Traversable};
@@ -85,10 +84,6 @@ where
     T: ViewNodeSeq<S, M, R>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (0, None);
-
-    fn event_mask() -> &'static EventMask {
-        T::event_mask()
-    }
 
     fn len(&self) -> usize {
         match T::SIZE_HINT {

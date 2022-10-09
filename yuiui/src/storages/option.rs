@@ -3,7 +3,6 @@ use std::mem;
 
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::event::EventMask;
 use crate::id::Id;
 use crate::state::Store;
 use crate::traversable::Traversable;
@@ -92,10 +91,6 @@ where
         let (_, upper) = T::SIZE_HINT;
         (0, upper)
     };
-
-    fn event_mask() -> &'static EventMask {
-        T::event_mask()
-    }
 
     fn len(&self) -> usize {
         match &self.active {
