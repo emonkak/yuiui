@@ -1,3 +1,13 @@
+use std::any::Any;
+
+use crate::id::IdPathBuf;
+
+#[derive(Debug)]
+pub enum Event {
+    Forward(IdPathBuf, Box<dyn Any + Send>),
+    Broadcast(Vec<IdPathBuf>, Box<dyn Any + Send>),
+}
+
 #[derive(Debug)]
 pub enum Lifecycle<T> {
     Mount,

@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
 use crate::id::{IdContext, IdPath};
@@ -8,18 +8,18 @@ use crate::view::View;
 
 use super::ViewNode;
 
-pub struct DispatchEventVisitor<'a> {
+pub struct ForwardEventVisitor<'a> {
     event: &'a dyn Any,
     id_path: &'a IdPath,
 }
 
-impl<'a> DispatchEventVisitor<'a> {
+impl<'a> ForwardEventVisitor<'a> {
     pub fn new(event: &'a dyn Any, id_path: &'a IdPath) -> Self {
         Self { event, id_path }
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for DispatchEventVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for ForwardEventVisitor<'a>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
@@ -41,10 +41,12 @@ where
         } else {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
-            let event = self.event.downcast_ref().unwrap();
+            let event: &V::Event = self.event.downcast_ref().unwrap_or_else(|| {
+                panic!("Unable to cast event to {}", any::type_name::<V::Event>())
+            });
             let mut messages = Vec::new();
             view.event(
-                *event,
+                event,
                 state,
                 &mut node.children,
                 id_context,

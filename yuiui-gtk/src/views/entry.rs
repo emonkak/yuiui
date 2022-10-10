@@ -239,7 +239,7 @@ impl EntryState {
             .widget
             .connect_activate(move |widget| {
                 event_port
-                    .send((id_path.clone(), Box::new(Event::Activate(widget.text()))))
+                    .forward(id_path.clone(), Event::Activate(widget.text()))
                     .unwrap();
             })
             .into();
@@ -250,7 +250,7 @@ impl EntryState {
             .widget
             .connect_changed(move |widget| {
                 event_port
-                    .send((id_path.clone(), Box::new(Event::Changed(widget.text()))))
+                    .forward(id_path.clone(), Event::Changed(widget.text()))
                     .unwrap();
             })
             .into();

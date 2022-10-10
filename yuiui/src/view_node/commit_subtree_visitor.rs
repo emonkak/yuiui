@@ -31,8 +31,8 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::Output {
-        if let Some(depth) = self.cursor.current().value() {
-            let mut messages = Vec::new();
+        let mut messages = Vec::new();
+        if let Some(depth) = self.cursor.current().data() {
             node.commit_within(
                 self.mode,
                 *depth,
@@ -41,18 +41,17 @@ where
                 &mut messages,
                 renderer,
             );
-            messages
         } else {
-            let mut result = Vec::new();
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                if let Some(messages) = node.children.for_id(id, self, id_context, store, renderer)
+                if let Some(child_messages) =
+                    node.children.for_id(id, self, id_context, store, renderer)
                 {
-                    result.extend(messages);
+                    messages.extend(child_messages);
                 }
             }
-            result
         }
+        messages
     }
 }

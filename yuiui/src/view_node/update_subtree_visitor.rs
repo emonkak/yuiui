@@ -38,7 +38,7 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::Output {
-        if let (Some(&depth), true) = (self.cursor.current().value(), store.dirty()) {
+        if let (Some(&depth), true) = (self.cursor.current().data(), store.dirty()) {
             store.mark_clean();
             let is_updated = if depth < CS::LEN {
                 CS::update(node.into(), depth, 0, id_context, store)

@@ -29,9 +29,10 @@ pub trait EntryPoint<M>: Sized + 'static {
         let (event_tx, event_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (action_tx, action_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let context = CommandContext::new(glib::MainContext::default(), action_tx.clone());
+        let event_port = EventPort::new(event_tx);
 
         let mut store = Store::new(state);
-        let mut renderer = Renderer::new(self.window().clone(), event_tx);
+        let mut renderer = Renderer::new(self.window().clone(), event_port);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
         render_loop.run_forever(&context, &mut store, &mut renderer);
@@ -40,10 +41,8 @@ pub trait EntryPoint<M>: Sized + 'static {
 
         self.attach(widget, renderer.event_port());
 
-        event_rx.attach(None, move |(id_path, event)| {
-            action_tx
-                .send(RenderAction::ForwardEvent(id_path, event))
-                .unwrap();
+        event_rx.attach(None, move |event| {
+            action_tx.send(RenderAction::Event(event)).unwrap();
             glib::Continue(true)
         });
 
@@ -56,8 +55,8 @@ pub trait EntryPoint<M>: Sized + 'static {
                     self.on_message(&message);
                     render_loop.push_message(message);
                 }
-                RenderAction::ForwardEvent(id_path, event) => {
-                    render_loop.push_event(id_path, event);
+                RenderAction::Event(event) => {
+                    render_loop.push_event(event);
                 }
             }
 

@@ -155,9 +155,7 @@ impl ButtonState {
         self.clicked_signal = self
             .widget
             .connect_clicked(move |_| {
-                event_port
-                    .send((id_path.clone(), Box::new(Event::Clicked)))
-                    .unwrap();
+                event_port.forward(id_path.clone(), Event::Clicked).unwrap();
             })
             .into();
     }

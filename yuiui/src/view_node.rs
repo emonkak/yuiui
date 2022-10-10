@@ -1,5 +1,6 @@
+mod broadcast_event_visitor;
 mod commit_subtree_visitor;
-mod dispatch_event_visitor;
+mod forward_event_visitor;
 mod update_subtree_visitor;
 
 use std::any::Any;
@@ -13,8 +14,9 @@ use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
+use broadcast_event_visitor::BroadcastEventVisitor;
 use commit_subtree_visitor::CommitSubtreeVisitor;
-use dispatch_event_visitor::DispatchEventVisitor;
+use forward_event_visitor::ForwardEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
 
 pub struct ViewNode<V: View<S, M, R>, CS: ComponentStack<S, M, R, View = V>, S, M, R> {
@@ -238,15 +240,29 @@ where
         visitor.visit(self, id_context, store, renderer)
     }
 
-    pub(crate) fn dispatch_event(
+    pub(crate) fn forward_event(
         &mut self,
-        id_path: &IdPath,
-        event: Box<dyn Any>,
+        destination: &IdPath,
+        payload: &dyn Any,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Vec<M> {
-        let mut visitor = DispatchEventVisitor::new(&*event, id_path);
+        let mut visitor = ForwardEventVisitor::new(payload, destination);
+        visitor.visit(self, id_context, store, renderer)
+    }
+
+    pub(crate) fn broadcast_event(
+        &mut self,
+        destinations: &[IdPathBuf],
+        payload: &dyn Any,
+        id_context: &mut IdContext,
+        store: &Store<S>,
+        renderer: &mut R,
+    ) -> Vec<M> {
+        let id_tree = IdTree::from_iter(destinations);
+        let cursor = id_tree.root();
+        let mut visitor = BroadcastEventVisitor::new(payload, cursor);
         visitor.visit(self, id_context, store, renderer)
     }
 
@@ -330,9 +346,10 @@ where
 }
 
 pub trait ViewNodeSeq<S, M, R>:
-    for<'a> Traversable<CommitSubtreeVisitor<'a>, Vec<M>, S, M, R>
+    for<'a> Traversable<BroadcastEventVisitor<'a>, Vec<M>, S, M, R>
+    + for<'a> Traversable<CommitSubtreeVisitor<'a>, Vec<M>, S, M, R>
+    + for<'a> Traversable<ForwardEventVisitor<'a>, Vec<M>, S, M, R>
     + for<'a> Traversable<UpdateSubtreeVisitor<'a>, (), S, M, R>
-    + for<'a> Traversable<DispatchEventVisitor<'a>, Vec<M>, S, M, R>
 {
     const SIZE_HINT: (usize, Option<usize>);
 

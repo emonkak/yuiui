@@ -1,11 +1,11 @@
-use std::any::Any;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use std::{fmt, mem};
+use std::{cmp, fmt, mem};
 
 use crate::command::CommandContext;
 use crate::element::{Element, ElementSeq};
-use crate::id::{Depth, IdContext, IdPath, IdPathBuf, IdTree};
+use crate::event::Event;
+use crate::id::{Depth, IdContext, IdTree};
 use crate::store::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
@@ -14,9 +14,9 @@ pub struct RenderLoop<E: Element<S, M, R>, S, M, R> {
     node: ViewNode<E::View, E::Components, S, M, R>,
     id_context: IdContext,
     message_queue: VecDeque<M>,
-    event_queue: VecDeque<(IdPathBuf, Box<dyn Any + Send + 'static>)>,
-    nodes_to_update: BTreeMap<IdPathBuf, Depth>,
-    nodes_to_commit: BTreeMap<IdPathBuf, Depth>,
+    event_queue: VecDeque<Event>,
+    nodes_to_update: IdTree<Depth>,
+    nodes_to_commit: IdTree<Depth>,
     is_mounted: bool,
 }
 
@@ -33,8 +33,8 @@ where
             id_context: context,
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
-            nodes_to_update: BTreeMap::new(),
-            nodes_to_commit: BTreeMap::new(),
+            nodes_to_update: IdTree::new(),
+            nodes_to_commit: IdTree::new(),
             is_mounted: false,
         }
     }
@@ -50,16 +50,11 @@ where
             while let Some(message) = self.message_queue.pop_front() {
                 let (dirty, effect) = store.update(message);
                 if dirty {
-                    if !self.nodes_to_update.contains_key(&[] as &IdPath) {
-                        self.nodes_to_update.insert(IdPathBuf::new(), 0);
-                    }
+                    self.nodes_to_update.insert(&[], 0);
                 }
                 for (id_path, depth) in effect.subscribers {
-                    if let Some(current_depth) = self.nodes_to_update.get_mut(&id_path) {
-                        *current_depth = (*current_depth).min(depth);
-                    } else {
-                        self.nodes_to_update.insert(id_path, depth);
-                    }
+                    self.nodes_to_update
+                        .insert_or_update(&id_path, depth, cmp::min);
                 }
                 for (command, cancellation_token) in effect.commands {
                     command_context.spawn_command(command, cancellation_token);
@@ -69,8 +64,24 @@ where
                 }
             }
 
-            while let Some((id_path, event)) = self.event_queue.pop_front() {
-                self.dispatch_event(&id_path, event, store, renderer);
+            while let Some(event) = self.event_queue.pop_front() {
+                let messages = match event {
+                    Event::Forward(destination, payload) => self.node.forward_event(
+                        &destination,
+                        &*payload,
+                        &mut self.id_context,
+                        store,
+                        renderer,
+                    ),
+                    Event::Broadcast(destinations, paylaod) => self.node.broadcast_event(
+                        &destinations,
+                        &*paylaod,
+                        &mut self.id_context,
+                        store,
+                        renderer,
+                    ),
+                };
+                self.message_queue.extend(messages);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -81,17 +92,14 @@ where
             }
 
             if !self.nodes_to_update.is_empty() {
-                let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_update));
+                let id_tree = mem::take(&mut self.nodes_to_update);
                 let changed_nodes =
                     self.node
                         .update_subtree(&id_tree, store, renderer, &mut self.id_context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
-                        if let Some(current_depth) = self.nodes_to_commit.get_mut(&id_path) {
-                            *current_depth = (*current_depth).min(depth);
-                        } else {
-                            self.nodes_to_commit.insert(id_path, depth);
-                        }
+                        self.nodes_to_commit
+                            .insert_or_update(&id_path, depth, cmp::min);
                     }
                 }
                 if deadline.did_timeout() {
@@ -101,7 +109,7 @@ where
 
             if self.is_mounted {
                 if !self.nodes_to_commit.is_empty() {
-                    let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_commit));
+                    let id_tree = mem::take(&mut self.nodes_to_commit);
                     let messages =
                         self.node
                             .commit_subtree(&id_tree, &mut self.id_context, store, renderer);
@@ -147,25 +155,12 @@ where
         self.message_queue.push_back(message);
     }
 
-    pub fn push_event(&mut self, id_path: IdPathBuf, event: Box<dyn Any + Send>) {
-        self.event_queue.push_back((id_path, event));
+    pub fn push_event(&mut self, event: Event) {
+        self.event_queue.push_back(event);
     }
 
     pub fn node(&self) -> &ViewNode<E::View, E::Components, S, M, R> {
         &self.node
-    }
-
-    fn dispatch_event(
-        &mut self,
-        id_path: &IdPath,
-        event: Box<dyn Any + Send>,
-        store: &Store<S>,
-        renderer: &mut R,
-    ) {
-        let messages =
-            self.node
-                .dispatch_event(&id_path, event, &mut self.id_context, store, renderer);
-        self.message_queue.extend(messages);
     }
 
     fn render_flow(&self) -> RenderFlow {
