@@ -160,7 +160,7 @@ where
     ) {
         let mut context = MessageContext::new();
         self.node
-            .dispatch_event(&id_path, &*event, &mut context, store, renderer);
+            .dispatch_event(&id_path, event, &mut context, store, renderer);
         self.message_queue.extend(context.into_messages());
     }
 

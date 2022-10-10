@@ -1,8 +1,7 @@
-use std::any::{self, Any};
+use std::any::Any;
 
 use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
-use crate::event::{Event, EventTarget};
 use crate::id::IdPath;
 use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
@@ -45,13 +44,8 @@ where
         } else {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
-            let event = <V as EventTarget>::Event::from_any(self.event).unwrap_or_else(|| {
-                panic!(
-                    "unable to cast an event to {}",
-                    any::type_name::<<V as EventTarget>::Event>()
-                )
-            });
-            view.event(event, state, &mut node.children, context, store, renderer);
+            let event = self.event.downcast_ref().unwrap();
+            view.event(*event, state, &mut node.children, context, store, renderer);
             true
         }
     }

@@ -1,12 +1,14 @@
 use crate::context::MessageContext;
 use crate::element::{ElementSeq, ViewEl};
-use crate::event::{EventTarget, Lifecycle};
+use crate::event::Lifecycle;
 use crate::store::Store;
 
-pub trait View<S, M, R>: Sized + for<'event> EventTarget<'event> {
+pub trait View<S, M, R>: Sized {
     type Children: ElementSeq<S, M, R>;
 
     type State;
+
+    type Event: 'static;
 
     fn lifecycle(
         &self,
@@ -21,7 +23,7 @@ pub trait View<S, M, R>: Sized + for<'event> EventTarget<'event> {
 
     fn event(
         &self,
-        _event: <Self as EventTarget>::Event,
+        _event: &Self::Event,
         _view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _context: &mut MessageContext<M>,

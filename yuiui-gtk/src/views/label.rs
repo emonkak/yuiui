@@ -1,5 +1,5 @@
 use gtk::{gdk, gio, glib, pango, prelude::*};
-use yuiui::{ElementSeq, EventTarget, Lifecycle, MessageContext, Store, View};
+use yuiui::{ElementSeq, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -59,6 +59,8 @@ impl<S, M, R> View<S, M, R> for Label {
 
     type State = gtk::Label;
 
+    type Event = ();
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -84,8 +86,4 @@ impl<S, M, R> View<S, M, R> for Label {
     ) -> Self::State {
         self.build()
     }
-}
-
-impl<'event> EventTarget<'event> for Label {
-    type Event = ();
 }

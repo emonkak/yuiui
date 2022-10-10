@@ -1,7 +1,7 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, Element, ElementSeq, EventTarget, Lifecycle, MessageContext, Store,
+    ComponentStack, Element, ElementSeq, Lifecycle, MessageContext, Store,
     Traversable, View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -59,6 +59,8 @@ where
 
     type State = gtk::Stack;
 
+    type Event = ();
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -91,10 +93,6 @@ where
     ) -> Self::State {
         self.build()
     }
-}
-
-impl<'event, Children> EventTarget<'event> for Stack<Children> {
-    type Event = ();
 }
 
 #[derive(WidgetBuilder, Debug, Clone)]
@@ -144,6 +142,8 @@ where
 
     type State = StackSwitcherState;
 
+    type Event = ();
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -182,10 +182,6 @@ where
     }
 }
 
-impl<'event, Children> EventTarget<'event> for StackSwitcher<Children> {
-    type Event = ();
-}
-
 #[derive(Debug)]
 pub struct StackSwitcherState {
     container: gtk::Box,
@@ -219,6 +215,8 @@ where
 
     type State = StackPageState<Child::State>;
 
+    type Event = Child::Event;
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -249,7 +247,7 @@ where
 
     fn event(
         &self,
-        event: <Self as EventTarget>::Event,
+        event: &Self::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
@@ -275,10 +273,6 @@ where
         let child_state = self.child.build(children, store, renderer);
         StackPageState::new(child_state)
     }
-}
-
-impl<'event, Child: EventTarget<'event>> EventTarget<'event> for StackPage<Child> {
-    type Event = Child::Event;
 }
 
 #[derive(Debug)]

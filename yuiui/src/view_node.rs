@@ -217,12 +217,12 @@ where
     pub(crate) fn dispatch_event(
         &mut self,
         id_path: &IdPath,
-        event: &dyn Any,
+        event: Box<dyn Any>,
         context: &mut MessageContext<M>,
         store: &Store<S>,
         renderer: &mut R,
     ) -> bool {
-        let mut visitor = DispatchEventVisitor::new(event, id_path);
+        let mut visitor = DispatchEventVisitor::new(&*event, id_path);
         visitor.visit(self, context, store, renderer)
     }
 

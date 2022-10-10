@@ -1,7 +1,7 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, ElementSeq, EventTarget, Lifecycle, MessageContext, Store, Traversable, View,
+    ComponentStack, ElementSeq, Lifecycle, MessageContext, Store, Traversable, View,
     ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -65,6 +65,8 @@ where
 
     type State = gtk::Box;
 
+    type Event = ();
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -97,10 +99,6 @@ where
     ) -> Self::State {
         self.build()
     }
-}
-
-impl<'event, Children> EventTarget<'event> for Box<Children> {
-    type Event = ();
 }
 
 pub struct ReconcileChildrenVisitor<'a> {

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
-use crate::event::{EventTarget, Lifecycle};
+use crate::event::Lifecycle;
 use crate::id::{Depth, Id};
 use crate::store::Store;
 use crate::traversable::Traversable;
@@ -147,6 +147,8 @@ where
 
     type State = T::State;
 
+    type Event = T::Event;
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -176,7 +178,7 @@ where
 
     fn event(
         &self,
-        event: <Self as EventTarget>::Event,
+        event: &Self::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
@@ -209,13 +211,6 @@ where
         let sub_store = (self.store_selector)(store);
         self.target.build(&mut children.target, sub_store, renderer)
     }
-}
-
-impl<'event, T, S, M, SS, SM> EventTarget<'event> for Connect<T, S, M, SS, SM>
-where
-    T: EventTarget<'event>,
-{
-    type Event = T::Event;
 }
 
 impl<T, S, M, SS, SM, R> ComponentStack<S, M, R> for Connect<T, S, M, SS, SM>

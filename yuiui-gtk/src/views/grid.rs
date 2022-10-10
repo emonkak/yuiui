@@ -1,7 +1,7 @@
 use gtk::{gdk, glib, prelude::*};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, ElementSeq, EventTarget, Lifecycle, MessageContext, Store, Traversable, View,
+    ComponentStack, ElementSeq, Lifecycle, MessageContext, Store, Traversable, View,
     ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -59,6 +59,8 @@ where
 
     type State = gtk::Grid;
 
+    type Event = ();
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -93,10 +95,6 @@ where
     }
 }
 
-impl<'event, Children> EventTarget<'event> for Grid<Children> {
-    type Event = ();
-}
-
 #[derive(Debug, Clone)]
 pub struct GridChild<Child> {
     child: Child,
@@ -126,6 +124,8 @@ where
 
     type State = Child::State;
 
+    type Event = Child::Event;
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -142,7 +142,7 @@ where
 
     fn event(
         &self,
-        event: <Self as EventTarget>::Event,
+        event: &Self::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         context: &mut MessageContext<M>,
@@ -161,10 +161,6 @@ where
     ) -> Self::State {
         self.child.build(children, store, renderer)
     }
-}
-
-impl<'event, Child: EventTarget<'event>> EventTarget<'event> for GridChild<Child> {
-    type Event = Child::Event;
 }
 
 pub struct ReconcileChildrenVisitor<'a> {

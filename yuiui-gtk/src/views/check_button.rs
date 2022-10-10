@@ -1,5 +1,5 @@
 use gtk::{gdk, glib, prelude::*};
-use yuiui::{ElementSeq, EventTarget, Lifecycle, MessageContext, Store, View};
+use yuiui::{ElementSeq, Lifecycle, MessageContext, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -49,6 +49,8 @@ impl<S, M, R> View<S, M, R> for CheckButton {
 
     type State = gtk::CheckButton;
 
+    type Event = ();
+
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -74,8 +76,4 @@ impl<S, M, R> View<S, M, R> for CheckButton {
     ) -> Self::State {
         self.build()
     }
-}
-
-impl<'event> EventTarget<'event> for CheckButton {
-    type Event = ();
 }
