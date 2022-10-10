@@ -1,7 +1,7 @@
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::id::{id_tree, Depth, IdPathBuf};
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 

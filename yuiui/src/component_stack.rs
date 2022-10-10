@@ -5,7 +5,7 @@ use crate::component_node::ComponentNode;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
 use crate::id::Depth;
-use crate::state::Store;
+use crate::store::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 

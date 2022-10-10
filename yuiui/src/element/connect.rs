@@ -5,7 +5,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{MessageContext, RenderContext};
 use crate::event::{EventTarget, Lifecycle};
 use crate::id::{Depth, Id};
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::Traversable;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
@@ -45,9 +45,9 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.store_selector)(state);
         let sub_node = self.target.render(context, sub_store);
         ViewNode {
             id: sub_node.id,
@@ -82,9 +82,9 @@ where
         self,
         mut node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.store_selector)(state);
         with_sub_node(&mut node, |sub_node| {
             self.target.update(sub_node, context, sub_store)
         })
@@ -98,17 +98,17 @@ where
     type Storage =
         ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, R>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        self.render(context, store)
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+        self.render(context, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
-        self.update(storage.into(), context, store)
+        self.update(storage.into(), context, state)
     }
 }
 
@@ -167,7 +167,11 @@ where
             sub_store,
             renderer,
         );
-        context.merge_sub_context(sub_context, &self.message_selector);
+        let messages = sub_context
+            .into_messages()
+            .into_iter()
+            .map(&self.message_selector);
+        context.extend_messages(messages);
     }
 
     fn event(
@@ -189,7 +193,11 @@ where
             sub_store,
             renderer,
         );
-        context.merge_sub_context(sub_context, &self.message_selector);
+        let messages = sub_context
+            .into_messages()
+            .into_iter()
+            .map(&self.message_selector);
+        context.extend_messages(messages);
     }
 
     fn build(
@@ -225,8 +233,7 @@ where
         context: &mut RenderContext,
         store: &Store<S>,
     ) -> bool {
-        let store_selector = &node.components.store_selector;
-        let sub_store = store_selector(store);
+        let sub_store = (node.components.store_selector)(store);
         with_sub_node(&mut node, |sub_node| {
             T::update(sub_node, target_depth, current_depth, context, sub_store)
         })
@@ -241,8 +248,7 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> bool {
-        let store_selector = &node.components.store_selector;
-        let sub_store = (store_selector)(store);
+        let sub_store = (node.components.store_selector)(store);
         match mode {
             CommitMode::Mount => sub_store.subscribe(context.id_path().to_vec(), current_depth),
             CommitMode::Unmount => sub_store.unsubscribe(context.id_path(), current_depth),
@@ -260,8 +266,11 @@ where
                 renderer,
             )
         });
-        let message_selector = &node.components.message_selector;
-        context.merge_sub_context(sub_context, message_selector);
+        let messages = sub_context
+            .into_messages()
+            .into_iter()
+            .map(&node.components.message_selector);
+        context.extend_messages(messages);
         result
     }
 }
@@ -272,8 +281,8 @@ where
 {
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        let sub_store = (self.store_selector)(store);
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+        let sub_store = (self.store_selector)(state);
         Connect::new(
             self.target.render_children(context, sub_store),
             self.store_selector.clone(),
@@ -285,9 +294,9 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.store_selector)(state);
         self.target
             .update_children(&mut storage.target, context, sub_store)
     }
@@ -319,7 +328,11 @@ where
         let result = self
             .target
             .commit(mode, &mut sub_context, sub_store, renderer);
-        context.merge_sub_context(sub_context, &self.message_selector);
+        let messages = sub_context
+            .into_messages()
+            .into_iter()
+            .map(&self.message_selector);
+        context.extend_messages(messages);
         result
     }
 
@@ -375,7 +388,11 @@ where
         let result = self
             .target
             .for_each(visitor, &mut sub_context, sub_store, renderer);
-        context.merge_sub_context(sub_context, &self.message_selector);
+        let messages = sub_context
+            .into_messages()
+            .into_iter()
+            .map(&self.message_selector);
+        context.extend_messages(messages);
         result
     }
 
@@ -392,7 +409,11 @@ where
         let result = self
             .target
             .for_id(id, visitor, &mut sub_context, sub_store, renderer);
-        context.merge_sub_context(sub_context, &self.message_selector);
+        let messages = sub_context
+            .into_messages()
+            .into_iter()
+            .map(&self.message_selector);
+        context.extend_messages(messages);
         result
     }
 }

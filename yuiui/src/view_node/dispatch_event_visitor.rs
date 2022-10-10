@@ -4,7 +4,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::MessageContext;
 use crate::event::{Event, EventTarget};
 use crate::id::IdPath;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 

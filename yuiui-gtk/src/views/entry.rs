@@ -6,7 +6,7 @@ use crate::renderer::{EventPort, Renderer};
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Entry)]
-pub struct Entry<M> {
+pub struct Entry<S, M> {
     activates_default: Option<bool>,
     attributes: Option<pango::AttrList>,
     buffer: Option<gtk::EntryBuffer>,
@@ -81,12 +81,12 @@ pub struct Entry<M> {
     width_chars: Option<i32>,
     xalign: Option<f32>,
     #[property(bind = false)]
-    on_activate: Option<Box<dyn Fn(&str) -> M>>,
+    on_activate: Option<Box<dyn Fn(&str, &S) -> M>>,
     #[property(bind = false)]
-    on_change: Option<Box<dyn Fn(&str) -> M>>,
+    on_change: Option<Box<dyn Fn(&str, &S) -> M>>,
 }
 
-impl<M> Entry<M> {
+impl<S, M> Entry<S, M> {
     fn update_text(&self, old_text: Option<&String>, widget: &gtk::Entry) {
         match (old_text, &self.text) {
             (Some(old_text), Some(new_text)) => {
@@ -109,7 +109,7 @@ impl<M> Entry<M> {
     }
 }
 
-impl<S, M> View<S, M, Renderer> for Entry<M> {
+impl<S, M> View<S, M, Renderer> for Entry<S, M> {
     type Children = ();
 
     type State = EntryState;
@@ -178,19 +178,19 @@ impl<S, M> View<S, M, Renderer> for Entry<M> {
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         context: &mut MessageContext<M>,
-        _store: &Store<S>,
+        store: &Store<S>,
         _renderer: &mut Renderer,
     ) {
         match event {
             Event::Activate(text) => {
                 if let Some(on_activate) = &self.on_activate {
-                    let message = on_activate(text.as_str());
+                    let message = on_activate(text.as_str(), store);
                     context.push_message(message);
                 }
             }
             Event::Changed(text) => {
                 if let Some(on_change) = &self.on_change {
-                    let message = on_change(text.as_str());
+                    let message = on_change(text.as_str(), store);
                     context.push_message(message);
                 }
             }
@@ -211,7 +211,7 @@ impl<S, M> View<S, M, Renderer> for Entry<M> {
     }
 }
 
-impl<'event, M> EventTarget<'event> for Entry<M> {
+impl<'event, S, M> EventTarget<'event> for Entry<S, M> {
     type Event = &'event Event;
 }
 

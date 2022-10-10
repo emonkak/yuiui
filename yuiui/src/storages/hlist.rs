@@ -3,14 +3,14 @@ use hlist::{HCons, HList, HNil};
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, M, R> ElementSeq<S, M, R> for HNil {
     type Storage = HNil;
 
-    fn render_children(self, _context: &mut RenderContext, _store: &Store<S>) -> Self::Storage {
+    fn render_children(self, _context: &mut RenderContext, _state: &S) -> Self::Storage {
         HNil
     }
 
@@ -18,7 +18,7 @@ impl<S, M, R> ElementSeq<S, M, R> for HNil {
         self,
         _nodes: &mut Self::Storage,
         _context: &mut RenderContext,
-        _store: &Store<S>,
+        _state: &S,
     ) -> bool {
         false
     }
@@ -32,10 +32,10 @@ where
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
         HCons {
-            head: self.head.render_children(context, store),
-            tail: self.tail.render_children(context, store),
+            head: self.head.render_children(context, state),
+            tail: self.tail.render_children(context, state),
         }
     }
 
@@ -43,11 +43,11 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         let mut has_changed = false;
-        has_changed |= self.head.update_children(&mut storage.head, context, store);
-        has_changed |= self.tail.update_children(&mut storage.tail, context, store);
+        has_changed |= self.head.update_children(&mut storage.head, context, state);
+        has_changed |= self.tail.update_children(&mut storage.tail, context, state);
         has_changed
     }
 }

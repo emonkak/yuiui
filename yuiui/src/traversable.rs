@@ -1,5 +1,5 @@
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 
 pub trait Traversable<Visitor, Context, Output, S, M, R> {
     fn for_each(

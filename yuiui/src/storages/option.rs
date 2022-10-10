@@ -4,7 +4,7 @@ use std::mem;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -35,14 +35,14 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
         let reserved_ids: Vec<Id> = T::Storage::SIZE_HINT
             .1
             .map(|upper| context.take_ids(upper).collect())
             .unwrap_or_default();
         context.preload_ids(&reserved_ids);
         OptionStorage::new(
-            self.map(|element| element.render_children(context, store)),
+            self.map(|element| element.render_children(context, state)),
             reserved_ids,
         )
     }
@@ -51,11 +51,11 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, context, store) {
+                if element.update_children(node, context, state) {
                     storage.flags |= RenderFlag::Updated;
                     storage.flags -= RenderFlag::Swapped;
                     true
@@ -65,10 +65,10 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, context, store);
+                    element.update_children(node, context, state);
                 } else {
                     context.preload_ids(&storage.reserved_ids);
-                    storage.staging = Some(element.render_children(context, store));
+                    storage.staging = Some(element.render_children(context, state));
                 }
                 storage.flags |= RenderFlag::Swapped;
                 true

@@ -6,7 +6,7 @@ use crate::component::Component;
 use crate::context::MessageContext;
 use crate::element::Element;
 use crate::event::Lifecycle;
-use crate::state::Store;
+use crate::store::Store;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
 pub struct ComponentNode<C: Component<S, M, R>, S, M, R> {

@@ -45,7 +45,7 @@ impl<T> Store<T> {
         self.dirty.set(false)
     }
 
-    pub fn dirty(&self) -> bool {
+    pub(crate) fn dirty(&self) -> bool {
         self.dirty.get()
     }
 }

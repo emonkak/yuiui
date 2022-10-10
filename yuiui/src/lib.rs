@@ -9,8 +9,8 @@ mod element;
 mod event;
 mod id;
 mod render_loop;
-mod state;
 mod storages;
+mod store;
 mod traversable;
 mod view;
 mod view_node;
@@ -26,7 +26,7 @@ pub use element::{ComponentEl, DebuggableElement, Element, ElementSeq, Memoize, 
 pub use event::{Event, EventTarget, Lifecycle};
 pub use id::{Depth, Id, IdPath, IdPathBuf};
 pub use render_loop::{RenderFlow, RenderLoop};
-pub use state::{State, Store};
+pub use store::{State, Store};
 pub use traversable::{Traversable, Visitor};
 pub use view::View;
 pub use view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};

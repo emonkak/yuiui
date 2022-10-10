@@ -1,7 +1,7 @@
 use crate::context::MessageContext;
 use crate::element::{ElementSeq, ViewEl};
 use crate::event::{EventTarget, Lifecycle};
-use crate::state::Store;
+use crate::store::Store;
 
 pub trait View<S, M, R>: Sized + for<'event> EventTarget<'event> {
     type Children: ElementSeq<S, M, R>;

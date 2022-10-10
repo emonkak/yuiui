@@ -1,7 +1,6 @@
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
-use crate::state::Store;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
@@ -31,11 +30,11 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
         let component_node = ComponentNode::new(self.component);
-        let element = component_node.component().render(store);
-        let node = element.render(context, store);
+        let element = component_node.component().render(state);
+        let node = element.render(context, state);
         ViewNode {
             id: node.id,
             view: node.view,
@@ -51,10 +50,10 @@ where
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         let (head_node, tail_nodes) = node.components;
-        let element = self.component.render(store);
+        let element = self.component.render(state);
         head_node.update(self.component);
         *node.dirty = true;
         let node = ViewNodeMut {
@@ -66,7 +65,7 @@ where
             components: tail_nodes,
             dirty: node.dirty,
         };
-        element.update(node, context, store)
+        element.update(node, context, state)
     }
 }
 
@@ -77,16 +76,16 @@ where
     type Storage =
         ViewNode<<Self as Element<S, M, R>>::View, <Self as Element<S, M, R>>::Components, S, M, R>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        self.render(context, store)
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+        self.render(context, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
-        self.update(storage.into(), context, store)
+        self.update(storage.into(), context, state)
     }
 }

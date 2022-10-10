@@ -2,7 +2,6 @@ use std::fmt;
 
 use crate::component_stack::ComponentEnd;
 use crate::context::{IdContext, RenderContext};
-use crate::state::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
@@ -33,11 +32,11 @@ where
     fn render(
         self,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
         let id = context.next_id();
         context.push_id(id);
-        let children = self.children.render_children(context, store);
+        let children = self.children.render_children(context, state);
         let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
         context.pop_id();
         node
@@ -47,11 +46,11 @@ where
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         context.push_id(node.id);
 
-        self.children.update_children(node.children, context, store);
+        self.children.update_children(node.children, context, state);
 
         *node.pending_view = Some(self.view);
         *node.dirty = true;
@@ -69,17 +68,17 @@ where
     type Storage =
         ViewNode<<Self as Element<S, M, R>>::View, <Self as Element<S, M, R>>::Components, S, M, R>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        self.render(context, store)
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+        self.render(context, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
-        self.update(storage.into(), context, store)
+        self.update(storage.into(), context, state)
     }
 }
 

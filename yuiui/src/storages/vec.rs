@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -35,10 +35,10 @@ where
 {
     type Storage = VecStorage<T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render_children(context, store))
+                .map(|element| element.render_children(context, state))
                 .collect(),
         )
     }
@@ -47,7 +47,7 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         let mut has_changed = storage.active.len() != self.len();
 
@@ -59,14 +59,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update_children(node, context, store);
+                has_changed |= element.update_children(node, context, state);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update_children(node, context, store);
+                    has_changed |= element.update_children(node, context, state);
                 } else {
-                    let node = element.render_children(context, store);
+                    let node = element.render_children(context, state);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }

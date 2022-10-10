@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use hlist::hlist;
 use std::rc::Rc;
-use yuiui::{Effect, HigherOrderComponent, Memoize, State, Store, View};
+use yuiui::{Effect, HigherOrderComponent, Memoize, State, View};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
 
@@ -63,12 +63,12 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
             .label(todo.text.to_owned())
             .el(),
         Button::new()
-            .on_click(Box::new(move || AppMessage::RemoveTodo(id)))
+            .on_click(Box::new(move |_| AppMessage::RemoveTodo(id)))
             .el_with(Label::new().label("Delete".to_owned()).el())
     ])
 }
 
-fn todo_list(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage> {
+fn todo_list(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
     ListBox::new()
         .hexpand(true)
         .el_with(Vec::from_iter(store.todos.iter().map(|todo| {
@@ -79,13 +79,13 @@ fn todo_list(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, 
         })))
 }
 
-fn app(_props: &(), store: &Store<AppState>) -> impl GtkElement<AppState, AppMessage> {
+fn app(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
     vbox().hexpand(true).vexpand(true).el_with(hlist![
         Entry::new()
             .text(store.text.to_owned())
             .hexpand(true)
-            .on_activate(Box::new(|text| AppMessage::AddTodo(text.to_owned())))
-            .on_change(Box::new(|text| AppMessage::ChangeText(text.to_owned())))
+            .on_activate(Box::new(|text, _| AppMessage::AddTodo(text.to_owned())))
+            .on_change(Box::new(|text, _| AppMessage::ChangeText(text.to_owned())))
             .el(),
         ScrolledWindow::new()
             .hexpand(true)

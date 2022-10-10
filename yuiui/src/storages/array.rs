@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -27,21 +27,21 @@ where
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render_children(context, store)))
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+        ArrayStorage::new(self.map(|element| element.render_children(context, state)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update_children(node, context, store);
+            has_changed |= element.update_children(node, context, state);
         }
 
         storage.dirty |= has_changed;

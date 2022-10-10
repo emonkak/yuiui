@@ -69,21 +69,11 @@ impl<T> MessageContext<T> {
         }
     }
 
-    pub(crate) fn new_sub_context<U>(&mut self) -> MessageContext<U> {
+    pub(crate) fn new_sub_context<U>(&self) -> MessageContext<U> {
         MessageContext {
             id_path: self.id_path.clone(),
             messages: Vec::new(),
         }
-    }
-
-    pub(crate) fn merge_sub_context<U, F: Fn(U) -> T>(
-        &mut self,
-        sub_context: MessageContext<U>,
-        f: &F,
-    ) {
-        assert!(sub_context.id_path.starts_with(&self.id_path));
-        let new_messages = sub_context.messages.into_iter().map(f);
-        self.messages.extend(new_messages);
     }
 
     pub fn id_path(&self) -> &IdPath {
@@ -92,6 +82,10 @@ impl<T> MessageContext<T> {
 
     pub fn push_message(&mut self, message: T) {
         self.messages.push(message);
+    }
+
+    pub fn extend_messages(&mut self, messages: impl IntoIterator<Item = T>) {
+        self.messages.extend(messages);
     }
 
     pub fn into_messages(self) -> Vec<T> {

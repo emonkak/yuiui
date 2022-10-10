@@ -1,14 +1,14 @@
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, M, R> ElementSeq<S, M, R> for () {
     type Storage = ();
 
-    fn render_children(self, _context: &mut RenderContext, _store: &Store<S>) -> Self::Storage {
+    fn render_children(self, _context: &mut RenderContext, _state: &S) -> Self::Storage {
         ()
     }
 
@@ -16,7 +16,7 @@ impl<S, M, R> ElementSeq<S, M, R> for () {
         self,
         _nodes: &mut Self::Storage,
         _context: &mut RenderContext,
-        _store: &Store<S>,
+        _state: &S,
     ) -> bool {
         false
     }
@@ -93,17 +93,17 @@ macro_rules! define_tuple_impl {
         {
             type Storage = ($($T::Storage,)*);
 
-            fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
-                ($(self.$n.render_children(context, store),)*)
+            fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+                ($(self.$n.render_children(context, state),)*)
             }
 
             fn update_children(
                 self,
                 storage: &mut Self::Storage,
                 context: &mut RenderContext,
-                store: &Store<S>,
+                state: &S,
             ) -> bool {
-                $(self.$n.update_children(&mut storage.$n, context, store))||*
+                $(self.$n.update_children(&mut storage.$n, context, state))||*
             }
         }
 

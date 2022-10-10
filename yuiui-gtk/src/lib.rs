@@ -1,7 +1,7 @@
 pub mod views;
 
-mod entry_point;
 mod command_context;
+mod entry_point;
 mod renderer;
 
 pub use entry_point::{DefaultEntryPoint, EntryPoint};

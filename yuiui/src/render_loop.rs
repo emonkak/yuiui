@@ -8,7 +8,7 @@ use crate::command::CommandContext;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::id::{Depth, IdPath, IdPathBuf, IdTree};
-use crate::state::{State, Store};
+use crate::store::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 

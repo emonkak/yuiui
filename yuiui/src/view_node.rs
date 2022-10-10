@@ -11,7 +11,7 @@ use crate::context::{IdContext, MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
 use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 

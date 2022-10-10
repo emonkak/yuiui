@@ -5,7 +5,7 @@ use std::mem;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::id::Id;
-use crate::state::Store;
+use crate::store::Store;
 use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
@@ -39,7 +39,7 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, store: &Store<S>) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
         let left_reserved_ids: Vec<Id> = L::Storage::SIZE_HINT
             .1
             .map(|upper| context.take_ids(upper).collect())
@@ -52,7 +52,7 @@ where
             Either::Left(element) => {
                 context.preload_ids(&left_reserved_ids);
                 EitherStorage::new(
-                    Either::Left(element.render_children(context, store)),
+                    Either::Left(element.render_children(context, state)),
                     left_reserved_ids,
                     right_reserved_ids,
                 )
@@ -60,7 +60,7 @@ where
             Either::Right(element) => {
                 context.preload_ids(&right_reserved_ids);
                 EitherStorage::new(
-                    Either::Right(element.render_children(context, store)),
+                    Either::Right(element.render_children(context, state)),
                     left_reserved_ids,
                     right_reserved_ids,
                 )
@@ -72,11 +72,11 @@ where
         self,
         storage: &mut Self::Storage,
         context: &mut RenderContext,
-        store: &Store<S>,
+        state: &S,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update_children(node, context, store) {
+                if element.update_children(node, context, state) {
                     storage.flags |= RenderFlag::Updated;
                     storage.flags -= RenderFlag::Swapped;
                     true
@@ -85,7 +85,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update_children(node, context, store) {
+                if element.update_children(node, context, state) {
                     storage.flags |= RenderFlag::Updated;
                     storage.flags -= RenderFlag::Swapped;
                     true
@@ -96,12 +96,12 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update_children(node, context, store);
+                        element.update_children(node, context, state);
                     }
                     None => {
                         context.preload_ids(&storage.right_reserved_ids);
                         storage.staging =
-                            Some(Either::Right(element.render_children(context, store)));
+                            Some(Either::Right(element.render_children(context, state)));
                     }
                     _ => unreachable!(),
                 };
@@ -111,12 +111,12 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update_children(node, context, store);
+                        element.update_children(node, context, state);
                     }
                     None => {
                         context.preload_ids(&storage.left_reserved_ids);
                         storage.staging =
-                            Some(Either::Left(element.render_children(context, store)));
+                            Some(Either::Left(element.render_children(context, state)));
                     }
                     _ => unreachable!(),
                 }
