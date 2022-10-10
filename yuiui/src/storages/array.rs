@@ -1,8 +1,7 @@
 use std::cmp::Ordering;
 
-use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::Id;
+use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
@@ -27,21 +26,21 @@ where
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render_children(context, state)))
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
+        ArrayStorage::new(self.map(|element| element.render_children(id_context, state)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update_children(node, context, state);
+            has_changed |= element.update_children(node, id_context, state);
         }
 
         storage.dirty |= has_changed;
@@ -79,14 +78,15 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagatable() {
             for node in &mut self.nodes {
-                result |= node.commit(mode, context, store, renderer);
+                result |= node.commit(mode, id_context, store, messages, renderer);
             }
             self.dirty = false;
         }
@@ -102,22 +102,22 @@ where
     }
 }
 
-impl<T, S, M, R, Visitor, Context, Output, const N: usize>
-    Traversable<Visitor, Context, Output, S, M, R> for ArrayStorage<T, N>
+impl<T, S, M, R, Visitor, Output, const N: usize> Traversable<Visitor, Output, S, M, R>
+    for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Context, Output, S, M, R> + ViewNodeSeq<S, M, R>,
+    T: Traversable<Visitor, Output, S, M, R> + ViewNodeSeq<S, M, R>,
     Output: Monoid,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Output {
         let mut result = Output::default();
         for node in &mut self.nodes {
-            result = result.combine(node.for_each(visitor, context, store, renderer));
+            result = result.combine(node.for_each(visitor, id_context, store, renderer));
         }
         result
     }
@@ -126,7 +126,7 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Option<Output> {
@@ -143,11 +143,11 @@ where
                 })
             }) {
                 let node = &mut self.nodes[index];
-                return node.for_id(id, visitor, context, store, renderer);
+                return node.for_id(id, visitor, id_context, store, renderer);
             }
         } else {
             for node in &mut self.nodes {
-                if let Some(result) = node.for_id(id, visitor, context, store, renderer) {
+                if let Some(result) = node.for_id(id, visitor, id_context, store, renderer) {
                     return Some(result);
                 }
             }

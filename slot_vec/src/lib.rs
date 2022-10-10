@@ -3,10 +3,8 @@ pub mod tree;
 
 pub type Key = usize;
 
-use std::fmt;
-use std::mem;
 use std::ops::{Index, IndexMut};
-use std::vec;
+use std::{fmt, mem, vec};
 
 #[derive(Clone, Default)]
 pub struct SlotVec<T> {

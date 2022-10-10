@@ -1,8 +1,7 @@
 use hlist::{HCons, HList, HNil};
 
-use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::Id;
+use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
@@ -10,14 +9,14 @@ use crate::view_node::{CommitMode, ViewNodeSeq};
 impl<S, M, R> ElementSeq<S, M, R> for HNil {
     type Storage = HNil;
 
-    fn render_children(self, _context: &mut RenderContext, _state: &S) -> Self::Storage {
+    fn render_children(self, _id_context: &mut IdContext, _state: &S) -> Self::Storage {
         HNil
     }
 
     fn update_children(
         self,
         _nodes: &mut Self::Storage,
-        _context: &mut RenderContext,
+        _id_context: &mut IdContext,
         _state: &S,
     ) -> bool {
         false
@@ -32,22 +31,26 @@ where
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         HCons {
-            head: self.head.render_children(context, state),
-            tail: self.tail.render_children(context, state),
+            head: self.head.render_children(id_context, state),
+            tail: self.tail.render_children(id_context, state),
         }
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         let mut has_changed = false;
-        has_changed |= self.head.update_children(&mut storage.head, context, state);
-        has_changed |= self.tail.update_children(&mut storage.tail, context, state);
+        has_changed |= self
+            .head
+            .update_children(&mut storage.head, id_context, state);
+        has_changed |= self
+            .tail
+            .update_children(&mut storage.tail, id_context, state);
         has_changed
     }
 }
@@ -66,8 +69,9 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) -> bool {
         false
@@ -108,12 +112,17 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
-        let head_result = self.head.commit(mode, context, store, renderer);
-        let tail_result = self.tail.commit(mode, context, store, renderer);
+        let head_result = self
+            .head
+            .commit(mode, id_context, store, messages, renderer);
+        let tail_result = self
+            .tail
+            .commit(mode, id_context, store, messages, renderer);
         head_result || tail_result
     }
 
@@ -123,14 +132,14 @@ where
     }
 }
 
-impl<Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R> for HNil
+impl<Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for HNil
 where
     Output: Default,
 {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
-        _context: &mut Context,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Output {
@@ -141,7 +150,7 @@ where
         &mut self,
         _id: Id,
         _visitor: &mut Visitor,
-        _context: &mut Context,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Option<Output> {
@@ -149,35 +158,34 @@ where
     }
 }
 
-impl<H, T, Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R>
-    for HCons<H, T>
+impl<H, T, Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for HCons<H, T>
 where
-    H: Traversable<Visitor, Context, Output, S, M, R>,
-    T: Traversable<Visitor, Context, Output, S, M, R> + HList,
+    H: Traversable<Visitor, Output, S, M, R>,
+    T: Traversable<Visitor, Output, S, M, R> + HList,
     Output: Monoid,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Output {
         self.head
-            .for_each(visitor, context, store, renderer)
-            .combine(self.tail.for_each(visitor, context, store, renderer))
+            .for_each(visitor, id_context, store, renderer)
+            .combine(self.tail.for_each(visitor, id_context, store, renderer))
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Option<Output> {
         self.head
-            .for_id(id, visitor, context, store, renderer)
-            .or_else(|| self.tail.for_id(id, visitor, context, store, renderer))
+            .for_id(id, visitor, id_context, store, renderer)
+            .or_else(|| self.tail.for_id(id, visitor, id_context, store, renderer))
     }
 }

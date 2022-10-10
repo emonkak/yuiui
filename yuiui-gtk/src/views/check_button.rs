@@ -1,5 +1,6 @@
-use gtk::{gdk, glib, prelude::*};
-use yuiui::{ElementSeq, Lifecycle, MessageContext, Store, View};
+use gtk::prelude::*;
+use gtk::{gdk, glib};
+use yuiui::{ElementSeq, IdContext, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -56,8 +57,9 @@ impl<S, M, R> View<S, M, R> for CheckButton {
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
         match lifecycle {

@@ -1,34 +1,34 @@
-use crate::id::Id;
+use crate::id::{Id, IdContext};
 use crate::store::Store;
 
-pub trait Traversable<Visitor, Context, Output, S, M, R> {
+pub trait Traversable<Visitor, Output, S, M, R> {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output;
+    ) -> Output
+    where
+        Output: Monoid;
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Option<Output>;
 }
 
-pub trait Visitor<Node, S, R> {
-    type Context;
-
-    type Output: Monoid;
+pub trait Visitor<Node, S, M, R> {
+    type Output;
 
     fn visit(
         &mut self,
         node: &mut Node,
-        context: &mut Self::Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::Output;
@@ -39,18 +39,21 @@ pub trait Monoid: Default {
 }
 
 impl Monoid for () {
+    #[inline]
     fn combine(self, _other: Self) -> Self {
         ()
     }
 }
 
 impl Monoid for bool {
+    #[inline]
     fn combine(self, other: Self) -> Self {
         self || other
     }
 }
 
 impl<T> Monoid for Vec<T> {
+    #[inline]
     fn combine(mut self, other: Self) -> Self {
         self.extend(other);
         self

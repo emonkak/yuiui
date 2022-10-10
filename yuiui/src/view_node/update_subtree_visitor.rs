@@ -1,6 +1,5 @@
 use crate::component_stack::ComponentStack;
-use crate::context::RenderContext;
-use crate::id::{id_tree, Depth, IdPathBuf};
+use crate::id::{id_tree, Depth, IdContext, IdPathBuf};
 use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -9,55 +8,55 @@ use super::ViewNode;
 
 pub struct UpdateSubtreeVisitor<'a> {
     cursor: id_tree::Cursor<'a, Depth>,
+    updated_addresses: Vec<(IdPathBuf, Depth)>,
 }
 
 impl<'a> UpdateSubtreeVisitor<'a> {
     pub fn new(cursor: id_tree::Cursor<'a, Depth>) -> Self {
-        Self { cursor }
+        Self {
+            cursor,
+            updated_addresses: Vec::new(),
+        }
+    }
+
+    pub fn into_result(self) -> Vec<(IdPathBuf, Depth)> {
+        self.updated_addresses
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for UpdateSubtreeVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for UpdateSubtreeVisitor<'a>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Context = RenderContext;
-
-    type Output = Vec<(IdPathBuf, Depth)>;
+    type Output = ();
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::Output {
         if let (Some(&depth), true) = (self.cursor.current().value(), store.dirty()) {
             store.mark_clean();
             let is_updated = if depth < CS::LEN {
-                CS::update(node.into(), depth, 0, context, store)
+                CS::update(node.into(), depth, 0, id_context, store)
             } else {
                 node.dirty = true;
-                node.children.for_each(self, context, store, renderer);
+                node.children.for_each(self, id_context, store, renderer);
                 true
             };
             if is_updated {
-                vec![(context.id_path().to_vec(), depth)]
-            } else {
-                vec![]
+                self.updated_addresses
+                    .push((id_context.id_path().to_vec(), depth));
             }
         } else {
-            let mut result = Vec::new();
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                if let Some(child_result) = node.children.for_id(id, self, context, store, renderer)
-                {
-                    result.extend(child_result);
-                }
+                node.children.for_id(id, self, id_context, store, renderer);
             }
-            result
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::context::MessageContext;
 use crate::element::{ComponentEl, Element};
 use crate::event::Lifecycle;
+use crate::id::IdContext;
 use crate::store::Store;
 use crate::view_node::ViewNodeMut;
 
@@ -21,8 +21,9 @@ pub trait Component<S, M, R>: Sized {
             M,
             R,
         >,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
     }
@@ -38,8 +39,9 @@ pub trait ComponentProps<S, M, R>: Sized {
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<Self>,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
     }
@@ -88,10 +90,10 @@ pub struct FunctionComponent<
     M,
     R,
     RenderFn = fn(&Props, &S) -> E,
-    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
+    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut R),
 > where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut R),
 {
     props: Props,
     render_fn: RenderFn,
@@ -103,7 +105,7 @@ impl<Props, E, S, M, R, RenderFn, LifeCycleFn>
     FunctionComponent<Props, E, S, M, R, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut R),
 {
     pub fn new(props: Props, render_fn: RenderFn, lifecycle_fn: LifeCycleFn) -> Self {
         Self {
@@ -120,7 +122,7 @@ impl<Props, E, S, M, R, RenderFn, LifeCycleFn> Component<S, M, R>
 where
     E: Element<S, M, R>,
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut R),
 {
     type Element = E;
 
@@ -135,12 +137,20 @@ where
             M,
             R,
         >,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
         let lifecycle = lifecycle.map(|component| component.props);
-        (self.lifecycle_fn)(&self.props, lifecycle, context, store, renderer)
+        (self.lifecycle_fn)(
+            &self.props,
+            lifecycle,
+            id_context,
+            store,
+            messages,
+            renderer,
+        )
     }
 
     fn render(&self, state: &S) -> Self::Element {
@@ -153,7 +163,8 @@ impl<Props, E, S, M, R, RenderFn, LifeCycleFn> Clone
 where
     Props: Clone,
     RenderFn: Clone + Fn(&Props, &S) -> E,
-    LifeCycleFn: Clone + Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
+    LifeCycleFn:
+        Clone + Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut R),
 {
     fn clone(&self) -> Self {
         Self {
@@ -170,7 +181,7 @@ impl<Props, E, S, M, R, RenderFn, LifeCycleFn> fmt::Debug
 where
     Props: fmt::Debug,
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut MessageContext<M>, &Store<S>, &mut R),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut R),
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("FunctionComponent")

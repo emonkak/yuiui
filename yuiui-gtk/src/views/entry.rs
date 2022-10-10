@@ -1,5 +1,6 @@
-use gtk::{gdk, gio, glib, pango, prelude::*};
-use yuiui::{ElementSeq, IdPathBuf, Lifecycle, MessageContext, Store, View};
+use gtk::prelude::*;
+use gtk::{gdk, gio, glib, pango};
+use yuiui::{ElementSeq, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::renderer::{EventPort, Renderer};
@@ -121,21 +122,24 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         renderer: &mut Renderer,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
                     state.connect_activate(
-                        context.id_path().to_vec(),
+                        id_context.id_path().to_vec(),
                         renderer.event_port().clone(),
                     );
                 }
                 if self.on_change.is_some() {
-                    state
-                        .connect_changed(context.id_path().to_vec(), renderer.event_port().clone());
+                    state.connect_changed(
+                        id_context.id_path().to_vec(),
+                        renderer.event_port().clone(),
+                    );
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -145,7 +149,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                     }
                     (None, Some(_)) => {
                         state.connect_activate(
-                            context.id_path().to_vec(),
+                            id_context.id_path().to_vec(),
                             renderer.event_port().clone(),
                         );
                     }
@@ -157,7 +161,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                     }
                     (None, Some(_)) => {
                         state.connect_changed(
-                            context.id_path().to_vec(),
+                            id_context.id_path().to_vec(),
                             renderer.event_port().clone(),
                         );
                     }
@@ -179,21 +183,22 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
         event: &Self::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
-        context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         _renderer: &mut Renderer,
     ) {
         match event {
             Event::Activate(text) => {
                 if let Some(on_activate) = &self.on_activate {
                     let message = on_activate(text.as_str(), store);
-                    context.push_message(message);
+                    messages.push(message);
                 }
             }
             Event::Changed(text) => {
                 if let Some(on_change) = &self.on_change {
                     let message = on_change(text.as_str(), store);
-                    context.push_message(message);
+                    messages.push(message);
                 }
             }
         }

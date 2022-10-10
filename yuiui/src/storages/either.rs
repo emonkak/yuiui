@@ -2,11 +2,10 @@ use bit_flags::BitFlags;
 use either::Either;
 use std::mem;
 
-use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::Id;
+use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::Traversable;
+use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::RenderFlag;
@@ -39,28 +38,28 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         let left_reserved_ids: Vec<Id> = L::Storage::SIZE_HINT
             .1
-            .map(|upper| context.take_ids(upper).collect())
+            .map(|upper| id_context.take_ids(upper))
             .unwrap_or_default();
         let right_reserved_ids: Vec<Id> = R::Storage::SIZE_HINT
             .1
-            .map(|upper| context.take_ids(upper).collect())
+            .map(|upper| id_context.take_ids(upper))
             .unwrap_or_default();
         match self {
             Either::Left(element) => {
-                context.preload_ids(&left_reserved_ids);
+                id_context.preload_ids(&left_reserved_ids);
                 EitherStorage::new(
-                    Either::Left(element.render_children(context, state)),
+                    Either::Left(element.render_children(id_context, state)),
                     left_reserved_ids,
                     right_reserved_ids,
                 )
             }
             Either::Right(element) => {
-                context.preload_ids(&right_reserved_ids);
+                id_context.preload_ids(&right_reserved_ids);
                 EitherStorage::new(
-                    Either::Right(element.render_children(context, state)),
+                    Either::Right(element.render_children(id_context, state)),
                     left_reserved_ids,
                     right_reserved_ids,
                 )
@@ -71,12 +70,12 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update_children(node, context, state) {
+                if element.update_children(node, id_context, state) {
                     storage.flags |= RenderFlag::Updated;
                     storage.flags -= RenderFlag::Swapped;
                     true
@@ -85,7 +84,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update_children(node, context, state) {
+                if element.update_children(node, id_context, state) {
                     storage.flags |= RenderFlag::Updated;
                     storage.flags -= RenderFlag::Swapped;
                     true
@@ -96,12 +95,12 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update_children(node, context, state);
+                        element.update_children(node, id_context, state);
                     }
                     None => {
-                        context.preload_ids(&storage.right_reserved_ids);
+                        id_context.preload_ids(&storage.right_reserved_ids);
                         storage.staging =
-                            Some(Either::Right(element.render_children(context, state)));
+                            Some(Either::Right(element.render_children(id_context, state)));
                     }
                     _ => unreachable!(),
                 };
@@ -111,12 +110,12 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update_children(node, context, state);
+                        element.update_children(node, id_context, state);
                     }
                     None => {
-                        context.preload_ids(&storage.left_reserved_ids);
+                        id_context.preload_ids(&storage.left_reserved_ids);
                         storage.staging =
-                            Some(Either::Left(element.render_children(context, state)));
+                            Some(Either::Left(element.render_children(id_context, state)));
                     }
                     _ => unreachable!(),
                 }
@@ -178,8 +177,9 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut Renderer,
     ) -> bool {
         let mut result = false;
@@ -187,24 +187,28 @@ where
             if self.flags.contains(RenderFlag::Commited) {
                 result |= match &mut self.active {
                     Either::Left(node) => {
-                        node.commit(CommitMode::Unmount, context, store, renderer)
+                        node.commit(CommitMode::Unmount, id_context, store, messages, renderer)
                     }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, context, store, renderer)
+                        node.commit(CommitMode::Unmount, id_context, store, messages, renderer)
                     }
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(CommitMode::Mount, context, store, renderer),
-                    Either::Right(node) => node.commit(CommitMode::Mount, context, store, renderer),
+                    Either::Left(node) => {
+                        node.commit(CommitMode::Mount, id_context, store, messages, renderer)
+                    }
+                    Either::Right(node) => {
+                        node.commit(CommitMode::Mount, id_context, store, messages, renderer)
+                    }
                 };
             }
         } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagatable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, context, store, renderer),
-                Either::Right(node) => node.commit(mode, context, store, renderer),
+                Either::Left(node) => node.commit(mode, id_context, store, messages, renderer),
+                Either::Right(node) => node.commit(mode, id_context, store, messages, renderer),
             };
         }
         self.flags.set(RenderFlag::Commited);
@@ -222,22 +226,25 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, Output, S, M, Renderer>
-    Traversable<Visitor, Context, Output, S, M, Renderer> for EitherStorage<L, R>
+impl<L, R, Visitor, Output, S, M, Renderer> Traversable<Visitor, Output, S, M, Renderer>
+    for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, Output, S, M, Renderer>,
-    R: Traversable<Visitor, Context, Output, S, M, Renderer>,
+    L: Traversable<Visitor, Output, S, M, Renderer>,
+    R: Traversable<Visitor, Output, S, M, Renderer>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut Renderer,
-    ) -> Output {
+    ) -> Output
+    where
+        Output: Monoid,
+    {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, context, store, renderer),
-            Either::Right(node) => node.for_each(visitor, context, store, renderer),
+            Either::Left(node) => node.for_each(visitor, id_context, store, renderer),
+            Either::Right(node) => node.for_each(visitor, id_context, store, renderer),
         }
     }
 
@@ -245,13 +252,13 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut Renderer,
     ) -> Option<Output> {
         match &mut self.active {
-            Either::Left(node) => node.for_id(id, visitor, context, store, renderer),
-            Either::Right(node) => node.for_id(id, visitor, context, store, renderer),
+            Either::Left(node) => node.for_id(id, visitor, id_context, store, renderer),
+            Either::Right(node) => node.for_id(id, visitor, id_context, store, renderer),
         }
     }
 }

@@ -1,11 +1,10 @@
-use std::fmt;
 use std::marker::PhantomData;
-use std::mem;
+use std::{fmt, mem};
 
 use crate::component::Component;
-use crate::context::MessageContext;
 use crate::element::Element;
 use crate::event::Lifecycle;
+use crate::id::IdContext;
 use crate::store::Store;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
@@ -44,8 +43,9 @@ where
             M,
             R,
         >,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         match mode {
@@ -56,7 +56,7 @@ where
                     Lifecycle::Mount
                 };
                 self.component
-                    .lifecycle(lifecycle, view_node, context, store, renderer);
+                    .lifecycle(lifecycle, view_node, id_context, store, messages, renderer);
                 self.is_mounted = true;
                 true
             }
@@ -66,8 +66,9 @@ where
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
                         view_node,
-                        context,
+                        id_context,
                         store,
+                        messages,
                         renderer,
                     );
                     true
@@ -76,8 +77,14 @@ where
                 }
             }
             CommitMode::Unmount => {
-                self.component
-                    .lifecycle(Lifecycle::Unmount, view_node, context, store, renderer);
+                self.component.lifecycle(
+                    Lifecycle::Unmount,
+                    view_node,
+                    id_context,
+                    store,
+                    messages,
+                    renderer,
+                );
                 true
             }
         }

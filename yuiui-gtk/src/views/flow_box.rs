@@ -1,8 +1,9 @@
-use gtk::{gdk, glib, prelude::*};
+use gtk::prelude::*;
+use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, Element, ElementSeq, Lifecycle, MessageContext, Store,
-    Traversable, View, ViewNode, ViewNodeSeq, Visitor,
+    ComponentStack, Element, ElementSeq, IdContext, Lifecycle, Store, Traversable, View, ViewNode,
+    ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -55,8 +56,7 @@ pub struct FlowBox<Children> {
 impl<Children, S, M, R> View<S, M, R> for FlowBox<Children>
 where
     Children: ElementSeq<S, M, R>,
-    Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, R>,
+    Children::Storage: for<'a> Traversable<ReconcileChildrenVisitor<'a>, (), S, M, R>,
 {
     type Children = Children;
 
@@ -69,8 +69,9 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        _messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
         let is_static = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
@@ -84,7 +85,7 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, context, store, renderer);
+            children.for_each(&mut visitor, id_context, store, renderer);
         }
     }
 
@@ -151,8 +152,9 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
         match lifecycle {
@@ -192,19 +194,17 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for ReconcileChildrenVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for ReconcileChildrenVisitor<'a>
 where
     V: View<S, M, R, State = gtk::FlowBoxChild>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Context = MessageContext<M>;
-
     type Output = ();
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {

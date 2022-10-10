@@ -1,20 +1,18 @@
 use std::any::Any;
 use std::collections::{BTreeMap, VecDeque};
-use std::fmt;
-use std::mem;
 use std::time::{Duration, Instant};
+use std::{fmt, mem};
 
 use crate::command::CommandContext;
-use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
-use crate::id::{Depth, IdPath, IdPathBuf, IdTree};
+use crate::id::{Depth, IdContext, IdPath, IdPathBuf, IdTree};
 use crate::store::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
 pub struct RenderLoop<E: Element<S, M, R>, S, M, R> {
     node: ViewNode<E::View, E::Components, S, M, R>,
-    render_context: RenderContext,
+    id_context: IdContext,
     message_queue: VecDeque<M>,
     event_queue: VecDeque<(IdPathBuf, Box<dyn Any + Send + 'static>)>,
     nodes_to_update: BTreeMap<IdPathBuf, Depth>,
@@ -28,11 +26,11 @@ where
     S: State<Message = M>,
 {
     pub fn create(element: E, store: &Store<S>) -> Self {
-        let mut context = RenderContext::new();
+        let mut context = IdContext::new();
         let node = element.render(&mut context, store);
         Self {
             node,
-            render_context: context,
+            id_context: context,
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
             nodes_to_update: BTreeMap::new(),
@@ -86,7 +84,7 @@ where
                 let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_update));
                 let changed_nodes =
                     self.node
-                        .update_subtree(&id_tree, store, renderer, &mut self.render_context);
+                        .update_subtree(&id_tree, store, renderer, &mut self.id_context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         if let Some(current_depth) = self.nodes_to_commit.get_mut(&id_path) {
@@ -104,19 +102,25 @@ where
             if self.is_mounted {
                 if !self.nodes_to_commit.is_empty() {
                     let id_tree = IdTree::from_iter(mem::take(&mut self.nodes_to_commit));
-                    let mut context = MessageContext::new();
-                    self.node
-                        .commit_subtree(&id_tree, &mut context, store, renderer);
-                    self.message_queue.extend(context.into_messages());
+                    let messages =
+                        self.node
+                            .commit_subtree(&id_tree, &mut self.id_context, store, renderer);
+                    self.message_queue.extend(messages);
                     if deadline.did_timeout() {
                         return self.render_flow();
                     }
                 }
             } else {
-                let mut context = MessageContext::new();
-                self.node
-                    .commit_within(CommitMode::Mount, 0, &mut context, store, renderer);
-                self.message_queue.extend(context.into_messages());
+                let mut messages = Vec::new();
+                self.node.commit_within(
+                    CommitMode::Mount,
+                    0,
+                    &mut self.id_context,
+                    store,
+                    &mut messages,
+                    renderer,
+                );
+                self.message_queue.extend(messages);
                 self.is_mounted = true;
                 if deadline.did_timeout() {
                     return self.render_flow();
@@ -158,10 +162,10 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) {
-        let mut context = MessageContext::new();
-        self.node
-            .dispatch_event(&id_path, event, &mut context, store, renderer);
-        self.message_queue.extend(context.into_messages());
+        let messages =
+            self.node
+                .dispatch_event(&id_path, event, &mut self.id_context, store, renderer);
+        self.message_queue.extend(messages);
     }
 
     fn render_flow(&self) -> RenderFlow {
@@ -191,7 +195,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderLoop")
             .field("node", &self.node)
-            .field("render_context", &self.render_context)
+            .field("id_context", &self.id_context)
             .field("message_queue", &self.message_queue)
             .field("event_queue", &self.event_queue)
             .field("nodes_to_update", &self.nodes_to_update)

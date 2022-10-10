@@ -1,6 +1,7 @@
-use gtk::{gdk, glib, prelude::*};
+use gtk::prelude::*;
+use gtk::{gdk, glib};
 use std::marker::PhantomData;
-use yuiui::{Element, ElementSeq, Lifecycle, MessageContext, Store, View};
+use yuiui::{Element, ElementSeq, IdContext, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(WidgetBuilder)]
@@ -70,8 +71,9 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
         match lifecycle {

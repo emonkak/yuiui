@@ -2,9 +2,8 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::component_node::ComponentNode;
-use crate::context::{MessageContext, RenderContext};
 use crate::element::Element;
-use crate::id::Depth;
+use crate::id::{Depth, IdContext};
 use crate::store::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
@@ -18,7 +17,7 @@ pub trait ComponentStack<S, M, R> {
         node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool;
 
@@ -27,8 +26,9 @@ pub trait ComponentStack<S, M, R> {
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool;
 }
@@ -47,7 +47,7 @@ where
         node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
         let (head, tail) = node.components;
@@ -62,9 +62,9 @@ where
         };
         if target_depth <= current_depth {
             let element = head.component().render(store);
-            element.update(node, context, store)
+            element.update(node, id_context, store)
         } else {
-            CS::update(node, target_depth, current_depth + 1, context, store)
+            CS::update(node, target_depth, current_depth + 1, id_context, store)
         }
     }
 
@@ -73,8 +73,9 @@ where
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let (head, tail) = node.components;
@@ -88,15 +89,16 @@ where
             dirty: node.dirty,
         };
         if target_depth <= current_depth {
-            head.commit(mode, node, context, store, renderer)
+            head.commit(mode, node, id_context, store, messages, renderer)
         } else {
             CS::commit(
                 node,
                 mode,
                 target_depth,
                 current_depth + 1,
-                context,
+                id_context,
                 store,
+                messages,
                 renderer,
             )
         }
@@ -121,7 +123,7 @@ impl<V: View<S, M, R>, S, M, R> ComponentStack<S, M, R> for ComponentEnd<V> {
         _node: ViewNodeMut<'a, V, Self, S, M, R>,
         _target_depth: Depth,
         _current_depth: Depth,
-        _context: &mut RenderContext,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
     ) -> bool {
         false
@@ -132,8 +134,9 @@ impl<V: View<S, M, R>, S, M, R> ComponentStack<S, M, R> for ComponentEnd<V> {
         _mode: CommitMode,
         _target_depth: Depth,
         _current_depth: Depth,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) -> bool {
         false

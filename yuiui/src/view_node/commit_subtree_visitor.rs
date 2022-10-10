@@ -1,6 +1,5 @@
 use crate::component_stack::ComponentStack;
-use crate::context::MessageContext;
-use crate::id::{id_tree, Depth};
+use crate::id::{id_tree, Depth, IdContext};
 use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -18,33 +17,40 @@ impl<'a> CommitSubtreeVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for CommitSubtreeVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for CommitSubtreeVisitor<'a>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Context = MessageContext<M>;
-
-    type Output = bool;
+    type Output = Vec<M>;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::Output {
         if let Some(depth) = self.cursor.current().value() {
-            node.commit_within(self.mode, *depth, context, store, renderer)
+            let mut messages = Vec::new();
+            node.commit_within(
+                self.mode,
+                *depth,
+                id_context,
+                store,
+                &mut messages,
+                renderer,
+            );
+            messages
         } else {
-            let mut result = false;
+            let mut result = Vec::new();
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                result |= node
-                    .children
-                    .for_id(id, self, context, store, renderer)
-                    .unwrap_or(false);
+                if let Some(messages) = node.children.for_id(id, self, id_context, store, renderer)
+                {
+                    result.extend(messages);
+                }
             }
             result
         }

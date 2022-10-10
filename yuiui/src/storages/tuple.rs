@@ -1,6 +1,5 @@
-use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::Id;
+use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
@@ -8,14 +7,14 @@ use crate::view_node::{CommitMode, ViewNodeSeq};
 impl<S, M, R> ElementSeq<S, M, R> for () {
     type Storage = ();
 
-    fn render_children(self, _context: &mut RenderContext, _state: &S) -> Self::Storage {
+    fn render_children(self, _id_context: &mut IdContext, _state: &S) -> Self::Storage {
         ()
     }
 
     fn update_children(
         self,
         _nodes: &mut Self::Storage,
-        _context: &mut RenderContext,
+        _id_context: &mut IdContext,
         _state: &S,
     ) -> bool {
         false
@@ -36,8 +35,9 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) -> bool {
         false
@@ -46,14 +46,14 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     fn gc(&mut self) {}
 }
 
-impl<Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R> for ()
+impl<Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for ()
 where
     Output: Default,
 {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
-        _context: &mut Context,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Output {
@@ -64,7 +64,7 @@ where
         &mut self,
         _id: Id,
         _visitor: &mut Visitor,
-        _context: &mut Context,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Option<Output> {
@@ -93,17 +93,17 @@ macro_rules! define_tuple_impl {
         {
             type Storage = ($($T::Storage,)*);
 
-            fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
-                ($(self.$n.render_children(context, state),)*)
+            fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
+                ($(self.$n.render_children(id_context, state),)*)
             }
 
             fn update_children(
                 self,
                 storage: &mut Self::Storage,
-                context: &mut RenderContext,
+                id_context: &mut IdContext,
                 state: &S,
             ) -> bool {
-                $(self.$n.update_children(&mut storage.$n, context, state))||*
+                $(self.$n.update_children(&mut storage.$n, id_context, state))||*
             }
         }
 
@@ -141,11 +141,12 @@ macro_rules! define_tuple_impl {
             fn commit(
                 &mut self,
                 mode: CommitMode,
-                context: &mut MessageContext<M>,
+                id_context: &mut IdContext,
                 store: &Store<S>,
+                messages: &mut Vec<M>,
                 renderer: &mut R,
             ) -> bool {
-                $(self.$n.commit(mode, context, store, renderer))||*
+                $(self.$n.commit(mode, id_context, store, messages, renderer))||*
             }
 
             fn gc(&mut self) {
@@ -153,22 +154,22 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* Visitor, Context, Output, S, M, R> Traversable<Visitor, Context, Output, S, M, R>
+        impl<$($T,)* Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Context, Output, S, M, R>,)*
+            $($T: Traversable<Visitor, Output, S, M, R>,)*
             Output: Monoid,
         {
             fn for_each(
                 &mut self,
                 visitor: &mut Visitor,
-                context: &mut Context,
+                id_context: &mut IdContext,
                 store: &Store<S>,
                 renderer: &mut R,
             ) -> Output {
                 let result = Output::default();
                 $(
-                    let result = result.combine(self.$n.for_each(visitor, context, store, renderer));
+                    let result = result.combine(self.$n.for_each(visitor, id_context, store, renderer));
                 )*
                 result
             }
@@ -177,12 +178,12 @@ macro_rules! define_tuple_impl {
                 &mut self,
                 id: Id,
                 visitor: &mut Visitor,
-                context: &mut Context,
+                id_context: &mut IdContext,
                 store: &Store<S>,
                 renderer: &mut R,
             ) -> Option<Output> {
                 $(
-                    if let Some(result) = self.$n.for_id(id, visitor, context, store, renderer) {
+                    if let Some(result) = self.$n.for_id(id, visitor, id_context, store, renderer) {
                         return Some(result);
                     }
                 )*

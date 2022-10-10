@@ -1,9 +1,11 @@
-pub mod id_counter;
 pub mod id_tree;
 
-pub use id_counter::IdCounter;
+mod id_context;
+
+pub use id_context::IdContext;
 pub use id_tree::IdTree;
-pub use std::num::NonZeroUsize;
+
+use std::num::NonZeroUsize;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Id(NonZeroUsize);

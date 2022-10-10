@@ -2,9 +2,8 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{MessageContext, RenderContext};
 use crate::event::Lifecycle;
-use crate::id::{Depth, Id};
+use crate::id::{Depth, Id, IdContext};
 use crate::store::Store;
 use crate::traversable::Traversable;
 use crate::view::View;
@@ -44,11 +43,11 @@ where
 
     fn render(
         self,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
         let sub_store = (self.store_selector)(state);
-        let sub_node = self.target.render(context, sub_store);
+        let sub_node = self.target.render(id_context, sub_store);
         ViewNode {
             id: sub_node.id,
             view: Connect::new(
@@ -81,12 +80,12 @@ where
     fn update(
         self,
         mut node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         let sub_store = (self.store_selector)(state);
         with_sub_node(&mut node, |sub_node| {
-            self.target.update(sub_node, context, sub_store)
+            self.target.update(sub_node, id_context, sub_store)
         })
     }
 }
@@ -98,17 +97,17 @@ where
     type Storage =
         ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, R>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
-        self.render(context, state)
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
+        self.render(id_context, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
-        self.update(storage.into(), context, state)
+        self.update(storage.into(), id_context, state)
     }
 }
 
@@ -154,26 +153,24 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
         let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let mut sub_messages = Vec::new();
         self.target.lifecycle(
             sub_lifecycle,
             state,
             &mut children.target,
-            &mut sub_context,
+            id_context,
             sub_store,
+            &mut sub_messages,
             renderer,
         );
-        let messages = sub_context
-            .into_messages()
-            .into_iter()
-            .map(&self.message_selector);
-        context.extend_messages(messages);
+        messages.extend(sub_messages.into_iter().map(&self.message_selector));
     }
 
     fn event(
@@ -181,25 +178,23 @@ where
         event: &Self::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
         let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let mut sub_messages = Vec::new();
         self.target.event(
             event,
             state,
             &mut children.target,
-            &mut sub_context,
+            id_context,
             sub_store,
+            &mut sub_messages,
             renderer,
         );
-        let messages = sub_context
-            .into_messages()
-            .into_iter()
-            .map(&self.message_selector);
-        context.extend_messages(messages);
+        messages.extend(sub_messages.into_iter().map(&self.message_selector));
     }
 
     fn build(
@@ -225,12 +220,12 @@ where
         mut node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
         let sub_store = (node.components.store_selector)(store);
         with_sub_node(&mut node, |sub_node| {
-            T::update(sub_node, target_depth, current_depth, context, sub_store)
+            T::update(sub_node, target_depth, current_depth, id_context, sub_store)
         })
     }
 
@@ -239,33 +234,35 @@ where
         mode: CommitMode,
         target_depth: Depth,
         current_depth: Depth,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let sub_store = (node.components.store_selector)(store);
         match mode {
-            CommitMode::Mount => sub_store.subscribe(context.id_path().to_vec(), current_depth),
-            CommitMode::Unmount => sub_store.unsubscribe(context.id_path(), current_depth),
+            CommitMode::Mount => sub_store.subscribe(id_context.id_path().to_vec(), current_depth),
+            CommitMode::Unmount => sub_store.unsubscribe(id_context.id_path(), current_depth),
             CommitMode::Update => {}
         }
-        let mut sub_context = context.new_sub_context();
+        let mut sub_messages = Vec::new();
         let result = with_sub_node(&mut node, |sub_node| {
             T::commit(
                 sub_node,
                 mode,
                 target_depth,
                 current_depth,
-                &mut sub_context,
+                id_context,
                 sub_store,
+                &mut sub_messages,
                 renderer,
             )
         });
-        let messages = sub_context
-            .into_messages()
-            .into_iter()
-            .map(&node.components.message_selector);
-        context.extend_messages(messages);
+        messages.extend(
+            sub_messages
+                .into_iter()
+                .map(&node.components.message_selector),
+        );
         result
     }
 }
@@ -276,10 +273,10 @@ where
 {
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         let sub_store = (self.store_selector)(state);
         Connect::new(
-            self.target.render_children(context, sub_store),
+            self.target.render_children(id_context, sub_store),
             self.store_selector.clone(),
             self.message_selector.clone(),
         )
@@ -288,12 +285,12 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         let sub_store = (self.store_selector)(state);
         self.target
-            .update_children(&mut storage.target, context, sub_store)
+            .update_children(&mut storage.target, id_context, sub_store)
     }
 }
 
@@ -314,20 +311,17 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
+        let mut sub_messages = Vec::new();
         let result = self
             .target
-            .commit(mode, &mut sub_context, sub_store, renderer);
-        let messages = sub_context
-            .into_messages()
-            .into_iter()
-            .map(&self.message_selector);
-        context.extend_messages(messages);
+            .commit(mode, id_context, sub_store, &mut sub_messages, renderer);
+        messages.extend(sub_messages.into_iter().map(&self.message_selector));
         result
     }
 
@@ -336,80 +330,68 @@ where
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, R> Traversable<Visitor, RenderContext, Output, S, M, R>
-    for Connect<T, S, M, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, R> Traversable<Visitor, (), S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, RenderContext, Output, SS, SM, R>,
+    T: Traversable<Visitor, (), SS, SM, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output {
+    ) {
         let sub_store = (self.store_selector)(store);
-        self.target.for_each(visitor, context, sub_store, renderer)
+        self.target
+            .for_each(visitor, id_context, sub_store, renderer)
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Output> {
+    ) -> Option<()> {
         let sub_store = (self.store_selector)(store);
         self.target
-            .for_id(id, visitor, context, sub_store, renderer)
+            .for_id(id, visitor, id_context, sub_store, renderer)
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, Output, R>
-    Traversable<Visitor, MessageContext<M>, Output, S, M, R> for Connect<T, S, M, SS, SM>
+impl<'a, T, S, M, SS, SM, Visitor, R> Traversable<Visitor, Vec<M>, S, M, R>
+    for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, MessageContext<SM>, Output, SS, SM, R>,
+    T: Traversable<Visitor, Vec<SM>, SS, SM, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output {
+    ) -> Vec<M> {
         let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
-        let result = self
-            .target
-            .for_each(visitor, &mut sub_context, sub_store, renderer);
-        let messages = sub_context
-            .into_messages()
+        self.target
+            .for_each(visitor, id_context, sub_store, renderer)
             .into_iter()
-            .map(&self.message_selector);
-        context.extend_messages(messages);
-        result
+            .map(&self.message_selector)
+            .collect()
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Output> {
+    ) -> Option<Vec<M>> {
         let sub_store = (self.store_selector)(store);
-        let mut sub_context = context.new_sub_context();
-        let result = self
-            .target
-            .for_id(id, visitor, &mut sub_context, sub_store, renderer);
-        let messages = sub_context
-            .into_messages()
-            .into_iter()
-            .map(&self.message_selector);
-        context.extend_messages(messages);
-        result
+        self.target
+            .for_id(id, visitor, id_context, sub_store, renderer)
+            .map(|messages| messages.into_iter().map(&self.message_selector).collect())
     }
 }
 
@@ -422,7 +404,7 @@ where
     }
 }
 
-fn with_sub_node<Callback, Output, S, M, SS, SM, V, CS, R>(
+fn with_sub_node<Callback, Output, V, CS, S, M, SS, SM, R>(
     node: &mut ViewNodeMut<Connect<V, S, M, SS, SM>, Connect<CS, S, M, SS, SM>, S, M, R>,
     callback: Callback,
 ) -> Output

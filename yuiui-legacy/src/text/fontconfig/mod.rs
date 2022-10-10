@@ -4,10 +4,9 @@ mod ffi;
 use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::io;
 use std::io::Read;
 use std::os::raw::*;
-use std::ptr;
+use std::{io, ptr};
 
 use crate::text::{FontDescriptor, FontFamily, FontStretch, FontStyle};
 

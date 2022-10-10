@@ -1,6 +1,6 @@
-use crate::context::MessageContext;
 use crate::element::{ElementSeq, ViewEl};
 use crate::event::Lifecycle;
+use crate::id::IdContext;
 use crate::store::Store;
 
 pub trait View<S, M, R>: Sized {
@@ -15,8 +15,9 @@ pub trait View<S, M, R>: Sized {
         _lifecycle: Lifecycle<Self>,
         _view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
     }
@@ -26,8 +27,9 @@ pub trait View<S, M, R>: Sized {
         _event: &Self::Event,
         _view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         _renderer: &mut R,
     ) {
     }

@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use gtk::glib::object::ObjectExt;
-use gtk::{gdk, glib, prelude::*};
-use yuiui::{Element, ElementSeq, IdPathBuf, Lifecycle, MessageContext, Store, View};
+use gtk::prelude::*;
+use gtk::{gdk, glib};
+use yuiui::{Element, ElementSeq, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::renderer::{EventPort, Renderer};
@@ -69,15 +69,18 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         _store: &Store<S>,
+        _messages: &mut Vec<M>,
         renderer: &mut Renderer,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
-                    state
-                        .connect_clicked(context.id_path().to_vec(), renderer.event_port().clone());
+                    state.connect_clicked(
+                        id_context.id_path().to_vec(),
+                        renderer.event_port().clone(),
+                    );
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -87,7 +90,7 @@ where
                     }
                     (None, Some(_)) => {
                         state.connect_clicked(
-                            context.id_path().to_vec(),
+                            id_context.id_path().to_vec(),
                             renderer.event_port().clone(),
                         );
                     }
@@ -106,15 +109,16 @@ where
         event: &Self::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
-        context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         _renderer: &mut Renderer,
     ) {
         match event {
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
                     let message = on_click(store);
-                    context.push_message(message);
+                    messages.push(message);
                 }
             }
         }

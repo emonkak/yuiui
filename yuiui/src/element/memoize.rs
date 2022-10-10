@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::component::Component;
 use crate::component_node::ComponentNode;
-use crate::context::RenderContext;
+use crate::id::IdContext;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentEl, Element, ElementSeq};
@@ -38,23 +38,23 @@ where
 
     fn render(
         self,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
         let element = ComponentEl::new(Memoized::new(self));
-        element.render(context, state)
+        element.render(id_context, state)
     }
 
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         let (head_node, _) = node.components;
         if head_node.component().inner.deps != self.deps {
             let element = ComponentEl::new(Memoized::new(self));
-            Element::update(element, node, context, state)
+            Element::update(element, node, id_context, state)
         } else {
             false
         }
@@ -69,17 +69,17 @@ where
 {
     type Storage = ViewNode<E::View, <Self as Element<S, M, R>>::Components, S, M, R>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
-        self.render(context, state)
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
+        self.render(id_context, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
-        self.update(storage.into(), context, state)
+        self.update(storage.into(), id_context, state)
     }
 }
 

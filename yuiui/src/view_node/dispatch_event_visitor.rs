@@ -1,8 +1,7 @@
 use std::any::Any;
 
 use crate::component_stack::ComponentStack;
-use crate::context::MessageContext;
-use crate::id::IdPath;
+use crate::id::{IdContext, IdPath};
 use crate::store::Store;
 use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
@@ -20,33 +19,40 @@ impl<'a> DispatchEventVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, R> for DispatchEventVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for DispatchEventVisitor<'a>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Context = MessageContext<M>;
-
-    type Output = bool;
+    type Output = Vec<M>;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::Output {
         if let Some((head, tail)) = self.id_path.split_first() {
             self.id_path = tail;
             node.children
-                .for_id(*head, self, context, store, renderer)
-                .unwrap_or(false)
+                .for_id(*head, self, id_context, store, renderer)
+                .unwrap_or_default()
         } else {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
             let event = self.event.downcast_ref().unwrap();
-            view.event(*event, state, &mut node.children, context, store, renderer);
-            true
+            let mut messages = Vec::new();
+            view.event(
+                *event,
+                state,
+                &mut node.children,
+                id_context,
+                store,
+                &mut messages,
+                renderer,
+            );
+            messages
         }
     }
 }

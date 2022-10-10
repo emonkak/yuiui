@@ -1,9 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 
-use crate::context::{MessageContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::Id;
+use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::traversable::{Monoid, Traversable};
 use crate::view_node::{CommitMode, ViewNodeSeq};
@@ -35,10 +34,10 @@ where
 {
     type Storage = VecStorage<T::Storage>;
 
-    fn render_children(self, context: &mut RenderContext, state: &S) -> Self::Storage {
+    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render_children(context, state))
+                .map(|element| element.render_children(id_context, state))
                 .collect(),
         )
     }
@@ -46,7 +45,7 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        context: &mut RenderContext,
+        id_context: &mut IdContext,
         state: &S,
     ) -> bool {
         let mut has_changed = storage.active.len() != self.len();
@@ -59,14 +58,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update_children(node, context, state);
+                has_changed |= element.update_children(node, id_context, state);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update_children(node, context, state);
+                    has_changed |= element.update_children(node, id_context, state);
                 } else {
-                    let node = element.render_children(context, state);
+                    let node = element.render_children(id_context, state);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -108,8 +107,9 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let mut result = false;
@@ -118,28 +118,35 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, context, store, renderer);
+                        result |= node.commit(mode, id_context, store, messages, renderer);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result |= node.commit(mode, context, store, renderer);
+                        result |= node.commit(mode, id_context, store, messages, renderer);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
-                        result |= node.commit(CommitMode::Unmount, context, store, renderer);
+                        result |=
+                            node.commit(CommitMode::Unmount, id_context, store, messages, renderer);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, context, store, renderer);
+                        result |= node.commit(mode, id_context, store, messages, renderer);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.new_len - self.active.len() {
                             let mut node = self.staging.pop_front().unwrap();
-                            result |= node.commit(CommitMode::Mount, context, store, renderer);
+                            result |= node.commit(
+                                CommitMode::Mount,
+                                id_context,
+                                store,
+                                messages,
+                                renderer,
+                            );
                             self.active.push(node);
                         }
                     }
@@ -168,22 +175,21 @@ where
     }
 }
 
-impl<T, S, M, R, Visitor, Context, Output> Traversable<Visitor, Context, Output, S, M, R>
-    for VecStorage<T>
+impl<T, S, M, R, Visitor, Output> Traversable<Visitor, Output, S, M, R> for VecStorage<T>
 where
-    T: Traversable<Visitor, Context, Output, S, M, R> + ViewNodeSeq<S, M, R>,
+    T: Traversable<Visitor, Output, S, M, R> + ViewNodeSeq<S, M, R>,
     Output: Monoid,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Output {
         let mut result = Output::default();
         for node in &mut self.active {
-            result = result.combine(node.for_each(visitor, context, store, renderer));
+            result = result.combine(node.for_each(visitor, id_context, store, renderer));
         }
         result
     }
@@ -192,7 +198,7 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut Context,
+        id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) -> Option<Output> {
@@ -209,11 +215,11 @@ where
                 })
             }) {
                 let node = &mut self.active[index];
-                return node.for_id(id, visitor, context, store, renderer);
+                return node.for_id(id, visitor, id_context, store, renderer);
             }
         } else {
             for node in &mut self.active {
-                if let Some(result) = node.for_id(id, visitor, context, store, renderer) {
+                if let Some(result) = node.for_id(id, visitor, id_context, store, renderer) {
                     return Some(result);
                 }
             }

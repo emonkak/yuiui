@@ -1,8 +1,9 @@
-use gtk::{gdk, glib, prelude::*};
+use gtk::prelude::*;
+use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, ElementSeq, Lifecycle, MessageContext, Store, Traversable, View,
-    ViewNode, ViewNodeSeq, Visitor,
+    ComponentStack, ElementSeq, IdContext, Lifecycle, Store, Traversable, View, ViewNode,
+    ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -53,8 +54,7 @@ pub struct Notebook<Children> {
 impl<Children, S, M, R> View<S, M, R> for Notebook<Children>
 where
     Children: ElementSeq<S, M, R>,
-    Children::Storage:
-        for<'a> Traversable<ReconcileChildrenVisitor<'a>, MessageContext<M>, (), S, M, R>,
+    Children::Storage: for<'a> Traversable<ReconcileChildrenVisitor<'a>, (), S, M, R>,
 {
     type Children = Children;
 
@@ -67,8 +67,9 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        _messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
         let is_static: bool = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
@@ -82,7 +83,7 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, context, store, renderer);
+            children.for_each(&mut visitor, id_context, store, renderer);
         }
     }
 
@@ -139,13 +140,15 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
         let lifecycle = lifecycle.map(|view| view.child);
-        self.child
-            .lifecycle(lifecycle, state, children, context, store, renderer)
+        self.child.lifecycle(
+            lifecycle, state, children, id_context, store, messages, renderer,
+        )
     }
 
     fn event(
@@ -153,12 +156,14 @@ where
         event: &Self::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
-        context: &mut MessageContext<M>,
+        id_context: &mut IdContext,
         store: &Store<S>,
+        messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
-        self.child
-            .event(event, state, children, context, store, renderer)
+        self.child.event(
+            event, state, children, id_context, store, messages, renderer,
+        )
     }
 
     fn build(
@@ -189,7 +194,7 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<NotebookChild<V>, CS, S, M, R>, S, R>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<NotebookChild<V>, CS, S, M, R>, S, M, R>
     for ReconcileChildrenVisitor<'a>
 where
     V: View<S, M, R>,
@@ -197,14 +202,12 @@ where
     CS: ComponentStack<S, M, R, View = NotebookChild<V>>,
     NotebookChild<V>: View<S, M, R, Children = V::Children, State = V::State>,
 {
-    type Context = MessageContext<M>;
-
     type Output = ();
 
     fn visit(
         &mut self,
         node: &mut ViewNode<NotebookChild<V>, CS, S, M, R>,
-        _context: &mut MessageContext<M>,
+        _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
     ) -> Self::Output {
