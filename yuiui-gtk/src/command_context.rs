@@ -4,12 +4,12 @@ use std::any::Any;
 use yuiui::{CancellationToken, Command, IdPathBuf, RawToken, RawTokenVTable};
 
 #[derive(Debug)]
-pub struct ExecutionContext<T> {
+pub struct CommandContext<T> {
     main_context: glib::MainContext,
     action_port: glib::Sender<RenderAction<T>>,
 }
 
-impl<T: Send + 'static> ExecutionContext<T> {
+impl<T: Send + 'static> CommandContext<T> {
     pub(super) fn new(
         main_context: glib::MainContext,
         action_port: glib::Sender<RenderAction<T>>,
@@ -21,7 +21,7 @@ impl<T: Send + 'static> ExecutionContext<T> {
     }
 }
 
-impl<T: Send + 'static> ExecutionContext<T> {
+impl<T: Send + 'static> CommandContext<T> {
     pub fn request_render(&self) {
         let action_port = self.action_port.clone();
         glib::idle_add_once(move || {
@@ -30,7 +30,7 @@ impl<T: Send + 'static> ExecutionContext<T> {
     }
 }
 
-impl<T: Send + 'static> yuiui::ExecutionContext<T> for ExecutionContext<T> {
+impl<T: Send + 'static> yuiui::CommandContext<T> for CommandContext<T> {
     fn spawn_command(&self, command: Command<T>, cancellation_token: Option<CancellationToken>) {
         let action_port = self.action_port.clone();
         let source_id = match command {

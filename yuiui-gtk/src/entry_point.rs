@@ -3,7 +3,7 @@ use gtk::prelude::*;
 use std::time::{Duration, Instant};
 use yuiui::{Element, RenderFlow, RenderLoop, State, Store, View};
 
-use crate::execution_context::{ExecutionContext, RenderAction};
+use crate::command_context::{CommandContext, RenderAction};
 use crate::renderer::{EventPort, Renderer};
 
 pub trait EntryPoint<M>: Sized + 'static {
@@ -28,7 +28,7 @@ pub trait EntryPoint<M>: Sized + 'static {
 
         let (event_tx, event_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (action_tx, action_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        let context = ExecutionContext::new(glib::MainContext::default(), action_tx.clone());
+        let context = CommandContext::new(glib::MainContext::default(), action_tx.clone());
 
         let mut store = Store::new(state);
         let mut renderer = Renderer::new(self.window().clone(), event_tx);

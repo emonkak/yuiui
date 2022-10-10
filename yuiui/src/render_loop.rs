@@ -4,7 +4,7 @@ use std::fmt;
 use std::mem;
 use std::time::{Duration, Instant};
 
-use crate::command::ExecutionContext;
+use crate::command::CommandContext;
 use crate::context::{MessageContext, RenderContext};
 use crate::element::{Element, ElementSeq};
 use crate::id::{Depth, IdPath, IdPathBuf, IdTree};
@@ -44,7 +44,7 @@ where
     pub fn run(
         &mut self,
         deadline: &impl Deadline,
-        execution_context: &impl ExecutionContext<M>,
+        command_context: &impl CommandContext<M>,
         store: &mut Store<S>,
         renderer: &mut R,
     ) -> RenderFlow {
@@ -64,7 +64,7 @@ where
                     }
                 }
                 for (command, cancellation_token) in effect.commands {
-                    execution_context.spawn_command(command, cancellation_token);
+                    command_context.spawn_command(command, cancellation_token);
                 }
                 if deadline.did_timeout() {
                     return self.render_flow();
@@ -131,11 +131,11 @@ where
 
     pub fn run_forever(
         &mut self,
-        execution_context: &impl ExecutionContext<M>,
+        command_context: &impl CommandContext<M>,
         store: &mut Store<S>,
         renderer: &mut R,
     ) {
-        let render_flow = self.run(&Forever, execution_context, store, renderer);
+        let render_flow = self.run(&Forever, command_context, store, renderer);
         assert_eq!(render_flow, RenderFlow::Done);
     }
 

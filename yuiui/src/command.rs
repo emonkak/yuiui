@@ -75,6 +75,6 @@ where
     }
 }
 
-pub trait ExecutionContext<M> {
+pub trait CommandContext<M> {
     fn spawn_command(&self, command: Command<M>, cancellation_token: Option<CancellationToken>);
 }
