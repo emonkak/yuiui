@@ -19,11 +19,13 @@ impl IdContext {
     }
 
     pub(crate) fn next_id(&mut self) -> Id {
-        self.preloaded_ids.pop_front().unwrap_or_else(|| {
+        if let Some(id) = self.preloaded_ids.pop_front() {
+            id
+        } else {
             let id = self.counter;
             self.counter += 1;
             Id::new(id)
-        })
+        }
     }
 
     pub(crate) fn take_ids(&mut self, n: usize) -> Vec<Id> {
