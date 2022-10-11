@@ -20,6 +20,7 @@ use update_subtree_visitor::UpdateSubtreeVisitor;
 
 pub struct ViewNode<V: View<S, M, R>, CS: ComponentStack<S, M, R, View = V>, S, M, R> {
     pub(crate) id: Id,
+    pub(crate) depth: Depth,
     pub(crate) view: V,
     pub(crate) pending_view: Option<V>,
     pub(crate) state: Option<V::State>,
@@ -41,6 +42,7 @@ where
     ) -> Self {
         Self {
             id,
+            depth: 0,
             view,
             pending_view: None,
             state: None,
@@ -82,10 +84,9 @@ where
                 .children
                 .commit(mode, id_context, store, messages, renderer),
             CommitMode::Unmount => CS::commit(
-                self.into(),
+                &mut self.into(),
                 mode,
                 depth,
-                0,
                 id_context,
                 store,
                 messages,
@@ -209,10 +210,9 @@ where
 
         result |= match mode {
             CommitMode::Mount | CommitMode::Update => CS::commit(
-                self.into(),
+                &mut self.into(),
                 mode,
                 depth,
-                0,
                 id_context,
                 store,
                 messages,
@@ -290,6 +290,10 @@ where
         self.id
     }
 
+    pub fn depth(&self) -> Depth {
+        self.depth
+    }
+
     pub fn view(&self) -> &V {
         &self.view
     }
@@ -337,6 +341,7 @@ where
 
 pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
     pub(crate) id: Id,
+    pub(crate) depth: Depth,
     pub(crate) view: &'a mut V,
     pub(crate) pending_view: &'a mut Option<V>,
     pub(crate) state: &'a mut Option<V::State>,
@@ -375,6 +380,7 @@ where
     fn from(node: &'a mut ViewNode<V, CS, S, M, R>) -> Self {
         Self {
             id: node.id,
+            depth: node.depth,
             view: &mut node.view,
             pending_view: &mut node.pending_view,
             state: &mut node.state,

@@ -13,19 +13,19 @@ pub trait ComponentStack<S, M, R> {
 
     type View: View<S, M, R>;
 
+    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>) -> Depth;
+
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
-        target_depth: Depth,
-        current_depth: Depth,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool;
 
     fn commit<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
         mode: CommitMode,
-        target_depth: Depth,
-        current_depth: Depth,
+        depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
@@ -43,16 +43,20 @@ where
 
     type View = <C::Element as Element<S, M, R>>::View;
 
+    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>) -> Depth {
+        node.components.0.depth()
+    }
+
     fn update<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
-        target_depth: Depth,
-        current_depth: Depth,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
         let (head, tail) = node.components;
-        let node = ViewNodeMut {
+        let mut node = ViewNodeMut {
             id: node.id,
+            depth: node.depth,
             view: node.view,
             pending_view: node.pending_view,
             state: node.state,
@@ -60,27 +64,27 @@ where
             components: tail,
             dirty: node.dirty,
         };
-        if target_depth <= current_depth {
+        if depth <= head.depth() {
             let element = head.component().render(store);
             element.update(node, id_context, store)
         } else {
-            CS::update(node, target_depth, current_depth + 1, id_context, store)
+            CS::update(&mut node, depth, id_context, store)
         }
     }
 
     fn commit<'a>(
-        node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
         mode: CommitMode,
-        target_depth: Depth,
-        current_depth: Depth,
+        depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let (head, tail) = node.components;
-        let node = ViewNodeMut {
+        let mut node = ViewNodeMut {
             id: node.id,
+            depth: node.depth,
             view: node.view,
             pending_view: node.pending_view,
             state: node.state,
@@ -88,18 +92,11 @@ where
             components: tail,
             dirty: node.dirty,
         };
-        if target_depth <= current_depth {
+        if depth <= head.depth() {
             head.commit(mode, node, id_context, store, messages, renderer)
         } else {
             CS::commit(
-                node,
-                mode,
-                target_depth,
-                current_depth + 1,
-                id_context,
-                store,
-                messages,
-                renderer,
+                &mut node, mode, depth, id_context, store, messages, renderer,
             )
         }
     }
@@ -119,10 +116,13 @@ impl<V: View<S, M, R>, S, M, R> ComponentStack<S, M, R> for ComponentEnd<V> {
 
     type View = V;
 
+    fn depth<'a>(node: &mut ViewNodeMut<'a, V, Self, S, M, R>) -> Depth {
+        node.depth
+    }
+
     fn update<'a>(
-        _node: ViewNodeMut<'a, V, Self, S, M, R>,
-        _target_depth: Depth,
-        _current_depth: Depth,
+        _node: &mut ViewNodeMut<'a, V, Self, S, M, R>,
+        _depth: Depth,
         _id_context: &mut IdContext,
         _store: &Store<S>,
     ) -> bool {
@@ -130,10 +130,9 @@ impl<V: View<S, M, R>, S, M, R> ComponentStack<S, M, R> for ComponentEnd<V> {
     }
 
     fn commit<'a>(
-        _node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        _node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
         _mode: CommitMode,
-        _target_depth: Depth,
-        _current_depth: Depth,
+        _depth: Depth,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,

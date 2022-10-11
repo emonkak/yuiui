@@ -44,6 +44,7 @@ where
         let sub_node = self.target.render(id_context, sub_store);
         ViewNode {
             id: sub_node.id,
+            depth: sub_node.depth,
             view: Connect::new(
                 sub_node.view,
                 self.select_store.clone(),
@@ -200,42 +201,47 @@ where
 
     type View = Connect<T::View, S, M, SS, SM>;
 
+    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>) -> Depth {
+        with_sub_node(node, |mut sub_node| T::depth(&mut sub_node))
+    }
+
     fn update<'a>(
-        mut node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
-        target_depth: Depth,
-        current_depth: Depth,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
         let sub_store = (node.components.select_store)(store);
-        with_sub_node(&mut node, |sub_node| {
-            T::update(sub_node, target_depth, current_depth, id_context, sub_store)
+        with_sub_node(node, |mut sub_node| {
+            T::update(&mut sub_node, depth, id_context, sub_store)
         })
     }
 
     fn commit<'a>(
-        mut node: ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
         mode: CommitMode,
-        target_depth: Depth,
-        current_depth: Depth,
+        depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
         let sub_store = (node.components.select_store)(store);
-        match mode {
-            CommitMode::Mount => sub_store.subscribe(id_context.id_path().to_vec(), current_depth),
-            CommitMode::Unmount => sub_store.unsubscribe(id_context.id_path(), current_depth),
-            CommitMode::Update => {}
-        }
         let mut sub_messages = Vec::new();
-        let result = with_sub_node(&mut node, |sub_node| {
+        let result = with_sub_node(node, |mut sub_node| {
+            match mode {
+                CommitMode::Mount => {
+                    sub_store.subscribe(id_context.id_path().to_vec(), T::depth(&mut sub_node))
+                }
+                CommitMode::Unmount => {
+                    sub_store.unsubscribe(id_context.id_path(), T::depth(&mut sub_node))
+                }
+                CommitMode::Update => {}
+            }
             T::commit(
-                sub_node,
+                &mut sub_node,
                 mode,
-                target_depth,
-                current_depth,
+                depth,
                 id_context,
                 sub_store,
                 &mut sub_messages,
@@ -411,6 +417,7 @@ where
     let mut sub_pending_view = node.pending_view.take().map(|view| view.target);
     let sub_node = ViewNodeMut {
         id: node.id,
+        depth: node.depth,
         view: &mut node.view.target,
         pending_view: &mut sub_pending_view,
         state: node.state,

@@ -32,11 +32,12 @@ where
         id_context: &mut IdContext,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
-        let component_node = ComponentNode::new(self.component);
-        let element = component_node.component().render(state);
+        let element = self.component.render(state);
         let node = element.render(id_context, state);
+        let component_node = ComponentNode::new(self.component, node.depth);
         ViewNode {
             id: node.id,
+            depth: node.depth + 1,
             view: node.view,
             pending_view: node.pending_view,
             state: node.state,
@@ -58,6 +59,7 @@ where
         *node.dirty = true;
         let node = ViewNodeMut {
             id: node.id,
+            depth: node.depth,
             view: node.view,
             pending_view: node.pending_view,
             state: node.state,
