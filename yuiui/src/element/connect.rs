@@ -330,7 +330,7 @@ where
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, R> Traversable<Visitor, (), S, M, R> for Connect<T, S, M, SS, SM>
+impl<'a, T, S, M, SS, SM, R, Visitor> Traversable<Visitor, (), S, M, R> for Connect<T, S, M, SS, SM>
 where
     T: Traversable<Visitor, (), SS, SM, R>,
 {
@@ -340,11 +340,10 @@ where
         accumulator: &mut (),
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         let sub_store = (self.store_selector)(store);
         self.target
-            .for_each(visitor, accumulator, id_context, sub_store, renderer)
+            .for_each(visitor, accumulator, id_context, sub_store)
     }
 
     fn for_id(
@@ -354,15 +353,14 @@ where
         accumulator: &mut (),
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         self.target
-            .for_id(id, visitor, accumulator, id_context, sub_store, renderer)
+            .for_id(id, visitor, accumulator, id_context, sub_store)
     }
 }
 
-impl<'a, T, S, M, SS, SM, Visitor, R> Traversable<Visitor, Vec<M>, S, M, R>
+impl<'a, T, S, M, SS, SM, R, Visitor> Traversable<Visitor, Vec<M>, S, M, R>
     for Connect<T, S, M, SS, SM>
 where
     T: Traversable<Visitor, Vec<SM>, SS, SM, R>,
@@ -373,17 +371,11 @@ where
         accumulator: &mut Vec<M>,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         let sub_store = (self.store_selector)(store);
         let mut sub_accumulator = Vec::new();
-        self.target.for_each(
-            visitor,
-            &mut sub_accumulator,
-            id_context,
-            sub_store,
-            renderer,
-        );
+        self.target
+            .for_each(visitor, &mut sub_accumulator, id_context, sub_store);
         accumulator.extend(sub_accumulator.into_iter().map(&self.message_selector));
     }
 
@@ -394,18 +386,12 @@ where
         accumulator: &mut Vec<M>,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool {
         let sub_store = (self.store_selector)(store);
         let mut sub_accumulator = Vec::new();
-        let result = self.target.for_id(
-            id,
-            visitor,
-            &mut sub_accumulator,
-            id_context,
-            sub_store,
-            renderer,
-        );
+        let result = self
+            .target
+            .for_id(id, visitor, &mut sub_accumulator, id_context, sub_store);
         accumulator.extend(sub_accumulator.into_iter().map(&self.message_selector));
         result
     }

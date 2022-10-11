@@ -139,7 +139,6 @@ impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> f
         _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
-        _renderer: &mut R,
     ) {
     }
 
@@ -150,7 +149,6 @@ impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> f
         _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
-        _renderer: &mut R,
     ) -> bool {
         false
     }
@@ -167,12 +165,9 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
-        self.head
-            .for_each(visitor, accumulator, id_context, store, renderer);
-        self.tail
-            .for_each(visitor, accumulator, id_context, store, renderer);
+        self.head.for_each(visitor, accumulator, id_context, store);
+        self.tail.for_each(visitor, accumulator, id_context, store);
     }
 
     fn for_id(
@@ -182,17 +177,16 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool {
         if self
             .head
-            .for_id(id, visitor, accumulator, id_context, store, renderer)
+            .for_id(id, visitor, accumulator, id_context, store)
         {
             return true;
         }
         if self
             .tail
-            .for_id(id, visitor, accumulator, id_context, store, renderer)
+            .for_id(id, visitor, accumulator, id_context, store)
         {
             return true;
         }

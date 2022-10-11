@@ -8,7 +8,6 @@ pub trait Traversable<Visitor, Accumulator, S, M, R> {
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     );
 
     fn for_id(
@@ -18,7 +17,6 @@ pub trait Traversable<Visitor, Accumulator, S, M, R> {
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool;
 }
 
@@ -31,6 +29,5 @@ pub trait Visitor<Node, S, M, R> {
         accumulator: &mut Self::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     );
 }

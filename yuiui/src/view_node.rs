@@ -55,11 +55,10 @@ where
         &mut self,
         id_tree: &IdTree<Depth>,
         store: &Store<S>,
-        renderer: &mut R,
         id_context: &mut IdContext,
     ) -> Vec<(IdPathBuf, Depth)> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
-        visitor.visit(self, &mut (), id_context, store, renderer);
+        visitor.visit(self, &mut (), id_context, store);
         visitor.into_result()
     }
 
@@ -236,9 +235,9 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> Vec<M> {
-        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
+        let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root(), renderer);
         let mut messages = Vec::new();
-        visitor.visit(self, &mut messages, id_context, store, renderer);
+        visitor.visit(self, &mut messages, id_context, store);
         messages
     }
 
@@ -250,9 +249,9 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> Vec<M> {
-        let mut visitor = ForwardEventVisitor::new(payload, destination);
+        let mut visitor = ForwardEventVisitor::new(payload, destination, renderer);
         let mut messages = Vec::new();
-        visitor.visit(self, &mut messages, id_context, store, renderer);
+        visitor.visit(self, &mut messages, id_context, store);
         messages
     }
 
@@ -266,9 +265,9 @@ where
     ) -> Vec<M> {
         let id_tree = IdTree::from_iter(destinations);
         let cursor = id_tree.root();
-        let mut visitor = BroadcastEventVisitor::new(payload, cursor);
+        let mut visitor = BroadcastEventVisitor::new(payload, cursor, renderer);
         let mut messages = Vec::new();
-        visitor.visit(self, &mut messages, id_context, store, renderer);
+        visitor.visit(self, &mut messages, id_context, store);
         messages
     }
 
@@ -352,9 +351,9 @@ where
 }
 
 pub trait ViewNodeSeq<S, M, R>:
-    for<'a> Traversable<BroadcastEventVisitor<'a>, Vec<M>, S, M, R>
-    + for<'a> Traversable<CommitSubtreeVisitor<'a>, Vec<M>, S, M, R>
-    + for<'a> Traversable<ForwardEventVisitor<'a>, Vec<M>, S, M, R>
+    for<'a> Traversable<BroadcastEventVisitor<'a, R>, Vec<M>, S, M, R>
+    + for<'a> Traversable<CommitSubtreeVisitor<'a, R>, Vec<M>, S, M, R>
+    + for<'a> Traversable<ForwardEventVisitor<'a, R>, Vec<M>, S, M, R>
     + for<'a> Traversable<UpdateSubtreeVisitor<'a>, (), S, M, R>
 {
     const SIZE_HINT: (usize, Option<usize>);
@@ -428,10 +427,9 @@ where
         accumulator: &mut Visitor::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         id_context.push_id(self.id);
-        let result = visitor.visit(self, accumulator, id_context, store, renderer);
+        let result = visitor.visit(self, accumulator, id_context, store);
         id_context.pop_id();
         result
     }
@@ -443,11 +441,10 @@ where
         accumulator: &mut Visitor::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool {
         id_context.push_id(self.id);
         let result = if id == self.id {
-            visitor.visit(self, accumulator, id_context, store, renderer);
+            visitor.visit(self, accumulator, id_context, store);
             true
         } else {
             false

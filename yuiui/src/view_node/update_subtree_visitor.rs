@@ -37,7 +37,6 @@ where
         accumulator: &mut Self::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         if let (Some(&depth), true) = (self.cursor.current().data(), store.dirty()) {
             store.mark_clean();
@@ -45,8 +44,7 @@ where
                 CS::update(node.into(), depth, 0, id_context, store)
             } else {
                 node.dirty = true;
-                node.children
-                    .for_each(self, accumulator, id_context, store, renderer);
+                node.children.for_each(self, accumulator, id_context, store);
                 true
             };
             if is_updated {
@@ -58,7 +56,7 @@ where
                 let id = cursor.current().id();
                 self.cursor = cursor;
                 node.children
-                    .for_id(id, self, accumulator, id_context, store, renderer);
+                    .for_id(id, self, accumulator, id_context, store);
             }
         }
     }

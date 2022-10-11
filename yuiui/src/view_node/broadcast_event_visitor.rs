@@ -8,18 +8,23 @@ use crate::view::View;
 
 use super::ViewNode;
 
-pub struct BroadcastEventVisitor<'a> {
+pub struct BroadcastEventVisitor<'a, R> {
     event: &'a dyn Any,
     cursor: id_tree::Cursor<'a>,
+    renderer: &'a mut R,
 }
 
-impl<'a> BroadcastEventVisitor<'a> {
-    pub fn new(event: &'a dyn Any, cursor: id_tree::Cursor<'a>) -> Self {
-        Self { event, cursor }
+impl<'a, R> BroadcastEventVisitor<'a, R> {
+    pub fn new(event: &'a dyn Any, cursor: id_tree::Cursor<'a>, renderer: &'a mut R) -> Self {
+        Self {
+            event,
+            cursor,
+            renderer,
+        }
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for BroadcastEventVisitor<'a>
+impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for BroadcastEventVisitor<'a, R>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
@@ -32,7 +37,6 @@ where
         accumulator: &mut Self::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
@@ -47,14 +51,14 @@ where
                 id_context,
                 store,
                 accumulator,
-                renderer,
+                self.renderer,
             );
         }
         for cursor in self.cursor.children() {
             let id = cursor.current().id();
             self.cursor = cursor;
             node.children
-                .for_id(id, self, accumulator, id_context, store, renderer);
+                .for_id(id, self, accumulator, id_context, store);
         }
     }
 }

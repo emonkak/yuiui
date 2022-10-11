@@ -161,10 +161,9 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, accumulator, id_context, store, renderer);
+            node.for_each(visitor, accumulator, id_context, store);
         }
     }
 
@@ -175,10 +174,9 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_id(id, visitor, accumulator, id_context, store, renderer)
+            node.for_id(id, visitor, accumulator, id_context, store)
         } else {
             false
         }

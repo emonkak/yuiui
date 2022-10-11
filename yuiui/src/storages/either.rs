@@ -238,11 +238,10 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut Renderer,
     ) {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, accumulator, id_context, store, renderer),
-            Either::Right(node) => node.for_each(visitor, accumulator, id_context, store, renderer),
+            Either::Left(node) => node.for_each(visitor, accumulator, id_context, store),
+            Either::Right(node) => node.for_each(visitor, accumulator, id_context, store),
         }
     }
 
@@ -253,15 +252,10 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut Renderer,
     ) -> bool {
         match &mut self.active {
-            Either::Left(node) => {
-                node.for_id(id, visitor, accumulator, id_context, store, renderer)
-            }
-            Either::Right(node) => {
-                node.for_id(id, visitor, accumulator, id_context, store, renderer)
-            }
+            Either::Left(node) => node.for_id(id, visitor, accumulator, id_context, store),
+            Either::Right(node) => node.for_id(id, visitor, accumulator, id_context, store),
         }
     }
 }

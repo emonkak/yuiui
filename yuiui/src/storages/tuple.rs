@@ -53,7 +53,6 @@ impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> f
         _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
-        _renderer: &mut R,
     ) {
     }
 
@@ -64,7 +63,6 @@ impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> f
         _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
-        _renderer: &mut R,
     ) -> bool {
         false
     }
@@ -163,10 +161,9 @@ macro_rules! define_tuple_impl {
                 accumulator: &mut Accumulator,
                 id_context: &mut IdContext,
                 store: &Store<S>,
-                renderer: &mut R,
             ) {
                 $(
-                    self.$n.for_each(visitor, accumulator, id_context, store, renderer);
+                    self.$n.for_each(visitor, accumulator, id_context, store);
                 )*
             }
 
@@ -177,10 +174,9 @@ macro_rules! define_tuple_impl {
                 accumulator: &mut Accumulator,
                 id_context: &mut IdContext,
                 store: &Store<S>,
-                renderer: &mut R,
             ) -> bool {
                 $(
-                    if self.$n.for_id(id, visitor, accumulator, id_context, store, renderer) {
+                    if self.$n.for_id(id, visitor, accumulator, id_context, store) {
                         return true;
                     }
                 )*

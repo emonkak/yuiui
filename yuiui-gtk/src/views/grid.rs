@@ -69,7 +69,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         _messages: &mut Vec<M>,
-        renderer: &mut R,
+        _renderer: &mut R,
     ) {
         let is_static: bool = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
@@ -82,7 +82,7 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, &mut (), id_context, store, renderer);
+            children.for_each(&mut visitor, &mut (), id_context, store);
         }
     }
 
@@ -198,7 +198,6 @@ where
         _accumulator: &mut Self::Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
-        _renderer: &mut R,
     ) {
         let new_child: &gtk::Widget = node.state().unwrap().as_ref();
         loop {

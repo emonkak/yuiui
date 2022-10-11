@@ -175,7 +175,7 @@ where
     }
 }
 
-impl<T, S, M, R, Visitor, Accumulator> Traversable<Visitor, Accumulator, S, M, R> for VecStorage<T>
+impl<T, Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> for VecStorage<T>
 where
     T: Traversable<Visitor, Accumulator, S, M, R> + ViewNodeSeq<S, M, R>,
 {
@@ -185,10 +185,9 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) {
         for node in &mut self.active {
-            node.for_each(visitor, accumulator, id_context, store, renderer);
+            node.for_each(visitor, accumulator, id_context, store);
         }
     }
 
@@ -199,7 +198,6 @@ where
         accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
     ) -> bool {
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.active, |node| {
@@ -214,11 +212,11 @@ where
                 })
             }) {
                 let node = &mut self.active[index];
-                return node.for_id(id, visitor, accumulator, id_context, store, renderer);
+                return node.for_id(id, visitor, accumulator, id_context, store);
             }
         } else {
             for node in &mut self.active {
-                if node.for_id(id, visitor, accumulator, id_context, store, renderer) {
+                if node.for_id(id, visitor, accumulator, id_context, store) {
                     return true;
                 }
             }

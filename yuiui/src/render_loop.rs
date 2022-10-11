@@ -93,9 +93,9 @@ where
 
             if !self.nodes_to_update.is_empty() {
                 let id_tree = mem::take(&mut self.nodes_to_update);
-                let changed_nodes =
-                    self.node
-                        .update_subtree(&id_tree, store, renderer, &mut self.id_context);
+                let changed_nodes = self
+                    .node
+                    .update_subtree(&id_tree, store, &mut self.id_context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         self.nodes_to_commit
