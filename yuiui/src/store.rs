@@ -64,7 +64,7 @@ impl<T: State> State for Store<T> {
     fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
         let (dirty, mut effect) = self.state.update(message);
         if dirty {
-            self.dirty.set(true);
+            *self.dirty.get_mut() = true;
             effect
                 .subscribers
                 .extend(self.subscribers.get_mut().iter().cloned());
