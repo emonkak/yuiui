@@ -5,7 +5,7 @@ use std::mem;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::RenderFlag;
@@ -226,25 +226,23 @@ where
     }
 }
 
-impl<L, R, Visitor, Output, S, M, Renderer> Traversable<Visitor, Output, S, M, Renderer>
+impl<L, R, Visitor, Accumulator, S, M, Renderer> Traversable<Visitor, Accumulator, S, M, Renderer>
     for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Output, S, M, Renderer>,
-    R: Traversable<Visitor, Output, S, M, Renderer>,
+    L: Traversable<Visitor, Accumulator, S, M, Renderer>,
+    R: Traversable<Visitor, Accumulator, S, M, Renderer>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut Renderer,
-    ) -> Output
-    where
-        Output: Monoid,
-    {
+    ) {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, id_context, store, renderer),
-            Either::Right(node) => node.for_each(visitor, id_context, store, renderer),
+            Either::Left(node) => node.for_each(visitor, accumulator, id_context, store, renderer),
+            Either::Right(node) => node.for_each(visitor, accumulator, id_context, store, renderer),
         }
     }
 
@@ -252,13 +250,18 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut Renderer,
-    ) -> Option<Output> {
+    ) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.for_id(id, visitor, id_context, store, renderer),
-            Either::Right(node) => node.for_id(id, visitor, id_context, store, renderer),
+            Either::Left(node) => {
+                node.for_id(id, visitor, accumulator, id_context, store, renderer)
+            }
+            Either::Right(node) => {
+                node.for_id(id, visitor, accumulator, id_context, store, renderer)
+            }
         }
     }
 }

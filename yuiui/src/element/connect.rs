@@ -337,26 +337,28 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut (),
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
     ) {
         let sub_store = (self.store_selector)(store);
         self.target
-            .for_each(visitor, id_context, sub_store, renderer)
+            .for_each(visitor, accumulator, id_context, sub_store, renderer)
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut (),
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<()> {
+    ) -> bool {
         let sub_store = (self.store_selector)(store);
         self.target
-            .for_id(id, visitor, id_context, sub_store, renderer)
+            .for_id(id, visitor, accumulator, id_context, sub_store, renderer)
     }
 }
 
@@ -368,30 +370,44 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Vec<M>,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Vec<M> {
+    ) {
         let sub_store = (self.store_selector)(store);
-        self.target
-            .for_each(visitor, id_context, sub_store, renderer)
-            .into_iter()
-            .map(&self.message_selector)
-            .collect()
+        let mut sub_accumulator = Vec::new();
+        self.target.for_each(
+            visitor,
+            &mut sub_accumulator,
+            id_context,
+            sub_store,
+            renderer,
+        );
+        accumulator.extend(sub_accumulator.into_iter().map(&self.message_selector));
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Vec<M>,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Vec<M>> {
+    ) -> bool {
         let sub_store = (self.store_selector)(store);
-        self.target
-            .for_id(id, visitor, id_context, sub_store, renderer)
-            .map(|messages| messages.into_iter().map(&self.message_selector).collect())
+        let mut sub_accumulator = Vec::new();
+        let result = self.target.for_id(
+            id,
+            visitor,
+            &mut sub_accumulator,
+            id_context,
+            sub_store,
+            renderer,
+        );
+        accumulator.extend(sub_accumulator.into_iter().map(&self.message_selector));
+        result
     }
 }
 

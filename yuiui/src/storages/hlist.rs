@@ -3,7 +3,7 @@ use hlist::{HCons, HList, HNil};
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, M, R> ElementSeq<S, M, R> for HNil {
@@ -132,60 +132,70 @@ where
     }
 }
 
-impl<Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for HNil
-where
-    Output: Default,
-{
+impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> for HNil {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
+        _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
-    ) -> Output {
-        Output::default()
+    ) {
     }
 
     fn for_id(
         &mut self,
         _id: Id,
         _visitor: &mut Visitor,
+        _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
-    ) -> Option<Output> {
-        None
+    ) -> bool {
+        false
     }
 }
 
-impl<H, T, Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for HCons<H, T>
+impl<H, T, Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> for HCons<H, T>
 where
-    H: Traversable<Visitor, Output, S, M, R>,
-    T: Traversable<Visitor, Output, S, M, R> + HList,
-    Output: Monoid,
+    H: Traversable<Visitor, Accumulator, S, M, R>,
+    T: Traversable<Visitor, Accumulator, S, M, R> + HList,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output {
+    ) {
         self.head
-            .for_each(visitor, id_context, store, renderer)
-            .combine(self.tail.for_each(visitor, id_context, store, renderer))
+            .for_each(visitor, accumulator, id_context, store, renderer);
+        self.tail
+            .for_each(visitor, accumulator, id_context, store, renderer);
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Output> {
-        self.head
-            .for_id(id, visitor, id_context, store, renderer)
-            .or_else(|| self.tail.for_id(id, visitor, id_context, store, renderer))
+    ) -> bool {
+        if self
+            .head
+            .for_id(id, visitor, accumulator, id_context, store, renderer)
+        {
+            return true;
+        }
+        if self
+            .tail
+            .for_id(id, visitor, accumulator, id_context, store, renderer)
+        {
+            return true;
+        }
+        false
     }
 }

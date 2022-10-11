@@ -82,7 +82,7 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, id_context, store, renderer);
+            children.for_each(&mut visitor, &mut (), id_context, store, renderer);
         }
     }
 
@@ -190,15 +190,16 @@ where
     CS: ComponentStack<S, M, R, View = GridChild<V>>,
     GridChild<V>: View<S, M, R, Children = V::Children, State = V::State>,
 {
-    type Output = ();
+    type Accumulator = ();
 
     fn visit(
         &mut self,
         node: &mut ViewNode<GridChild<V>, CS, S, M, R>,
+        _accumulator: &mut Self::Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
-    ) -> Self::Output {
+    ) {
         let new_child: &gtk::Widget = node.state().unwrap().as_ref();
         loop {
             match self.current_child.take() {

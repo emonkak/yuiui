@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::binary_search_by;
@@ -175,33 +175,32 @@ where
     }
 }
 
-impl<T, S, M, R, Visitor, Output> Traversable<Visitor, Output, S, M, R> for VecStorage<T>
+impl<T, S, M, R, Visitor, Accumulator> Traversable<Visitor, Accumulator, S, M, R> for VecStorage<T>
 where
-    T: Traversable<Visitor, Output, S, M, R> + ViewNodeSeq<S, M, R>,
-    Output: Monoid,
+    T: Traversable<Visitor, Accumulator, S, M, R> + ViewNodeSeq<S, M, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output {
-        let mut result = Output::default();
+    ) {
         for node in &mut self.active {
-            result = result.combine(node.for_each(visitor, id_context, store, renderer));
+            node.for_each(visitor, accumulator, id_context, store, renderer);
         }
-        result
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Output> {
+    ) -> bool {
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.active, |node| {
                 node.id_range().map(|(start, end)| {
@@ -215,15 +214,15 @@ where
                 })
             }) {
                 let node = &mut self.active[index];
-                return node.for_id(id, visitor, id_context, store, renderer);
+                return node.for_id(id, visitor, accumulator, id_context, store, renderer);
             }
         } else {
             for node in &mut self.active {
-                if let Some(result) = node.for_id(id, visitor, id_context, store, renderer) {
-                    return Some(result);
+                if node.for_id(id, visitor, accumulator, id_context, store, renderer) {
+                    return true;
                 }
             }
         }
-        None
+        false
     }
 }

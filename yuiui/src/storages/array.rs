@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::binary_search_by;
@@ -102,34 +102,33 @@ where
     }
 }
 
-impl<T, S, M, R, Visitor, Output, const N: usize> Traversable<Visitor, Output, S, M, R>
+impl<T, S, M, R, Visitor, Accumulator, const N: usize> Traversable<Visitor, Accumulator, S, M, R>
     for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Output, S, M, R> + ViewNodeSeq<S, M, R>,
-    Output: Monoid,
+    T: Traversable<Visitor, Accumulator, S, M, R> + ViewNodeSeq<S, M, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output {
-        let mut result = Output::default();
+    ) {
         for node in &mut self.nodes {
-            result = result.combine(node.for_each(visitor, id_context, store, renderer));
+            node.for_each(visitor, accumulator, id_context, store, renderer);
         }
-        result
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Output> {
+    ) -> bool {
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.nodes, |node| {
                 node.id_range().map(|(start, end)| {
@@ -143,15 +142,15 @@ where
                 })
             }) {
                 let node = &mut self.nodes[index];
-                return node.for_id(id, visitor, id_context, store, renderer);
+                return node.for_id(id, visitor, accumulator, id_context, store, renderer);
             }
         } else {
             for node in &mut self.nodes {
-                if let Some(result) = node.for_id(id, visitor, id_context, store, renderer) {
-                    return Some(result);
+                if node.for_id(id, visitor, accumulator, id_context, store, renderer) {
+                    return true;
                 }
             }
         }
-        None
+        false
     }
 }

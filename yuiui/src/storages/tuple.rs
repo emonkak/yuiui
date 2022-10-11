@@ -1,7 +1,7 @@
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 impl<S, M, R> ElementSeq<S, M, R> for () {
@@ -46,29 +46,27 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     fn gc(&mut self) {}
 }
 
-impl<Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for ()
-where
-    Output: Default,
-{
+impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> for () {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
+        _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
-    ) -> Output {
-        Output::default()
+    ) {
     }
 
     fn for_id(
         &mut self,
         _id: Id,
         _visitor: &mut Visitor,
+        _accumulator: &mut Accumulator,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _renderer: &mut R,
-    ) -> Option<Output> {
-        None
+    ) -> bool {
+        false
     }
 }
 
@@ -154,40 +152,39 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R>
+        impl<$($T,)* Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Output, S, M, R>,)*
-            Output: Monoid,
+            $($T: Traversable<Visitor, Accumulator, S, M, R>,)*
         {
             fn for_each(
                 &mut self,
                 visitor: &mut Visitor,
+                accumulator: &mut Accumulator,
                 id_context: &mut IdContext,
                 store: &Store<S>,
                 renderer: &mut R,
-            ) -> Output {
-                let result = Output::default();
+            ) {
                 $(
-                    let result = result.combine(self.$n.for_each(visitor, id_context, store, renderer));
+                    self.$n.for_each(visitor, accumulator, id_context, store, renderer);
                 )*
-                result
             }
 
             fn for_id(
                 &mut self,
                 id: Id,
                 visitor: &mut Visitor,
+                accumulator: &mut Accumulator,
                 id_context: &mut IdContext,
                 store: &Store<S>,
                 renderer: &mut R,
-            ) -> Option<Output> {
+            ) -> bool {
                 $(
-                    if let Some(result) = self.$n.for_id(id, visitor, id_context, store, renderer) {
-                        return Some(result);
+                    if self.$n.for_id(id, visitor, accumulator, id_context, store, renderer) {
+                        return true;
                     }
                 )*
-                None
+                false
             }
         }
     };

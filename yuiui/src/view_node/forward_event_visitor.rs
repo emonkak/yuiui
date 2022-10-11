@@ -24,37 +24,35 @@ where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Output = Vec<M>;
+    type Accumulator = Vec<M>;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
+        accumulator: &mut Self::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Self::Output {
+    ) {
         if let Some((head, tail)) = self.id_path.split_first() {
             self.id_path = tail;
             node.children
-                .for_id(*head, self, id_context, store, renderer)
-                .unwrap_or_default()
+                .for_id(*head, self, accumulator, id_context, store, renderer);
         } else {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
             let event: &V::Event = self.event.downcast_ref().unwrap_or_else(|| {
                 panic!("Unable to cast event to {}", any::type_name::<V::Event>())
             });
-            let mut messages = Vec::new();
             view.event(
                 event,
                 state,
                 &mut node.children,
                 id_context,
                 store,
-                &mut messages,
+                accumulator,
                 renderer,
             );
-            messages
         }
     }
 }

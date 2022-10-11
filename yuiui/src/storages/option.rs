@@ -4,7 +4,7 @@ use std::mem;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::{Monoid, Traversable};
+use crate::traversable::Traversable;
 use crate::view_node::{CommitMode, ViewNodeSeq};
 
 use super::RenderFlag;
@@ -150,25 +150,21 @@ where
     }
 }
 
-impl<T, Visitor, Output, S, M, R> Traversable<Visitor, Output, S, M, R> for OptionStorage<T>
+impl<T, Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R>
+    for OptionStorage<T>
 where
-    T: Traversable<Visitor, Output, S, M, R>,
-    Output: Default,
+    T: Traversable<Visitor, Accumulator, S, M, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Output
-    where
-        Output: Monoid,
-    {
+    ) {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, id_context, store, renderer)
-        } else {
-            Output::default()
+            node.for_each(visitor, accumulator, id_context, store, renderer);
         }
     }
 
@@ -176,14 +172,15 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Output> {
+    ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_id(id, visitor, id_context, store, renderer)
+            node.for_id(id, visitor, accumulator, id_context, store, renderer)
         } else {
-            None
+            false
         }
     }
 }

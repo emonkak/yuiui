@@ -29,22 +29,24 @@ where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Output = ();
+    type Accumulator = ();
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
+        accumulator: &mut Self::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Self::Output {
+    ) {
         if let (Some(&depth), true) = (self.cursor.current().data(), store.dirty()) {
             store.mark_clean();
             let is_updated = if depth < CS::LEN {
                 CS::update(node.into(), depth, 0, id_context, store)
             } else {
                 node.dirty = true;
-                node.children.for_each(self, id_context, store, renderer);
+                node.children
+                    .for_each(self, accumulator, id_context, store, renderer);
                 true
             };
             if is_updated {
@@ -55,7 +57,8 @@ where
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                node.children.for_id(id, self, id_context, store, renderer);
+                node.children
+                    .for_id(id, self, accumulator, id_context, store, renderer);
             }
         }
     }

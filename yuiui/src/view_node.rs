@@ -59,7 +59,7 @@ where
         id_context: &mut IdContext,
     ) -> Vec<(IdPathBuf, Depth)> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
-        visitor.visit(self, id_context, store, renderer);
+        visitor.visit(self, &mut (), id_context, store, renderer);
         visitor.into_result()
     }
 
@@ -237,7 +237,9 @@ where
         renderer: &mut R,
     ) -> Vec<M> {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
-        visitor.visit(self, id_context, store, renderer)
+        let mut messages = Vec::new();
+        visitor.visit(self, &mut messages, id_context, store, renderer);
+        messages
     }
 
     pub(crate) fn forward_event(
@@ -249,7 +251,9 @@ where
         renderer: &mut R,
     ) -> Vec<M> {
         let mut visitor = ForwardEventVisitor::new(payload, destination);
-        visitor.visit(self, id_context, store, renderer)
+        let mut messages = Vec::new();
+        visitor.visit(self, &mut messages, id_context, store, renderer);
+        messages
     }
 
     pub(crate) fn broadcast_event(
@@ -263,7 +267,9 @@ where
         let id_tree = IdTree::from_iter(destinations);
         let cursor = id_tree.root();
         let mut visitor = BroadcastEventVisitor::new(payload, cursor);
-        visitor.visit(self, id_context, store, renderer)
+        let mut messages = Vec::new();
+        visitor.visit(self, &mut messages, id_context, store, renderer);
+        messages
     }
 
     pub fn id(&self) -> Id {
@@ -409,7 +415,7 @@ where
     }
 }
 
-impl<'a, V, CS, S, M, R, Visitor> Traversable<Visitor, Visitor::Output, S, M, R>
+impl<'a, V, CS, S, M, R, Visitor> Traversable<Visitor, Visitor::Accumulator, S, M, R>
     for ViewNode<V, CS, S, M, R>
 where
     V: View<S, M, R>,
@@ -419,12 +425,13 @@ where
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
+        accumulator: &mut Visitor::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Visitor::Output {
+    ) {
         id_context.push_id(self.id);
-        let result = visitor.visit(self, id_context, store, renderer);
+        let result = visitor.visit(self, accumulator, id_context, store, renderer);
         id_context.pop_id();
         result
     }
@@ -433,15 +440,17 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
+        accumulator: &mut Visitor::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Option<Visitor::Output> {
+    ) -> bool {
         id_context.push_id(self.id);
         let result = if id == self.id {
-            Some(visitor.visit(self, id_context, store, renderer))
+            visitor.visit(self, accumulator, id_context, store, renderer);
+            true
         } else {
-            None
+            false
         };
         id_context.pop_id();
         result

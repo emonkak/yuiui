@@ -24,16 +24,16 @@ where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Output = Vec<M>;
+    type Accumulator = Vec<M>;
 
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
+        accumulator: &mut Self::Accumulator,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
-    ) -> Self::Output {
-        let mut messages = Vec::new();
+    ) {
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
@@ -46,19 +46,15 @@ where
                 &mut node.children,
                 id_context,
                 store,
-                &mut messages,
+                accumulator,
                 renderer,
             );
         }
         for cursor in self.cursor.children() {
             let id = cursor.current().id();
             self.cursor = cursor;
-            if let Some(child_messages) =
-                node.children.for_id(id, self, id_context, store, renderer)
-            {
-                messages.extend(child_messages);
-            }
+            node.children
+                .for_id(id, self, accumulator, id_context, store, renderer);
         }
-        messages
     }
 }
