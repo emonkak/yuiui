@@ -2,41 +2,33 @@ use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
 use crate::id::{id_tree, IdContext};
-use crate::store::Store;
-use crate::traversable::{Traversable, Visitor};
 use crate::view::View;
 
-use super::ViewNode;
+use super::{CommitContext, Traversable, ViewNode, Visitor};
 
-pub struct BroadcastEventVisitor<'a, R> {
+pub struct BroadcastEventVisitor<'a> {
     payload: &'a dyn Any,
     cursor: id_tree::Cursor<'a>,
-    renderer: &'a mut R,
 }
 
-impl<'a, R> BroadcastEventVisitor<'a, R> {
-    pub fn new(payload: &'a dyn Any, cursor: id_tree::Cursor<'a>, renderer: &'a mut R) -> Self {
-        Self {
-            payload,
-            cursor,
-            renderer,
-        }
+impl<'a> BroadcastEventVisitor<'a> {
+    pub fn new(payload: &'a dyn Any, cursor: id_tree::Cursor<'a>) -> Self {
+        Self { payload, cursor }
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for BroadcastEventVisitor<'a, R>
+impl<'a, 'context, V, CS, S, M, R>
+    Visitor<ViewNode<V, CS, S, M, R>, CommitContext<'context, S, M, R>, S, M, R>
+    for BroadcastEventVisitor<'a>
 where
     V: View<S, M, R>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Accumulator = Vec<M>;
-
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
-        accumulator: &mut Self::Accumulator,
+        context: &mut CommitContext<'context, S, M, R>,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) {
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
@@ -52,16 +44,15 @@ where
                 state,
                 &mut node.children,
                 id_context,
-                store,
-                accumulator,
-                self.renderer,
+                context.store,
+                context.messages,
+                context.renderer,
             );
         }
         for cursor in self.cursor.children() {
             let id = cursor.current().id();
             self.cursor = cursor;
-            node.children
-                .for_id(id, self, accumulator, id_context, store);
+            node.children.for_id(id, self, context, id_context);
         }
     }
 }

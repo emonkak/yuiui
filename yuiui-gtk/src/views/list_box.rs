@@ -2,8 +2,8 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    ComponentStack, Element, ElementSeq, IdContext, Lifecycle, Store, Traversable, View, ViewNode,
-    ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, Element, ElementSeq, IdContext, Lifecycle, Store, Traversable,
+    View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -51,7 +51,13 @@ pub struct ListBox<Children> {
 impl<Children, S, M, R> View<S, M, R> for ListBox<Children>
 where
     Children: ElementSeq<S, M, R>,
-    Children::Storage: for<'a> Traversable<ReconcileChildrenVisitor<'a>, (), S, M, R>,
+    Children::Storage: for<'a, 'context> Traversable<
+        ReconcileChildrenVisitor<'a>,
+        CommitContext<'context, S, M, R>,
+        S,
+        M,
+        R,
+    >,
 {
     type Children = Children;
 
@@ -66,8 +72,8 @@ where
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
-        _messages: &mut Vec<M>,
-        _renderer: &mut R,
+        messages: &mut Vec<M>,
+        renderer: &mut R,
     ) {
         let is_static = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
@@ -80,7 +86,12 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(state);
-            children.for_each(&mut visitor, &mut (), id_context, store);
+            let mut context = CommitContext {
+                store,
+                messages,
+                renderer,
+            };
+            children.for_each(&mut visitor, &mut context, id_context);
         }
     }
 
@@ -193,19 +204,17 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R> Visitor<ViewNode<V, CS, S, M, R>, S, M, R> for ReconcileChildrenVisitor<'a>
+impl<'a, V, CS, S, M, R, Context> Visitor<ViewNode<V, CS, S, M, R>, Context, S, M, R>
+    for ReconcileChildrenVisitor<'a>
 where
     V: View<S, M, R, State = gtk::ListBoxRow>,
     CS: ComponentStack<S, M, R, View = V>,
 {
-    type Accumulator = ();
-
     fn visit(
         &mut self,
         node: &mut ViewNode<V, CS, S, M, R>,
-        _accumulator: &mut Self::Accumulator,
+        _context: &mut Context,
         _id_context: &mut IdContext,
-        _store: &Store<S>,
     ) {
         let new_widget: &gtk::Widget = node.state().unwrap().as_ref();
         loop {

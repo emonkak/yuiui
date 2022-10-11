@@ -10,7 +10,6 @@ mod id;
 mod render_loop;
 mod storages;
 mod store;
-mod traversable;
 mod view;
 mod view_node;
 
@@ -25,6 +24,8 @@ pub use event::{Event, Lifecycle};
 pub use id::{Depth, Id, IdContext, IdPath, IdPathBuf};
 pub use render_loop::{RenderFlow, RenderLoop};
 pub use store::{State, Store};
-pub use traversable::{Traversable, Visitor};
 pub use view::View;
-pub use view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
+pub use view_node::{
+    CommitContext, CommitMode, RenderContext, Traversable, ViewNode, ViewNodeMut, ViewNodeSeq,
+    Visitor,
+};

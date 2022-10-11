@@ -3,8 +3,7 @@ use std::cmp::Ordering;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::Traversable;
-use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 use super::binary_search_by;
 
@@ -102,20 +101,19 @@ where
     }
 }
 
-impl<T, Visitor, Accumulator, S, M, R, const N: usize> Traversable<Visitor, Accumulator, S, M, R>
+impl<T, Visitor, Context, S, M, R, const N: usize> Traversable<Visitor, Context, S, M, R>
     for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Accumulator, S, M, R> + ViewNodeSeq<S, M, R>,
+    T: Traversable<Visitor, Context, S, M, R> + ViewNodeSeq<S, M, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        accumulator: &mut Accumulator,
+        context: &mut Context,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) {
         for node in &mut self.nodes {
-            node.for_each(visitor, accumulator, id_context, store);
+            node.for_each(visitor, context, id_context);
         }
     }
 
@@ -123,9 +121,8 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        accumulator: &mut Accumulator,
+        context: &mut Context,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) -> bool {
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.nodes, |node| {
@@ -140,11 +137,11 @@ where
                 })
             }) {
                 let node = &mut self.nodes[index];
-                return node.for_id(id, visitor, accumulator, id_context, store);
+                return node.for_id(id, visitor, context, id_context);
             }
         } else {
             for node in &mut self.nodes {
-                if node.for_id(id, visitor, accumulator, id_context, store) {
+                if node.for_id(id, visitor, context, id_context) {
                     return true;
                 }
             }

@@ -13,7 +13,7 @@ pub trait View<S, M, R>: Sized {
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<Self>,
-        _view_state: &mut Self::State,
+        _state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
@@ -25,7 +25,7 @@ pub trait View<S, M, R>: Sized {
     fn event(
         &self,
         _event: &Self::Event,
-        _view_state: &mut Self::State,
+        _state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,

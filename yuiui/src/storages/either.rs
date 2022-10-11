@@ -5,8 +5,7 @@ use std::mem;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::Traversable;
-use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 use super::RenderFlag;
 
@@ -226,22 +225,21 @@ where
     }
 }
 
-impl<L, R, Visitor, Accumulator, S, M, Renderer> Traversable<Visitor, Accumulator, S, M, Renderer>
+impl<L, R, Visitor, Context, S, M, Renderer> Traversable<Visitor, Context, S, M, Renderer>
     for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Accumulator, S, M, Renderer>,
-    R: Traversable<Visitor, Accumulator, S, M, Renderer>,
+    L: Traversable<Visitor, Context, S, M, Renderer>,
+    R: Traversable<Visitor, Context, S, M, Renderer>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        accumulator: &mut Accumulator,
+        context: &mut Context,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, accumulator, id_context, store),
-            Either::Right(node) => node.for_each(visitor, accumulator, id_context, store),
+            Either::Left(node) => node.for_each(visitor, context, id_context),
+            Either::Right(node) => node.for_each(visitor, context, id_context),
         }
     }
 
@@ -249,13 +247,12 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        accumulator: &mut Accumulator,
+        context: &mut Context,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.for_id(id, visitor, accumulator, id_context, store),
-            Either::Right(node) => node.for_id(id, visitor, accumulator, id_context, store),
+            Either::Left(node) => node.for_id(id, visitor, context, id_context),
+            Either::Right(node) => node.for_id(id, visitor, context, id_context),
         }
     }
 }

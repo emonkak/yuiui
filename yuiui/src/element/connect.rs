@@ -4,9 +4,10 @@ use crate::component_stack::ComponentStack;
 use crate::event::Lifecycle;
 use crate::id::{Depth, Id, IdContext};
 use crate::store::Store;
-use crate::traversable::Traversable;
 use crate::view::View;
-use crate::view_node::{CommitMode, ViewNode, ViewNodeMut, ViewNodeSeq};
+use crate::view_node::{
+    CommitContext, CommitMode, RenderContext, Traversable, ViewNode, ViewNodeMut, ViewNodeSeq,
+};
 
 use super::{Element, ElementSeq};
 
@@ -309,69 +310,80 @@ where
     }
 }
 
-impl<'a, T, S, M, SS, SM, R, Visitor> Traversable<Visitor, (), S, M, R> for Connect<T, S, M, SS, SM>
+impl<'context, T, S, M, SS, SM, R, Visitor>
+    Traversable<Visitor, RenderContext<'context, S>, S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, (), SS, SM, R>,
+    T: for<'sub_context> Traversable<Visitor, RenderContext<'sub_context, SS>, SS, SM, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        accumulator: &mut (),
+        context: &mut RenderContext<'context, S>,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) {
-        let sub_store = (self.select_store)(store);
-        self.target
-            .for_each(visitor, accumulator, id_context, sub_store)
+        let mut sub_context = RenderContext {
+            store: (self.select_store)(context.store),
+        };
+        self.target.for_each(visitor, &mut sub_context, id_context)
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        accumulator: &mut (),
+        context: &mut RenderContext<'context, S>,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) -> bool {
-        let sub_store = (self.select_store)(store);
+        let mut sub_context = RenderContext {
+            store: (self.select_store)(context.store),
+        };
         self.target
-            .for_id(id, visitor, accumulator, id_context, sub_store)
+            .for_id(id, visitor, &mut sub_context, id_context)
     }
 }
 
-impl<'a, T, S, M, SS, SM, R, Visitor> Traversable<Visitor, Vec<M>, S, M, R>
-    for Connect<T, S, M, SS, SM>
+impl<'context, T, S, M, SS, SM, R, Visitor>
+    Traversable<Visitor, CommitContext<'context, S, M, R>, S, M, R> for Connect<T, S, M, SS, SM>
 where
-    T: Traversable<Visitor, Vec<SM>, SS, SM, R>,
+    T: for<'sub_context> Traversable<Visitor, CommitContext<'sub_context, SS, SM, R>, SS, SM, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        accumulator: &mut Vec<M>,
+        context: &mut CommitContext<'context, S, M, R>,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) {
-        let sub_store = (self.select_store)(store);
-        let mut sub_accumulator = Vec::new();
-        self.target
-            .for_each(visitor, &mut sub_accumulator, id_context, sub_store);
-        accumulator.extend(sub_accumulator.into_iter().map(&self.lift_message));
+        let mut sub_messages = Vec::new();
+        let mut sub_context = CommitContext {
+            store: (self.select_store)(context.store),
+            messages: &mut sub_messages,
+            renderer: context.renderer,
+        };
+        self.target.for_each(visitor, &mut sub_context, id_context);
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&self.lift_message));
     }
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        accumulator: &mut Vec<M>,
+        context: &mut CommitContext<'context, S, M, R>,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) -> bool {
-        let sub_store = (self.select_store)(store);
-        let mut sub_accumulator = Vec::new();
+        let mut sub_messages = Vec::new();
+        let mut sub_context = CommitContext {
+            store: (self.select_store)(context.store),
+            messages: &mut sub_messages,
+            renderer: context.renderer,
+        };
         let result = self
             .target
-            .for_id(id, visitor, &mut sub_accumulator, id_context, sub_store);
-        accumulator.extend(sub_accumulator.into_iter().map(&self.lift_message));
+            .for_id(id, visitor, &mut sub_context, id_context);
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&self.lift_message));
         result
     }
 }

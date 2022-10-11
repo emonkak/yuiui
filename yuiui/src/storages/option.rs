@@ -4,8 +4,7 @@ use std::mem;
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::Traversable;
-use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 use super::RenderFlag;
 
@@ -150,20 +149,18 @@ where
     }
 }
 
-impl<T, Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R>
-    for OptionStorage<T>
+impl<T, Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for OptionStorage<T>
 where
-    T: Traversable<Visitor, Accumulator, S, M, R>,
+    T: Traversable<Visitor, Context, S, M, R>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        accumulator: &mut Accumulator,
+        context: &mut Context,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, accumulator, id_context, store);
+            node.for_each(visitor, context, id_context);
         }
     }
 
@@ -171,12 +168,11 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        accumulator: &mut Accumulator,
+        context: &mut Context,
         id_context: &mut IdContext,
-        store: &Store<S>,
     ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_id(id, visitor, accumulator, id_context, store)
+            node.for_id(id, visitor, context, id_context)
         } else {
             false
         }

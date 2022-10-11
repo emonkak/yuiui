@@ -1,8 +1,7 @@
 use crate::element::ElementSeq;
 use crate::id::{Id, IdContext};
 use crate::store::Store;
-use crate::traversable::Traversable;
-use crate::view_node::{CommitMode, ViewNodeSeq};
+use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 impl<S, M, R> ElementSeq<S, M, R> for () {
     type Storage = ();
@@ -46,13 +45,12 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for () {
     fn gc(&mut self) {}
 }
 
-impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> for () {
+impl<Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for () {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
-        _accumulator: &mut Accumulator,
+        _context: &mut Context,
         _id_context: &mut IdContext,
-        _store: &Store<S>,
     ) {
     }
 
@@ -60,9 +58,8 @@ impl<Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R> f
         &mut self,
         _id: Id,
         _visitor: &mut Visitor,
-        _accumulator: &mut Accumulator,
+        _context: &mut Context,
         _id_context: &mut IdContext,
-        _store: &Store<S>,
     ) -> bool {
         false
     }
@@ -150,20 +147,19 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* Visitor, Accumulator, S, M, R> Traversable<Visitor, Accumulator, S, M, R>
+        impl<$($T,)* Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Accumulator, S, M, R>,)*
+            $($T: Traversable<Visitor, Context, S, M, R>,)*
         {
             fn for_each(
                 &mut self,
                 visitor: &mut Visitor,
-                accumulator: &mut Accumulator,
+                context: &mut Context,
                 id_context: &mut IdContext,
-                store: &Store<S>,
             ) {
                 $(
-                    self.$n.for_each(visitor, accumulator, id_context, store);
+                    self.$n.for_each(visitor, context, id_context);
                 )*
             }
 
@@ -171,12 +167,11 @@ macro_rules! define_tuple_impl {
                 &mut self,
                 id: Id,
                 visitor: &mut Visitor,
-                accumulator: &mut Accumulator,
+                context: &mut Context,
                 id_context: &mut IdContext,
-                store: &Store<S>,
             ) -> bool {
                 $(
-                    if self.$n.for_id(id, visitor, accumulator, id_context, store) {
+                    if self.$n.for_id(id, visitor, context, id_context) {
                         return true;
                     }
                 )*
