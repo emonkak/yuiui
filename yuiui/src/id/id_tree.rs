@@ -65,13 +65,13 @@ impl<T> IdTree<T> {
                 }
             }
 
-            let new_key = self.arena.len();
-            self.arena[key].children.push(new_key);
+            let next_key = self.arena.len();
+            self.arena[key].children.push(next_key);
 
             let node = Node::new(head, None, Vec::new());
             self.arena.push(node);
 
-            key = new_key;
+            key = next_key;
             id_path = tail;
         }
 
