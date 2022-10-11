@@ -67,15 +67,15 @@ where
             while let Some(event) = self.event_queue.pop_front() {
                 let messages = match event {
                     Event::Forward(destination, payload) => self.node.forward_event(
-                        &destination,
                         &*payload,
+                        &destination,
                         &mut self.id_context,
                         store,
                         renderer,
                     ),
                     Event::Broadcast(destinations, paylaod) => self.node.broadcast_event(
-                        &destinations,
                         &*paylaod,
+                        &destinations,
                         &mut self.id_context,
                         store,
                         renderer,

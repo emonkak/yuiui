@@ -248,8 +248,8 @@ where
 
     pub(crate) fn forward_event(
         &mut self,
-        destination: &IdPath,
         payload: &dyn Any,
+        destination: &IdPath,
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
@@ -267,8 +267,8 @@ where
 
     pub(crate) fn broadcast_event(
         &mut self,
-        destinations: &[IdPathBuf],
         payload: &dyn Any,
+        destinations: &[IdPathBuf],
         id_context: &mut IdContext,
         store: &Store<S>,
         renderer: &mut R,
