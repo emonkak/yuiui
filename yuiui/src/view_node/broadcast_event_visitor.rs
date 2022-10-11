@@ -9,15 +9,15 @@ use crate::view::View;
 use super::ViewNode;
 
 pub struct BroadcastEventVisitor<'a, R> {
-    event: &'a dyn Any,
+    payload: &'a dyn Any,
     cursor: id_tree::Cursor<'a>,
     renderer: &'a mut R,
 }
 
 impl<'a, R> BroadcastEventVisitor<'a, R> {
-    pub fn new(event: &'a dyn Any, cursor: id_tree::Cursor<'a>, renderer: &'a mut R) -> Self {
+    pub fn new(payload: &'a dyn Any, cursor: id_tree::Cursor<'a>, renderer: &'a mut R) -> Self {
         Self {
-            event,
+            payload,
             cursor,
             renderer,
         }
@@ -41,8 +41,11 @@ where
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
-            let event: &V::Event = self.event.downcast_ref().unwrap_or_else(|| {
-                panic!("Unable to cast event to {}", any::type_name::<V::Event>())
+            let event: &V::Event = self.payload.downcast_ref().unwrap_or_else(|| {
+                panic!(
+                    "Failed to cast the payload to {}",
+                    any::type_name::<V::Event>()
+                )
             });
             view.event(
                 &event,
