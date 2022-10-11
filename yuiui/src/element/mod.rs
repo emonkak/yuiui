@@ -38,10 +38,10 @@ pub trait Element<S, M, R>:
 
     fn connect<PS, PM>(
         self,
-        state_selector: fn(&PS) -> &Store<S>,
-        message_selector: fn(M) -> PM,
+        select_store: fn(&PS) -> &Store<S>,
+        lift_message: fn(M) -> PM,
     ) -> ConnectEl<Self, PS, PM, S, M> {
-        ConnectEl::new(self, state_selector, message_selector)
+        ConnectEl::new(self, select_store, lift_message)
     }
 }
 

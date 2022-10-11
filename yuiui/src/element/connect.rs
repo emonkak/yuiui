@@ -1,5 +1,4 @@
 use std::fmt;
-use std::marker::PhantomData;
 
 use crate::component_stack::ComponentStack;
 use crate::event::Lifecycle;
@@ -13,22 +12,16 @@ use super::{Element, ElementSeq};
 
 pub struct ConnectEl<T, S, M, SS, SM> {
     target: T,
-    store_selector: fn(&S) -> &Store<SS>,
-    message_selector: fn(SM) -> M,
-    _phantom: PhantomData<(SS, SM)>,
+    select_store: fn(&S) -> &Store<SS>,
+    lift_message: fn(SM) -> M,
 }
 
 impl<T, S, M, SS, SM> ConnectEl<T, S, M, SS, SM> {
-    pub fn new(
-        target: T,
-        store_selector: fn(&S) -> &Store<SS>,
-        message_selector: fn(SM) -> M,
-    ) -> Self {
+    pub fn new(target: T, select_store: fn(&S) -> &Store<SS>, lift_message: fn(SM) -> M) -> Self {
         Self {
             target,
-            store_selector,
-            message_selector,
-            _phantom: PhantomData,
+            select_store,
+            lift_message,
         }
     }
 }
@@ -46,33 +39,25 @@ where
         id_context: &mut IdContext,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, R> {
-        let sub_store = (self.store_selector)(state);
+        let sub_store = (self.select_store)(state);
         let sub_node = self.target.render(id_context, sub_store);
         ViewNode {
             id: sub_node.id,
             view: Connect::new(
                 sub_node.view,
-                self.store_selector.clone(),
-                self.message_selector.clone(),
+                self.select_store.clone(),
+                self.lift_message.clone(),
             ),
             pending_view: sub_node.pending_view.map(|view| {
-                Connect::new(
-                    view,
-                    self.store_selector.clone(),
-                    self.message_selector.clone(),
-                )
+                Connect::new(view, self.select_store.clone(), self.lift_message.clone())
             }),
             state: sub_node.state,
             children: Connect::new(
                 sub_node.children,
-                self.store_selector.clone(),
-                self.message_selector.clone(),
+                self.select_store.clone(),
+                self.lift_message.clone(),
             ),
-            components: Connect::new(
-                sub_node.components,
-                self.store_selector,
-                self.message_selector,
-            ),
+            components: Connect::new(sub_node.components, self.select_store, self.lift_message),
             dirty: sub_node.dirty,
         }
     }
@@ -83,7 +68,7 @@ where
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
-        let sub_store = (self.store_selector)(state);
+        let sub_store = (self.select_store)(state);
         with_sub_node(&mut node, |sub_node| {
             self.target.update(sub_node, id_context, sub_store)
         })
@@ -122,18 +107,16 @@ where
 
 pub struct Connect<T, S, M, SS, SM> {
     target: T,
-    store_selector: fn(&S) -> &Store<SS>,
-    message_selector: fn(SM) -> M,
-    _phantom: PhantomData<(SS, SM)>,
+    select_store: fn(&S) -> &Store<SS>,
+    lift_message: fn(SM) -> M,
 }
 
 impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
-    fn new(target: T, store_selector: fn(&S) -> &Store<SS>, message_selector: fn(SM) -> M) -> Self {
+    fn new(target: T, select_store: fn(&S) -> &Store<SS>, lift_message: fn(SM) -> M) -> Self {
         Self {
             target,
-            store_selector,
-            message_selector,
-            _phantom: PhantomData,
+            select_store,
+            lift_message,
         }
     }
 }
@@ -159,7 +142,7 @@ where
         renderer: &mut R,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
         self.target.lifecycle(
             sub_lifecycle,
@@ -170,7 +153,7 @@ where
             &mut sub_messages,
             renderer,
         );
-        messages.extend(sub_messages.into_iter().map(&self.message_selector));
+        messages.extend(sub_messages.into_iter().map(&self.lift_message));
     }
 
     fn event(
@@ -183,7 +166,7 @@ where
         messages: &mut Vec<M>,
         renderer: &mut R,
     ) {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
         self.target.event(
             event,
@@ -194,7 +177,7 @@ where
             &mut sub_messages,
             renderer,
         );
-        messages.extend(sub_messages.into_iter().map(&self.message_selector));
+        messages.extend(sub_messages.into_iter().map(&self.lift_message));
     }
 
     fn build(
@@ -203,7 +186,7 @@ where
         store: &Store<S>,
         renderer: &mut R,
     ) -> Self::State {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         self.target.build(&mut children.target, sub_store, renderer)
     }
 }
@@ -223,7 +206,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
-        let sub_store = (node.components.store_selector)(store);
+        let sub_store = (node.components.select_store)(store);
         with_sub_node(&mut node, |sub_node| {
             T::update(sub_node, target_depth, current_depth, id_context, sub_store)
         })
@@ -239,7 +222,7 @@ where
         messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
-        let sub_store = (node.components.store_selector)(store);
+        let sub_store = (node.components.select_store)(store);
         match mode {
             CommitMode::Mount => sub_store.subscribe(id_context.id_path().to_vec(), current_depth),
             CommitMode::Unmount => sub_store.unsubscribe(id_context.id_path(), current_depth),
@@ -258,11 +241,7 @@ where
                 renderer,
             )
         });
-        messages.extend(
-            sub_messages
-                .into_iter()
-                .map(&node.components.message_selector),
-        );
+        messages.extend(sub_messages.into_iter().map(&node.components.lift_message));
         result
     }
 }
@@ -274,11 +253,11 @@ where
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
-        let sub_store = (self.store_selector)(state);
+        let sub_store = (self.select_store)(state);
         Connect::new(
             self.target.render_children(id_context, sub_store),
-            self.store_selector.clone(),
-            self.message_selector.clone(),
+            self.select_store.clone(),
+            self.lift_message.clone(),
         )
     }
 
@@ -288,7 +267,7 @@ where
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
-        let sub_store = (self.store_selector)(state);
+        let sub_store = (self.select_store)(state);
         self.target
             .update_children(&mut storage.target, id_context, sub_store)
     }
@@ -316,12 +295,12 @@ where
         messages: &mut Vec<M>,
         renderer: &mut R,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
         let result = self
             .target
             .commit(mode, id_context, sub_store, &mut sub_messages, renderer);
-        messages.extend(sub_messages.into_iter().map(&self.message_selector));
+        messages.extend(sub_messages.into_iter().map(&self.lift_message));
         result
     }
 
@@ -341,7 +320,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
     ) {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         self.target
             .for_each(visitor, accumulator, id_context, sub_store)
     }
@@ -354,7 +333,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         self.target
             .for_id(id, visitor, accumulator, id_context, sub_store)
     }
@@ -372,11 +351,11 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
     ) {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         let mut sub_accumulator = Vec::new();
         self.target
             .for_each(visitor, &mut sub_accumulator, id_context, sub_store);
-        accumulator.extend(sub_accumulator.into_iter().map(&self.message_selector));
+        accumulator.extend(sub_accumulator.into_iter().map(&self.lift_message));
     }
 
     fn for_id(
@@ -387,12 +366,12 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
-        let sub_store = (self.store_selector)(store);
+        let sub_store = (self.select_store)(store);
         let mut sub_accumulator = Vec::new();
         let result = self
             .target
             .for_id(id, visitor, &mut sub_accumulator, id_context, sub_store);
-        accumulator.extend(sub_accumulator.into_iter().map(&self.message_selector));
+        accumulator.extend(sub_accumulator.into_iter().map(&self.lift_message));
         result
     }
 }
@@ -415,8 +394,8 @@ where
     V: View<SS, SM, R>,
     CS: ComponentStack<SS, SM, R, View = V>,
 {
-    let store_selector = &node.components.store_selector;
-    let message_selector = &node.components.message_selector;
+    let select_store = &node.components.select_store;
+    let lift_message = &node.components.lift_message;
     let mut sub_pending_view = node.pending_view.take().map(|view| view.target);
     let sub_node = ViewNodeMut {
         id: node.id,
@@ -428,7 +407,7 @@ where
         dirty: &mut node.dirty,
     };
     let result = callback(sub_node);
-    *node.pending_view = sub_pending_view
-        .map(|view| Connect::new(view, store_selector.clone(), message_selector.clone()));
+    *node.pending_view =
+        sub_pending_view.map(|view| Connect::new(view, select_store.clone(), lift_message.clone()));
     result
 }
