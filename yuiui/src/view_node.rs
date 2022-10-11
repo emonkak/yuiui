@@ -359,6 +359,10 @@ where
         self.id
     }
 
+    pub fn depth(&self) -> Depth {
+        self.depth
+    }
+
     pub fn view(&mut self) -> &mut V {
         self.view
     }
