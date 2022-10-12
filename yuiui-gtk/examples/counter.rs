@@ -21,7 +21,7 @@ impl State for AppState {
                 self.count -= 1;
             }
         }
-        (true, Effect::none())
+        (true, Effect::new())
     }
 }
 

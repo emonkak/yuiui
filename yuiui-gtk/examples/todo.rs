@@ -23,17 +23,17 @@ impl State for AppState {
                 };
                 self.todos.push(Rc::new(todo));
                 self.text = "".to_owned();
-                (true, Effect::none())
+                (true, Effect::new())
             }
             AppMessage::RemoveTodo(id) => {
                 if let Some(position) = self.todos.iter().position(|todo| todo.id == id) {
                     self.todos.remove(position);
                 }
-                (true, Effect::none())
+                (true, Effect::new())
             }
             AppMessage::ChangeText(text) => {
                 self.text = text;
-                (true, Effect::none())
+                (true, Effect::new())
             }
         }
     }

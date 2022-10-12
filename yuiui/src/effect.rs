@@ -2,23 +2,18 @@ use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
 use crate::id::{Depth, IdPathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Effect<T> {
     pub(crate) commands: Vec<(Command<T>, Option<CancellationToken>)>,
     pub(crate) subscribers: Vec<(IdPathBuf, Depth)>,
 }
 
 impl<T> Effect<T> {
-    pub fn none() -> Self {
+    pub fn new() -> Self {
         Self {
             commands: Vec::new(),
             subscribers: Vec::new(),
         }
-    }
-
-    pub fn append(&mut self, other: &mut Effect<T>) {
-        self.commands.append(&mut other.commands);
-        self.subscribers.append(&mut other.subscribers);
     }
 
     pub fn add_command(
@@ -45,22 +40,9 @@ impl<T> Effect<T> {
             subscribers: self.subscribers,
         }
     }
-}
 
-impl<T> From<(Command<T>, Option<CancellationToken>)> for Effect<T> {
-    fn from(command: (Command<T>, Option<CancellationToken>)) -> Self {
-        Self {
-            commands: vec![command],
-            subscribers: Vec::new(),
-        }
-    }
-}
-
-impl<T> From<Vec<(Command<T>, Option<CancellationToken>)>> for Effect<T> {
-    fn from(commands: Vec<(Command<T>, Option<CancellationToken>)>) -> Self {
-        Self {
-            commands,
-            subscribers: Vec::new(),
-        }
+    pub fn append(&mut self, other: &mut Effect<T>) {
+        self.commands.append(&mut other.commands);
+        self.subscribers.append(&mut other.subscribers);
     }
 }
