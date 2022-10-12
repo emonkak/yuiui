@@ -167,10 +167,10 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                     }
                     _ => {}
                 }
-                state.block_changed_signal();
-                self.update(&old_view, &state.widget);
-                self.update_text(old_view.text.as_ref(), &state.widget);
-                state.unblock_changed_signal();
+                state.guard_changed_signal(|| {
+                    self.update(&old_view, &state.widget);
+                    self.update_text(old_view.text.as_ref(), &state.widget);
+                });
             }
             Lifecycle::Unmount => {
                 state.disconnect_changed();
@@ -268,15 +268,13 @@ impl EntryState {
         }
     }
 
-    fn block_changed_signal(&mut self) {
+    fn guard_changed_signal(&self, f: impl FnOnce()) {
         if let Some(signal_id) = &self.changed_signal {
             self.widget.block_signal(signal_id);
-        }
-    }
-
-    fn unblock_changed_signal(&mut self) {
-        if let Some(signal_id) = &self.changed_signal {
+            f();
             self.widget.unblock_signal(signal_id);
+        } else {
+            f();
         }
     }
 }
