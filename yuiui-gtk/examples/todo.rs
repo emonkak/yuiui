@@ -17,6 +17,9 @@ impl State for AppState {
     fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
         match message {
             AppMessage::AddTodo(text) => {
+                if text.is_empty() {
+                    return (false, Effect::new());
+                }
                 let todo = Todo {
                     id: self.todos.len(),
                     text,

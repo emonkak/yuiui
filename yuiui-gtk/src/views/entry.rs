@@ -87,29 +87,6 @@ pub struct Entry<S, M> {
     on_change: Option<Box<dyn Fn(&str, &S) -> M>>,
 }
 
-impl<S, M> Entry<S, M> {
-    fn update_text(&self, old_text: Option<&String>, widget: &gtk::Entry) {
-        match (old_text, &self.text) {
-            (Some(old_text), Some(new_text)) => {
-                if old_text != new_text && widget.text() != new_text.as_str() {
-                    widget.set_text(new_text);
-                }
-            }
-            (Some(_), None) => {
-                if !widget.text().is_empty() {
-                    widget.set_text("");
-                }
-            }
-            (None, Some(new_text)) => {
-                if widget.text() != new_text.as_str() {
-                    widget.set_text(new_text);
-                }
-            }
-            (None, None) => {}
-        }
-    }
-}
-
 impl<S, M> View<S, M, Renderer> for Entry<S, M> {
     type Children = ();
 
@@ -167,10 +144,8 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                     }
                     _ => {}
                 }
-                state.guard_changed_signal(|| {
-                    self.update(&old_view, &state.widget);
-                    self.update_text(old_view.text.as_ref(), &state.widget);
-                });
+                self.update(&old_view, &state.widget);
+                state.update_text(self.text.as_deref());
             }
             Lifecycle::Unmount => {
                 state.disconnect_activate();
@@ -182,7 +157,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
     fn event(
         &self,
         event: &Self::Event,
-        _state: &mut Self::State,
+        state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         _id_context: &mut IdContext,
         store: &Store<S>,
@@ -190,15 +165,16 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
         _renderer: &mut Renderer,
     ) {
         match event {
-            Event::Activate(text) => {
+            Event::Activate => {
                 if let Some(on_activate) = &self.on_activate {
-                    let message = on_activate(text.as_str(), store);
+                    let message = on_activate(state.current_text.as_str(), store);
                     messages.push(message);
                 }
             }
-            Event::Changed(text) => {
+            Event::Changed => {
                 if let Some(on_change) = &self.on_change {
-                    let message = on_change(text.as_str(), store);
+                    state.refresh_text();
+                    let message = on_change(state.current_text.as_str(), store);
                     messages.push(message);
                 }
             }
@@ -222,14 +198,17 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
 #[derive(Debug)]
 pub struct EntryState {
     widget: gtk::Entry,
+    current_text: glib::GString,
     activate_signal: Option<glib::SignalHandlerId>,
     changed_signal: Option<glib::SignalHandlerId>,
 }
 
 impl EntryState {
     fn new(widget: gtk::Entry) -> Self {
+        let current_text = widget.text();
         Self {
             widget,
+            current_text,
             activate_signal: None,
             changed_signal: None,
         }
@@ -238,9 +217,9 @@ impl EntryState {
     fn connect_activate(&mut self, id_path: IdPathBuf, event_port: EventPort) {
         self.changed_signal = self
             .widget
-            .connect_activate(move |widget| {
+            .connect_activate(move |_| {
                 event_port
-                    .forward(id_path.clone(), Event::Activate(widget.text()))
+                    .forward(id_path.clone(), Event::Activate)
                     .unwrap();
             })
             .into();
@@ -249,10 +228,8 @@ impl EntryState {
     fn connect_changed(&mut self, id_path: IdPathBuf, event_port: EventPort) {
         self.changed_signal = self
             .widget
-            .connect_changed(move |widget| {
-                event_port
-                    .forward(id_path.clone(), Event::Changed(widget.text()))
-                    .unwrap();
+            .connect_changed(move |_| {
+                event_port.forward(id_path.clone(), Event::Changed).unwrap();
             })
             .into();
     }
@@ -269,13 +246,30 @@ impl EntryState {
         }
     }
 
-    fn guard_changed_signal(&self, f: impl FnOnce()) {
+    fn refresh_text(&mut self) {
+        self.current_text = self.widget.text();
+    }
+
+    fn update_text(&mut self, new_text: Option<&str>) {
         if let Some(signal_id) = &self.changed_signal {
             self.widget.block_signal(signal_id);
-            f();
+        }
+        match new_text {
+            Some(new_text) => {
+                if new_text != self.current_text {
+                    self.widget.set_text(new_text);
+                    self.current_text = new_text.into();
+                }
+            }
+            None => {
+                if !self.current_text.is_empty() {
+                    self.widget.set_text("");
+                    self.current_text = "".into();
+                }
+            }
+        }
+        if let Some(signal_id) = &self.changed_signal {
             self.widget.unblock_signal(signal_id);
-        } else {
-            f();
         }
     }
 }
@@ -288,6 +282,6 @@ impl AsRef<gtk::Widget> for EntryState {
 
 #[derive(Debug)]
 pub enum Event {
-    Activate(glib::GString),
-    Changed(glib::GString),
+    Activate,
+    Changed,
 }
