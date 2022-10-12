@@ -1,7 +1,7 @@
 pub mod views;
 
 mod backend;
-mod command_context;
+mod command_runtime;
 mod entry_point;
 
 pub use backend::Backend;

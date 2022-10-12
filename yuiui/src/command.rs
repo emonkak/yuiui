@@ -75,6 +75,6 @@ where
     }
 }
 
-pub trait CommandContext<M> {
-    fn spawn_command(&self, command: Command<M>, cancellation_token: Option<CancellationToken>);
+pub trait CommandRuntime<M> {
+    fn spawn_command(&mut self, command: Command<M>, cancellation_token: Option<CancellationToken>);
 }

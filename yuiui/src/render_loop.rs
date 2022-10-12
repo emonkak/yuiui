@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use std::{cmp, fmt, mem};
 
-use crate::command::CommandContext;
+use crate::command::CommandRuntime;
 use crate::element::{Element, ElementSeq};
 use crate::event::TransferableEvent;
 use crate::id::{Depth, IdContext, IdTree};
@@ -42,7 +42,7 @@ where
     pub fn run(
         &mut self,
         deadline: &impl Deadline,
-        command_context: &impl CommandContext<M>,
+        command_runtime: &mut impl CommandRuntime<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) -> RenderFlow {
@@ -57,7 +57,7 @@ where
                         .insert_or_update(&id_path, depth, cmp::min);
                 }
                 for (command, cancellation_token) in effect.commands {
-                    command_context.spawn_command(command, cancellation_token);
+                    command_runtime.spawn_command(command, cancellation_token);
                 }
                 if deadline.did_timeout() {
                     return self.render_flow();
@@ -145,11 +145,11 @@ where
 
     pub fn run_forever(
         &mut self,
-        command_context: &impl CommandContext<M>,
+        command_runtime: &mut impl CommandRuntime<M>,
         store: &mut Store<S>,
         backend: &mut B,
     ) {
-        let render_flow = self.run(&Forever, command_context, store, backend);
+        let render_flow = self.run(&Forever, command_runtime, store, backend);
         assert_eq!(render_flow, RenderFlow::Done);
     }
 

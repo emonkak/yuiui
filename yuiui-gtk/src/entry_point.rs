@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use yuiui::{Element, RenderFlow, RenderLoop, State, Store, View};
 
 use crate::backend::{Backend, EventPort};
-use crate::command_context::{CommandContext, RenderAction};
+use crate::command_runtime::{CommandRuntime, RenderAction};
 
 pub trait EntryPoint<M>: Sized + 'static {
     fn window(&self) -> &gtk::Window;
@@ -28,14 +28,16 @@ pub trait EntryPoint<M>: Sized + 'static {
 
         let (event_tx, event_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (action_tx, action_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        let context = CommandContext::new(glib::MainContext::default(), action_tx.clone());
+
         let event_port = EventPort::new(event_tx);
+        let mut command_runtime =
+            CommandRuntime::new(glib::MainContext::default(), action_tx.clone());
 
         let mut store = Store::new(state);
         let mut backend = Backend::new(self.window().clone(), event_port);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
-        render_loop.run_forever(&context, &mut store, &mut backend);
+        render_loop.run_forever(&mut command_runtime, &mut store, &mut backend);
 
         let widget = render_loop.node().state().unwrap().as_ref();
 
@@ -50,7 +52,7 @@ pub trait EntryPoint<M>: Sized + 'static {
             let deadline = Instant::now() + DEALINE_PERIOD;
 
             match action {
-                RenderAction::RequestRender => {}
+                RenderAction::RequestRerender => {}
                 RenderAction::Message(message) => {
                     self.on_message(&message);
                     render_loop.push_message(message);
@@ -60,9 +62,10 @@ pub trait EntryPoint<M>: Sized + 'static {
                 }
             }
 
-            if render_loop.run(&deadline, &context, &mut store, &mut backend) == RenderFlow::Suspend
+            if render_loop.run(&deadline, &mut command_runtime, &mut store, &mut backend)
+                == RenderFlow::Suspend
             {
-                context.request_render();
+                command_runtime.request_rerender();
             }
 
             glib::Continue(true)

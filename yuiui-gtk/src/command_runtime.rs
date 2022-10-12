@@ -3,52 +3,56 @@ use gtk::glib;
 use yuiui::{CancellationToken, Command, RawToken, RawTokenVTable, TransferableEvent};
 
 #[derive(Debug)]
-pub struct CommandContext<T> {
+pub struct CommandRuntime<T> {
     main_context: glib::MainContext,
-    action_port: glib::Sender<RenderAction<T>>,
+    action_sender: glib::Sender<RenderAction<T>>,
 }
 
-impl<T: Send + 'static> CommandContext<T> {
+impl<T: Send + 'static> CommandRuntime<T> {
     pub(super) fn new(
         main_context: glib::MainContext,
-        action_port: glib::Sender<RenderAction<T>>,
+        action_sender: glib::Sender<RenderAction<T>>,
     ) -> Self {
         Self {
             main_context,
-            action_port,
+            action_sender,
         }
     }
 }
 
-impl<T: Send + 'static> CommandContext<T> {
-    pub fn request_render(&self) {
-        let action_port = self.action_port.clone();
+impl<T: Send + 'static> CommandRuntime<T> {
+    pub fn request_rerender(&self) {
+        let action_sender = self.action_sender.clone();
         glib::idle_add_once(move || {
-            action_port.send(RenderAction::RequestRender).unwrap();
+            action_sender.send(RenderAction::RequestRerender).unwrap();
         });
     }
 }
 
-impl<T: Send + 'static> yuiui::CommandContext<T> for CommandContext<T> {
-    fn spawn_command(&self, command: Command<T>, cancellation_token: Option<CancellationToken>) {
-        let action_port = self.action_port.clone();
+impl<T: Send + 'static> yuiui::CommandRuntime<T> for CommandRuntime<T> {
+    fn spawn_command(
+        &mut self,
+        command: Command<T>,
+        cancellation_token: Option<CancellationToken>,
+    ) {
+        let action_sender = self.action_sender.clone();
         let source_id = match command {
             Command::Future(future) => self.main_context.spawn_local(async move {
                 let message = future.await;
-                action_port.send(RenderAction::Message(message)).unwrap();
+                action_sender.send(RenderAction::Message(message)).unwrap();
             }),
             Command::Stream(mut stream) => self.main_context.spawn_local(async move {
                 while let Some(message) = stream.next().await {
-                    action_port.send(RenderAction::Message(message)).unwrap();
+                    action_sender.send(RenderAction::Message(message)).unwrap();
                 }
             }),
             Command::Timeout(duration, callback) => glib::timeout_add_once(duration, move || {
                 let message = callback();
-                action_port.send(RenderAction::Message(message)).unwrap();
+                action_sender.send(RenderAction::Message(message)).unwrap();
             }),
             Command::Interval(period, mut callback) => glib::timeout_add(period, move || {
                 let message = callback();
-                action_port.send(RenderAction::Message(message)).unwrap();
+                action_sender.send(RenderAction::Message(message)).unwrap();
                 glib::Continue(true)
             }),
         };
@@ -79,5 +83,5 @@ fn create_token(source_id: glib::SourceId) -> RawToken {
 pub(super) enum RenderAction<T> {
     Message(T),
     Event(TransferableEvent),
-    RequestRender,
+    RequestRerender,
 }
