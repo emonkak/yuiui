@@ -10,7 +10,7 @@ pub enum Command<T> {
     Future(BoxFuture<'static, T>),
     Stream(BoxStream<'static, T>),
     Timeout(Duration, Box<dyn FnOnce() -> T + Send>),
-    Interval(Duration, Box<dyn Fn() -> T + Send>),
+    Interval(Duration, Box<dyn FnMut() -> T + Send>),
 }
 
 impl<T> Command<T> {
@@ -42,9 +42,9 @@ impl<T> Command<T> {
         Command::Interval(period, Box::new(f))
     }
 
-    pub fn map<F, U>(self, f: F) -> Command<U>
+    pub fn map<F, U>(self, mut f: F) -> Command<U>
     where
-        F: Fn(T) -> U + Clone + Send + 'static,
+        F: FnMut(T) -> U + Send + 'static,
         T: 'static,
         U: 'static,
     {
@@ -54,7 +54,7 @@ impl<T> Command<T> {
             Self::Timeout(duration, callback) => {
                 Command::Timeout(duration, Box::new(move || f(callback())))
             }
-            Self::Interval(period, callback) => {
+            Self::Interval(period, mut callback) => {
                 Command::Interval(period, Box::new(move || f(callback())))
             }
         }

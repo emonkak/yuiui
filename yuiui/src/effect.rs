@@ -26,7 +26,7 @@ impl<T> Effect<T> {
 
     pub fn map<F, U>(self, f: F) -> Effect<U>
     where
-        F: Fn(T) -> U + Clone + Send + 'static,
+        F: FnMut(T) -> U + Clone + Send + 'static,
         T: 'static,
         U: 'static,
     {

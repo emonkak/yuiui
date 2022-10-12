@@ -46,7 +46,7 @@ impl<T: Send + 'static> yuiui::CommandContext<T> for CommandContext<T> {
                 let message = callback();
                 action_port.send(RenderAction::Message(message)).unwrap();
             }),
-            Command::Interval(period, callback) => glib::timeout_add(period, move || {
+            Command::Interval(period, mut callback) => glib::timeout_add(period, move || {
                 let message = callback();
                 action_port.send(RenderAction::Message(message)).unwrap();
                 glib::Continue(true)
