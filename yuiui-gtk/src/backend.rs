@@ -3,12 +3,12 @@ use std::sync::mpsc;
 use yuiui::{IdPathBuf, TransferableEvent};
 
 #[derive(Debug)]
-pub struct Renderer {
+pub struct Backend {
     window: gtk::Window,
     event_port: EventPort,
 }
 
-impl Renderer {
+impl Backend {
     pub(crate) fn new(window: gtk::Window, event_port: EventPort) -> Self {
         Self { window, event_port }
     }

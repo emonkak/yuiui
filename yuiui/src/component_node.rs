@@ -8,17 +8,17 @@ use crate::id::{Depth, IdContext};
 use crate::store::Store;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
-pub struct ComponentNode<C: Component<S, M, R>, S, M, R> {
+pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
     component: C,
     depth: Depth,
     pending_component: Option<C>,
     is_mounted: bool,
-    _phantom: PhantomData<(S, M, R)>,
+    _phantom: PhantomData<(S, M, B)>,
 }
 
-impl<C, S, M, R> ComponentNode<C, S, M, R>
+impl<C, S, M, B> ComponentNode<C, S, M, B>
 where
-    C: Component<S, M, R>,
+    C: Component<S, M, B>,
 {
     pub(crate) fn new(component: C, depth: Depth) -> Self {
         Self {
@@ -39,16 +39,16 @@ where
         mode: CommitMode,
         view_node: ViewNodeMut<
             '_,
-            <C::Element as Element<S, M, R>>::View,
-            <C::Element as Element<S, M, R>>::Components,
+            <C::Element as Element<S, M, B>>::View,
+            <C::Element as Element<S, M, B>>::Components,
             S,
             M,
-            R,
+            B,
         >,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
         match mode {
             CommitMode::Mount => {
@@ -58,7 +58,7 @@ where
                     Lifecycle::Mount
                 };
                 self.component
-                    .lifecycle(lifecycle, view_node, id_context, store, messages, renderer);
+                    .lifecycle(lifecycle, view_node, id_context, store, messages, backend);
                 self.is_mounted = true;
                 true
             }
@@ -71,7 +71,7 @@ where
                         id_context,
                         store,
                         messages,
-                        renderer,
+                        backend,
                     );
                     true
                 } else {
@@ -85,7 +85,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 true
             }
@@ -101,9 +101,9 @@ where
     }
 }
 
-impl<C, S, M, R> fmt::Debug for ComponentNode<C, S, M, R>
+impl<C, S, M, B> fmt::Debug for ComponentNode<C, S, M, B>
 where
-    C: Component<S, M, R> + fmt::Debug,
+    C: Component<S, M, B> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ComponentNode")

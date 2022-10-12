@@ -22,16 +22,16 @@ impl<'a> UpdateSubtreeVisitor<'a> {
     }
 }
 
-impl<'a, 'context, V, CS, S, M, R>
-    Visitor<ViewNode<V, CS, S, M, R>, RenderContext<'context, S>, S, M, R>
+impl<'a, 'context, V, CS, S, M, B>
+    Visitor<ViewNode<V, CS, S, M, B>, RenderContext<'context, S>, S, M, B>
     for UpdateSubtreeVisitor<'a>
 where
-    V: View<S, M, R>,
-    CS: ComponentStack<S, M, R, View = V>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, R>,
+        node: &mut ViewNode<V, CS, S, M, B>,
         context: &mut RenderContext<'context, S>,
         id_context: &mut IdContext,
     ) {

@@ -5,7 +5,7 @@ use gtk::{gdk, glib};
 use yuiui::{Element, ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::renderer::{EventPort, Renderer};
+use crate::backend::{Backend, EventPort};
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
@@ -53,10 +53,10 @@ pub struct Button<Child, S, M> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, Renderer> for Button<Child, S, M>
+impl<Child, S, M> View<S, M, Backend> for Button<Child, S, M>
 where
-    Child: Element<S, M, Renderer>,
-    <Child::View as View<S, M, Renderer>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, Backend>,
+    <Child::View as View<S, M, Backend>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -66,18 +66,18 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        renderer: &mut Renderer,
+        backend: &mut Backend,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
                     state.connect_clicked(
                         id_context.id_path().to_vec(),
-                        renderer.event_port().clone(),
+                        backend.event_port().clone(),
                     );
                 }
             }
@@ -89,7 +89,7 @@ where
                     (None, Some(_)) => {
                         state.connect_clicked(
                             id_context.id_path().to_vec(),
-                            renderer.event_port().clone(),
+                            backend.event_port().clone(),
                         );
                     }
                     _ => {}
@@ -106,11 +106,11 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _renderer: &mut Renderer,
+        _backend: &mut Backend,
     ) {
         match event {
             Event::Clicked => {
@@ -124,9 +124,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut Renderer,
+        _backend: &mut Backend,
     ) -> Self::State {
         let widget = self.build();
         let child = child.state().unwrap().as_ref();

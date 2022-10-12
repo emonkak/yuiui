@@ -27,9 +27,9 @@ impl<T> OptionStorage<T> {
     }
 }
 
-impl<T, S, M, R> ElementSeq<S, M, R> for Option<T>
+impl<T, S, M, B> ElementSeq<S, M, B> for Option<T>
 where
-    T: ElementSeq<S, M, R>,
+    T: ElementSeq<S, M, B>,
 {
     type Storage = OptionStorage<T::Storage>;
 
@@ -81,9 +81,9 @@ where
     }
 }
 
-impl<T, S, M, R> ViewNodeSeq<S, M, R> for OptionStorage<T>
+impl<T, S, M, B> ViewNodeSeq<S, M, B> for OptionStorage<T>
 where
-    T: ViewNodeSeq<S, M, R>,
+    T: ViewNodeSeq<S, M, B>,
 {
     const SIZE_HINT: (usize, Option<usize>) = {
         let (_, upper) = T::SIZE_HINT;
@@ -114,25 +114,25 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlag::Swapped) {
             if self.flags.contains(RenderFlag::Commited) {
                 if let Some(node) = &mut self.active {
                     result |=
-                        node.commit(CommitMode::Unmount, id_context, store, messages, renderer);
+                        node.commit(CommitMode::Unmount, id_context, store, messages, backend);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Mount, id_context, store, messages, renderer);
+                    result |= node.commit(CommitMode::Mount, id_context, store, messages, backend);
                 }
             }
         } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagatable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, id_context, store, messages, renderer);
+                result |= node.commit(mode, id_context, store, messages, backend);
             }
         }
         self.flags.set(RenderFlag::Commited);
@@ -149,9 +149,9 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for OptionStorage<T>
+impl<T, Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for OptionStorage<T>
 where
-    T: Traversable<Visitor, Context, S, M, R>,
+    T: Traversable<Visitor, Context, S, M, B>,
 {
     fn for_each(
         &mut self,

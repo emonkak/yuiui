@@ -51,15 +51,15 @@ pub struct Notebook<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, R> View<S, M, R> for Notebook<Children>
+impl<Children, S, M, B> View<S, M, B> for Notebook<Children>
 where
-    Children: ElementSeq<S, M, R>,
+    Children: ElementSeq<S, M, B>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, R>,
+        CommitContext<'context, S, M, B>,
         S,
         M,
-        R,
+        B,
     >,
 {
     type Children = Children;
@@ -70,13 +70,13 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
-        let is_static: bool = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
+        let is_static: bool = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -90,7 +90,7 @@ where
             let mut context = CommitContext {
                 store,
                 messages,
-                renderer,
+                backend,
             };
             children.for_each(&mut visitor, &mut context, id_context);
         }
@@ -98,9 +98,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }
@@ -138,9 +138,9 @@ pub enum NotebookChildType {
     Content,
 }
 
-impl<Child, S, M, R> View<S, M, R> for NotebookChild<Child>
+impl<Child, S, M, B> View<S, M, B> for NotebookChild<Child>
 where
-    Child: View<S, M, R>,
+    Child: View<S, M, B>,
 {
     type Children = Child::Children;
 
@@ -150,15 +150,15 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
         let lifecycle = lifecycle.map(|view| view.child);
         self.child.lifecycle(
-            lifecycle, state, children, id_context, store, messages, renderer,
+            lifecycle, state, children, id_context, store, messages, backend,
         )
     }
 
@@ -166,24 +166,23 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
-        self.child.event(
-            event, state, children, id_context, store, messages, renderer,
-        )
+        self.child
+            .event(event, state, children, id_context, store, messages, backend)
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> Self::State {
-        self.child.build(children, store, renderer)
+        self.child.build(children, store, backend)
     }
 }
 
@@ -209,17 +208,17 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R, Context> Visitor<ViewNode<NotebookChild<V>, CS, S, M, R>, Context, S, M, R>
+impl<'a, V, CS, S, M, B, Context> Visitor<ViewNode<NotebookChild<V>, CS, S, M, B>, Context, S, M, B>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, R>,
+    V: View<S, M, B>,
     V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, R, View = NotebookChild<V>>,
-    NotebookChild<V>: View<S, M, R, Children = V::Children, State = V::State>,
+    CS: ComponentStack<S, M, B, View = NotebookChild<V>>,
+    NotebookChild<V>: View<S, M, B, Children = V::Children, State = V::State>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<NotebookChild<V>, CS, S, M, R>,
+        node: &mut ViewNode<NotebookChild<V>, CS, S, M, B>,
         _context: &mut Context,
         _id_context: &mut IdContext,
     ) {

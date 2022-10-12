@@ -24,9 +24,9 @@ pub struct EventLoop<Connection> {
     screen_num: usize,
 }
 
-enum Either<L, R> {
+enum Either<L, B> {
     Left(L),
-    Right(R),
+    Right(B),
 }
 
 const DEFAULT_REFRESH_RATE: f64 = 60.0;

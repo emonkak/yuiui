@@ -50,15 +50,15 @@ pub struct Stack<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, R> View<S, M, R> for Stack<Children>
+impl<Children, S, M, B> View<S, M, B> for Stack<Children>
 where
-    Children: ElementSeq<S, M, R>,
+    Children: ElementSeq<S, M, B>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, R>,
+        CommitContext<'context, S, M, B>,
         S,
         M,
-        R,
+        B,
     >,
 {
     type Children = Children;
@@ -69,13 +69,13 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -89,7 +89,7 @@ where
             let mut context = CommitContext {
                 store,
                 messages,
-                renderer,
+                backend,
             };
             children.for_each(&mut visitor, &mut context, id_context);
         }
@@ -97,9 +97,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }
@@ -147,10 +147,10 @@ pub struct StackSwitcher<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M, R> View<S, M, R> for StackSwitcher<Child>
+impl<Child, S, M, B> View<S, M, B> for StackSwitcher<Child>
 where
-    Child: Element<S, M, R>,
-    Child::View: View<S, M, R, State = gtk::Stack>,
+    Child: Element<S, M, B>,
+    Child::View: View<S, M, B, State = gtk::Stack>,
 {
     type Children = Child;
 
@@ -160,11 +160,11 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -176,9 +176,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) -> Self::State {
         let container = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -224,9 +224,9 @@ pub struct StackPage<Child> {
     visible: Option<bool>,
 }
 
-impl<Child, S, M, R> View<S, M, R> for StackPage<Child>
+impl<Child, S, M, B> View<S, M, B> for StackPage<Child>
 where
-    Child: View<S, M, R>,
+    Child: View<S, M, B>,
 {
     type Children = Child::Children;
 
@@ -236,11 +236,11 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
         match &lifecycle {
             Lifecycle::Update(old_view) => {
@@ -258,7 +258,7 @@ where
             id_context,
             store,
             messages,
-            renderer,
+            backend,
         )
     }
 
@@ -266,11 +266,11 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
         self.child.event(
             event,
@@ -279,17 +279,17 @@ where
             id_context,
             store,
             messages,
-            renderer,
+            backend,
         )
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> Self::State {
-        let child_state = self.child.build(children, store, renderer);
+        let child_state = self.child.build(children, store, backend);
         StackPageState::new(child_state)
     }
 }
@@ -333,17 +333,17 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, R, Context> Visitor<ViewNode<StackPage<V>, CS, S, M, R>, Context, S, M, R>
+impl<'a, V, CS, S, M, B, Context> Visitor<ViewNode<StackPage<V>, CS, S, M, B>, Context, S, M, B>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, R>,
+    V: View<S, M, B>,
     V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, R, View = StackPage<V>>,
-    StackPage<V>: View<S, M, R, Children = V::Children, State = StackPageState<V::State>>,
+    CS: ComponentStack<S, M, B, View = StackPage<V>>,
+    StackPage<V>: View<S, M, B, Children = V::Children, State = StackPageState<V::State>>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<StackPage<V>, CS, S, M, R>,
+        node: &mut ViewNode<StackPage<V>, CS, S, M, B>,
         _context: &mut Context,
         _id_context: &mut IdContext,
     ) {

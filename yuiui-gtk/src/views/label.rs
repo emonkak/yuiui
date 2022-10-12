@@ -55,7 +55,7 @@ pub struct Label {
     accessible_role: Option<gtk::AccessibleRole>,
 }
 
-impl<S, M, R> View<S, M, R> for Label {
+impl<S, M, B> View<S, M, B> for Label {
     type Children = ();
 
     type State = gtk::Label;
@@ -64,11 +64,11 @@ impl<S, M, R> View<S, M, R> for Label {
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -80,9 +80,9 @@ impl<S, M, R> View<S, M, R> for Label {
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }

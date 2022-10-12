@@ -45,7 +45,7 @@ pub struct CheckButton {
     action_target: Option<glib::Variant>,
 }
 
-impl<S, M, R> View<S, M, R> for CheckButton {
+impl<S, M, B> View<S, M, B> for CheckButton {
     type Children = ();
 
     type State = gtk::CheckButton;
@@ -54,11 +54,11 @@ impl<S, M, R> View<S, M, R> for CheckButton {
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -70,9 +70,9 @@ impl<S, M, R> View<S, M, R> for CheckButton {
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) -> Self::State {
         self.build()
     }

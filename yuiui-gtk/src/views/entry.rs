@@ -3,7 +3,7 @@ use gtk::{gdk, gio, glib, pango};
 use yuiui::{ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::renderer::{EventPort, Renderer};
+use crate::backend::{Backend, EventPort};
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Entry)]
@@ -87,7 +87,7 @@ pub struct Entry<S, M> {
     on_change: Option<Box<dyn Fn(&str, &S) -> M>>,
 }
 
-impl<S, M> View<S, M, Renderer> for Entry<S, M> {
+impl<S, M> View<S, M, Backend> for Entry<S, M> {
     type Children = ();
 
     type State = EntryState;
@@ -96,24 +96,24 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        renderer: &mut Renderer,
+        backend: &mut Backend,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
                     state.connect_activate(
                         id_context.id_path().to_vec(),
-                        renderer.event_port().clone(),
+                        backend.event_port().clone(),
                     );
                 }
                 if self.on_change.is_some() {
                     state.connect_changed(
                         id_context.id_path().to_vec(),
-                        renderer.event_port().clone(),
+                        backend.event_port().clone(),
                     );
                 }
             }
@@ -125,7 +125,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                     (None, Some(_)) => {
                         state.connect_activate(
                             id_context.id_path().to_vec(),
-                            renderer.event_port().clone(),
+                            backend.event_port().clone(),
                         );
                     }
                     _ => {}
@@ -137,7 +137,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                     (None, Some(_)) => {
                         state.connect_changed(
                             id_context.id_path().to_vec(),
-                            renderer.event_port().clone(),
+                            backend.event_port().clone(),
                         );
                     }
                     _ => {}
@@ -156,11 +156,11 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
         &self,
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _renderer: &mut Renderer,
+        _backend: &mut Backend,
     ) {
         match event {
             Event::Activate => {
@@ -181,9 +181,9 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _store: &Store<S>,
-        _renderer: &mut Renderer,
+        _backend: &mut Backend,
     ) -> Self::State {
         let widget = self.build();
         if let Some(text) = &self.text {

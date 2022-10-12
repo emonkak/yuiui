@@ -18,26 +18,26 @@ use commit_subtree_visitor::CommitSubtreeVisitor;
 use forward_event_visitor::ForwardEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
 
-pub struct ViewNode<V: View<S, M, R>, CS: ComponentStack<S, M, R, View = V>, S, M, R> {
+pub struct ViewNode<V: View<S, M, B>, CS: ComponentStack<S, M, B, View = V>, S, M, B> {
     pub(crate) id: Id,
     pub(crate) depth: Depth,
     pub(crate) view: V,
     pub(crate) pending_view: Option<V>,
     pub(crate) state: Option<V::State>,
-    pub(crate) children: <V::Children as ElementSeq<S, M, R>>::Storage,
+    pub(crate) children: <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: CS,
     pub(crate) dirty: bool,
 }
 
-impl<V, CS, S, M, R> ViewNode<V, CS, S, M, R>
+impl<V, CS, S, M, B> ViewNode<V, CS, S, M, B>
 where
-    V: View<S, M, R>,
-    CS: ComponentStack<S, M, R, View = V>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     pub(crate) fn new(
         id: Id,
         view: V,
-        children: <V::Children as ElementSeq<S, M, R>>::Storage,
+        children: <V::Children as ElementSeq<S, M, B>>::Storage,
         components: CS,
     ) -> Self {
         Self {
@@ -71,7 +71,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
         if !self.dirty && !mode.is_propagatable() {
             return false;
@@ -82,7 +82,7 @@ where
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => self
                 .children
-                .commit(mode, id_context, store, messages, renderer),
+                .commit(mode, id_context, store, messages, backend),
             CommitMode::Unmount => CS::commit(
                 &mut self.into(),
                 mode,
@@ -90,13 +90,13 @@ where
                 id_context,
                 store,
                 messages,
-                renderer,
+                backend,
             ),
         };
 
         result |= match (mode, self.pending_view.take(), self.state.as_mut()) {
             (CommitMode::Mount, None, None) => {
-                let mut state = self.view.build(&mut self.children, store, renderer);
+                let mut state = self.view.build(&mut self.children, store, backend);
                 self.view.lifecycle(
                     Lifecycle::Mount,
                     &mut state,
@@ -104,13 +104,13 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 self.state = Some(state);
                 true
             }
             (CommitMode::Mount, Some(pending_view), None) => {
-                let mut state = pending_view.build(&mut self.children, store, renderer);
+                let mut state = pending_view.build(&mut self.children, store, backend);
                 pending_view.lifecycle(
                     Lifecycle::Mount,
                     &mut state,
@@ -118,7 +118,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 self.state = Some(state);
                 true
@@ -131,7 +131,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 true
             }
@@ -143,7 +143,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 let old_view = mem::replace(&mut self.view, pending_view);
                 self.view.lifecycle(
@@ -153,7 +153,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 true
             }
@@ -171,7 +171,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 true
             }
@@ -184,7 +184,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 true
             }
@@ -196,7 +196,7 @@ where
                     id_context,
                     store,
                     messages,
-                    renderer,
+                    backend,
                 );
                 self.pending_view = Some(pending_view);
                 true
@@ -216,11 +216,11 @@ where
                 id_context,
                 store,
                 messages,
-                renderer,
+                backend,
             ),
             CommitMode::Unmount => self
                 .children
-                .commit(mode, id_context, store, messages, renderer),
+                .commit(mode, id_context, store, messages, backend),
         };
 
         id_context.pop_id();
@@ -233,14 +233,14 @@ where
         id_tree: &IdTree<Depth>,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> Vec<M> {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
         let mut messages = Vec::new();
         let mut context = CommitContext {
             store,
             messages: &mut messages,
-            renderer,
+            backend,
         };
         visitor.visit(self, &mut context, id_context);
         messages
@@ -252,14 +252,14 @@ where
         destination: &IdPath,
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> Vec<M> {
         let mut visitor = ForwardEventVisitor::new(payload, destination);
         let mut messages = Vec::new();
         let mut context = CommitContext {
             store,
             messages: &mut messages,
-            renderer,
+            backend,
         };
         visitor.visit(self, &mut context, id_context);
         messages
@@ -271,7 +271,7 @@ where
         destinations: &[IdPathBuf],
         id_context: &mut IdContext,
         store: &Store<S>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> Vec<M> {
         let id_tree = IdTree::from_iter(destinations);
         let cursor = id_tree.root();
@@ -280,7 +280,7 @@ where
         let mut context = CommitContext {
             store,
             messages: &mut messages,
-            renderer,
+            backend,
         };
         visitor.visit(self, &mut context, id_context);
         messages
@@ -310,7 +310,7 @@ where
         self.state.as_mut()
     }
 
-    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, R>>::Storage {
+    pub fn children(&self) -> &<V::Children as ElementSeq<S, M, B>>::Storage {
         &self.children
     }
 
@@ -319,12 +319,12 @@ where
     }
 }
 
-impl<V, CS, S, M, R> fmt::Debug for ViewNode<V, CS, S, M, R>
+impl<V, CS, S, M, B> fmt::Debug for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, M, R> + fmt::Debug,
+    V: View<S, M, B> + fmt::Debug,
     V::State: fmt::Debug,
-    <V::Children as ElementSeq<S, M, R>>::Storage: fmt::Debug,
-    CS: ComponentStack<S, M, R, View = V> + fmt::Debug,
+    <V::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
+    CS: ComponentStack<S, M, B, View = V> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ViewNode")
@@ -339,21 +339,21 @@ where
     }
 }
 
-pub struct ViewNodeMut<'a, V: View<S, M, R>, CS: ?Sized, S, M, R> {
+pub struct ViewNodeMut<'a, V: View<S, M, B>, CS: ?Sized, S, M, B> {
     pub(crate) id: Id,
     pub(crate) depth: Depth,
     pub(crate) view: &'a mut V,
     pub(crate) pending_view: &'a mut Option<V>,
     pub(crate) state: &'a mut Option<V::State>,
-    pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, R>>::Storage,
+    pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, B>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) dirty: &'a mut bool,
 }
 
-impl<'a, V, CS, S, M, R> ViewNodeMut<'a, V, CS, S, M, R>
+impl<'a, V, CS, S, M, B> ViewNodeMut<'a, V, CS, S, M, B>
 where
-    V: View<S, M, R>,
-    CS: ComponentStack<S, M, R, View = V>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     pub fn id(&self) -> Id {
         self.id
@@ -371,17 +371,17 @@ where
         self.state.as_mut().unwrap()
     }
 
-    pub fn children(&mut self) -> &mut <V::Children as ElementSeq<S, M, R>>::Storage {
+    pub fn children(&mut self) -> &mut <V::Children as ElementSeq<S, M, B>>::Storage {
         self.children
     }
 }
 
-impl<'a, V, CS, S, M, R> From<&'a mut ViewNode<V, CS, S, M, R>> for ViewNodeMut<'a, V, CS, S, M, R>
+impl<'a, V, CS, S, M, B> From<&'a mut ViewNode<V, CS, S, M, B>> for ViewNodeMut<'a, V, CS, S, M, B>
 where
-    V: View<S, M, R>,
-    CS: ComponentStack<S, M, R, View = V>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
-    fn from(node: &'a mut ViewNode<V, CS, S, M, R>) -> Self {
+    fn from(node: &'a mut ViewNode<V, CS, S, M, B>) -> Self {
         Self {
             id: node.id,
             depth: node.depth,
@@ -395,26 +395,26 @@ where
     }
 }
 
-pub trait ViewNodeSeq<S, M, R>:
+pub trait ViewNodeSeq<S, M, B>:
     for<'a, 'context> Traversable<
         BroadcastEventVisitor<'a>,
-        CommitContext<'context, S, M, R>,
+        CommitContext<'context, S, M, B>,
         S,
         M,
-        R,
+        B,
     > + for<'a, 'context> Traversable<
         CommitSubtreeVisitor<'a>,
-        CommitContext<'context, S, M, R>,
+        CommitContext<'context, S, M, B>,
         S,
         M,
-        R,
+        B,
     > + for<'a, 'context> Traversable<
         ForwardEventVisitor<'a>,
-        CommitContext<'context, S, M, R>,
+        CommitContext<'context, S, M, B>,
         S,
         M,
-        R,
-    > + for<'a, 'context> Traversable<UpdateSubtreeVisitor<'a>, RenderContext<'context, S>, S, M, R>
+        B,
+    > + for<'a, 'context> Traversable<UpdateSubtreeVisitor<'a>, RenderContext<'context, S>, S, M, B>
 {
     const SIZE_HINT: (usize, Option<usize>);
 
@@ -435,16 +435,16 @@ pub trait ViewNodeSeq<S, M, R>:
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool;
 
     fn gc(&mut self);
 }
 
-impl<V, CS, S, M, R> ViewNodeSeq<S, M, R> for ViewNode<V, CS, S, M, R>
+impl<V, CS, S, M, B> ViewNodeSeq<S, M, B> for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, M, R>,
-    CS: ComponentStack<S, M, R, View = V>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (1, Some(1));
 
@@ -462,19 +462,19 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
-        self.commit_within(mode, 0, id_context, store, messages, renderer)
+        self.commit_within(mode, 0, id_context, store, messages, backend)
     }
 
     fn gc(&mut self) {
-        if !<V::Children as ElementSeq<S, M, R>>::Storage::IS_STATIC {
+        if !<V::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC {
             self.children.gc();
         }
     }
 }
 
-pub trait Traversable<Visitor, Context, S, M, R> {
+pub trait Traversable<Visitor, Context, S, M, B> {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
@@ -491,16 +491,16 @@ pub trait Traversable<Visitor, Context, S, M, R> {
     ) -> bool;
 }
 
-pub trait Visitor<Node, Context, S, M, R> {
+pub trait Visitor<Node, Context, S, M, B> {
     fn visit(&mut self, node: &mut Node, context: &mut Context, id_context: &mut IdContext);
 }
 
-impl<'a, 'context, V, CS, S, M, R, Visitor, Context> Traversable<Visitor, Context, S, M, R>
-    for ViewNode<V, CS, S, M, R>
+impl<'a, 'context, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, S, M, B>
+    for ViewNode<V, CS, S, M, B>
 where
-    V: View<S, M, R>,
-    CS: ComponentStack<S, M, R, View = V>,
-    Visitor: self::Visitor<Self, Context, S, M, R>,
+    V: View<S, M, B>,
+    CS: ComponentStack<S, M, B, View = V>,
+    Visitor: self::Visitor<Self, Context, S, M, B>,
 {
     fn for_each(
         &mut self,
@@ -555,8 +555,8 @@ pub struct RenderContext<'context, S> {
 }
 
 #[derive(Debug)]
-pub struct CommitContext<'context, S, M, R> {
+pub struct CommitContext<'context, S, M, B> {
     pub store: &'context Store<S>,
     pub messages: &'context mut Vec<M>,
-    pub renderer: &'context mut R,
+    pub backend: &'context mut B,
 }

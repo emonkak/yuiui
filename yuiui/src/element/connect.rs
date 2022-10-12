@@ -27,9 +27,9 @@ impl<T, S, M, SS, SM> ConnectEl<T, S, M, SS, SM> {
     }
 }
 
-impl<T, S, M, SS, SM, R> Element<S, M, R> for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, B> Element<S, M, B> for ConnectEl<T, S, M, SS, SM>
 where
-    T: Element<SS, SM, R>,
+    T: Element<SS, SM, B>,
 {
     type View = Connect<T::View, S, M, SS, SM>;
 
@@ -39,7 +39,7 @@ where
         self,
         id_context: &mut IdContext,
         state: &S,
-    ) -> ViewNode<Self::View, Self::Components, S, M, R> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let sub_store = (self.select_store)(state);
         let sub_node = self.target.render(id_context, sub_store);
         ViewNode {
@@ -66,7 +66,7 @@ where
 
     fn update(
         self,
-        mut node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
+        mut node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
@@ -77,12 +77,12 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, R> ElementSeq<S, M, R> for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, B> ElementSeq<S, M, B> for ConnectEl<T, S, M, SS, SM>
 where
-    T: Element<SS, SM, R>,
+    T: Element<SS, SM, B>,
 {
     type Storage =
-        ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, R>;
+        ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, B>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         self.render(id_context, state)
@@ -123,9 +123,9 @@ impl<T, S, M, SS, SM> Connect<T, S, M, SS, SM> {
     }
 }
 
-impl<T, S, M, SS, SM, R> View<S, M, R> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, B> View<S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: View<SS, SM, R>,
+    T: View<SS, SM, B>,
 {
     type Children = Connect<T::Children, S, M, SS, SM>;
 
@@ -135,11 +135,11 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
         let sub_store = (self.select_store)(store);
@@ -151,7 +151,7 @@ where
             id_context,
             sub_store,
             &mut sub_messages,
-            renderer,
+            backend,
         );
         messages.extend(sub_messages.into_iter().map(&self.lift_message));
     }
@@ -160,11 +160,11 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) {
         let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
@@ -175,19 +175,19 @@ where
             id_context,
             sub_store,
             &mut sub_messages,
-            renderer,
+            backend,
         );
         messages.extend(sub_messages.into_iter().map(&self.lift_message));
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> Self::State {
         let sub_store = (self.select_store)(store);
-        self.target.build(&mut children.target, sub_store, renderer)
+        self.target.build(&mut children.target, sub_store, backend)
     }
 }
 
@@ -198,20 +198,20 @@ where
     type Event = T::Event;
 }
 
-impl<T, S, M, SS, SM, R> ComponentStack<S, M, R> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, B> ComponentStack<S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: ComponentStack<SS, SM, R>,
+    T: ComponentStack<SS, SM, B>,
 {
     const LEN: usize = T::LEN;
 
     type View = Connect<T::View, S, M, SS, SM>;
 
-    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>) -> Depth {
+    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>) -> Depth {
         with_sub_node(node, |mut sub_node| T::depth(&mut sub_node))
     }
 
     fn update<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
         depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
@@ -223,13 +223,13 @@ where
     }
 
     fn commit<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, R>,
+        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, B>,
         mode: CommitMode,
         depth: Depth,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (node.components.select_store)(store);
         let mut sub_messages = Vec::new();
@@ -250,7 +250,7 @@ where
                 id_context,
                 sub_store,
                 &mut sub_messages,
-                renderer,
+                backend,
             )
         });
         messages.extend(sub_messages.into_iter().map(&node.components.lift_message));
@@ -258,9 +258,9 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, R> ElementSeq<S, M, R> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, B> ElementSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: ElementSeq<SS, SM, R>,
+    T: ElementSeq<SS, SM, B>,
 {
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
@@ -285,9 +285,9 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, R> ViewNodeSeq<S, M, R> for Connect<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, B> ViewNodeSeq<S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: ViewNodeSeq<SS, SM, R>,
+    T: ViewNodeSeq<SS, SM, B>,
 {
     const SIZE_HINT: (usize, Option<usize>) = T::SIZE_HINT;
 
@@ -305,13 +305,13 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
         let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
         let result = self
             .target
-            .commit(mode, id_context, sub_store, &mut sub_messages, renderer);
+            .commit(mode, id_context, sub_store, &mut sub_messages, backend);
         messages.extend(sub_messages.into_iter().map(&self.lift_message));
         result
     }
@@ -321,10 +321,10 @@ where
     }
 }
 
-impl<'context, T, S, M, SS, SM, R, Visitor>
-    Traversable<Visitor, RenderContext<'context, S>, S, M, R> for Connect<T, S, M, SS, SM>
+impl<'context, T, S, M, SS, SM, B, Visitor>
+    Traversable<Visitor, RenderContext<'context, S>, S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: for<'sub_context> Traversable<Visitor, RenderContext<'sub_context, SS>, SS, SM, R>,
+    T: for<'sub_context> Traversable<Visitor, RenderContext<'sub_context, SS>, SS, SM, B>,
 {
     fn for_each(
         &mut self,
@@ -353,22 +353,22 @@ where
     }
 }
 
-impl<'context, T, S, M, SS, SM, R, Visitor>
-    Traversable<Visitor, CommitContext<'context, S, M, R>, S, M, R> for Connect<T, S, M, SS, SM>
+impl<'context, T, S, M, SS, SM, B, Visitor>
+    Traversable<Visitor, CommitContext<'context, S, M, B>, S, M, B> for Connect<T, S, M, SS, SM>
 where
-    T: for<'sub_context> Traversable<Visitor, CommitContext<'sub_context, SS, SM, R>, SS, SM, R>,
+    T: for<'sub_context> Traversable<Visitor, CommitContext<'sub_context, SS, SM, B>, SS, SM, B>,
 {
     fn for_each(
         &mut self,
         visitor: &mut Visitor,
-        context: &mut CommitContext<'context, S, M, R>,
+        context: &mut CommitContext<'context, S, M, B>,
         id_context: &mut IdContext,
     ) {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
             store: (self.select_store)(context.store),
             messages: &mut sub_messages,
-            renderer: context.renderer,
+            backend: context.backend,
         };
         self.target.for_each(visitor, &mut sub_context, id_context);
         context
@@ -380,14 +380,14 @@ where
         &mut self,
         id: Id,
         visitor: &mut Visitor,
-        context: &mut CommitContext<'context, S, M, R>,
+        context: &mut CommitContext<'context, S, M, B>,
         id_context: &mut IdContext,
     ) -> bool {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
             store: (self.select_store)(context.store),
             messages: &mut sub_messages,
-            renderer: context.renderer,
+            backend: context.backend,
         };
         let result = self
             .target
@@ -408,14 +408,14 @@ where
     }
 }
 
-fn with_sub_node<Callback, Output, V, CS, S, M, SS, SM, R>(
-    node: &mut ViewNodeMut<Connect<V, S, M, SS, SM>, Connect<CS, S, M, SS, SM>, S, M, R>,
+fn with_sub_node<Callback, Output, V, CS, S, M, SS, SM, B>(
+    node: &mut ViewNodeMut<Connect<V, S, M, SS, SM>, Connect<CS, S, M, SS, SM>, S, M, B>,
     callback: Callback,
 ) -> Output
 where
-    Callback: FnOnce(ViewNodeMut<V, CS, SS, SM, R>) -> Output,
-    V: View<SS, SM, R>,
-    CS: ComponentStack<SS, SM, R, View = V>,
+    Callback: FnOnce(ViewNodeMut<V, CS, SS, SM, B>) -> Output,
+    V: View<SS, SM, B>,
+    CS: ComponentStack<SS, SM, B, View = V>,
 {
     let select_store = &node.components.select_store;
     let lift_message = &node.components.lift_message;

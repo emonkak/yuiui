@@ -27,9 +27,9 @@ impl<T> VecStorage<T> {
     }
 }
 
-impl<T, S, M, R> ElementSeq<S, M, R> for Vec<T>
+impl<T, S, M, B> ElementSeq<S, M, B> for Vec<T>
 where
-    T: ElementSeq<S, M, R>,
+    T: ElementSeq<S, M, B>,
 {
     type Storage = VecStorage<T::Storage>;
 
@@ -77,9 +77,9 @@ where
     }
 }
 
-impl<T, S, M, R> ViewNodeSeq<S, M, R> for VecStorage<T>
+impl<T, S, M, B> ViewNodeSeq<S, M, B> for VecStorage<T>
 where
-    T: ViewNodeSeq<S, M, R>,
+    T: ViewNodeSeq<S, M, B>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (0, None);
 
@@ -109,7 +109,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagatable() {
@@ -117,24 +117,24 @@ where
                 Ordering::Equal => {
                     // new_len == active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, id_context, store, messages, renderer);
+                        result |= node.commit(mode, id_context, store, messages, backend);
                     }
                 }
                 Ordering::Less => {
                     // new_len < active_len
                     for node in &mut self.active[..self.new_len] {
-                        result |= node.commit(mode, id_context, store, messages, renderer);
+                        result |= node.commit(mode, id_context, store, messages, backend);
                     }
                     for mut node in self.active.drain(self.new_len..).rev() {
                         result |=
-                            node.commit(CommitMode::Unmount, id_context, store, messages, renderer);
+                            node.commit(CommitMode::Unmount, id_context, store, messages, backend);
                         self.staging.push_front(node);
                     }
                 }
                 Ordering::Greater => {
                     // new_len > active_len
                     for node in &mut self.active {
-                        result |= node.commit(mode, id_context, store, messages, renderer);
+                        result |= node.commit(mode, id_context, store, messages, backend);
                     }
                     if mode != CommitMode::Unmount {
                         for _ in 0..self.new_len - self.active.len() {
@@ -144,7 +144,7 @@ where
                                 id_context,
                                 store,
                                 messages,
-                                renderer,
+                                backend,
                             );
                             self.active.push(node);
                         }
@@ -174,9 +174,9 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for VecStorage<T>
+impl<T, Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for VecStorage<T>
 where
-    T: Traversable<Visitor, Context, S, M, R> + ViewNodeSeq<S, M, R>,
+    T: Traversable<Visitor, Context, S, M, B> + ViewNodeSeq<S, M, B>,
 {
     fn for_each(
         &mut self,

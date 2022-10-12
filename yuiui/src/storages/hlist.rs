@@ -5,7 +5,7 @@ use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
-impl<S, M, R> ElementSeq<S, M, R> for HNil {
+impl<S, M, B> ElementSeq<S, M, B> for HNil {
     type Storage = HNil;
 
     fn render_children(self, _id_context: &mut IdContext, _state: &S) -> Self::Storage {
@@ -22,10 +22,10 @@ impl<S, M, R> ElementSeq<S, M, R> for HNil {
     }
 }
 
-impl<H, T, S, M, R> ElementSeq<S, M, R> for HCons<H, T>
+impl<H, T, S, M, B> ElementSeq<S, M, B> for HCons<H, T>
 where
-    H: ElementSeq<S, M, R>,
-    T: ElementSeq<S, M, R> + HList,
+    H: ElementSeq<S, M, B>,
+    T: ElementSeq<S, M, B> + HList,
     T::Storage: HList,
 {
     type Storage = HCons<H::Storage, T::Storage>;
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
+impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
     const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
 
     fn len(&self) -> usize {
@@ -71,7 +71,7 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _renderer: &mut R,
+        _backend: &mut B,
     ) -> bool {
         false
     }
@@ -79,10 +79,10 @@ impl<S, M, R> ViewNodeSeq<S, M, R> for HNil {
     fn gc(&mut self) {}
 }
 
-impl<H, T, S, M, R> ViewNodeSeq<S, M, R> for HCons<H, T>
+impl<H, T, S, M, B> ViewNodeSeq<S, M, B> for HCons<H, T>
 where
-    H: ViewNodeSeq<S, M, R>,
-    T: ViewNodeSeq<S, M, R> + HList,
+    H: ViewNodeSeq<S, M, B>,
+    T: ViewNodeSeq<S, M, B> + HList,
 {
     const SIZE_HINT: (usize, Option<usize>) = {
         let (head_lower, head_upper) = H::SIZE_HINT;
@@ -114,14 +114,10 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut R,
+        backend: &mut B,
     ) -> bool {
-        let head_result = self
-            .head
-            .commit(mode, id_context, store, messages, renderer);
-        let tail_result = self
-            .tail
-            .commit(mode, id_context, store, messages, renderer);
+        let head_result = self.head.commit(mode, id_context, store, messages, backend);
+        let tail_result = self.tail.commit(mode, id_context, store, messages, backend);
         head_result || tail_result
     }
 
@@ -131,7 +127,7 @@ where
     }
 }
 
-impl<Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for HNil {
+impl<Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for HNil {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
@@ -151,10 +147,10 @@ impl<Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for HNil 
     }
 }
 
-impl<H, T, Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for HCons<H, T>
+impl<H, T, Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for HCons<H, T>
 where
-    H: Traversable<Visitor, Context, S, M, R>,
-    T: Traversable<Visitor, Context, S, M, R> + HList,
+    H: Traversable<Visitor, Context, S, M, B>,
+    T: Traversable<Visitor, Context, S, M, B> + HList,
 {
     fn for_each(
         &mut self,

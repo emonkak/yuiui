@@ -11,12 +11,14 @@ pub trait Event<'event>: Sized {
 }
 
 impl<'event> Event<'event> for () {
+    #[inline]
     fn from_any(_payload: &'event dyn Any) -> Option<Self> {
         None
     }
 }
 
 impl<'event, T: 'static> Event<'event> for &'event T {
+    #[inline]
     fn from_any(payload: &'event dyn Any) -> Option<Self> {
         payload.downcast_ref()
     }
@@ -37,6 +39,7 @@ pub enum Lifecycle<T> {
 }
 
 impl<T> Lifecycle<T> {
+    #[inline]
     pub fn map<F, U>(self, f: F) -> Lifecycle<U>
     where
         F: FnOnce(T) -> U,

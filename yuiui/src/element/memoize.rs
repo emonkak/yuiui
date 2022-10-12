@@ -26,28 +26,28 @@ where
     }
 }
 
-impl<F, DS, E, S, M, R> Element<S, M, R> for Memoize<F, DS, E>
+impl<F, DS, E, S, M, B> Element<S, M, B> for Memoize<F, DS, E>
 where
     F: Fn(&DS) -> E,
     DS: PartialEq,
-    E: Element<S, M, R>,
+    E: Element<S, M, B>,
 {
     type View = E::View;
 
-    type Components = (ComponentNode<Memoized<Self>, S, M, R>, E::Components);
+    type Components = (ComponentNode<Memoized<Self>, S, M, B>, E::Components);
 
     fn render(
         self,
         id_context: &mut IdContext,
         state: &S,
-    ) -> ViewNode<Self::View, Self::Components, S, M, R> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
         let element = ComponentEl::new(Memoized::new(self));
         element.render(id_context, state)
     }
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, R>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
@@ -61,13 +61,13 @@ where
     }
 }
 
-impl<F, DS, E, S, M, R> ElementSeq<S, M, R> for Memoize<F, DS, E>
+impl<F, DS, E, S, M, B> ElementSeq<S, M, B> for Memoize<F, DS, E>
 where
     F: Fn(&DS) -> E,
     DS: PartialEq,
-    E: Element<S, M, R>,
+    E: Element<S, M, B>,
 {
-    type Storage = ViewNode<E::View, <Self as Element<S, M, R>>::Components, S, M, R>;
+    type Storage = ViewNode<E::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         self.render(id_context, state)
@@ -93,11 +93,11 @@ impl<T> Memoized<T> {
     }
 }
 
-impl<F, DS, E, S, M, R> Component<S, M, R> for Memoized<Memoize<F, DS, E>>
+impl<F, DS, E, S, M, B> Component<S, M, B> for Memoized<Memoize<F, DS, E>>
 where
     F: Fn(&DS) -> E,
     DS: PartialEq,
-    E: Element<S, M, R>,
+    E: Element<S, M, B>,
 {
     type Element = E;
 

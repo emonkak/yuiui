@@ -10,16 +10,16 @@ use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 use super::RenderFlag;
 
 #[derive(Debug)]
-pub struct EitherStorage<L, R> {
-    active: Either<L, R>,
-    staging: Option<Either<L, R>>,
+pub struct EitherStorage<L, B> {
+    active: Either<L, B>,
+    staging: Option<Either<L, B>>,
     flags: BitFlags<RenderFlag>,
     left_reserved_ids: Vec<Id>,
     right_reserved_ids: Vec<Id>,
 }
 
-impl<L, R> EitherStorage<L, R> {
-    fn new(active: Either<L, R>, left_reserved_ids: Vec<Id>, right_reserved_ids: Vec<Id>) -> Self {
+impl<L, B> EitherStorage<L, B> {
+    fn new(active: Either<L, B>, left_reserved_ids: Vec<Id>, right_reserved_ids: Vec<Id>) -> Self {
         Self {
             active,
             staging: None,
@@ -30,19 +30,19 @@ impl<L, R> EitherStorage<L, R> {
     }
 }
 
-impl<L, R, S, M, Renderer> ElementSeq<S, M, Renderer> for Either<L, R>
+impl<L, B, S, M, R> ElementSeq<S, M, R> for Either<L, B>
 where
-    L: ElementSeq<S, M, Renderer>,
-    R: ElementSeq<S, M, Renderer>,
+    L: ElementSeq<S, M, R>,
+    B: ElementSeq<S, M, R>,
 {
-    type Storage = EitherStorage<L::Storage, R::Storage>;
+    type Storage = EitherStorage<L::Storage, B::Storage>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         let left_reserved_ids: Vec<Id> = L::Storage::SIZE_HINT
             .1
             .map(|upper| id_context.take_ids(upper))
             .unwrap_or_default();
-        let right_reserved_ids: Vec<Id> = R::Storage::SIZE_HINT
+        let right_reserved_ids: Vec<Id> = B::Storage::SIZE_HINT
             .1
             .map(|upper| id_context.take_ids(upper))
             .unwrap_or_default();
@@ -125,14 +125,14 @@ where
     }
 }
 
-impl<L, R, S, M, Renderer> ViewNodeSeq<S, M, Renderer> for EitherStorage<L, R>
+impl<L, B, S, M, R> ViewNodeSeq<S, M, R> for EitherStorage<L, B>
 where
-    L: ViewNodeSeq<S, M, Renderer>,
-    R: ViewNodeSeq<S, M, Renderer>,
+    L: ViewNodeSeq<S, M, R>,
+    B: ViewNodeSeq<S, M, R>,
 {
     const SIZE_HINT: (usize, Option<usize>) = {
         let (left_lower, left_upper) = L::SIZE_HINT;
-        let (right_lower, right_upper) = R::SIZE_HINT;
+        let (right_lower, right_upper) = B::SIZE_HINT;
         let lower = if left_lower < right_lower {
             left_lower
         } else {
@@ -179,17 +179,17 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        renderer: &mut Renderer,
+        backend: &mut R,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlag::Swapped) {
             if self.flags.contains(RenderFlag::Commited) {
                 result |= match &mut self.active {
                     Either::Left(node) => {
-                        node.commit(CommitMode::Unmount, id_context, store, messages, renderer)
+                        node.commit(CommitMode::Unmount, id_context, store, messages, backend)
                     }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, id_context, store, messages, renderer)
+                        node.commit(CommitMode::Unmount, id_context, store, messages, backend)
                     }
                 };
             }
@@ -197,17 +197,17 @@ where
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
                     Either::Left(node) => {
-                        node.commit(CommitMode::Mount, id_context, store, messages, renderer)
+                        node.commit(CommitMode::Mount, id_context, store, messages, backend)
                     }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Mount, id_context, store, messages, renderer)
+                        node.commit(CommitMode::Mount, id_context, store, messages, backend)
                     }
                 };
             }
         } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagatable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, id_context, store, messages, renderer),
-                Either::Right(node) => node.commit(mode, id_context, store, messages, renderer),
+                Either::Left(node) => node.commit(mode, id_context, store, messages, backend),
+                Either::Right(node) => node.commit(mode, id_context, store, messages, backend),
             };
         }
         self.flags.set(RenderFlag::Commited);
@@ -225,11 +225,10 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, S, M, Renderer> Traversable<Visitor, Context, S, M, Renderer>
-    for EitherStorage<L, R>
+impl<L, B, Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for EitherStorage<L, B>
 where
-    L: Traversable<Visitor, Context, S, M, Renderer>,
-    R: Traversable<Visitor, Context, S, M, Renderer>,
+    L: Traversable<Visitor, Context, S, M, R>,
+    B: Traversable<Visitor, Context, S, M, R>,
 {
     fn for_each(
         &mut self,
