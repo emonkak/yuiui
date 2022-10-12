@@ -1,11 +1,12 @@
 mod either;
 
 use proc_macro::TokenStream;
+use syn::parse::Parser;
 
 #[proc_macro]
 pub fn either(input: TokenStream) -> TokenStream {
-    let ast = syn::parse_macro_input!(input as either::Expr);
-    ast.into_either_expr()
+    either::parser
+        .parse(input)
         .unwrap_or_else(|error| error.to_compile_error())
         .into()
 }

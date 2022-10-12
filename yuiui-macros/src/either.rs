@@ -1,40 +1,20 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use syn::parse::{Parse, ParseStream};
+use syn::parse::ParseStream;
 use syn::Token;
 
-pub enum Expr {
-    If(syn::ExprIf),
-    Match(syn::ExprMatch),
-}
-
-impl Expr {
-    pub fn into_either_expr(self) -> syn::Result<TokenStream2> {
-        match self {
-            Expr::If(mut expr) => {
-                modify_if(&mut expr, 0)?;
-                Ok(expr.to_token_stream())
-            }
-            Expr::Match(mut expr) => {
-                modify_match(&mut expr)?;
-                Ok(expr.to_token_stream())
-            }
-        }
-    }
-}
-
-impl Parse for Expr {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let lookahead = input.lookahead1();
-        if lookahead.peek(Token![if]) {
-            let parsed = input.parse()?;
-            Ok(Self::If(parsed))
-        } else if lookahead.peek(Token![match]) {
-            let parsed = input.parse()?;
-            Ok(Self::Match(parsed))
-        } else {
-            Err(lookahead.error())
-        }
+pub fn parser(input: ParseStream) -> syn::Result<TokenStream2> {
+    let lookahead = input.lookahead1();
+    if lookahead.peek(Token![if]) {
+        let mut expr = input.parse()?;
+        modify_if(&mut expr, 0)?;
+        Ok(expr.to_token_stream())
+    } else if lookahead.peek(Token![match]) {
+        let mut expr = input.parse()?;
+        modify_match(&mut expr)?;
+        Ok(expr.to_token_stream())
+    } else {
+        Err(lookahead.error())
     }
 }
 
