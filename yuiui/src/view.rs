@@ -8,6 +8,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
 
     type State;
 
+    #[inline]
     fn lifecycle(
         &self,
         _lifecycle: Lifecycle<Self>,
@@ -20,6 +21,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
     ) {
     }
 
+    #[inline]
     fn event(
         &self,
         _event: <Self as EventTarget>::Event,
@@ -39,6 +41,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         backend: &mut B,
     ) -> Self::State;
 
+    #[inline]
     fn el(self) -> ViewEl<Self, S, M, B>
     where
         Self::Children: Default,
@@ -46,6 +49,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         ViewEl::new(self, Self::Children::default())
     }
 
+    #[inline]
     fn el_with(self, children: Self::Children) -> ViewEl<Self, S, M, B> {
         ViewEl::new(self, children)
     }
