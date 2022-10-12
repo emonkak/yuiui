@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
-use yuiui::{Element, ElementSeq, IdContext, Lifecycle, Store, View};
+use yuiui::{Element, ElementSeq, EventTarget, IdContext, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(WidgetBuilder)]
@@ -64,8 +64,6 @@ where
 
     type State = gtk::ScrolledWindow;
 
-    type Event = ();
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -96,4 +94,8 @@ where
         widget.set_child(Some(child));
         widget
     }
+}
+
+impl<'event, Child> EventTarget<'event> for ScrolledWindow<Child> {
+    type Event = ();
 }

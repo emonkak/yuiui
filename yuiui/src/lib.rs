@@ -20,7 +20,7 @@ pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
 pub use effect::Effect;
 pub use element::{ComponentEl, DebuggableElement, Element, ElementSeq, Memoize, ViewEl};
-pub use event::{Event, Lifecycle};
+pub use event::{Event, EventTarget, Lifecycle, TransferableEvent};
 pub use id::{Depth, Id, IdContext, IdPath, IdPathBuf};
 pub use render_loop::{RenderFlow, RenderLoop};
 pub use store::{State, Store};

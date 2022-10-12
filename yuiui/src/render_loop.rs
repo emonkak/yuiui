@@ -4,7 +4,7 @@ use std::{cmp, fmt, mem};
 
 use crate::command::CommandContext;
 use crate::element::{Element, ElementSeq};
-use crate::event::Event;
+use crate::event::TransferableEvent;
 use crate::id::{Depth, IdContext, IdTree};
 use crate::store::{State, Store};
 use crate::view::View;
@@ -14,7 +14,7 @@ pub struct RenderLoop<E: Element<S, M, R>, S, M, R> {
     node: ViewNode<E::View, E::Components, S, M, R>,
     id_context: IdContext,
     message_queue: VecDeque<M>,
-    event_queue: VecDeque<Event>,
+    event_queue: VecDeque<TransferableEvent>,
     nodes_to_update: IdTree<Depth>,
     nodes_to_commit: IdTree<Depth>,
     is_mounted: bool,
@@ -66,20 +66,22 @@ where
 
             while let Some(event) = self.event_queue.pop_front() {
                 let messages = match event {
-                    Event::Forward(destination, payload) => self.node.forward_event(
+                    TransferableEvent::Forward(destination, payload) => self.node.forward_event(
                         &*payload,
                         &destination,
                         &mut self.id_context,
                         store,
                         renderer,
                     ),
-                    Event::Broadcast(destinations, paylaod) => self.node.broadcast_event(
-                        &*paylaod,
-                        &destinations,
-                        &mut self.id_context,
-                        store,
-                        renderer,
-                    ),
+                    TransferableEvent::Broadcast(destinations, paylaod) => {
+                        self.node.broadcast_event(
+                            &*paylaod,
+                            &destinations,
+                            &mut self.id_context,
+                            store,
+                            renderer,
+                        )
+                    }
                 };
                 self.message_queue.extend(messages);
                 if deadline.did_timeout() {
@@ -155,7 +157,7 @@ where
         self.message_queue.push_back(message);
     }
 
-    pub fn push_event(&mut self, event: Event) {
+    pub fn push_event(&mut self, event: TransferableEvent) {
         self.event_queue.push_back(event);
     }
 

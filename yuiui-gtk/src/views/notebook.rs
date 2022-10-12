@@ -2,8 +2,8 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    CommitContext, ComponentStack, ElementSeq, IdContext, Lifecycle, Store, Traversable, View,
-    ViewNode, ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, ElementSeq, EventTarget, IdContext, Lifecycle, Store,
+    Traversable, View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -66,8 +66,6 @@ where
 
     type State = gtk::Notebook;
 
-    type Event = ();
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -108,6 +106,10 @@ where
     }
 }
 
+impl<'event, Children> EventTarget<'event> for Notebook<Children> {
+    type Event = ();
+}
+
 #[derive(Debug, Clone)]
 pub struct NotebookChild<Child> {
     child: Child,
@@ -144,8 +146,6 @@ where
 
     type State = Child::State;
 
-    type Event = Child::Event;
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -164,7 +164,7 @@ where
 
     fn event(
         &self,
-        event: &Self::Event,
+        event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         id_context: &mut IdContext,
@@ -185,6 +185,10 @@ where
     ) -> Self::State {
         self.child.build(children, store, renderer)
     }
+}
+
+impl<'event, Child: EventTarget<'event>> EventTarget<'event> for NotebookChild<Child> {
+    type Event = Child::Event;
 }
 
 pub struct ReconcileChildrenVisitor<'a> {

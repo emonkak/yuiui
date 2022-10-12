@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{ElementSeq, IdContext, IdPathBuf, Lifecycle, Store, View};
+use yuiui::{ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::renderer::{EventPort, Renderer};
@@ -92,8 +92,6 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
 
     type State = EntryState;
 
-    type Event = Event;
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -156,7 +154,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
 
     fn event(
         &self,
-        event: &Self::Event,
+        event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         _id_context: &mut IdContext,
@@ -193,6 +191,10 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
         }
         EntryState::new(widget)
     }
+}
+
+impl<'event, S, M> EventTarget<'event> for Entry<S, M> {
+    type Event = &'event Event;
 }
 
 #[derive(Debug)]

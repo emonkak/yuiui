@@ -1,6 +1,7 @@
 use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
+use crate::event::Event;
 use crate::id::{IdContext, IdPath};
 use crate::view::View;
 
@@ -36,9 +37,9 @@ where
         } else {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
-            let event: &V::Event = self.payload.downcast_ref().unwrap_or_else(|| {
+            let event = V::Event::from_any(self.payload).unwrap_or_else(|| {
                 panic!(
-                    "Failed to cast the payload to {}",
+                    "Failed to cast the payload of the event to {}",
                     any::type_name::<V::Event>()
                 )
             });

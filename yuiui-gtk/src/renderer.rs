@@ -1,6 +1,6 @@
 use gtk::glib;
 use std::sync::mpsc;
-use yuiui::{Event, IdPathBuf};
+use yuiui::{IdPathBuf, TransferableEvent};
 
 #[derive(Debug)]
 pub struct Renderer {
@@ -24,11 +24,11 @@ impl Renderer {
 
 #[derive(Debug, Clone)]
 pub struct EventPort {
-    event_sender: glib::Sender<Event>,
+    event_sender: glib::Sender<TransferableEvent>,
 }
 
 impl EventPort {
-    pub fn new(event_sender: glib::Sender<Event>) -> Self {
+    pub fn new(event_sender: glib::Sender<TransferableEvent>) -> Self {
         Self { event_sender }
     }
 
@@ -36,8 +36,8 @@ impl EventPort {
         &self,
         destination: IdPathBuf,
         payload: T,
-    ) -> Result<(), mpsc::SendError<Event>> {
-        let event = Event::Forward(destination, Box::new(payload));
+    ) -> Result<(), mpsc::SendError<TransferableEvent>> {
+        let event = TransferableEvent::Forward(destination, Box::new(payload));
         self.event_sender.send(event)
     }
 
@@ -45,8 +45,8 @@ impl EventPort {
         &self,
         destinations: Vec<IdPathBuf>,
         payload: T,
-    ) -> Result<(), mpsc::SendError<Event>> {
-        let event = Event::Broadcast(destinations, Box::new(payload));
+    ) -> Result<(), mpsc::SendError<TransferableEvent>> {
+        let event = TransferableEvent::Broadcast(destinations, Box::new(payload));
         self.event_sender.send(event)
     }
 }

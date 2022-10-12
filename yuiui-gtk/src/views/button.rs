@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use gtk::prelude::*;
 use gtk::{gdk, glib};
-use yuiui::{Element, ElementSeq, IdContext, IdPathBuf, Lifecycle, Store, View};
+use yuiui::{Element, ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::renderer::{EventPort, Renderer};
@@ -62,8 +62,6 @@ where
 
     type State = ButtonState;
 
-    type Event = Event;
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -106,7 +104,7 @@ where
 
     fn event(
         &self,
-        event: &Self::Event,
+        event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, Renderer>>::Storage,
         _id_context: &mut IdContext,
@@ -135,6 +133,10 @@ where
         widget.set_child(Some(child));
         ButtonState::new(widget)
     }
+}
+
+impl<'event, Child, S, M> EventTarget<'event> for Button<Child, S, M> {
+    type Event = &'event Event;
 }
 
 #[derive(Debug)]

@@ -2,8 +2,28 @@ use std::any::Any;
 
 use crate::id::IdPathBuf;
 
+pub trait EventTarget<'event> {
+    type Event: Event<'event>;
+}
+
+pub trait Event<'event>: Sized {
+    fn from_any(payload: &'event dyn Any) -> Option<Self>;
+}
+
+impl<'event> Event<'event> for () {
+    fn from_any(_payload: &'event dyn Any) -> Option<Self> {
+        None
+    }
+}
+
+impl<'event, T: 'static> Event<'event> for &'event T {
+    fn from_any(payload: &'event dyn Any) -> Option<Self> {
+        payload.downcast_ref()
+    }
+}
+
 #[derive(Debug)]
-pub enum Event {
+pub enum TransferableEvent {
     Forward(IdPathBuf, Box<dyn Any + Send>),
     Broadcast(Vec<IdPathBuf>, Box<dyn Any + Send>),
 }

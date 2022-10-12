@@ -1,6 +1,7 @@
 use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
+use crate::event::Event;
 use crate::id::{id_tree, IdContext};
 use crate::view::View;
 
@@ -33,14 +34,14 @@ where
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
             let state = node.state.as_mut().unwrap();
-            let event: &V::Event = self.payload.downcast_ref().unwrap_or_else(|| {
+            let event = V::Event::from_any(self.payload).unwrap_or_else(|| {
                 panic!(
-                    "Failed to cast the payload to {}",
+                    "Failed to cast the payload of the event to {}",
                     any::type_name::<V::Event>()
                 )
             });
             view.event(
-                &event,
+                event,
                 state,
                 &mut node.children,
                 id_context,

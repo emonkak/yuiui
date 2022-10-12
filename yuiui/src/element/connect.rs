@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
-use crate::event::Lifecycle;
+use crate::event::{EventTarget, Lifecycle};
 use crate::id::{Depth, Id, IdContext};
 use crate::store::Store;
 use crate::view::View;
@@ -131,8 +131,6 @@ where
 
     type State = T::State;
 
-    type Event = T::Event;
-
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
@@ -160,7 +158,7 @@ where
 
     fn event(
         &self,
-        event: &Self::Event,
+        event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, R>>::Storage,
         id_context: &mut IdContext,
@@ -191,6 +189,13 @@ where
         let sub_store = (self.select_store)(store);
         self.target.build(&mut children.target, sub_store, renderer)
     }
+}
+
+impl<'event, T, S, M, SS, SM> EventTarget<'event> for Connect<T, S, M, SS, SM>
+where
+    T: EventTarget<'event>,
+{
+    type Event = T::Event;
 }
 
 impl<T, S, M, SS, SM, R> ComponentStack<S, M, R> for Connect<T, S, M, SS, SM>
