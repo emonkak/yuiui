@@ -17,9 +17,6 @@ impl State for AppState {
     fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
         match message {
             AppMessage::AddTodo(text) => {
-                if text.is_empty() {
-                    return (false, Effect::new());
-                }
                 let todo = Todo {
                     id: self.todos.len(),
                     text,
@@ -66,7 +63,7 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
             .label(todo.text.to_owned())
             .el(),
         Button::new()
-            .on_click(Box::new(move |_| AppMessage::RemoveTodo(id)))
+            .on_click(Box::new(move |_| AppMessage::RemoveTodo(id).into()))
             .el_with(Label::new().label("Delete".to_owned()).el())
     ])
 }
@@ -87,8 +84,12 @@ fn app(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
         Entry::new()
             .text(store.text.to_owned())
             .hexpand(true)
-            .on_activate(Box::new(|text, _| AppMessage::AddTodo(text.to_owned())))
-            .on_change(Box::new(|text, _| AppMessage::ChangeText(text.to_owned())))
+            .on_activate(Box::new(
+                |text, _| (!text.is_empty()).then(|| AppMessage::AddTodo(text.to_owned()))
+            ))
+            .on_change(Box::new(
+                |text, _| AppMessage::ChangeText(text.to_owned()).into()
+            ))
             .el(),
         ScrolledWindow::new()
             .hexpand(true)

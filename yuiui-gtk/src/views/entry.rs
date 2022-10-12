@@ -82,9 +82,9 @@ pub struct Entry<S, M> {
     width_chars: Option<i32>,
     xalign: Option<f32>,
     #[property(bind = false)]
-    on_activate: Option<Box<dyn Fn(&str, &S) -> M>>,
+    on_activate: Option<Box<dyn Fn(&str, &S) -> Option<M>>>,
     #[property(bind = false)]
-    on_change: Option<Box<dyn Fn(&str, &S) -> M>>,
+    on_change: Option<Box<dyn Fn(&str, &S) -> Option<M>>>,
 }
 
 impl<S, M> View<S, M, Backend> for Entry<S, M> {
@@ -166,14 +166,14 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
             Event::Activate => {
                 if let Some(on_activate) = &self.on_activate {
                     let message = on_activate(state.current_text.as_str(), store);
-                    messages.push(message);
+                    messages.extend(message);
                 }
             }
             Event::Changed => {
                 if let Some(on_change) = &self.on_change {
                     state.refresh_text();
                     let message = on_change(state.current_text.as_str(), store);
-                    messages.push(message);
+                    messages.extend(message);
                 }
             }
         }

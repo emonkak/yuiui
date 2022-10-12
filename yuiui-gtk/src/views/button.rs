@@ -48,7 +48,7 @@ pub struct Button<Child, S, M> {
     action_name: Option<String>,
     action_target: Option<glib::Variant>,
     #[property(bind = false)]
-    on_click: Option<Box<dyn Fn(&S) -> M>>,
+    on_click: Option<Box<dyn Fn(&S) -> Option<M>>>,
     #[property(bind = false, setter = false)]
     _phantom: PhantomData<Child>,
 }
@@ -116,7 +116,7 @@ where
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
                     let message = on_click(store);
-                    messages.push(message);
+                    messages.extend(message);
                 }
             }
         }
