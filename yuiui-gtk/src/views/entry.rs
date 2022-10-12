@@ -173,6 +173,7 @@ impl<S, M> View<S, M, Renderer> for Entry<S, M> {
                 });
             }
             Lifecycle::Unmount => {
+                state.disconnect_activate();
                 state.disconnect_changed();
             }
         }
