@@ -31,7 +31,7 @@ enum AppMessage {
     Decrement,
 }
 
-fn app(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
+fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
     Grid::new().hexpand(true).vexpand(true).el_with(hlist![
         GridChild::new(
             Button::new()
@@ -69,7 +69,7 @@ fn app(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
             Label::new()
                 .hexpand(true)
                 .vexpand(true)
-                .label(store.count.to_string()),
+                .label(state.count.to_string()),
             0,
             1,
             2,

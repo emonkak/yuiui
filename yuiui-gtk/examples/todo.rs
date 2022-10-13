@@ -68,10 +68,10 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
     ])
 }
 
-fn todo_list(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
+fn todo_list(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
     ListBox::new()
         .hexpand(true)
-        .el_with(Vec::from_iter(store.todos.iter().map(|todo| {
+        .el_with(Vec::from_iter(state.todos.iter().map(|todo| {
             Memoize::new(
                 |todo| ListBoxRow::new().hexpand(true).el_with(todo_item(todo)),
                 todo.clone(),
@@ -79,10 +79,10 @@ fn todo_list(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMess
         })))
 }
 
-fn app(_props: &(), store: &AppState) -> impl GtkElement<AppState, AppMessage> {
+fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
     vbox().hexpand(true).vexpand(true).el_with(hlist![
         Entry::new()
-            .text(store.text.to_owned())
+            .text(state.text.to_owned())
             .hexpand(true)
             .on_activate(Box::new(
                 |text, _| (!text.is_empty()).then(|| AppMessage::AddTodo(text.to_owned()))
