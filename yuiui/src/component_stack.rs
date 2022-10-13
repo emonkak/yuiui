@@ -101,15 +101,15 @@ where
 }
 
 #[derive(Debug)]
-pub struct ComponentEnd<V>(PhantomData<V>);
+pub struct ComponentTermination<V>(PhantomData<V>);
 
-impl<V> ComponentEnd<V> {
+impl<V> ComponentTermination<V> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentEnd<V> {
+impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentTermination<V> {
     const LEN: usize = 0;
 
     type View = V;

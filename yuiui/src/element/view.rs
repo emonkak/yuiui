@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::component_stack::ComponentEnd;
+use crate::component_stack::ComponentTermination;
 use crate::id::IdContext;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
@@ -27,7 +27,7 @@ where
 {
     type View = V;
 
-    type Components = ComponentEnd<V>;
+    type Components = ComponentTermination<V>;
 
     fn render(
         self,
@@ -37,7 +37,7 @@ where
         let id = id_context.next_id();
         id_context.push_id(id);
         let children = self.children.render_children(id_context, state);
-        let node = ViewNode::new(id, self.view, children, ComponentEnd::new());
+        let node = ViewNode::new(id, self.view, children, ComponentTermination::new());
         id_context.pop_id();
         node
     }
