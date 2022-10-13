@@ -67,10 +67,16 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Future(_) => f.debug_tuple("Future").finish(),
-            Self::Stream(_) => f.debug_tuple("Stream").finish(),
-            Self::Timeout(duration, _) => f.debug_tuple("Timeout").field(duration).finish(),
-            Self::Interval(period, _) => f.debug_tuple("Interval").field(period).finish(),
+            Self::Future(_) => f.debug_struct("Future").finish_non_exhaustive(),
+            Self::Stream(_) => f.debug_struct("Stream").finish_non_exhaustive(),
+            Self::Timeout(duration, _) => f
+                .debug_struct("Timeout")
+                .field("duration", duration)
+                .finish_non_exhaustive(),
+            Self::Interval(period, _) => f
+                .debug_struct("Interval")
+                .field("period", period)
+                .finish_non_exhaustive(),
         }
     }
 }
