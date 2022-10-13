@@ -37,7 +37,7 @@ impl<T> Command<T> {
 
     pub fn every<F>(period: Duration, f: F) -> Self
     where
-        F: Fn() -> T + Send + 'static,
+        F: FnMut() -> T + Send + 'static,
     {
         Command::Interval(period, Box::new(f))
     }
