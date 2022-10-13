@@ -1,12 +1,9 @@
 [workspace]
 members = [
-    "bit_flags",
     "hlist",
-    "slot_vec",
     "yuiui",
     "yuiui-gtk",
     "yuiui-gtk-derive",
-    "yuiui-legacy",
     "yuiui-macros",
 ]
 resolver = "2"

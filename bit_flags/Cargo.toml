@@ -1,6 +1,0 @@
-[package]
-name = "bit_flags"
-version = "0.0.0"
-authors = ["Shota Nozaki <emonkak@gmail.com>"]
-edition = "2021"
-resolver = "2"
