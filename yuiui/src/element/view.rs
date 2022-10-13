@@ -49,15 +49,11 @@ where
         state: &S,
     ) -> bool {
         id_context.push_id(node.id);
-
         self.children
             .update_children(node.children, id_context, state);
-
         *node.pending_view = Some(self.view);
         *node.dirty = true;
-
         id_context.pop_id();
-
         true
     }
 }
