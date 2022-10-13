@@ -112,7 +112,7 @@ where
         backend: &mut B,
     ) -> bool {
         let mut result = false;
-        if self.dirty || mode.is_propagatable() {
+        if self.dirty || mode.is_propagable() {
             match self.new_len.cmp(&self.active.len()) {
                 Ordering::Equal => {
                     // new_len == active_len

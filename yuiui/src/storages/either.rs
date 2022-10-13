@@ -204,7 +204,7 @@ where
                     }
                 };
             }
-        } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagatable() {
+        } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagable() {
             result |= match &mut self.active {
                 Either::Left(node) => node.commit(mode, id_context, store, messages, backend),
                 Either::Right(node) => node.commit(mode, id_context, store, messages, backend),

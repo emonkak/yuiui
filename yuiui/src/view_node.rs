@@ -73,7 +73,7 @@ where
         messages: &mut Vec<M>,
         backend: &mut B,
     ) -> bool {
-        if !self.dirty && !mode.is_propagatable() {
+        if !self.dirty && !mode.is_propagable() {
             return false;
         }
 
@@ -541,7 +541,7 @@ pub enum CommitMode {
 }
 
 impl CommitMode {
-    pub fn is_propagatable(&self) -> bool {
+    pub fn is_propagable(&self) -> bool {
         match self {
             Self::Mount | Self::Unmount => true,
             Self::Update => false,

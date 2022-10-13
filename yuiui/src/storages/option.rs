@@ -130,7 +130,7 @@ where
                     result |= node.commit(CommitMode::Mount, id_context, store, messages, backend);
                 }
             }
-        } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagatable() {
+        } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagable() {
             if let Some(node) = &mut self.active {
                 result |= node.commit(mode, id_context, store, messages, backend);
             }

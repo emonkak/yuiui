@@ -83,7 +83,7 @@ where
         backend: &mut B,
     ) -> bool {
         let mut result = false;
-        if self.dirty || mode.is_propagatable() {
+        if self.dirty || mode.is_propagable() {
             for node in &mut self.nodes {
                 result |= node.commit(mode, id_context, store, messages, backend);
             }
