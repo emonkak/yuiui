@@ -7,21 +7,21 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
-pub struct ViewEl<V: View<S, M, B>, S, M, B> {
+pub struct ViewElement<V: View<S, M, B>, S, M, B> {
     view: V,
     children: V::Children,
 }
 
-impl<V, S, M, B> ViewEl<V, S, M, B>
+impl<V, S, M, B> ViewElement<V, S, M, B>
 where
     V: View<S, M, B>,
 {
     pub fn new(view: V, children: V::Children) -> Self {
-        ViewEl { view, children }
+        ViewElement { view, children }
     }
 }
 
-impl<V, S, M, B> Element<S, M, B> for ViewEl<V, S, M, B>
+impl<V, S, M, B> Element<S, M, B> for ViewElement<V, S, M, B>
 where
     V: View<S, M, B>,
 {
@@ -62,7 +62,7 @@ where
     }
 }
 
-impl<V, S, M, B> ElementSeq<S, M, B> for ViewEl<V, S, M, B>
+impl<V, S, M, B> ElementSeq<S, M, B> for ViewElement<V, S, M, B>
 where
     V: View<S, M, B>,
 {
@@ -83,13 +83,13 @@ where
     }
 }
 
-impl<V, S, M, B> fmt::Debug for ViewEl<V, S, M, B>
+impl<V, S, M, B> fmt::Debug for ViewElement<V, S, M, B>
 where
     V: View<S, M, B> + fmt::Debug,
     V::Children: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ViewEl")
+        f.debug_struct("ViewElement")
             .field("view", &self.view)
             .field("children", &self.children)
             .finish()

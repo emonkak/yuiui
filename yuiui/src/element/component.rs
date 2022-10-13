@@ -6,17 +6,17 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 use super::{Element, ElementSeq};
 
 #[derive(Debug)]
-pub struct ComponentEl<C> {
+pub struct ComponentElement<C> {
     component: C,
 }
 
-impl<C> ComponentEl<C> {
-    pub const fn new(component: C) -> ComponentEl<C> {
+impl<C> ComponentElement<C> {
+    pub const fn new(component: C) -> ComponentElement<C> {
         Self { component }
     }
 }
 
-impl<C, S, M, B> Element<S, M, B> for ComponentEl<C>
+impl<C, S, M, B> Element<S, M, B> for ComponentElement<C>
 where
     C: Component<S, M, B>,
 {
@@ -71,7 +71,7 @@ where
     }
 }
 
-impl<C, S, M, B> ElementSeq<S, M, B> for ComponentEl<C>
+impl<C, S, M, B> ElementSeq<S, M, B> for ComponentElement<C>
 where
     C: Component<S, M, B>,
 {

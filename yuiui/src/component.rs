@@ -1,7 +1,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::element::{ComponentEl, Element};
+use crate::element::{ComponentElement, Element};
 use crate::event::Lifecycle;
 use crate::id::IdContext;
 use crate::store::Store;
@@ -32,8 +32,8 @@ pub trait Component<S, M, B>: Sized {
     fn render(&self, state: &S) -> Self::Element;
 
     #[inline]
-    fn el(self) -> ComponentEl<Self> {
-        ComponentEl::new(self)
+    fn el(self) -> ComponentElement<Self> {
+        ComponentElement::new(self)
     }
 }
 
@@ -43,7 +43,7 @@ pub trait HigherOrderComponent<Props, S, M, B> {
     fn build(self, props: Props) -> Self::Component;
 
     #[inline]
-    fn el(self) -> ComponentEl<Self::Component>
+    fn el(self) -> ComponentElement<Self::Component>
     where
         Self: Sized,
         Props: Default,
@@ -52,7 +52,7 @@ pub trait HigherOrderComponent<Props, S, M, B> {
     }
 
     #[inline]
-    fn el_with(self, props: Props) -> ComponentEl<Self::Component>
+    fn el_with(self, props: Props) -> ComponentElement<Self::Component>
     where
         Self: Sized,
     {

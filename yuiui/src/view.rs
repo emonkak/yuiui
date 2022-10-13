@@ -1,4 +1,4 @@
-use crate::element::{ElementSeq, ViewEl};
+use crate::element::{ElementSeq, ViewElement};
 use crate::event::{EventTarget, Lifecycle};
 use crate::id::IdContext;
 use crate::store::Store;
@@ -42,15 +42,15 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
     ) -> Self::State;
 
     #[inline]
-    fn el(self) -> ViewEl<Self, S, M, B>
+    fn el(self) -> ViewElement<Self, S, M, B>
     where
         Self::Children: Default,
     {
-        ViewEl::new(self, Self::Children::default())
+        ViewElement::new(self, Self::Children::default())
     }
 
     #[inline]
-    fn el_with(self, children: Self::Children) -> ViewEl<Self, S, M, B> {
-        ViewEl::new(self, children)
+    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, M, B> {
+        ViewElement::new(self, children)
     }
 }
