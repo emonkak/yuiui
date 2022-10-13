@@ -1,4 +1,3 @@
-use bit_flags::BitFlags;
 use std::mem;
 
 use crate::element::ElementSeq;
@@ -6,13 +5,13 @@ use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
-use super::RenderFlag;
+use super::RenderFlags;
 
 #[derive(Debug)]
 pub struct OptionStorage<T> {
     active: Option<T>,
     staging: Option<T>,
-    flags: BitFlags<RenderFlag>,
+    flags: RenderFlags,
     reserved_ids: Vec<Id>,
 }
 
@@ -21,7 +20,7 @@ impl<T> OptionStorage<T> {
         Self {
             active,
             staging: None,
-            flags: BitFlags::new(),
+            flags: RenderFlags::NONE,
             reserved_ids,
         }
     }
@@ -54,8 +53,8 @@ where
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
                 if element.update_children(node, id_context, state) {
-                    storage.flags |= RenderFlag::Updated;
-                    storage.flags -= RenderFlag::Swapped;
+                    storage.flags |= RenderFlags::UPDATED;
+                    storage.flags -= RenderFlags::SWAPPED;
                     true
                 } else {
                     false
@@ -68,12 +67,12 @@ where
                     id_context.preload_ids(&storage.reserved_ids);
                     storage.staging = Some(element.render_children(id_context, state));
                 }
-                storage.flags |= RenderFlag::Swapped;
+                storage.flags |= RenderFlags::SWAPPED;
                 true
             }
             (Some(_), None) => {
                 assert!(storage.staging.is_none());
-                storage.flags |= RenderFlag::Swapped;
+                storage.flags |= RenderFlags::SWAPPED;
                 true
             }
             (None, None) => false,
@@ -117,8 +116,8 @@ where
         backend: &mut B,
     ) -> bool {
         let mut result = false;
-        if self.flags.contains(RenderFlag::Swapped) {
-            if self.flags.contains(RenderFlag::Commited) {
+        if self.flags.contains(RenderFlags::SWAPPED) {
+            if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
                     result |=
                         node.commit(CommitMode::Unmount, id_context, store, messages, backend);
@@ -130,12 +129,12 @@ where
                     result |= node.commit(CommitMode::Mount, id_context, store, messages, backend);
                 }
             }
-        } else if self.flags.contains(RenderFlag::Updated) || mode.is_propagable() {
+        } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             if let Some(node) = &mut self.active {
                 result |= node.commit(mode, id_context, store, messages, backend);
             }
         }
-        self.flags.set(RenderFlag::Commited);
+        self.flags = RenderFlags::COMMITED;
         result
     }
 
@@ -143,7 +142,7 @@ where
         if let Some(node) = &mut self.active {
             node.gc();
         }
-        if !self.flags.contains(RenderFlag::Swapped) {
+        if !self.flags.contains(RenderFlags::SWAPPED) {
             self.staging = None;
         }
     }

@@ -10,7 +10,7 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-bit_flags = { path = "../bit_flags" }
+bitflags = "1"
 either = "1"
 futures = "0.3"
 hlist = { path = "../hlist" }
