@@ -53,9 +53,9 @@ where
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
-        let (head_node, tail_nodes) = node.components;
+        let (head_component, tail_components) = node.components;
         let element = self.component.render(state);
-        head_node.update(self.component);
+        head_component.update(self.component);
         *node.dirty = true;
         let node = ViewNodeMut {
             id: node.id,
@@ -64,7 +64,7 @@ where
             pending_view: node.pending_view,
             state: node.state,
             children: node.children,
-            components: tail_nodes,
+            components: tail_components,
             dirty: node.dirty,
         };
         element.update(node, id_context, state)

@@ -1,47 +1,51 @@
 use std::marker::PhantomData;
 
-use crate::component::Component;
+use crate::component::{Component, HigherOrderComponent};
 use crate::component_node::ComponentNode;
 use crate::id::IdContext;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<F: Fn(&DS) -> E, DS, E> {
-    render_fn: F,
-    deps: DS,
-    _phantom: PhantomData<E>,
+pub struct Memoize<Hoc: HigherOrderComponent<Deps, S, M, B>, Deps, S, M, B> {
+    hoc: Hoc,
+    deps: Deps,
+    _phantom: PhantomData<(S, M, B)>,
 }
 
-impl<F, DS, E> Memoize<F, DS, E>
+impl<Hoc, Deps, S, M, B> Memoize<Hoc, Deps, S, M, B>
 where
-    F: Fn(&DS) -> E,
+    Hoc: HigherOrderComponent<Deps, S, M, B>,
 {
-    pub fn new(render_fn: F, deps: DS) -> Self {
+    #[inline]
+    pub const fn new(hoc: Hoc, deps: Deps) -> Self {
         Self {
-            render_fn,
+            hoc,
             deps,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<F, DS, E, S, M, B> Element<S, M, B> for Memoize<F, DS, E>
+impl<Hoc, Deps, S, M, B> Element<S, M, B> for Memoize<Hoc, Deps, S, M, B>
 where
-    F: Fn(&DS) -> E,
-    DS: PartialEq,
-    E: Element<S, M, B>,
+    Hoc: HigherOrderComponent<Deps, S, M, B>,
+    Hoc::Component: PartialEq<Deps>,
 {
-    type View = E::View;
+    type View = <<Hoc::Component as Component<S, M, B>>::Element as Element<S, M, B>>::View;
 
-    type Components = (ComponentNode<Memoized<Self>, S, M, B>, E::Components);
+    type Components = (
+        ComponentNode<Hoc::Component, S, M, B>,
+        <<Hoc::Component as Component<S, M, B>>::Element as Element<S, M, B>>::Components,
+    );
 
     fn render(
         self,
         id_context: &mut IdContext,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, B> {
-        let element = ComponentElement::new(Memoized::new(self));
+        let component = self.hoc.build(self.deps);
+        let element = ComponentElement::new(component);
         element.render(id_context, state)
     }
 
@@ -51,23 +55,24 @@ where
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
-        let (head_node, _) = node.components;
-        if head_node.component().inner.deps != self.deps {
-            let element = ComponentElement::new(Memoized::new(self));
-            Element::update(element, node, id_context, state)
+        let (head_component, _) = node.components;
+        if head_component.component() != &self.deps {
+            let component = self.hoc.build(self.deps);
+            let element = ComponentElement::new(component);
+            element.update(node, id_context, state)
         } else {
             false
         }
     }
 }
 
-impl<F, DS, E, S, M, B> ElementSeq<S, M, B> for Memoize<F, DS, E>
+impl<Hoc, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<Hoc, Deps, S, M, B>
 where
-    F: Fn(&DS) -> E,
-    DS: PartialEq,
-    E: Element<S, M, B>,
+    Hoc: HigherOrderComponent<Deps, S, M, B>,
+    Hoc::Component: PartialEq<Deps>,
 {
-    type Storage = ViewNode<E::View, <Self as Element<S, M, B>>::Components, S, M, B>;
+    type Storage =
+        ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         self.render(id_context, state)
@@ -80,28 +85,5 @@ where
         state: &S,
     ) -> bool {
         self.update(storage.into(), id_context, state)
-    }
-}
-
-pub struct Memoized<T> {
-    inner: T,
-}
-
-impl<T> Memoized<T> {
-    fn new(inner: T) -> Self {
-        Self { inner }
-    }
-}
-
-impl<F, DS, E, S, M, B> Component<S, M, B> for Memoized<Memoize<F, DS, E>>
-where
-    F: Fn(&DS) -> E,
-    DS: PartialEq,
-    E: Element<S, M, B>,
-{
-    type Element = E;
-
-    fn render(&self, _state: &S) -> Self::Element {
-        (self.inner.render_fn)(&self.inner.deps)
     }
 }

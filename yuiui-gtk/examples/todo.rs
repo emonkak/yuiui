@@ -73,7 +73,9 @@ fn todo_list(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMess
         .hexpand(true)
         .el_with(Vec::from_iter(state.todos.iter().map(|todo| {
             Memoize::new(
-                |todo| ListBoxRow::new().hexpand(true).el_with(todo_item(todo)),
+                |todo: &Rc<Todo>, _: &AppState| {
+                    ListBoxRow::new().hexpand(true).el_with(todo_item(todo))
+                },
                 todo.clone(),
             )
         })))

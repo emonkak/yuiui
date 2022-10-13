@@ -53,7 +53,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
     ) -> bool {
-        let (head, tail) = node.components;
+        let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
             id: node.id,
             depth: node.depth,
@@ -61,11 +61,11 @@ where
             pending_view: node.pending_view,
             state: node.state,
             children: node.children,
-            components: tail,
+            components: tail_components,
             dirty: node.dirty,
         };
-        if depth <= head.depth() {
-            let element = head.component().render(store);
+        if depth <= head_component.depth() {
+            let element = head_component.component().render(store);
             element.update(node, id_context, store)
         } else {
             CS::update(&mut node, depth, id_context, store)
@@ -81,7 +81,7 @@ where
         messages: &mut Vec<M>,
         backend: &mut B,
     ) -> bool {
-        let (head, tail) = node.components;
+        let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
             id: node.id,
             depth: node.depth,
@@ -89,11 +89,11 @@ where
             pending_view: node.pending_view,
             state: node.state,
             children: node.children,
-            components: tail,
+            components: tail_components,
             dirty: node.dirty,
         };
-        if depth <= head.depth() {
-            head.commit(mode, node, id_context, store, messages, backend)
+        if depth <= head_component.depth() {
+            head_component.commit(mode, node, id_context, store, messages, backend)
         } else {
             CS::commit(&mut node, mode, depth, id_context, store, messages, backend)
         }

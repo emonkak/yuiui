@@ -125,24 +125,6 @@ where
     }
 }
 
-impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Clone
-    for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
-where
-    Props: Clone,
-    RenderFn: Clone + Fn(&Props, &S) -> E,
-    LifeCycleFn:
-        Clone + Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
-{
-    #[inline]
-    fn clone(&self) -> Self {
-        Self {
-            render_fn: self.render_fn.clone(),
-            lifecycle_fn: self.lifecycle_fn.clone(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
     for FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
@@ -243,6 +225,19 @@ where
             lifecycle_fn: self.lifecycle_fn.clone(),
             _phantom: PhantomData,
         }
+    }
+}
+
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn> PartialEq<Props>
+    for HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
+where
+    Props: PartialEq,
+    RenderFn: Fn(&Props, &S) -> E,
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+{
+    #[inline]
+    fn eq(&self, other: &Props) -> bool {
+        &self.props == other
     }
 }
 
