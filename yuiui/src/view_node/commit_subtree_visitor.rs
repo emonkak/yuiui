@@ -29,7 +29,7 @@ where
         id_context: &mut IdContext,
     ) {
         if let Some(depth) = self.cursor.current().data() {
-            node.commit_within(
+            node.commit_from(
                 self.mode,
                 *depth,
                 id_context,

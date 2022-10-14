@@ -122,7 +122,7 @@ where
                 }
             } else {
                 let mut messages = Vec::new();
-                self.node.commit_within(
+                self.node.commit_from(
                     CommitMode::Mount,
                     0,
                     &mut self.id_context,

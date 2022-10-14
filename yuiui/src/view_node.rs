@@ -64,7 +64,7 @@ where
         visitor.into_result()
     }
 
-    pub(crate) fn commit_within(
+    pub(crate) fn commit_from(
         &mut self,
         mode: CommitMode,
         depth: Depth,
@@ -464,7 +464,7 @@ where
         messages: &mut Vec<M>,
         backend: &mut B,
     ) -> bool {
-        self.commit_within(mode, 0, id_context, store, messages, backend)
+        self.commit_from(mode, 0, id_context, store, messages, backend)
     }
 
     fn gc(&mut self) {
