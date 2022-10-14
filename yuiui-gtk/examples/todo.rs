@@ -9,6 +9,7 @@ use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
 struct AppState {
     todos: Vec<Rc<Todo>>,
     text: String,
+    todo_id: usize,
 }
 
 impl State for AppState {
@@ -18,10 +19,11 @@ impl State for AppState {
         match message {
             AppMessage::AddTodo(text) => {
                 let todo = Todo {
-                    id: self.todos.len(),
+                    id: self.todo_id,
                     text,
                 };
                 self.todos.push(Rc::new(todo));
+                self.todo_id += 1;
                 self.text = "".to_owned();
                 (true, Effect::new())
             }
@@ -39,10 +41,21 @@ impl State for AppState {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 struct Todo {
     id: TodoId,
     text: String,
+}
+
+#[derive(Debug)]
+struct TodoProps {
+    todo: Rc<Todo>,
+}
+
+impl PartialEq for TodoProps {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.todo, &other.todo)
+    }
 }
 
 type TodoId = usize;
@@ -73,10 +86,12 @@ fn todo_list(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMess
         .hexpand(true)
         .el_with(Vec::from_iter(state.todos.iter().map(|todo| {
             Memoize::new(
-                |todo: &Rc<Todo>, _: &AppState| {
-                    ListBoxRow::new().hexpand(true).el_with(todo_item(todo))
+                |props: &TodoProps, _: &AppState| {
+                    ListBoxRow::new()
+                        .hexpand(true)
+                        .el_with(todo_item(&props.todo))
                 },
-                todo.clone(),
+                TodoProps { todo: todo.clone() },
             )
         })))
 }
