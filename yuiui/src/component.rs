@@ -228,16 +228,15 @@ where
     }
 }
 
-impl<Props, E, S, M, B, RenderFn, LifeCycleFn> PartialEq<Props>
+impl<Props, E, S, M, B, RenderFn, LifeCycleFn> AsRef<Props>
     for FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
-    Props: PartialEq,
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
 {
     #[inline]
-    fn eq(&self, other: &Props) -> bool {
-        &self.props == other
+    fn as_ref(&self) -> &Props {
+        &self.props
     }
 }
 

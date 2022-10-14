@@ -30,7 +30,8 @@ where
 impl<Hoc, Deps, S, M, B> Element<S, M, B> for Memoize<Hoc, Deps, S, M, B>
 where
     Hoc: HigherOrderComponent<Deps, S, M, B>,
-    Hoc::Component: PartialEq<Deps>,
+    Hoc::Component: AsRef<Deps>,
+    Deps: PartialEq,
 {
     type View = <<Hoc::Component as Component<S, M, B>>::Element as Element<S, M, B>>::View;
 
@@ -56,7 +57,8 @@ where
         state: &S,
     ) -> bool {
         let (head_component, _) = node.components;
-        if head_component.component() != &self.deps {
+        let deps = head_component.component().as_ref();
+        if deps != &self.deps {
             let component = self.hoc.build(self.deps);
             let element = ComponentElement::new(component);
             element.update(node, id_context, state)
@@ -69,7 +71,8 @@ where
 impl<Hoc, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<Hoc, Deps, S, M, B>
 where
     Hoc: HigherOrderComponent<Deps, S, M, B>,
-    Hoc::Component: PartialEq<Deps>,
+    Hoc::Component: AsRef<Deps>,
+    Deps: PartialEq,
 {
     type Storage =
         ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
