@@ -65,11 +65,11 @@ where
     E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
 {
-    type Component = HigherOrderComponentInstance<Props, E, S, M, B, RenderFn>;
+    type Component = FunctionComponentInstance<Props, E, S, M, B, RenderFn>;
 
     #[inline]
     fn build(self, props: Props) -> Self::Component {
-        HigherOrderComponentInstance::new(
+        FunctionComponentInstance::new(
             props,
             self,
             |_props, _lifecycle, _id_context, _store, _messages, _backend| {},
@@ -117,11 +117,11 @@ where
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
 {
-    type Component = HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>;
+    type Component = FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>;
 
     #[inline]
     fn build(self, props: Props) -> Self::Component {
-        HigherOrderComponentInstance::new(props, self.render_fn, self.lifecycle_fn)
+        FunctionComponentInstance::new(props, self.render_fn, self.lifecycle_fn)
     }
 }
 
@@ -138,7 +138,7 @@ where
     }
 }
 
-pub struct HigherOrderComponentInstance<
+pub struct FunctionComponentInstance<
     Props,
     E,
     S,
@@ -157,7 +157,7 @@ pub struct HigherOrderComponentInstance<
 }
 
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn>
-    HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
+    FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
     LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
@@ -174,7 +174,7 @@ where
 }
 
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Component<S, M, B>
-    for HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
+    for FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
@@ -210,7 +210,7 @@ where
 }
 
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Clone
-    for HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
+    for FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     Props: Clone,
     RenderFn: Clone + Fn(&Props, &S) -> E,
@@ -229,7 +229,7 @@ where
 }
 
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> PartialEq<Props>
-    for HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
+    for FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     Props: PartialEq,
     RenderFn: Fn(&Props, &S) -> E,
@@ -242,7 +242,7 @@ where
 }
 
 impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
-    for HigherOrderComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
+    for FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     Props: fmt::Debug,
     RenderFn: Fn(&Props, &S) -> E,
@@ -250,7 +250,7 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("HigherOrderComponentInstance")
+        f.debug_struct("FunctionComponentInstance")
             .field("props", &self.props)
             .finish_non_exhaustive()
     }
