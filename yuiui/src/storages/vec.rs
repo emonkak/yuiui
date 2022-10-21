@@ -199,9 +199,9 @@ where
         if T::SIZE_HINT.1.is_some() {
             if let Ok(index) = binary_search_by(&self.active, |node| {
                 node.id_range().map(|(start, end)| {
-                    if start < id {
+                    if start > id {
                         Ordering::Less
-                    } else if end > id {
+                    } else if end < id {
                         Ordering::Greater
                     } else {
                         Ordering::Equal
