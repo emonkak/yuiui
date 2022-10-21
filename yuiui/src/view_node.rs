@@ -495,7 +495,7 @@ pub trait Visitor<Node, Context, S, M, B> {
     fn visit(&mut self, node: &mut Node, context: &mut Context, id_context: &mut IdContext);
 }
 
-impl<'a, 'context, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, S, M, B>
+impl<'a, V, CS, S, M, B, Visitor, Context> Traversable<Visitor, Context, S, M, B>
     for ViewNode<V, CS, S, M, B>
 where
     V: View<S, M, B>,
