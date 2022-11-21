@@ -3,24 +3,16 @@ use gtk::prelude::*;
 use std::time::{Duration, Instant};
 use yuiui::{Element, RenderFlow, RenderLoop, State, Store, View};
 
-use crate::backend::{Backend, EventPort};
+use crate::backend::Backend;
 use crate::command_runtime::{CommandRuntime, RenderAction};
 
 pub trait EntryPoint<M>: Sized + 'static {
-    fn window(&self) -> &gtk::Window;
-
-    fn on_message(&self, _message: &M) {}
-
-    fn attach(&self, widget: &gtk::Widget, _event_port: &EventPort) {
-        let window = self.window();
-        window.set_child(Some(widget));
-        window.show();
-    }
+    fn attach_widget(&self, widget: &gtk::Widget);
 
     fn boot<E, S>(self, element: E, state: S)
     where
-        E: Element<S, M, Backend> + 'static,
-        <E::View as View<S, M, Backend>>::State: AsRef<gtk::Widget>,
+        E: Element<S, M, Backend<Self>> + 'static,
+        <E::View as View<S, M, Backend<Self>>>::State: AsRef<gtk::Widget>,
         S: State<Message = M> + 'static,
         M: Send + 'static,
     {
@@ -29,19 +21,17 @@ pub trait EntryPoint<M>: Sized + 'static {
         let (event_tx, event_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (action_tx, action_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
 
-        let event_port = EventPort::new(event_tx);
         let mut command_runtime =
             CommandRuntime::new(glib::MainContext::default(), action_tx.clone());
-
         let mut store = Store::new(state);
-        let mut backend = Backend::new(self.window().clone(), event_port);
+        let mut backend = Backend::new(self, event_tx);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
         render_loop.run_forever(&mut command_runtime, &mut store, &mut backend);
 
         let widget = render_loop.node().state().unwrap().as_ref();
 
-        self.attach(widget, backend.event_port());
+        backend.entry_point().attach_widget(widget);
 
         event_rx.attach(None, move |event| {
             action_tx.send(RenderAction::Event(event)).unwrap();
@@ -54,7 +44,6 @@ pub trait EntryPoint<M>: Sized + 'static {
             match action {
                 RenderAction::RequestRerender => {}
                 RenderAction::Message(message) => {
-                    self.on_message(&message);
                     render_loop.push_message(message);
                 }
                 RenderAction::Event(event) => {
@@ -73,21 +62,16 @@ pub trait EntryPoint<M>: Sized + 'static {
     }
 }
 
-#[derive(Debug)]
-pub struct DefaultEntryPoint<W> {
-    window: W,
-}
-
-impl<W> From<W> for DefaultEntryPoint<W> {
-    #[inline]
-    fn from(window: W) -> Self {
-        Self { window }
+impl<M> EntryPoint<M> for gtk::Window {
+    fn attach_widget(&self, widget: &gtk::Widget) {
+        self.set_child(Some(widget));
+        self.show();
     }
 }
 
-impl<W: AsRef<gtk::Window> + 'static, M> EntryPoint<M> for DefaultEntryPoint<W> {
-    #[inline]
-    fn window(&self) -> &gtk::Window {
-        self.window.as_ref()
+impl<M> EntryPoint<M> for gtk::ApplicationWindow {
+    fn attach_widget(&self, widget: &gtk::Widget) {
+        self.set_child(Some(widget));
+        self.show();
     }
 }

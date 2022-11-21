@@ -3,7 +3,7 @@ use gtk::{gdk, gio, glib, pango};
 use yuiui::{ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::backend::{Backend, EventPort};
+use crate::backend::Backend;
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Entry)]
@@ -87,7 +87,10 @@ pub struct Entry<S, M> {
     on_change: Option<Box<dyn Fn(&str, &S) -> Option<M>>>,
 }
 
-impl<S, M> View<S, M, Backend> for Entry<S, M> {
+impl<S, M, E> View<S, M, Backend<E>> for Entry<S, M>
+where
+    E: 'static + Clone,
+{
     type Children = ();
 
     type State = EntryState;
@@ -96,25 +99,19 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        backend: &Backend,
+        backend: &Backend<E>,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
-                    state.connect_activate(
-                        id_context.id_path().to_vec(),
-                        backend.event_port().clone(),
-                    );
+                    state.connect_activate(id_context.id_path().to_vec(), backend.clone());
                 }
                 if self.on_change.is_some() {
-                    state.connect_changed(
-                        id_context.id_path().to_vec(),
-                        backend.event_port().clone(),
-                    );
+                    state.connect_changed(id_context.id_path().to_vec(), backend.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -123,10 +120,7 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
                         state.disconnect_activate();
                     }
                     (None, Some(_)) => {
-                        state.connect_activate(
-                            id_context.id_path().to_vec(),
-                            backend.event_port().clone(),
-                        );
+                        state.connect_activate(id_context.id_path().to_vec(), backend.clone());
                     }
                     _ => {}
                 }
@@ -135,10 +129,7 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
                         state.disconnect_changed();
                     }
                     (None, Some(_)) => {
-                        state.connect_changed(
-                            id_context.id_path().to_vec(),
-                            backend.event_port().clone(),
-                        );
+                        state.connect_changed(id_context.id_path().to_vec(), backend.clone());
                     }
                     _ => {}
                 }
@@ -156,11 +147,11 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
         &self,
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _backend: &Backend,
+        _backend: &Backend<E>,
     ) {
         match event {
             Event::Activate => {
@@ -181,9 +172,9 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
         _store: &Store<S>,
-        _backend: &Backend,
+        _backend: &Backend<E>,
     ) -> Self::State {
         let widget = self.build();
         if let Some(text) = &self.text {
@@ -216,22 +207,24 @@ impl EntryState {
         }
     }
 
-    fn connect_activate(&mut self, id_path: IdPathBuf, event_port: EventPort) {
+    fn connect_activate<E: 'static>(&mut self, id_path: IdPathBuf, backend: Backend<E>) {
         self.changed_signal = self
             .widget
             .connect_activate(move |_| {
-                event_port
-                    .forward(id_path.clone(), Event::Activate)
+                backend
+                    .forward_event(id_path.clone(), Event::Activate)
                     .unwrap();
             })
             .into();
     }
 
-    fn connect_changed(&mut self, id_path: IdPathBuf, event_port: EventPort) {
+    fn connect_changed<E: 'static>(&mut self, id_path: IdPathBuf, backend: Backend<E>) {
         self.changed_signal = self
             .widget
             .connect_changed(move |_| {
-                event_port.forward(id_path.clone(), Event::Changed).unwrap();
+                backend
+                    .forward_event(id_path.clone(), Event::Changed)
+                    .unwrap();
             })
             .into();
     }

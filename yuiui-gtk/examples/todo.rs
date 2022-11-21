@@ -3,7 +3,7 @@ use hlist::hlist;
 use std::rc::Rc;
 use yuiui::{Effect, HigherOrderComponent, Memoize, State, View};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
-use yuiui_gtk::{DefaultEntryPoint, EntryPoint, GtkElement};
+use yuiui_gtk::{EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
 struct AppState {
@@ -121,10 +121,9 @@ fn on_activate(application: &gtk::Application) {
         .default_width(320)
         .default_height(240)
         .build();
-    let entry_point = DefaultEntryPoint::from(window);
     let element = app.el();
     let state = AppState::default();
-    entry_point.boot(element, state);
+    window.boot(element, state);
 }
 
 fn main() {

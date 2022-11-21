@@ -5,54 +5,54 @@ mod command_runtime;
 mod entry_point;
 
 pub use backend::Backend;
-pub use entry_point::{DefaultEntryPoint, EntryPoint};
+pub use entry_point::EntryPoint;
 
 use yuiui::{ComponentStack, Element, ElementSeq, View};
 
-pub trait GtkElement<S, M>:
+pub trait GtkElement<S, M, E = gtk::ApplicationWindow>:
     Element<
     S,
     M,
-    Backend,
-    View = <Self as GtkElement<S, M>>::View,
-    Components = <Self as GtkElement<S, M>>::Components,
+    Backend<E>,
+    View = <Self as GtkElement<S, M, E>>::View,
+    Components = <Self as GtkElement<S, M, E>>::Components,
 >
 {
-    type View: GtkView<S, M>;
+    type View: GtkView<S, M, E>;
 
-    type Components: ComponentStack<S, M, Backend, View = <Self as GtkElement<S, M>>::View>;
+    type Components: ComponentStack<S, M, Backend<E>, View = <Self as GtkElement<S, M, E>>::View>;
 }
 
-impl<E, S, M> GtkElement<S, M> for E
+impl<T, S, M, E> GtkElement<S, M, E> for T
 where
-    E: Element<S, M, Backend>,
-    E::View: GtkView<S, M>,
+    T: Element<S, M, Backend<E>>,
+    T::View: GtkView<S, M, E>,
 {
-    type View = E::View;
+    type View = T::View;
 
-    type Components = E::Components;
+    type Components = T::Components;
 }
 
-pub trait GtkView<S, M>:
+pub trait GtkView<S, M, E>:
     View<
     S,
     M,
-    Backend,
-    Children = <Self as GtkView<S, M>>::Children,
-    State = <Self as GtkView<S, M>>::State,
+    Backend<E>,
+    Children = <Self as GtkView<S, M, E>>::Children,
+    State = <Self as GtkView<S, M, E>>::State,
 >
 {
     type State: AsRef<gtk::Widget>;
 
-    type Children: ElementSeq<S, M, Backend>;
+    type Children: ElementSeq<S, M, Backend<E>>;
 }
 
-impl<V, S, M> GtkView<S, M> for V
+impl<T, S, M, E> GtkView<S, M, E> for T
 where
-    V: View<S, M, Backend>,
-    V::State: AsRef<gtk::Widget>,
+    T: View<S, M, Backend<E>>,
+    T::State: AsRef<gtk::Widget>,
 {
-    type State = V::State;
+    type State = T::State;
 
-    type Children = V::Children;
+    type Children = T::Children;
 }

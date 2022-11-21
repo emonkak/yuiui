@@ -5,7 +5,7 @@ use gtk::{gdk, glib};
 use yuiui::{Element, ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::backend::{Backend, EventPort};
+use crate::backend::Backend;
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
@@ -53,10 +53,11 @@ pub struct Button<Child, S, M> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, Backend> for Button<Child, S, M>
+impl<Child, S, M, E> View<S, M, Backend<E>> for Button<Child, S, M>
 where
-    Child: Element<S, M, Backend>,
-    <Child::View as View<S, M, Backend>>::State: AsRef<gtk::Widget>,
+    E: 'static + Clone,
+    Child: Element<S, M, Backend<E>>,
+    <Child::View as View<S, M, Backend<E>>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -66,19 +67,16 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        backend: &Backend,
+        backend: &Backend<E>,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
-                    state.connect_clicked(
-                        id_context.id_path().to_vec(),
-                        backend.event_port().clone(),
-                    );
+                    state.connect_clicked(id_context.id_path().to_vec(), backend.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -87,10 +85,7 @@ where
                         state.disconnect_clicked();
                     }
                     (None, Some(_)) => {
-                        state.connect_clicked(
-                            id_context.id_path().to_vec(),
-                            backend.event_port().clone(),
-                        );
+                        state.connect_clicked(id_context.id_path().to_vec(), backend.clone());
                     }
                     _ => {}
                 }
@@ -106,11 +101,11 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _backend: &Backend,
+        _backend: &Backend<E>,
     ) {
         match event {
             Event::Clicked => {
@@ -124,9 +119,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
         _store: &Store<S>,
-        _backend: &Backend,
+        _backend: &Backend<E>,
     ) -> Self::State {
         let widget = self.build();
         let child = child.state().unwrap().as_ref();
@@ -153,11 +148,13 @@ impl ButtonState {
         }
     }
 
-    fn connect_clicked(&mut self, id_path: IdPathBuf, event_port: EventPort) {
+    fn connect_clicked<E: 'static>(&mut self, id_path: IdPathBuf, backend: Backend<E>) {
         self.clicked_signal = self
             .widget
             .connect_clicked(move |_| {
-                event_port.forward(id_path.clone(), Event::Clicked).unwrap();
+                backend
+                    .forward_event(id_path.clone(), Event::Clicked)
+                    .unwrap();
             })
             .into();
     }
