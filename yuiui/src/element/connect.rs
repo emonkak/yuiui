@@ -139,7 +139,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
         let sub_store = (self.select_store)(store);
@@ -164,7 +164,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
@@ -184,7 +184,7 @@ where
         &self,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> Self::State {
         let sub_store = (self.select_store)(store);
         self.target.build(&mut children.target, sub_store, backend)
@@ -229,7 +229,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         let sub_store = (node.components.select_store)(store);
         let mut sub_messages = Vec::new();
@@ -305,7 +305,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();

@@ -113,7 +113,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {

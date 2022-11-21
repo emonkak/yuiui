@@ -48,7 +48,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         match mode {
             CommitMode::Mount => {

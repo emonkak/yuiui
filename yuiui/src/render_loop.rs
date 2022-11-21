@@ -44,7 +44,7 @@ where
         deadline: &impl Deadline,
         command_runtime: &mut impl CommandRuntime<M>,
         store: &mut Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> RenderFlow {
         loop {
             while let Some(message) = self.message_queue.pop_front() {
@@ -147,7 +147,7 @@ where
         &mut self,
         command_runtime: &mut impl CommandRuntime<M>,
         store: &mut Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let render_flow = self.run(&Forever, command_runtime, store, backend);
         assert_eq!(render_flow, RenderFlow::Done);

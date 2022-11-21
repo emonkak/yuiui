@@ -25,7 +25,7 @@ pub trait Component<S, M, B>: Sized {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) {
     }
 
@@ -84,10 +84,10 @@ pub struct FunctionComponent<
     M,
     B,
     RenderFn = fn(&Props, &S) -> E,
-    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 > where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     render_fn: RenderFn,
     lifecycle_fn: LifeCycleFn,
@@ -98,7 +98,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn>
     FunctionComponent<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     #[inline]
     pub const fn new(render_fn: RenderFn, lifecycle_fn: LifeCycleFn) -> Self {
@@ -115,7 +115,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn> HigherOrderComponent<Props, S, M,
 where
     E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     type Component = FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>;
 
@@ -130,7 +130,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
 where
     Props: fmt::Debug,
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -145,10 +145,10 @@ pub struct FunctionComponentInstance<
     M,
     B,
     RenderFn = fn(&Props, &S) -> E,
-    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn = fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 > where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     props: Props,
     render_fn: RenderFn,
@@ -160,7 +160,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn>
     FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     #[inline]
     pub const fn new(props: Props, render_fn: RenderFn, lifecycle_fn: LifeCycleFn) -> Self {
@@ -178,7 +178,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Component<S, M, B>
 where
     E: Element<S, M, B>,
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     type Element = E;
 
@@ -197,7 +197,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let lifecycle = lifecycle.map(|component| component.props);
         (self.lifecycle_fn)(&self.props, lifecycle, id_context, store, messages, backend)
@@ -214,8 +214,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn> Clone
 where
     Props: Clone,
     RenderFn: Clone + Fn(&Props, &S) -> E,
-    LifeCycleFn:
-        Clone + Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Clone + Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     #[inline]
     fn clone(&self) -> Self {
@@ -232,7 +231,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn> AsRef<Props>
     for FunctionComponentInstance<Props, E, S, M, B, RenderFn, LifeCycleFn>
 where
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     #[inline]
     fn as_ref(&self) -> &Props {
@@ -245,7 +244,7 @@ impl<Props, E, S, M, B, RenderFn, LifeCycleFn> fmt::Debug
 where
     Props: fmt::Debug,
     RenderFn: Fn(&Props, &S) -> E,
-    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &mut B),
+    LifeCycleFn: Fn(&Props, Lifecycle<Props>, &mut IdContext, &Store<S>, &mut Vec<M>, &B),
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

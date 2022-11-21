@@ -29,7 +29,7 @@ pub trait ComponentStack<S, M, B> {
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool;
 }
 
@@ -79,7 +79,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
@@ -134,7 +134,7 @@ impl<V: View<S, M, B>, S, M, B> ComponentStack<S, M, B> for ComponentTermination
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> bool {
         false
     }

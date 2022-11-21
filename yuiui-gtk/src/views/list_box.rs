@@ -71,7 +71,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let is_static = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
@@ -97,7 +97,7 @@ where
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> Self::State {
         self.build()
     }
@@ -165,7 +165,7 @@ where
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -179,7 +179,7 @@ where
         &self,
         child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> Self::State {
         let container = self.build();
         let child = child.state().unwrap();

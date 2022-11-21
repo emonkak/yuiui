@@ -73,7 +73,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let is_static: bool = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
@@ -99,7 +99,7 @@ where
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> Self::State {
         self.build()
     }
@@ -146,7 +146,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         let lifecycle = lifecycle.map(|view| view.child);
         self.child.lifecycle(
@@ -162,7 +162,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) {
         self.child
             .event(event, state, children, id_context, store, messages, backend)
@@ -172,7 +172,7 @@ where
         &self,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> Self::State {
         self.child.build(children, store, backend)
     }

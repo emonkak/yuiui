@@ -71,7 +71,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         if !self.dirty && !mode.is_propagable() {
             return false;
@@ -233,7 +233,7 @@ where
         id_tree: &IdTree<Depth>,
         id_context: &mut IdContext,
         store: &Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> Vec<M> {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
         let mut messages = Vec::new();
@@ -252,7 +252,7 @@ where
         destination: &IdPath,
         id_context: &mut IdContext,
         store: &Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> Vec<M> {
         let mut visitor = ForwardEventVisitor::new(payload, destination);
         let mut messages = Vec::new();
@@ -271,7 +271,7 @@ where
         destinations: &[IdPathBuf],
         id_context: &mut IdContext,
         store: &Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> Vec<M> {
         let id_tree = IdTree::from_iter(destinations);
         let cursor = id_tree.root();
@@ -435,7 +435,7 @@ pub trait ViewNodeSeq<S, M, B>:
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool;
 
     fn gc(&mut self);
@@ -462,7 +462,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         self.commit_from(mode, 0, id_context, store, messages, backend)
     }
@@ -558,5 +558,5 @@ pub struct RenderContext<'context, S> {
 pub struct CommitContext<'context, S, M, B> {
     pub store: &'context Store<S>,
     pub messages: &'context mut Vec<M>,
-    pub backend: &'context mut B,
+    pub backend: &'context B,
 }

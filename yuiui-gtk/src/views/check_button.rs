@@ -58,7 +58,7 @@ impl<S, M, B> View<S, M, B> for CheckButton {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -72,7 +72,7 @@ impl<S, M, B> View<S, M, B> for CheckButton {
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> Self::State {
         self.build()
     }

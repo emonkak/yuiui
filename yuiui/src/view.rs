@@ -17,7 +17,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) {
     }
 
@@ -30,7 +30,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) {
     }
 
@@ -38,7 +38,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         &self,
         children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         store: &Store<S>,
-        backend: &mut B,
+        backend: &B,
     ) -> Self::State;
 
     #[inline]

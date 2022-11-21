@@ -9,16 +9,16 @@ use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 use super::RenderFlags;
 
 #[derive(Debug)]
-pub struct EitherStorage<L, B> {
-    active: Either<L, B>,
-    staging: Option<Either<L, B>>,
+pub struct EitherStorage<L, R> {
+    active: Either<L, R>,
+    staging: Option<Either<L, R>>,
     flags: RenderFlags,
     left_reserved_ids: Vec<Id>,
     right_reserved_ids: Vec<Id>,
 }
 
-impl<L, B> EitherStorage<L, B> {
-    fn new(active: Either<L, B>, left_reserved_ids: Vec<Id>, right_reserved_ids: Vec<Id>) -> Self {
+impl<L, R> EitherStorage<L, R> {
+    fn new(active: Either<L, R>, left_reserved_ids: Vec<Id>, right_reserved_ids: Vec<Id>) -> Self {
         Self {
             active,
             staging: None,
@@ -29,19 +29,19 @@ impl<L, B> EitherStorage<L, B> {
     }
 }
 
-impl<L, B, S, M, R> ElementSeq<S, M, R> for Either<L, B>
+impl<L, R, S, M, B> ElementSeq<S, M, B> for Either<L, R>
 where
-    L: ElementSeq<S, M, R>,
-    B: ElementSeq<S, M, R>,
+    L: ElementSeq<S, M, B>,
+    R: ElementSeq<S, M, B>,
 {
-    type Storage = EitherStorage<L::Storage, B::Storage>;
+    type Storage = EitherStorage<L::Storage, R::Storage>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         let left_reserved_ids: Vec<Id> = L::Storage::SIZE_HINT
             .1
             .map(|upper| id_context.take_ids(upper))
             .unwrap_or_default();
-        let right_reserved_ids: Vec<Id> = B::Storage::SIZE_HINT
+        let right_reserved_ids: Vec<Id> = R::Storage::SIZE_HINT
             .1
             .map(|upper| id_context.take_ids(upper))
             .unwrap_or_default();
@@ -124,14 +124,14 @@ where
     }
 }
 
-impl<L, B, S, M, R> ViewNodeSeq<S, M, R> for EitherStorage<L, B>
+impl<L, R, S, M, B> ViewNodeSeq<S, M, B> for EitherStorage<L, R>
 where
-    L: ViewNodeSeq<S, M, R>,
-    B: ViewNodeSeq<S, M, R>,
+    L: ViewNodeSeq<S, M, B>,
+    R: ViewNodeSeq<S, M, B>,
 {
     const SIZE_HINT: (usize, Option<usize>) = {
         let (left_lower, left_upper) = L::SIZE_HINT;
-        let (right_lower, right_upper) = B::SIZE_HINT;
+        let (right_lower, right_upper) = R::SIZE_HINT;
         let lower = if left_lower < right_lower {
             left_lower
         } else {
@@ -178,7 +178,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut R,
+        backend: &B,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
@@ -224,10 +224,10 @@ where
     }
 }
 
-impl<L, B, Visitor, Context, S, M, R> Traversable<Visitor, Context, S, M, R> for EitherStorage<L, B>
+impl<L, R, Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, S, M, R>,
-    B: Traversable<Visitor, Context, S, M, R>,
+    L: Traversable<Visitor, Context, S, M, B>,
+    R: Traversable<Visitor, Context, S, M, B>,
 {
     fn for_each(
         &mut self,

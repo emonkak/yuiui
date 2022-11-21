@@ -72,7 +72,7 @@ where
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {}
@@ -87,7 +87,7 @@ where
         &self,
         child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
         _store: &Store<S>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> Self::State {
         let widget = self.build();
         let child = child.state().unwrap().as_ref();

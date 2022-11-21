@@ -71,7 +71,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for HNil {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &mut B,
+        _backend: &B,
     ) -> bool {
         false
     }
@@ -114,7 +114,7 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &mut B,
+        backend: &B,
     ) -> bool {
         let head_result = self.head.commit(mode, id_context, store, messages, backend);
         let tail_result = self.tail.commit(mode, id_context, store, messages, backend);

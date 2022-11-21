@@ -100,7 +100,7 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        backend: &mut Backend,
+        backend: &Backend,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
@@ -160,7 +160,7 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _backend: &mut Backend,
+        _backend: &Backend,
     ) {
         match event {
             Event::Activate => {
@@ -183,7 +183,7 @@ impl<S, M> View<S, M, Backend> for Entry<S, M> {
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, Backend>>::Storage,
         _store: &Store<S>,
-        _backend: &mut Backend,
+        _backend: &Backend,
     ) -> Self::State {
         let widget = self.build();
         if let Some(text) = &self.text {
