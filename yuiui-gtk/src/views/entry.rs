@@ -95,7 +95,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         id_stack: &mut IdStack,
         _store: &Store<S>,
@@ -105,37 +105,39 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
-                    state.connect_activate(id_stack.id_path().to_vec(), entry_point.clone());
+                    view_state.connect_activate(id_stack.id_path().to_vec(), entry_point.clone());
                 }
                 if self.on_change.is_some() {
-                    state.connect_changed(id_stack.id_path().to_vec(), entry_point.clone());
+                    view_state.connect_changed(id_stack.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
                 match (&self.on_activate, &old_view.on_activate) {
                     (Some(_), None) => {
-                        state.disconnect_activate();
+                        view_state.disconnect_activate();
                     }
                     (None, Some(_)) => {
-                        state.connect_activate(id_stack.id_path().to_vec(), entry_point.clone());
+                        view_state
+                            .connect_activate(id_stack.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
                 match (&self.on_change, &old_view.on_change) {
                     (Some(_), None) => {
-                        state.disconnect_changed();
+                        view_state.disconnect_changed();
                     }
                     (None, Some(_)) => {
-                        state.connect_changed(id_stack.id_path().to_vec(), entry_point.clone());
+                        view_state
+                            .connect_changed(id_stack.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
-                self.update(&old_view, &state.widget);
-                state.update_text(self.text.as_deref());
+                self.update(&old_view, &view_state.widget);
+                view_state.update_text(self.text.as_deref());
             }
             Lifecycle::Unmount => {
-                state.disconnect_activate();
-                state.disconnect_changed();
+                view_state.disconnect_activate();
+                view_state.disconnect_changed();
             }
         }
     }
@@ -143,7 +145,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
     fn event(
         &self,
         event: <Self as EventTarget>::Event,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         _id_stack: &mut IdStack,
         store: &Store<S>,
@@ -153,14 +155,14 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         match event {
             Event::Activate => {
                 if let Some(on_activate) = &self.on_activate {
-                    let message = on_activate(state.current_text.as_str(), store.state());
+                    let message = on_activate(view_state.current_text.as_str(), store.state());
                     messages.extend(message);
                 }
             }
             Event::Changed => {
                 if let Some(on_change) = &self.on_change {
-                    state.refresh_text();
-                    let message = on_change(state.current_text.as_str(), store.state());
+                    view_state.refresh_text();
+                    let message = on_change(view_state.current_text.as_str(), store.state());
                     messages.extend(message);
                 }
             }

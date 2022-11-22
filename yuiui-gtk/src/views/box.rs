@@ -74,7 +74,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_stack: &mut IdStack,
         store: &Store<S>,
@@ -86,12 +86,12 @@ where
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, state);
+                self.update(&old_view, view_state);
                 !is_static
             }
         };
         if needs_reconcile {
-            let mut visitor = ReconcileChildrenVisitor::new(state);
+            let mut visitor = ReconcileChildrenVisitor::new(view_state);
             let mut context = CommitContext {
                 store,
                 messages,
@@ -142,7 +142,7 @@ where
         _context: &mut Context,
         _id_stack: &mut IdStack,
     ) {
-        let new_widget: &gtk::Widget = node.state().unwrap().as_ref();
+        let new_widget: &gtk::Widget = node.view_state().unwrap().as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_widget == &child => {

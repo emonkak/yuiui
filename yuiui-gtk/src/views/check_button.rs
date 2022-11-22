@@ -53,7 +53,7 @@ impl<S, M, E> View<S, M, E> for CheckButton {
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _id_stack: &mut IdStack,
         _store: &Store<S>,
@@ -62,7 +62,7 @@ impl<S, M, E> View<S, M, E> for CheckButton {
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, state);
+                self.update(&old_view, view_state);
             }
             _ => {}
         }

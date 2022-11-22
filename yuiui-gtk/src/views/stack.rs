@@ -68,7 +68,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_stack: &mut IdStack,
         store: &Store<S>,
@@ -80,12 +80,12 @@ where
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, state);
+                self.update(&old_view, view_state);
                 !is_static
             }
         };
         if needs_reconcile {
-            let mut visitor = ReconcileChildrenVisitor::new(state);
+            let mut visitor = ReconcileChildrenVisitor::new(view_state);
             let mut context = CommitContext {
                 store,
                 messages,
@@ -159,7 +159,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _id_stack: &mut IdStack,
         _store: &Store<S>,
@@ -168,7 +168,7 @@ where
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, &state.stack_switcher);
+                self.update(&old_view, &view_state.stack_switcher);
             }
             _ => {}
         }
@@ -184,7 +184,7 @@ where
             .orientation(gtk::Orientation::Vertical)
             .build();
         let stack_switcher = self.build();
-        let stack = child.state().unwrap();
+        let stack = child.view_state().unwrap();
         container.append(&stack_switcher);
         container.append(stack);
         stack_switcher.set_stack(Some(stack));
@@ -235,7 +235,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_stack: &mut IdStack,
         store: &Store<S>,
@@ -244,7 +244,7 @@ where
     ) {
         match &lifecycle {
             Lifecycle::Update(old_view) => {
-                if let Some(stack_page) = &state.stack_page {
+                if let Some(stack_page) = &view_state.stack_page {
                     self.update(old_view, stack_page);
                 }
             }
@@ -253,7 +253,7 @@ where
         let lifecycle = lifecycle.map(|view| view.child);
         self.child.lifecycle(
             lifecycle,
-            &mut state.child_state,
+            &mut view_state.child_state,
             children,
             id_stack,
             store,
@@ -265,7 +265,7 @@ where
     fn event(
         &self,
         event: <Self as EventTarget>::Event,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_stack: &mut IdStack,
         store: &Store<S>,
@@ -274,7 +274,7 @@ where
     ) {
         self.child.event(
             event,
-            &mut state.child_state,
+            &mut view_state.child_state,
             children,
             id_stack,
             store,
@@ -347,7 +347,7 @@ where
         _context: &mut Context,
         _id_stack: &mut IdStack,
     ) {
-        let new_child: &gtk::Widget = node.state().as_ref().unwrap().child_state.as_ref();
+        let new_child: &gtk::Widget = node.view_state().as_ref().unwrap().child_state.as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_child == &child => {
@@ -362,14 +362,14 @@ where
                     let stack_page = self.container.add_child(new_child);
                     new_child.insert_before(self.container, Some(&child));
                     node.view_mut().force_update(&stack_page);
-                    node.state_mut().unwrap().stack_page = Some(stack_page);
+                    node.view_state_mut().unwrap().stack_page = Some(stack_page);
                     self.current_child = Some(child);
                     break;
                 }
                 None => {
                     let stack_page = self.container.add_child(new_child);
                     node.view_mut().force_update(&stack_page);
-                    node.state_mut().unwrap().stack_page = Some(stack_page);
+                    node.view_state_mut().unwrap().stack_page = Some(stack_page);
                     break;
                 }
             }

@@ -23,7 +23,7 @@ pub struct ViewNode<V: View<S, M, E>, CS: ComponentStack<S, M, E, View = V>, S, 
     pub(crate) depth: Depth,
     pub(crate) view: V,
     pub(crate) pending_view: Option<V>,
-    pub(crate) state: Option<V::State>,
+    pub(crate) view_state: Option<V::State>,
     pub(crate) children: <V::Children as ElementSeq<S, M, E>>::Storage,
     pub(crate) components: CS,
     pub(crate) dirty: bool,
@@ -45,7 +45,7 @@ where
             depth: 0,
             view,
             pending_view: None,
-            state: None,
+            view_state: None,
             children,
             components,
             dirty: true,
@@ -95,33 +95,33 @@ where
             ),
         };
 
-        result |= match (mode, self.pending_view.take(), self.state.as_mut()) {
+        result |= match (mode, self.pending_view.take(), self.view_state.as_mut()) {
             (CommitMode::Mount, None, None) => {
-                let mut state = self.view.build(&mut self.children, store, entry_point);
+                let mut view_state = self.view.build(&mut self.children, store, entry_point);
                 self.view.lifecycle(
                     Lifecycle::Mount,
-                    &mut state,
+                    &mut view_state,
                     &mut self.children,
                     id_stack,
                     store,
                     messages,
                     entry_point,
                 );
-                self.state = Some(state);
+                self.view_state = Some(view_state);
                 true
             }
             (CommitMode::Mount, Some(pending_view), None) => {
-                let mut state = pending_view.build(&mut self.children, store, entry_point);
+                let mut view_state = pending_view.build(&mut self.children, store, entry_point);
                 pending_view.lifecycle(
                     Lifecycle::Mount,
-                    &mut state,
+                    &mut view_state,
                     &mut self.children,
                     id_stack,
                     store,
                     messages,
                     entry_point,
                 );
-                self.state = Some(state);
+                self.view_state = Some(view_state);
                 true
             }
             (CommitMode::Mount, None, Some(state)) => {
@@ -300,16 +300,16 @@ where
         &self.view
     }
 
-    pub fn state(&self) -> Option<&V::State> {
-        self.state.as_ref()
+    pub fn view_state(&self) -> Option<&V::State> {
+        self.view_state.as_ref()
     }
 
     pub fn view_mut(&mut self) -> &mut V {
         &mut self.view
     }
 
-    pub fn state_mut(&mut self) -> Option<&mut V::State> {
-        self.state.as_mut()
+    pub fn view_state_mut(&mut self) -> Option<&mut V::State> {
+        self.view_state.as_mut()
     }
 
     pub fn children(&self) -> &<V::Children as ElementSeq<S, M, E>>::Storage {
@@ -333,7 +333,7 @@ where
             .field("id", &self.id)
             .field("view", &self.view)
             .field("pending_view", &self.pending_view)
-            .field("state", &self.state)
+            .field("view_state", &self.view_state)
             .field("children", &self.children)
             .field("components", &self.components)
             .field("dirty", &self.dirty)
@@ -346,7 +346,7 @@ pub struct ViewNodeMut<'a, V: View<S, M, E>, CS: ?Sized, S, M, E> {
     pub(crate) depth: Depth,
     pub(crate) view: &'a mut V,
     pub(crate) pending_view: &'a mut Option<V>,
-    pub(crate) state: &'a mut Option<V::State>,
+    pub(crate) view_state: &'a mut Option<V::State>,
     pub(crate) children: &'a mut <V::Children as ElementSeq<S, M, E>>::Storage,
     pub(crate) components: &'a mut CS,
     pub(crate) dirty: &'a mut bool,
@@ -369,8 +369,8 @@ where
         self.view
     }
 
-    pub fn state(&mut self) -> &mut V::State {
-        self.state.as_mut().unwrap()
+    pub fn view_state(&mut self) -> &mut V::State {
+        self.view_state.as_mut().unwrap()
     }
 
     pub fn children(&mut self) -> &mut <V::Children as ElementSeq<S, M, E>>::Storage {
@@ -389,7 +389,7 @@ where
             depth: node.depth,
             view: &mut node.view,
             pending_view: &mut node.pending_view,
-            state: &mut node.state,
+            view_state: &mut node.view_state,
             children: &mut node.children,
             components: &mut node.components,
             dirty: &mut node.dirty,

@@ -39,7 +39,7 @@ impl EntryPoint {
 
         render_loop.run_forever(&mut store, &self, &command_runtime);
 
-        let widget = render_loop.node().state().unwrap().as_ref();
+        let widget = render_loop.node().view_state().unwrap().as_ref();
 
         self.attach_widget(widget);
 

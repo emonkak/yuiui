@@ -33,7 +33,7 @@ where
     ) {
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
-            let state = node.state.as_mut().unwrap();
+            let view_state = node.view_state.as_mut().unwrap();
             let event = V::Event::from_any(self.payload).unwrap_or_else(|| {
                 panic!(
                     "Failed to cast the payload of the event to {}",
@@ -42,7 +42,7 @@ where
             });
             view.event(
                 event,
-                state,
+                view_state,
                 &mut node.children,
                 id_stack,
                 context.store,

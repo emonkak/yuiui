@@ -53,7 +53,7 @@ where
             pending_view: sub_node.pending_view.map(|view| {
                 Connect::new(view, self.select_store.clone(), self.lift_message.clone())
             }),
-            state: sub_node.state,
+            view_state: sub_node.view_state,
             children: Connect::new(
                 sub_node.children,
                 self.select_store.clone(),
@@ -134,7 +134,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_stack: &mut IdStack,
         store: &Store<S>,
@@ -146,7 +146,7 @@ where
         let mut sub_messages = Vec::new();
         self.target.lifecycle(
             sub_lifecycle,
-            state,
+            view_state,
             &mut children.target,
             id_stack,
             sub_store,
@@ -159,7 +159,7 @@ where
     fn event(
         &self,
         event: <Self as EventTarget>::Event,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_stack: &mut IdStack,
         store: &Store<S>,
@@ -170,7 +170,7 @@ where
         let mut sub_messages = Vec::new();
         self.target.event(
             event,
-            state,
+            view_state,
             &mut children.target,
             id_stack,
             sub_store,
@@ -419,7 +419,7 @@ where
         depth: node.depth,
         view: &mut node.view.target,
         pending_view: &mut sub_pending_view,
-        state: node.state,
+        view_state: node.view_state,
         children: &mut node.children.target,
         components: &mut node.components.target,
         dirty: &mut node.dirty,

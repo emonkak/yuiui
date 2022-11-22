@@ -67,7 +67,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _id_stack: &mut IdStack,
         _store: &Store<S>,
@@ -77,7 +77,7 @@ where
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {}
             Lifecycle::Update(old_view) => {
-                self.update(&old_view, state);
+                self.update(&old_view, view_state);
             }
             Lifecycle::Unmount => {}
         }
@@ -90,7 +90,7 @@ where
         _entry_point: &E,
     ) -> Self::State {
         let widget = self.build();
-        let child = child.state().unwrap().as_ref();
+        let child = child.view_state().unwrap().as_ref();
         widget.set_child(Some(child));
         widget
     }

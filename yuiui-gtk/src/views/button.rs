@@ -65,7 +65,7 @@ where
     fn lifecycle(
         &self,
         lifecycle: Lifecycle<Self>,
-        state: &mut Self::State,
+        view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         id_stack: &mut IdStack,
         _store: &Store<S>,
@@ -75,23 +75,24 @@ where
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
-                    state.connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
+                    view_state.connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
                 match (&self.on_click, &old_view.on_click) {
                     (Some(_), None) => {
-                        state.disconnect_clicked();
+                        view_state.disconnect_clicked();
                     }
                     (None, Some(_)) => {
-                        state.connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
+                        view_state
+                            .connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
-                self.update(&old_view, &state.widget);
+                self.update(&old_view, &view_state.widget);
             }
             Lifecycle::Unmount => {
-                state.disconnect_clicked();
+                view_state.disconnect_clicked();
             }
         }
     }
@@ -123,7 +124,7 @@ where
         _entry_point: &EntryPoint,
     ) -> Self::State {
         let widget = self.build();
-        let child = child.state().unwrap().as_ref();
+        let child = child.view_state().unwrap().as_ref();
         widget.set_child(Some(child));
         ButtonState::new(widget)
     }
