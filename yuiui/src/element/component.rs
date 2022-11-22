@@ -34,10 +34,9 @@ where
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         let element = self.component.render(state);
         let node = element.render(id_stack, state);
-        let component_node = ComponentNode::new(self.component, node.depth);
+        let component_node = ComponentNode::new(self.component, node.depth());
         ViewNode {
             id: node.id,
-            depth: node.depth + 1,
             view: node.view,
             pending_view: node.pending_view,
             view_state: node.view_state,

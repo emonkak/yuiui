@@ -44,7 +44,6 @@ where
         let sub_node = self.target.render(id_stack, sub_store.state());
         ViewNode {
             id: sub_node.id,
-            depth: sub_node.depth,
             view: Connect::new(
                 sub_node.view,
                 self.select_store.clone(),

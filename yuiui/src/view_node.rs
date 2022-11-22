@@ -20,7 +20,6 @@ use update_subtree_visitor::UpdateSubtreeVisitor;
 
 pub struct ViewNode<V: View<S, M, E>, CS: ComponentStack<S, M, E, View = V>, S, M, E> {
     pub(crate) id: Id,
-    pub(crate) depth: Depth,
     pub(crate) view: V,
     pub(crate) pending_view: Option<V>,
     pub(crate) view_state: Option<V::State>,
@@ -42,7 +41,6 @@ where
     ) -> Self {
         Self {
             id,
-            depth: 0,
             view,
             pending_view: None,
             view_state: None,
@@ -293,7 +291,7 @@ where
     }
 
     pub fn depth(&self) -> Depth {
-        self.depth
+        CS::LEN
     }
 
     pub fn view(&self) -> &V {
@@ -361,10 +359,6 @@ where
         self.id
     }
 
-    pub fn depth(&self) -> Depth {
-        self.depth
-    }
-
     pub fn view(&mut self) -> &mut V {
         self.view
     }
@@ -386,7 +380,7 @@ where
     fn from(node: &'a mut ViewNode<V, CS, S, M, E>) -> Self {
         Self {
             id: node.id,
-            depth: node.depth,
+            depth: node.depth(),
             view: &mut node.view,
             pending_view: &mut node.pending_view,
             view_state: &mut node.view_state,
