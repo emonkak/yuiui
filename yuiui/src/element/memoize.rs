@@ -7,15 +7,15 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<Hoc: HigherOrderComponent<Deps, S, M, B>, Deps, S, M, B> {
+pub struct Memoize<Hoc: HigherOrderComponent<Deps, S, M, E>, Deps, S, M, E> {
     hoc: Hoc,
     deps: Deps,
-    _phantom: PhantomData<(S, M, B)>,
+    _phantom: PhantomData<(S, M, E)>,
 }
 
-impl<Hoc, Deps, S, M, B> Memoize<Hoc, Deps, S, M, B>
+impl<Hoc, Deps, S, M, E> Memoize<Hoc, Deps, S, M, E>
 where
-    Hoc: HigherOrderComponent<Deps, S, M, B>,
+    Hoc: HigherOrderComponent<Deps, S, M, E>,
 {
     #[inline]
     pub const fn new(hoc: Hoc, deps: Deps) -> Self {
@@ -27,24 +27,24 @@ where
     }
 }
 
-impl<Hoc, Deps, S, M, B> Element<S, M, B> for Memoize<Hoc, Deps, S, M, B>
+impl<Hoc, Deps, S, M, E> Element<S, M, E> for Memoize<Hoc, Deps, S, M, E>
 where
-    Hoc: HigherOrderComponent<Deps, S, M, B>,
+    Hoc: HigherOrderComponent<Deps, S, M, E>,
     Hoc::Component: AsRef<Deps>,
     Deps: PartialEq,
 {
-    type View = <<Hoc::Component as Component<S, M, B>>::Element as Element<S, M, B>>::View;
+    type View = <<Hoc::Component as Component<S, M, E>>::Element as Element<S, M, E>>::View;
 
     type Components = (
-        ComponentNode<Hoc::Component, S, M, B>,
-        <<Hoc::Component as Component<S, M, B>>::Element as Element<S, M, B>>::Components,
+        ComponentNode<Hoc::Component, S, M, E>,
+        <<Hoc::Component as Component<S, M, E>>::Element as Element<S, M, E>>::Components,
     );
 
     fn render(
         self,
         id_context: &mut IdContext,
         state: &S,
-    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         let component = self.hoc.build(self.deps);
         let element = ComponentElement::new(component);
         element.render(id_context, state)
@@ -52,7 +52,7 @@ where
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
@@ -68,14 +68,14 @@ where
     }
 }
 
-impl<Hoc, Deps, S, M, B> ElementSeq<S, M, B> for Memoize<Hoc, Deps, S, M, B>
+impl<Hoc, Deps, S, M, E> ElementSeq<S, M, E> for Memoize<Hoc, Deps, S, M, E>
 where
-    Hoc: HigherOrderComponent<Deps, S, M, B>,
+    Hoc: HigherOrderComponent<Deps, S, M, E>,
     Hoc::Component: AsRef<Deps>,
     Deps: PartialEq,
 {
     type Storage =
-        ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
+        ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         self.render(id_context, state)

@@ -16,22 +16,22 @@ use crate::store::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
-pub trait Element<S, M, B>:
-    Sized + ElementSeq<S, M, B, Storage = ViewNode<Self::View, Self::Components, S, M, B>>
+pub trait Element<S, M, E>:
+    Sized + ElementSeq<S, M, E, Storage = ViewNode<Self::View, Self::Components, S, M, E>>
 {
-    type View: View<S, M, B>;
+    type View: View<S, M, E>;
 
-    type Components: ComponentStack<S, M, B, View = Self::View>;
+    type Components: ComponentStack<S, M, E, View = Self::View>;
 
     fn render(
         self,
         id_context: &mut IdContext,
         state: &S,
-    ) -> ViewNode<Self::View, Self::Components, S, M, B>;
+    ) -> ViewNode<Self::View, Self::Components, S, M, E>;
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
         id_context: &mut IdContext,
         state: &S,
     ) -> bool;
@@ -45,8 +45,8 @@ pub trait Element<S, M, B>:
     }
 }
 
-pub trait ElementSeq<S, M, B> {
-    type Storage: ViewNodeSeq<S, M, B>;
+pub trait ElementSeq<S, M, E> {
+    type Storage: ViewNodeSeq<S, M, E>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage;
 
@@ -58,44 +58,44 @@ pub trait ElementSeq<S, M, B> {
     ) -> bool;
 }
 
-pub trait DebuggableElement<S, M, B>:
+pub trait DebuggableElement<S, M, E>:
     Element<
         S,
         M,
-        B,
-        View = <Self as DebuggableElement<S, M, B>>::View,
-        Components = <Self as DebuggableElement<S, M, B>>::Components,
+        E,
+        View = <Self as DebuggableElement<S, M, E>>::View,
+        Components = <Self as DebuggableElement<S, M, E>>::Components,
     > + fmt::Debug
 {
-    type View: View<S, M, B, State = Self::State, Children = Self::Children> + fmt::Debug;
+    type View: View<S, M, E, State = Self::State, Children = Self::Children> + fmt::Debug;
 
     type State: fmt::Debug;
 
-    type Children: ElementSeq<S, M, B, Storage = <Self as DebuggableElement<S, M, B>>::Storage>
+    type Children: ElementSeq<S, M, E, Storage = <Self as DebuggableElement<S, M, E>>::Storage>
         + fmt::Debug;
 
-    type Storage: ViewNodeSeq<S, M, B> + fmt::Debug;
+    type Storage: ViewNodeSeq<S, M, E> + fmt::Debug;
 
-    type Components: ComponentStack<S, M, B, View = <Self as DebuggableElement<S, M, B>>::View>
+    type Components: ComponentStack<S, M, E, View = <Self as DebuggableElement<S, M, E>>::View>
         + fmt::Debug;
 }
 
-impl<E, S, M, B> DebuggableElement<S, M, B> for E
+impl<Element, S, M, E> DebuggableElement<S, M, E> for Element
 where
-    E: Element<S, M, B> + fmt::Debug,
-    E::View: fmt::Debug,
-    <E::View as View<S, M, B>>::State: fmt::Debug,
-    <E::View as View<S, M, B>>::Children: fmt::Debug,
-    <<E::View as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
-    E::Components: fmt::Debug,
+    Element: self::Element<S, M, E> + fmt::Debug,
+    Element::View: fmt::Debug,
+    <Element::View as View<S, M, E>>::State: fmt::Debug,
+    <Element::View as View<S, M, E>>::Children: fmt::Debug,
+    <<Element::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage: fmt::Debug,
+    Element::Components: fmt::Debug,
 {
-    type View = E::View;
+    type View = Element::View;
 
-    type State = <E::View as View<S, M, B>>::State;
+    type State = <Element::View as View<S, M, E>>::State;
 
-    type Children = <E::View as View<S, M, B>>::Children;
+    type Children = <Element::View as View<S, M, E>>::Children;
 
-    type Storage = <<E::View as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage;
+    type Storage = <<Element::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage;
 
-    type Components = E::Components;
+    type Components = Element::Components;
 }

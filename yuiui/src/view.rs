@@ -3,8 +3,8 @@ use crate::event::{EventTarget, Lifecycle};
 use crate::id::IdContext;
 use crate::store::Store;
 
-pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
-    type Children: ElementSeq<S, M, B>;
+pub trait View<S, M, E>: Sized + for<'event> EventTarget<'event> {
+    type Children: ElementSeq<S, M, E>;
 
     type State;
 
@@ -13,11 +13,11 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         &self,
         _lifecycle: Lifecycle<Self>,
         _state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &B,
+        _entry_point: &E,
     ) {
     }
 
@@ -26,23 +26,23 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
         &self,
         _event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &B,
+        _entry_point: &E,
     ) {
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         store: &Store<S>,
-        backend: &B,
+        entry_point: &E,
     ) -> Self::State;
 
     #[inline]
-    fn el(self) -> ViewElement<Self, S, M, B>
+    fn el(self) -> ViewElement<Self, S, M, E>
     where
         Self::Children: Default,
     {
@@ -50,7 +50,7 @@ pub trait View<S, M, B>: Sized + for<'event> EventTarget<'event> {
     }
 
     #[inline]
-    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, M, B> {
+    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, M, E> {
         ViewElement::new(self, children)
     }
 }

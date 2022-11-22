@@ -50,15 +50,15 @@ pub struct Grid<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, B> View<S, M, B> for Grid<Children>
+impl<Children, S, M, E> View<S, M, E> for Grid<Children>
 where
-    Children: ElementSeq<S, M, B>,
+    Children: ElementSeq<S, M, E>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, B>,
+        CommitContext<'context, S, M, E>,
         S,
         M,
-        B,
+        E,
     >,
 {
     type Children = Children;
@@ -69,13 +69,13 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) {
-        let is_static: bool = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC;
+        let is_static: bool = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -89,7 +89,7 @@ where
             let mut context = CommitContext {
                 store,
                 messages,
-                backend,
+                entry_point,
             };
             children.for_each(&mut visitor, &mut context, id_context);
         }
@@ -97,9 +97,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _store: &Store<S>,
-        _backend: &B,
+        _entry_point: &E,
     ) -> Self::State {
         self.build()
     }
@@ -130,9 +130,9 @@ impl<Child> GridChild<Child> {
     }
 }
 
-impl<Child, S, M, B> View<S, M, B> for GridChild<Child>
+impl<Child, S, M, E> View<S, M, E> for GridChild<Child>
 where
-    Child: View<S, M, B>,
+    Child: View<S, M, E>,
 {
     type Children = Child::Children;
 
@@ -142,15 +142,21 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) {
         let lifecycle = lifecycle.map(|view| view.child);
         self.child.lifecycle(
-            lifecycle, state, children, id_context, store, messages, backend,
+            lifecycle,
+            state,
+            children,
+            id_context,
+            store,
+            messages,
+            entry_point,
         )
     }
 
@@ -158,23 +164,30 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) {
-        self.child
-            .event(event, state, children, id_context, store, messages, backend)
+        self.child.event(
+            event,
+            state,
+            children,
+            id_context,
+            store,
+            messages,
+            entry_point,
+        )
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         store: &Store<S>,
-        backend: &B,
+        entry_point: &E,
     ) -> Self::State {
-        self.child.build(children, store, backend)
+        self.child.build(children, store, entry_point)
     }
 }
 
@@ -196,17 +209,17 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B, Context> Visitor<ViewNode<GridChild<V>, CS, S, M, B>, Context, S, M, B>
+impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<GridChild<V>, CS, S, M, E>, Context, S, M, E>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, B>,
+    V: View<S, M, E>,
     V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, B, View = GridChild<V>>,
-    GridChild<V>: View<S, M, B, Children = V::Children, State = V::State>,
+    CS: ComponentStack<S, M, E, View = GridChild<V>>,
+    GridChild<V>: View<S, M, E, Children = V::Children, State = V::State>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<GridChild<V>, CS, S, M, B>,
+        node: &mut ViewNode<GridChild<V>, CS, S, M, E>,
         _context: &mut Context,
         _id_context: &mut IdContext,
     ) {

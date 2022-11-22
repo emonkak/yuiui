@@ -7,23 +7,23 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
-pub struct ViewElement<V: View<S, M, B>, S, M, B> {
+pub struct ViewElement<V: View<S, M, E>, S, M, E> {
     view: V,
     children: V::Children,
 }
 
-impl<V, S, M, B> ViewElement<V, S, M, B>
+impl<V, S, M, E> ViewElement<V, S, M, E>
 where
-    V: View<S, M, B>,
+    V: View<S, M, E>,
 {
     pub fn new(view: V, children: V::Children) -> Self {
         ViewElement { view, children }
     }
 }
 
-impl<V, S, M, B> Element<S, M, B> for ViewElement<V, S, M, B>
+impl<V, S, M, E> Element<S, M, E> for ViewElement<V, S, M, E>
 where
-    V: View<S, M, B>,
+    V: View<S, M, E>,
 {
     type View = V;
 
@@ -33,7 +33,7 @@ where
         self,
         id_context: &mut IdContext,
         state: &S,
-    ) -> ViewNode<Self::View, Self::Components, S, M, B> {
+    ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         let id = id_context.next_id();
         id_context.push_id(id);
         let children = self.children.render_children(id_context, state);
@@ -44,7 +44,7 @@ where
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, B>,
+        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
         id_context: &mut IdContext,
         state: &S,
     ) -> bool {
@@ -58,12 +58,12 @@ where
     }
 }
 
-impl<V, S, M, B> ElementSeq<S, M, B> for ViewElement<V, S, M, B>
+impl<V, S, M, E> ElementSeq<S, M, E> for ViewElement<V, S, M, E>
 where
-    V: View<S, M, B>,
+    V: View<S, M, E>,
 {
     type Storage =
-        ViewNode<<Self as Element<S, M, B>>::View, <Self as Element<S, M, B>>::Components, S, M, B>;
+        ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
     fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
         self.render(id_context, state)
@@ -79,9 +79,9 @@ where
     }
 }
 
-impl<V, S, M, B> fmt::Debug for ViewElement<V, S, M, B>
+impl<V, S, M, E> fmt::Debug for ViewElement<V, S, M, E>
 where
-    V: View<S, M, B> + fmt::Debug,
+    V: View<S, M, E> + fmt::Debug,
     V::Children: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

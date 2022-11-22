@@ -3,7 +3,7 @@ use crate::id::{Id, IdContext};
 use crate::store::Store;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
-impl<S, M, B> ElementSeq<S, M, B> for () {
+impl<S, M, E> ElementSeq<S, M, E> for () {
     type Storage = ();
 
     fn render_children(self, _id_context: &mut IdContext, _state: &S) -> Self::Storage {
@@ -20,7 +20,7 @@ impl<S, M, B> ElementSeq<S, M, B> for () {
     }
 }
 
-impl<S, M, B> ViewNodeSeq<S, M, B> for () {
+impl<S, M, E> ViewNodeSeq<S, M, E> for () {
     const SIZE_HINT: (usize, Option<usize>) = (0, Some(0));
 
     fn len(&self) -> usize {
@@ -37,7 +37,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for () {
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &B,
+        _entry_point: &E,
     ) -> bool {
         false
     }
@@ -45,7 +45,7 @@ impl<S, M, B> ViewNodeSeq<S, M, B> for () {
     fn gc(&mut self) {}
 }
 
-impl<Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for () {
+impl<Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for () {
     fn for_each(
         &mut self,
         _visitor: &mut Visitor,
@@ -80,9 +80,9 @@ macro_rules! define_tuple_impls {
 
 macro_rules! define_tuple_impl {
     ($($T:ident),*; $($n:tt),*; $last_n:tt) => {
-        impl<$($T,)* S, M, B> ElementSeq<S, M, B> for ($($T,)*)
+        impl<$($T,)* S, M, E> ElementSeq<S, M, E> for ($($T,)*)
         where
-            $($T: ElementSeq<S, M, B>,)*
+            $($T: ElementSeq<S, M, E>,)*
         {
             type Storage = ($($T::Storage,)*);
 
@@ -100,9 +100,9 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* S, M, B> ViewNodeSeq<S, M, B> for ($($T,)*)
+        impl<$($T,)* S, M, E> ViewNodeSeq<S, M, E> for ($($T,)*)
         where
-            $($T: ViewNodeSeq<S, M, B>,)*
+            $($T: ViewNodeSeq<S, M, E>,)*
         {
             const SIZE_HINT: (usize, Option<usize>) = {
                 let lower = 0usize $(.saturating_add($T::SIZE_HINT.0))*;
@@ -137,9 +137,9 @@ macro_rules! define_tuple_impl {
                 id_context: &mut IdContext,
                 store: &Store<S>,
                 messages: &mut Vec<M>,
-                backend: &B,
+                entry_point: &E,
             ) -> bool {
-                $(self.$n.commit(mode, id_context, store, messages, backend))||*
+                $(self.$n.commit(mode, id_context, store, messages, entry_point))||*
             }
 
             fn gc(&mut self) {
@@ -147,10 +147,10 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B>
+        impl<$($T,)* Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Context, S, M, B>,)*
+            $($T: Traversable<Visitor, Context, S, M, E>,)*
         {
             fn for_each(
                 &mut self,

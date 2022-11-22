@@ -56,15 +56,15 @@ pub struct Box<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, B> View<S, M, B> for Box<Children>
+impl<Children, S, M, E> View<S, M, E> for Box<Children>
 where
-    Children: ElementSeq<S, M, B>,
+    Children: ElementSeq<S, M, E>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, B>,
+        CommitContext<'context, S, M, E>,
         S,
         M,
-        B,
+        E,
     >,
 {
     type Children = Children;
@@ -75,13 +75,13 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, B>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -95,7 +95,7 @@ where
             let mut context = CommitContext {
                 store,
                 messages,
-                backend,
+                entry_point,
             };
             children.for_each(&mut visitor, &mut context, id_context);
         }
@@ -103,9 +103,9 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _store: &Store<S>,
-        _backend: &B,
+        _entry_point: &E,
     ) -> Self::State {
         self.build()
     }
@@ -129,16 +129,16 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, B, Context> Visitor<ViewNode<V, CS, S, M, B>, Context, S, M, B>
+impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<V, CS, S, M, E>, Context, S, M, E>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, B>,
+    V: View<S, M, E>,
     V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, B, View = V>,
+    CS: ComponentStack<S, M, E, View = V>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, B>,
+        node: &mut ViewNode<V, CS, S, M, E>,
         _context: &mut Context,
         _id_context: &mut IdContext,
     ) {

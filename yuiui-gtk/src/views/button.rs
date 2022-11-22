@@ -70,12 +70,12 @@ where
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        backend: &EntryPoint,
+        entry_point: &EntryPoint,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
-                    state.connect_clicked(id_context.id_path().to_vec(), backend.clone());
+                    state.connect_clicked(id_context.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -84,7 +84,7 @@ where
                         state.disconnect_clicked();
                     }
                     (None, Some(_)) => {
-                        state.connect_clicked(id_context.id_path().to_vec(), backend.clone());
+                        state.connect_clicked(id_context.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -104,7 +104,7 @@ where
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _backend: &EntryPoint,
+        _entry_point: &EntryPoint,
     ) {
         match event {
             Event::Clicked => {
@@ -120,7 +120,7 @@ where
         &self,
         child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         _store: &Store<S>,
-        _backend: &EntryPoint,
+        _entry_point: &EntryPoint,
     ) -> Self::State {
         let widget = self.build();
         let child = child.state().unwrap().as_ref();
@@ -147,11 +147,11 @@ impl ButtonState {
         }
     }
 
-    fn connect_clicked(&mut self, id_path: IdPathBuf, backend: EntryPoint) {
+    fn connect_clicked(&mut self, id_path: IdPathBuf, entry_point: EntryPoint) {
         self.clicked_signal = self
             .widget
             .connect_clicked(move |_| {
-                backend.forward_event(id_path.clone(), Event::Clicked);
+                entry_point.forward_event(id_path.clone(), Event::Clicked);
             })
             .into();
     }

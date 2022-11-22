@@ -19,9 +19,9 @@ impl<T, const N: usize> ArrayStorage<T, N> {
     }
 }
 
-impl<T, S, M, B, const N: usize> ElementSeq<S, M, B> for [T; N]
+impl<T, S, M, E, const N: usize> ElementSeq<S, M, E> for [T; N]
 where
-    T: ElementSeq<S, M, B>,
+    T: ElementSeq<S, M, E>,
 {
     type Storage = ArrayStorage<T::Storage, N>;
 
@@ -48,9 +48,9 @@ where
     }
 }
 
-impl<'a, T, S, M, B, const N: usize> ViewNodeSeq<S, M, B> for ArrayStorage<T, N>
+impl<'a, T, S, M, E, const N: usize> ViewNodeSeq<S, M, E> for ArrayStorage<T, N>
 where
-    T: ViewNodeSeq<S, M, B>,
+    T: ViewNodeSeq<S, M, E>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (N, Some(N));
 
@@ -80,12 +80,12 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagable() {
             for node in &mut self.nodes {
-                result |= node.commit(mode, id_context, store, messages, backend);
+                result |= node.commit(mode, id_context, store, messages, entry_point);
             }
             self.dirty = false;
         }
@@ -101,10 +101,10 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, M, B, const N: usize> Traversable<Visitor, Context, S, M, B>
+impl<T, Visitor, Context, S, M, E, const N: usize> Traversable<Visitor, Context, S, M, E>
     for ArrayStorage<T, N>
 where
-    T: Traversable<Visitor, Context, S, M, B> + ViewNodeSeq<S, M, B>,
+    T: Traversable<Visitor, Context, S, M, E> + ViewNodeSeq<S, M, E>,
 {
     fn for_each(
         &mut self,

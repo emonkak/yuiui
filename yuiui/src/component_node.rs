@@ -8,17 +8,17 @@ use crate::id::{Depth, IdContext};
 use crate::store::Store;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
-pub struct ComponentNode<C: Component<S, M, B>, S, M, B> {
+pub struct ComponentNode<C: Component<S, M, E>, S, M, E> {
     component: C,
     depth: Depth,
     pending_component: Option<C>,
     is_mounted: bool,
-    _phantom: PhantomData<(S, M, B)>,
+    _phantom: PhantomData<(S, M, E)>,
 }
 
-impl<C, S, M, B> ComponentNode<C, S, M, B>
+impl<C, S, M, E> ComponentNode<C, S, M, E>
 where
-    C: Component<S, M, B>,
+    C: Component<S, M, E>,
 {
     pub(crate) fn new(component: C, depth: Depth) -> Self {
         Self {
@@ -39,16 +39,16 @@ where
         mode: CommitMode,
         view_node: ViewNodeMut<
             '_,
-            <C::Element as Element<S, M, B>>::View,
-            <C::Element as Element<S, M, B>>::Components,
+            <C::Element as Element<S, M, E>>::View,
+            <C::Element as Element<S, M, E>>::Components,
             S,
             M,
-            B,
+            E,
         >,
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) -> bool {
         match mode {
             CommitMode::Mount => {
@@ -57,8 +57,14 @@ where
                 } else {
                     Lifecycle::Mount
                 };
-                self.component
-                    .lifecycle(lifecycle, view_node, id_context, store, messages, backend);
+                self.component.lifecycle(
+                    lifecycle,
+                    view_node,
+                    id_context,
+                    store,
+                    messages,
+                    entry_point,
+                );
                 self.is_mounted = true;
                 true
             }
@@ -71,7 +77,7 @@ where
                         id_context,
                         store,
                         messages,
-                        backend,
+                        entry_point,
                     );
                     true
                 } else {
@@ -85,7 +91,7 @@ where
                     id_context,
                     store,
                     messages,
-                    backend,
+                    entry_point,
                 );
                 true
             }
@@ -101,9 +107,9 @@ where
     }
 }
 
-impl<C, S, M, B> fmt::Debug for ComponentNode<C, S, M, B>
+impl<C, S, M, E> fmt::Debug for ComponentNode<C, S, M, E>
 where
-    C: Component<S, M, B> + fmt::Debug,
+    C: Component<S, M, E> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ComponentNode")

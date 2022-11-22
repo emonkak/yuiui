@@ -29,10 +29,10 @@ impl<L, R> EitherStorage<L, R> {
     }
 }
 
-impl<L, R, S, M, B> ElementSeq<S, M, B> for Either<L, R>
+impl<L, R, S, M, E> ElementSeq<S, M, E> for Either<L, R>
 where
-    L: ElementSeq<S, M, B>,
-    R: ElementSeq<S, M, B>,
+    L: ElementSeq<S, M, E>,
+    R: ElementSeq<S, M, E>,
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
@@ -124,10 +124,10 @@ where
     }
 }
 
-impl<L, R, S, M, B> ViewNodeSeq<S, M, B> for EitherStorage<L, R>
+impl<L, R, S, M, E> ViewNodeSeq<S, M, E> for EitherStorage<L, R>
 where
-    L: ViewNodeSeq<S, M, B>,
-    R: ViewNodeSeq<S, M, B>,
+    L: ViewNodeSeq<S, M, E>,
+    R: ViewNodeSeq<S, M, E>,
 {
     const SIZE_HINT: (usize, Option<usize>) = {
         let (left_lower, left_upper) = L::SIZE_HINT;
@@ -178,35 +178,43 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result |= match &mut self.active {
-                    Either::Left(node) => {
-                        node.commit(CommitMode::Unmount, id_context, store, messages, backend)
-                    }
-                    Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, id_context, store, messages, backend)
-                    }
+                    Either::Left(node) => node.commit(
+                        CommitMode::Unmount,
+                        id_context,
+                        store,
+                        messages,
+                        entry_point,
+                    ),
+                    Either::Right(node) => node.commit(
+                        CommitMode::Unmount,
+                        id_context,
+                        store,
+                        messages,
+                        entry_point,
+                    ),
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
                     Either::Left(node) => {
-                        node.commit(CommitMode::Mount, id_context, store, messages, backend)
+                        node.commit(CommitMode::Mount, id_context, store, messages, entry_point)
                     }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Mount, id_context, store, messages, backend)
+                        node.commit(CommitMode::Mount, id_context, store, messages, entry_point)
                     }
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, id_context, store, messages, backend),
-                Either::Right(node) => node.commit(mode, id_context, store, messages, backend),
+                Either::Left(node) => node.commit(mode, id_context, store, messages, entry_point),
+                Either::Right(node) => node.commit(mode, id_context, store, messages, entry_point),
             };
         }
         self.flags = RenderFlags::COMMITED;
@@ -224,10 +232,10 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for EitherStorage<L, R>
+impl<L, R, Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, S, M, B>,
-    R: Traversable<Visitor, Context, S, M, B>,
+    L: Traversable<Visitor, Context, S, M, E>,
+    R: Traversable<Visitor, Context, S, M, E>,
 {
     fn for_each(
         &mut self,

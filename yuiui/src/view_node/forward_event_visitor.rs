@@ -18,17 +18,17 @@ impl<'a> ForwardEventVisitor<'a> {
     }
 }
 
-impl<'a, 'context, V, CS, S, M, B>
-    Visitor<ViewNode<V, CS, S, M, B>, CommitContext<'context, S, M, B>, S, M, B>
+impl<'a, 'context, V, CS, S, M, E>
+    Visitor<ViewNode<V, CS, S, M, E>, CommitContext<'context, S, M, E>, S, M, E>
     for ForwardEventVisitor<'a>
 where
-    V: View<S, M, B>,
-    CS: ComponentStack<S, M, B, View = V>,
+    V: View<S, M, E>,
+    CS: ComponentStack<S, M, E, View = V>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<V, CS, S, M, B>,
-        context: &mut CommitContext<'context, S, M, B>,
+        node: &mut ViewNode<V, CS, S, M, E>,
+        context: &mut CommitContext<'context, S, M, E>,
         id_context: &mut IdContext,
     ) {
         if let Some((head, tail)) = self.id_path.split_first() {
@@ -50,7 +50,7 @@ where
                 id_context,
                 context.store,
                 context.messages,
-                context.backend,
+                context.entry_point,
             );
         }
     }

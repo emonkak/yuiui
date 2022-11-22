@@ -10,8 +10,8 @@ use crate::store::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
-pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
-    node: ViewNode<E::View, E::Components, S, M, B>,
+pub struct RenderLoop<Element: self::Element<S, M, E>, S, M, E> {
+    node: ViewNode<Element::View, Element::Components, S, M, E>,
     id_context: IdContext,
     message_queue: VecDeque<M>,
     event_queue: VecDeque<TransferableEvent>,
@@ -20,12 +20,12 @@ pub struct RenderLoop<E: Element<S, M, B>, S, M, B> {
     is_mounted: bool,
 }
 
-impl<E, S, M, B> RenderLoop<E, S, M, B>
+impl<Element, S, M, E> RenderLoop<Element, S, M, E>
 where
-    E: Element<S, M, B>,
+    Element: self::Element<S, M, E>,
     S: State<Message = M>,
 {
-    pub fn create(element: E, store: &Store<S>) -> Self {
+    pub fn create(element: Element, store: &Store<S>) -> Self {
         let mut context = IdContext::new();
         let node = element.render(&mut context, store);
         Self {
@@ -42,7 +42,7 @@ where
     pub fn run(
         &mut self,
         store: &mut Store<S>,
-        backend: &B,
+        entry_point: &E,
         command_runtime: &impl CommandRuntime<M>,
         deadline: &impl Deadline,
     ) -> RenderFlow {
@@ -71,7 +71,7 @@ where
                         &destination,
                         &mut self.id_context,
                         store,
-                        backend,
+                        entry_point,
                     ),
                     TransferableEvent::Broadcast(destinations, paylaod) => {
                         self.node.broadcast_event(
@@ -79,7 +79,7 @@ where
                             &destinations,
                             &mut self.id_context,
                             store,
-                            backend,
+                            entry_point,
                         )
                     }
                 };
@@ -112,9 +112,12 @@ where
             if self.is_mounted {
                 if !self.nodes_to_commit.is_empty() {
                     let id_tree = mem::take(&mut self.nodes_to_commit);
-                    let messages =
-                        self.node
-                            .commit_subtree(&id_tree, &mut self.id_context, store, backend);
+                    let messages = self.node.commit_subtree(
+                        &id_tree,
+                        &mut self.id_context,
+                        store,
+                        entry_point,
+                    );
                     self.message_queue.extend(messages);
                     if deadline.did_timeout() {
                         return self.render_flow();
@@ -128,7 +131,7 @@ where
                     &mut self.id_context,
                     store,
                     &mut messages,
-                    backend,
+                    entry_point,
                 );
                 self.message_queue.extend(messages);
                 self.is_mounted = true;
@@ -146,10 +149,10 @@ where
     pub fn run_forever(
         &mut self,
         store: &mut Store<S>,
-        backend: &B,
+        entry_point: &E,
         command_runtime: &impl CommandRuntime<M>,
     ) {
-        let render_flow = self.run(store, backend, command_runtime, &Forever);
+        let render_flow = self.run(store, entry_point, command_runtime, &Forever);
         assert_eq!(render_flow, RenderFlow::Done);
     }
 
@@ -161,7 +164,7 @@ where
         self.event_queue.push_back(event);
     }
 
-    pub fn node(&self) -> &ViewNode<E::View, E::Components, S, M, B> {
+    pub fn node(&self) -> &ViewNode<Element::View, Element::Components, S, M, E> {
         &self.node
     }
 
@@ -179,15 +182,15 @@ where
     }
 }
 
-impl<E, S, M, B> fmt::Debug for RenderLoop<E, S, M, B>
+impl<Element, S, M, E> fmt::Debug for RenderLoop<Element, S, M, E>
 where
-    E: Element<S, M, B>,
-    E::View: fmt::Debug,
-    <E::View as View<S, M, B>>::State: fmt::Debug,
-    <<E::View as View<S, M, B>>::Children as ElementSeq<S, M, B>>::Storage: fmt::Debug,
-    E::Components: fmt::Debug,
+    Element: self::Element<S, M, E>,
+    Element::View: fmt::Debug,
+    <Element::View as View<S, M, E>>::State: fmt::Debug,
+    <<Element::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage: fmt::Debug,
+    Element::Components: fmt::Debug,
     M: fmt::Debug,
-    B: fmt::Debug,
+    E: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderLoop")

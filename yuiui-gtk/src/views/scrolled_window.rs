@@ -55,10 +55,10 @@ pub struct ScrolledWindow<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M, B> View<S, M, B> for ScrolledWindow<Child>
+impl<Child, S, M, E> View<S, M, E> for ScrolledWindow<Child>
 where
-    Child: Element<S, M, B>,
-    <Child::View as View<S, M, B>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, E>,
+    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -68,11 +68,11 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        _backend: &B,
+        _entry_point: &E,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {}
@@ -85,9 +85,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, B>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
         _store: &Store<S>,
-        _backend: &B,
+        _entry_point: &E,
     ) -> Self::State {
         let widget = self.build();
         let child = child.state().unwrap().as_ref();

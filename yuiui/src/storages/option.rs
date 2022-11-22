@@ -26,9 +26,9 @@ impl<T> OptionStorage<T> {
     }
 }
 
-impl<T, S, M, B> ElementSeq<S, M, B> for Option<T>
+impl<T, S, M, E> ElementSeq<S, M, E> for Option<T>
 where
-    T: ElementSeq<S, M, B>,
+    T: ElementSeq<S, M, E>,
 {
     type Storage = OptionStorage<T::Storage>;
 
@@ -80,9 +80,9 @@ where
     }
 }
 
-impl<T, S, M, B> ViewNodeSeq<S, M, B> for OptionStorage<T>
+impl<T, S, M, E> ViewNodeSeq<S, M, E> for OptionStorage<T>
 where
-    T: ViewNodeSeq<S, M, B>,
+    T: ViewNodeSeq<S, M, E>,
 {
     const SIZE_HINT: (usize, Option<usize>) = {
         let (_, upper) = T::SIZE_HINT;
@@ -113,25 +113,31 @@ where
         id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        backend: &B,
+        entry_point: &E,
     ) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    result |=
-                        node.commit(CommitMode::Unmount, id_context, store, messages, backend);
+                    result |= node.commit(
+                        CommitMode::Unmount,
+                        id_context,
+                        store,
+                        messages,
+                        entry_point,
+                    );
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(CommitMode::Mount, id_context, store, messages, backend);
+                    result |=
+                        node.commit(CommitMode::Mount, id_context, store, messages, entry_point);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, id_context, store, messages, backend);
+                result |= node.commit(mode, id_context, store, messages, entry_point);
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -148,9 +154,9 @@ where
     }
 }
 
-impl<T, Visitor, Context, S, M, B> Traversable<Visitor, Context, S, M, B> for OptionStorage<T>
+impl<T, Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for OptionStorage<T>
 where
-    T: Traversable<Visitor, Context, S, M, B>,
+    T: Traversable<Visitor, Context, S, M, E>,
 {
     fn for_each(
         &mut self,

@@ -100,15 +100,15 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        backend: &EntryPoint,
+        entry_point: &EntryPoint,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
-                    state.connect_activate(id_context.id_path().to_vec(), backend.clone());
+                    state.connect_activate(id_context.id_path().to_vec(), entry_point.clone());
                 }
                 if self.on_change.is_some() {
-                    state.connect_changed(id_context.id_path().to_vec(), backend.clone());
+                    state.connect_changed(id_context.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -117,7 +117,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                         state.disconnect_activate();
                     }
                     (None, Some(_)) => {
-                        state.connect_activate(id_context.id_path().to_vec(), backend.clone());
+                        state.connect_activate(id_context.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -126,7 +126,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                         state.disconnect_changed();
                     }
                     (None, Some(_)) => {
-                        state.connect_changed(id_context.id_path().to_vec(), backend.clone());
+                        state.connect_changed(id_context.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -148,7 +148,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _backend: &EntryPoint,
+        _entry_point: &EntryPoint,
     ) {
         match event {
             Event::Activate => {
@@ -171,7 +171,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         _store: &Store<S>,
-        _backend: &EntryPoint,
+        _entry_point: &EntryPoint,
     ) -> Self::State {
         let widget = self.build();
         if let Some(text) = &self.text {
@@ -204,20 +204,20 @@ impl EntryState {
         }
     }
 
-    fn connect_activate(&mut self, id_path: IdPathBuf, backend: EntryPoint) {
+    fn connect_activate(&mut self, id_path: IdPathBuf, entry_point: EntryPoint) {
         self.changed_signal = self
             .widget
             .connect_activate(move |_| {
-                backend.forward_event(id_path.clone(), Event::Activate);
+                entry_point.forward_event(id_path.clone(), Event::Activate);
             })
             .into();
     }
 
-    fn connect_changed(&mut self, id_path: IdPathBuf, backend: EntryPoint) {
+    fn connect_changed(&mut self, id_path: IdPathBuf, entry_point: EntryPoint) {
         self.changed_signal = self
             .widget
             .connect_changed(move |_| {
-                backend.forward_event(id_path.clone(), Event::Changed);
+                entry_point.forward_event(id_path.clone(), Event::Changed);
             })
             .into();
     }
