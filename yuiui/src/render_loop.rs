@@ -41,10 +41,10 @@ where
 
     pub fn run(
         &mut self,
-        deadline: &impl Deadline,
-        command_runtime: &mut impl CommandRuntime<M>,
         store: &mut Store<S>,
         backend: &B,
+        command_runtime: &impl CommandRuntime<M>,
+        deadline: &impl Deadline,
     ) -> RenderFlow {
         loop {
             while let Some(message) = self.message_queue.pop_front() {
@@ -145,11 +145,11 @@ where
 
     pub fn run_forever(
         &mut self,
-        command_runtime: &mut impl CommandRuntime<M>,
         store: &mut Store<S>,
         backend: &B,
+        command_runtime: &impl CommandRuntime<M>,
     ) {
-        let render_flow = self.run(&Forever, command_runtime, store, backend);
+        let render_flow = self.run(store, backend, command_runtime, &Forever);
         assert_eq!(render_flow, RenderFlow::Done);
     }
 

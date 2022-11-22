@@ -33,11 +33,11 @@ impl EntryPoint {
         M: Send + 'static,
     {
         let (message_tx, message_rx) = mpsc::channel();
-        let mut command_runtime = CommandRuntime::new(glib::MainContext::default(), message_tx);
+        let command_runtime = CommandRuntime::new(glib::MainContext::default(), message_tx);
         let mut store = Store::new(state);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
-        render_loop.run_forever(&mut command_runtime, &mut store, &self);
+        render_loop.run_forever(&mut store, &self, &command_runtime);
 
         let widget = render_loop.node().state().unwrap().as_ref();
 
@@ -45,8 +45,9 @@ impl EntryPoint {
 
         while gtk::Window::toplevels().n_items() > 0 {
             let mut needs_render = false;
+            let main_context = command_runtime.main_context();
 
-            while command_runtime.main_context().iteration(true) {
+            while main_context.iteration(true) {
                 while let Ok(message) = message_rx.try_recv() {
                     render_loop.push_message(message);
                     needs_render = true;
@@ -57,7 +58,7 @@ impl EntryPoint {
                     needs_render = true;
                 }
 
-                if !command_runtime.main_context().pending() {
+                if !main_context.pending() {
                     break;
                 }
             }
@@ -65,7 +66,7 @@ impl EntryPoint {
             if needs_render {
                 let deadline = Instant::now() + DEALINE_PERIOD;
 
-                if render_loop.run(&deadline, &mut command_runtime, &mut store, &self)
+                if render_loop.run(&mut store, &self, &command_runtime, &deadline)
                     == RenderFlow::Suspend
                 {
                     command_runtime.request_rerender();

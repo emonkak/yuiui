@@ -32,11 +32,7 @@ impl<M: Send + 'static> CommandRuntime<M> {
 }
 
 impl<M: Send + 'static> yuiui::CommandRuntime<M> for CommandRuntime<M> {
-    fn spawn_command(
-        &mut self,
-        command: Command<M>,
-        cancellation_token: Option<CancellationToken>,
-    ) {
+    fn spawn_command(&self, command: Command<M>, cancellation_token: Option<CancellationToken>) {
         let message_sender = self.message_sender.clone();
         let main_context = self.main_context.clone();
         let source_id = match command {
