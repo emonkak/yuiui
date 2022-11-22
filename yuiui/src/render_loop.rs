@@ -5,14 +5,14 @@ use std::{cmp, fmt, mem};
 use crate::command::CommandRuntime;
 use crate::element::{Element, ElementSeq};
 use crate::event::TransferableEvent;
-use crate::id::{Depth, IdContext, IdTree};
+use crate::id::{Depth, IdStack, IdTree};
 use crate::store::{State, Store};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
 pub struct RenderLoop<Element: self::Element<S, M, E>, S, M, E> {
     node: ViewNode<Element::View, Element::Components, S, M, E>,
-    id_context: IdContext,
+    id_stack: IdStack,
     message_queue: VecDeque<M>,
     event_queue: VecDeque<TransferableEvent>,
     nodes_to_update: IdTree<Depth>,
@@ -26,11 +26,11 @@ where
     S: State<Message = M>,
 {
     pub fn create(element: Element, store: &Store<S>) -> Self {
-        let mut context = IdContext::new();
+        let mut context = IdStack::new();
         let node = element.render(&mut context, store);
         Self {
             node,
-            id_context: context,
+            id_stack: context,
             message_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
             nodes_to_update: IdTree::new(),
@@ -69,7 +69,7 @@ where
                     TransferableEvent::Forward(destination, payload) => self.node.forward_event(
                         &*payload,
                         &destination,
-                        &mut self.id_context,
+                        &mut self.id_stack,
                         store,
                         entry_point,
                     ),
@@ -77,7 +77,7 @@ where
                         self.node.broadcast_event(
                             &*paylaod,
                             &destinations,
-                            &mut self.id_context,
+                            &mut self.id_stack,
                             store,
                             entry_point,
                         )
@@ -97,7 +97,7 @@ where
                 let id_tree = mem::take(&mut self.nodes_to_update);
                 let changed_nodes = self
                     .node
-                    .update_subtree(&id_tree, store, &mut self.id_context);
+                    .update_subtree(&id_tree, store, &mut self.id_stack);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         self.nodes_to_commit
@@ -112,12 +112,9 @@ where
             if self.is_mounted {
                 if !self.nodes_to_commit.is_empty() {
                     let id_tree = mem::take(&mut self.nodes_to_commit);
-                    let messages = self.node.commit_subtree(
-                        &id_tree,
-                        &mut self.id_context,
-                        store,
-                        entry_point,
-                    );
+                    let messages =
+                        self.node
+                            .commit_subtree(&id_tree, &mut self.id_stack, store, entry_point);
                     self.message_queue.extend(messages);
                     if deadline.did_timeout() {
                         return self.render_flow();
@@ -128,7 +125,7 @@ where
                 self.node.commit_from(
                     CommitMode::Mount,
                     0,
-                    &mut self.id_context,
+                    &mut self.id_stack,
                     store,
                     &mut messages,
                     entry_point,
@@ -195,7 +192,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderLoop")
             .field("node", &self.node)
-            .field("id_context", &self.id_context)
+            .field("id_stack", &self.id_stack)
             .field("message_queue", &self.message_queue)
             .field("event_queue", &self.event_queue)
             .field("nodes_to_update", &self.nodes_to_update)

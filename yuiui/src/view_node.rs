@@ -9,7 +9,7 @@ use std::{fmt, mem};
 use crate::component_stack::ComponentStack;
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
-use crate::id::{Depth, Id, IdContext, IdPath, IdPathBuf, IdTree};
+use crate::id::{Depth, Id, IdPath, IdPathBuf, IdStack, IdTree};
 use crate::store::Store;
 use crate::view::View;
 
@@ -56,11 +56,11 @@ where
         &mut self,
         id_tree: &IdTree<Depth>,
         store: &Store<S>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) -> Vec<(IdPathBuf, Depth)> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
         let mut context = RenderContext { store };
-        visitor.visit(self, &mut context, id_context);
+        visitor.visit(self, &mut context, id_stack);
         visitor.into_result()
     }
 
@@ -68,7 +68,7 @@ where
         &mut self,
         mode: CommitMode,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -77,18 +77,18 @@ where
             return false;
         }
 
-        id_context.push_id(self.id);
+        id_stack.push_id(self.id);
 
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => {
                 self.children
-                    .commit(mode, id_context, store, messages, entry_point)
+                    .commit(mode, id_stack, store, messages, entry_point)
             }
             CommitMode::Unmount => CS::commit(
                 &mut self.into(),
                 mode,
                 depth,
-                id_context,
+                id_stack,
                 store,
                 messages,
                 entry_point,
@@ -102,7 +102,7 @@ where
                     Lifecycle::Mount,
                     &mut state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -116,7 +116,7 @@ where
                     Lifecycle::Mount,
                     &mut state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -129,7 +129,7 @@ where
                     Lifecycle::Remount,
                     state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -141,7 +141,7 @@ where
                     Lifecycle::Remount,
                     state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -151,7 +151,7 @@ where
                     Lifecycle::Update(old_view),
                     state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -169,7 +169,7 @@ where
                     Lifecycle::Update(old_view),
                     state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -182,7 +182,7 @@ where
                     Lifecycle::Unmount,
                     state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -194,7 +194,7 @@ where
                     Lifecycle::Unmount,
                     state,
                     &mut self.children,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -214,18 +214,18 @@ where
                 &mut self.into(),
                 mode,
                 depth,
-                id_context,
+                id_stack,
                 store,
                 messages,
                 entry_point,
             ),
             CommitMode::Unmount => {
                 self.children
-                    .commit(mode, id_context, store, messages, entry_point)
+                    .commit(mode, id_stack, store, messages, entry_point)
             }
         };
 
-        id_context.pop_id();
+        id_stack.pop_id();
 
         result
     }
@@ -233,7 +233,7 @@ where
     pub(crate) fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         entry_point: &E,
     ) -> Vec<M> {
@@ -244,7 +244,7 @@ where
             messages: &mut messages,
             entry_point,
         };
-        visitor.visit(self, &mut context, id_context);
+        visitor.visit(self, &mut context, id_stack);
         messages
     }
 
@@ -252,7 +252,7 @@ where
         &mut self,
         payload: &dyn Any,
         destination: &IdPath,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         entry_point: &E,
     ) -> Vec<M> {
@@ -263,7 +263,7 @@ where
             messages: &mut messages,
             entry_point,
         };
-        visitor.visit(self, &mut context, id_context);
+        visitor.visit(self, &mut context, id_stack);
         messages
     }
 
@@ -271,7 +271,7 @@ where
         &mut self,
         payload: &dyn Any,
         destinations: &[IdPathBuf],
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         entry_point: &E,
     ) -> Vec<M> {
@@ -284,7 +284,7 @@ where
             messages: &mut messages,
             entry_point,
         };
-        visitor.visit(self, &mut context, id_context);
+        visitor.visit(self, &mut context, id_stack);
         messages
     }
 
@@ -434,7 +434,7 @@ pub trait ViewNodeSeq<S, M, E>:
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -461,12 +461,12 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
-        self.commit_from(mode, 0, id_context, store, messages, entry_point)
+        self.commit_from(mode, 0, id_stack, store, messages, entry_point)
     }
 
     fn gc(&mut self) {
@@ -477,24 +477,19 @@ where
 }
 
 pub trait Traversable<Visitor, Context, S, M, E> {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    );
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack);
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) -> bool;
 }
 
 pub trait Visitor<Node, Context, S, M, E> {
-    fn visit(&mut self, node: &mut Node, context: &mut Context, id_context: &mut IdContext);
+    fn visit(&mut self, node: &mut Node, context: &mut Context, id_stack: &mut IdStack);
 }
 
 impl<'a, V, CS, S, M, E, Visitor, Context> Traversable<Visitor, Context, S, M, E>
@@ -504,15 +499,10 @@ where
     CS: ComponentStack<S, M, E, View = V>,
     Visitor: self::Visitor<Self, Context, S, M, E>,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    ) {
-        id_context.push_id(self.id);
-        let result = visitor.visit(self, context, id_context);
-        id_context.pop_id();
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
+        id_stack.push_id(self.id);
+        let result = visitor.visit(self, context, id_stack);
+        id_stack.pop_id();
         result
     }
 
@@ -521,16 +511,16 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) -> bool {
-        id_context.push_id(self.id);
+        id_stack.push_id(self.id);
         let result = if id == self.id {
-            visitor.visit(self, context, id_context);
+            visitor.visit(self, context, id_stack);
             true
         } else {
             false
         };
-        id_context.pop_id();
+        id_stack.pop_id();
         result
     }
 }

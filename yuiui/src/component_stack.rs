@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::element::Element;
-use crate::id::{Depth, IdContext};
+use crate::id::{Depth, IdStack};
 use crate::store::Store;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
@@ -18,7 +18,7 @@ pub trait ComponentStack<S, M, E> {
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
     ) -> bool;
 
@@ -26,7 +26,7 @@ pub trait ComponentStack<S, M, E> {
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -50,7 +50,7 @@ where
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
     ) -> bool {
         let (head_component, tail_components) = node.components;
@@ -66,9 +66,9 @@ where
         };
         if depth <= head_component.depth() {
             let element = head_component.component().render(store);
-            element.update(node, id_context, store)
+            element.update(node, id_stack, store)
         } else {
-            CS::update(&mut node, depth, id_context, store)
+            CS::update(&mut node, depth, id_stack, store)
         }
     }
 
@@ -76,7 +76,7 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -93,13 +93,13 @@ where
             dirty: node.dirty,
         };
         if depth <= head_component.depth() {
-            head_component.commit(mode, node, id_context, store, messages, entry_point)
+            head_component.commit(mode, node, id_stack, store, messages, entry_point)
         } else {
             CS::commit(
                 &mut node,
                 mode,
                 depth,
-                id_context,
+                id_stack,
                 store,
                 messages,
                 entry_point,
@@ -129,7 +129,7 @@ impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination
     fn update<'a>(
         _node: &mut ViewNodeMut<'a, V, Self, S, M, E>,
         _depth: Depth,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         _store: &Store<S>,
     ) -> bool {
         false
@@ -139,7 +139,7 @@ impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination
         _node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         _mode: CommitMode,
         _depth: Depth,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
         _entry_point: &E,

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use gtk::prelude::*;
 use gtk::{gdk, glib};
-use yuiui::{Element, ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
+use yuiui::{Element, ElementSeq, EventTarget, IdPathBuf, IdStack, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
@@ -67,7 +67,7 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
         entry_point: &EntryPoint,
@@ -75,7 +75,7 @@ where
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
-                    state.connect_clicked(id_context.id_path().to_vec(), entry_point.clone());
+                    state.connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -84,7 +84,7 @@ where
                         state.disconnect_clicked();
                     }
                     (None, Some(_)) => {
-                        state.connect_clicked(id_context.id_path().to_vec(), entry_point.clone());
+                        state.connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -101,7 +101,7 @@ where
         event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         _entry_point: &EntryPoint,

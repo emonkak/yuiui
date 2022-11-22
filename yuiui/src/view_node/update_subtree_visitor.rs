@@ -1,5 +1,5 @@
 use crate::component_stack::ComponentStack;
-use crate::id::{id_tree, Depth, IdContext, IdPathBuf};
+use crate::id::{id_tree, Depth, IdPathBuf, IdStack};
 use crate::view::View;
 
 use super::{RenderContext, Traversable, ViewNode, Visitor};
@@ -33,26 +33,26 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut RenderContext<'context, S>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) {
         if let (Some(&depth), true) = (self.cursor.current().data(), context.store.dirty()) {
             context.store.mark_clean();
             let is_updated = if depth < CS::LEN {
-                CS::update(&mut node.into(), depth, id_context, context.store)
+                CS::update(&mut node.into(), depth, id_stack, context.store)
             } else {
                 node.dirty = true;
-                node.children.for_each(self, context, id_context);
+                node.children.for_each(self, context, id_stack);
                 true
             };
             if is_updated {
                 self.updated_addresses
-                    .push((id_context.id_path().to_vec(), depth));
+                    .push((id_stack.id_path().to_vec(), depth));
             }
         } else {
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                node.children.for_id(id, self, context, id_context);
+                node.children.for_id(id, self, context, id_stack);
             }
         }
     }

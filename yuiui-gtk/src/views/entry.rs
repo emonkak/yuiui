@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
+use yuiui::{ElementSeq, EventTarget, IdPathBuf, IdStack, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
@@ -97,7 +97,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
         entry_point: &EntryPoint,
@@ -105,10 +105,10 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
-                    state.connect_activate(id_context.id_path().to_vec(), entry_point.clone());
+                    state.connect_activate(id_stack.id_path().to_vec(), entry_point.clone());
                 }
                 if self.on_change.is_some() {
-                    state.connect_changed(id_context.id_path().to_vec(), entry_point.clone());
+                    state.connect_changed(id_stack.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -117,7 +117,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                         state.disconnect_activate();
                     }
                     (None, Some(_)) => {
-                        state.connect_activate(id_context.id_path().to_vec(), entry_point.clone());
+                        state.connect_activate(id_stack.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -126,7 +126,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                         state.disconnect_changed();
                     }
                     (None, Some(_)) => {
-                        state.connect_changed(id_context.id_path().to_vec(), entry_point.clone());
+                        state.connect_changed(id_stack.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -145,7 +145,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         _entry_point: &EntryPoint,

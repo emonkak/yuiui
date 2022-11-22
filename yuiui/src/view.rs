@@ -1,6 +1,6 @@
 use crate::element::{ElementSeq, ViewElement};
 use crate::event::{EventTarget, Lifecycle};
-use crate::id::IdContext;
+use crate::id::IdStack;
 use crate::store::Store;
 
 pub trait View<S, M, E>: Sized + for<'event> EventTarget<'event> {
@@ -14,7 +14,7 @@ pub trait View<S, M, E>: Sized + for<'event> EventTarget<'event> {
         _lifecycle: Lifecycle<Self>,
         _state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
         _entry_point: &E,
@@ -27,7 +27,7 @@ pub trait View<S, M, E>: Sized + for<'event> EventTarget<'event> {
         _event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
         _entry_point: &E,

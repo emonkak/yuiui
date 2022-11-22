@@ -2,8 +2,8 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    CommitContext, ComponentStack, ElementSeq, EventTarget, IdContext, Lifecycle, Store,
-    Traversable, View, ViewNode, ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, ElementSeq, EventTarget, IdStack, Lifecycle, Store, Traversable,
+    View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -76,7 +76,7 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -97,7 +97,7 @@ where
                 messages,
                 entry_point,
             };
-            children.for_each(&mut visitor, &mut context, id_context);
+            children.for_each(&mut visitor, &mut context, id_stack);
         }
     }
 
@@ -140,7 +140,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         _context: &mut Context,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
     ) {
         let new_widget: &gtk::Widget = node.state().unwrap().as_ref();
         loop {

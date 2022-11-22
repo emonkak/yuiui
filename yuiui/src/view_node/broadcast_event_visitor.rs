@@ -2,7 +2,7 @@ use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
 use crate::event::Event;
-use crate::id::{id_tree, IdContext};
+use crate::id::{id_tree, IdStack};
 use crate::view::View;
 
 use super::{CommitContext, Traversable, ViewNode, Visitor};
@@ -29,7 +29,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) {
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
@@ -44,7 +44,7 @@ where
                 event,
                 state,
                 &mut node.children,
-                id_context,
+                id_stack,
                 context.store,
                 context.messages,
                 context.entry_point,
@@ -53,7 +53,7 @@ where
         for cursor in self.cursor.children() {
             let id = cursor.current().id();
             self.cursor = cursor;
-            node.children.for_id(id, self, context, id_context);
+            node.children.for_id(id, self, context, id_stack);
         }
     }
 }

@@ -3,13 +3,13 @@ use std::collections::VecDeque;
 use super::{Id, IdPath, IdPathBuf};
 
 #[derive(Debug)]
-pub struct IdContext {
+pub struct IdStack {
     id_path: IdPathBuf,
     counter: usize,
     preloaded_ids: VecDeque<Id>,
 }
 
-impl IdContext {
+impl IdStack {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),

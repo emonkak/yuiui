@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::element::ElementSeq;
-use crate::id::{Id, IdContext};
+use crate::id::{Id, IdStack};
 use crate::store::Store;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
@@ -32,14 +32,14 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
+    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
         let reserved_ids: Vec<Id> = T::Storage::SIZE_HINT
             .1
-            .map(|upper| id_context.take_ids(upper))
+            .map(|upper| id_stack.take_ids(upper))
             .unwrap_or_default();
-        id_context.preload_ids(&reserved_ids);
+        id_stack.preload_ids(&reserved_ids);
         OptionStorage::new(
-            self.map(|element| element.render_children(id_context, state)),
+            self.map(|element| element.render_children(id_stack, state)),
             reserved_ids,
         )
     }
@@ -47,12 +47,12 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, id_context, state) {
+                if element.update_children(node, id_stack, state) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -62,10 +62,10 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, id_context, state);
+                    element.update_children(node, id_stack, state);
                 } else {
-                    id_context.preload_ids(&storage.reserved_ids);
-                    storage.staging = Some(element.render_children(id_context, state));
+                    id_stack.preload_ids(&storage.reserved_ids);
+                    storage.staging = Some(element.render_children(id_stack, state));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true
@@ -110,7 +110,7 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -119,25 +119,20 @@ where
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    result |= node.commit(
-                        CommitMode::Unmount,
-                        id_context,
-                        store,
-                        messages,
-                        entry_point,
-                    );
+                    result |=
+                        node.commit(CommitMode::Unmount, id_stack, store, messages, entry_point);
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
                     result |=
-                        node.commit(CommitMode::Mount, id_context, store, messages, entry_point);
+                        node.commit(CommitMode::Mount, id_stack, store, messages, entry_point);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, id_context, store, messages, entry_point);
+                result |= node.commit(mode, id_stack, store, messages, entry_point);
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -158,14 +153,9 @@ impl<T, Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for Op
 where
     T: Traversable<Visitor, Context, S, M, E>,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, context, id_context);
+            node.for_each(visitor, context, id_stack);
         }
     }
 
@@ -174,10 +164,10 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_id(id, visitor, context, id_context)
+            node.for_id(id, visitor, context, id_stack)
         } else {
             false
         }

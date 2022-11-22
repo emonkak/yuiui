@@ -1,8 +1,8 @@
 pub mod id_tree;
 
-mod id_context;
+mod id_stack;
 
-pub use id_context::IdContext;
+pub use id_stack::IdStack;
 pub use id_tree::IdTree;
 
 use std::num::NonZeroUsize;

@@ -1,5 +1,5 @@
 use crate::component_stack::ComponentStack;
-use crate::id::{id_tree, Depth, IdContext};
+use crate::id::{id_tree, Depth, IdStack};
 use crate::view::View;
 
 use super::{CommitContext, CommitMode, Traversable, ViewNode, Visitor};
@@ -26,13 +26,13 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) {
         if let Some(depth) = self.cursor.current().data() {
             node.commit_from(
                 self.mode,
                 *depth,
-                id_context,
+                id_stack,
                 context.store,
                 context.messages,
                 context.entry_point,
@@ -41,7 +41,7 @@ where
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();
                 self.cursor = cursor;
-                node.children.for_id(id, self, context, id_context);
+                node.children.for_id(id, self, context, id_stack);
             }
         }
     }

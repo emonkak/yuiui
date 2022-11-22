@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{ElementSeq, EventTarget, IdContext, Lifecycle, Store, View};
+use yuiui::{ElementSeq, EventTarget, IdStack, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -65,7 +65,7 @@ impl<S, M, E> View<S, M, E> for Label {
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _id_context: &mut IdContext,
+        _id_stack: &mut IdStack,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
         _entry_point: &E,

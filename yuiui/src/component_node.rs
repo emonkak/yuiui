@@ -4,7 +4,7 @@ use std::{fmt, mem};
 use crate::component::Component;
 use crate::element::Element;
 use crate::event::Lifecycle;
-use crate::id::{Depth, IdContext};
+use crate::id::{Depth, IdStack};
 use crate::store::Store;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
@@ -45,7 +45,7 @@ where
             M,
             E,
         >,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -60,7 +60,7 @@ where
                 self.component.lifecycle(
                     lifecycle,
                     view_node,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,
@@ -74,7 +74,7 @@ where
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
                         view_node,
-                        id_context,
+                        id_stack,
                         store,
                         messages,
                         entry_point,
@@ -88,7 +88,7 @@ where
                 self.component.lifecycle(
                     Lifecycle::Unmount,
                     view_node,
-                    id_context,
+                    id_stack,
                     store,
                     messages,
                     entry_point,

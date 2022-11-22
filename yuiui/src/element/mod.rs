@@ -11,7 +11,7 @@ pub use view::ViewElement;
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
-use crate::id::IdContext;
+use crate::id::IdStack;
 use crate::store::Store;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
@@ -25,14 +25,14 @@ pub trait Element<S, M, E>:
 
     fn render(
         self,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, E>;
 
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool;
 
@@ -48,12 +48,12 @@ pub trait Element<S, M, E>:
 pub trait ElementSeq<S, M, E> {
     type Storage: ViewNodeSeq<S, M, E>;
 
-    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage;
+    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage;
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool;
 }

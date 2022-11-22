@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentTermination;
-use crate::id::IdContext;
+use crate::id::IdStack;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
@@ -31,29 +31,29 @@ where
 
     fn render(
         self,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        let id = id_context.next_id();
-        id_context.push_id(id);
-        let children = self.children.render_children(id_context, state);
+        let id = id_stack.next_id();
+        id_stack.push_id(id);
+        let children = self.children.render_children(id_stack, state);
         let node = ViewNode::new(id, self.view, children, ComponentTermination::new());
-        id_context.pop_id();
+        id_stack.pop_id();
         node
     }
 
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool {
-        id_context.push_id(node.id);
+        id_stack.push_id(node.id);
         self.children
-            .update_children(node.children, id_context, state);
+            .update_children(node.children, id_stack, state);
         *node.pending_view = Some(self.view);
         *node.dirty = true;
-        id_context.pop_id();
+        id_stack.pop_id();
         true
     }
 }
@@ -65,17 +65,17 @@ where
     type Storage =
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
-    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
-        self.render(id_context, state)
+    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
+        self.render(id_stack, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool {
-        self.update(storage.into(), id_context, state)
+        self.update(storage.into(), id_stack, state)
     }
 }
 

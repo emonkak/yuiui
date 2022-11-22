@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::component_stack::ComponentStack;
 use crate::event::{EventTarget, Lifecycle};
-use crate::id::{Depth, Id, IdContext};
+use crate::id::{Depth, Id, IdStack};
 use crate::store::Store;
 use crate::view::View;
 use crate::view_node::{
@@ -37,11 +37,11 @@ where
 
     fn render(
         self,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         let sub_store = (self.select_store)(state);
-        let sub_node = self.target.render(id_context, sub_store);
+        let sub_node = self.target.render(id_stack, sub_store);
         ViewNode {
             id: sub_node.id,
             depth: sub_node.depth,
@@ -67,12 +67,12 @@ where
     fn update(
         self,
         mut node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool {
         let sub_store = (self.select_store)(state);
         with_sub_node(&mut node, |sub_node| {
-            self.target.update(sub_node, id_context, sub_store)
+            self.target.update(sub_node, id_stack, sub_store)
         })
     }
 }
@@ -84,17 +84,17 @@ where
     type Storage =
         ViewNode<Connect<T::View, S, M, SS, SM>, Connect<T::Components, S, M, SS, SM>, S, M, E>;
 
-    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
-        self.render(id_context, state)
+    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
+        self.render(id_stack, state)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool {
-        self.update(storage.into(), id_context, state)
+        self.update(storage.into(), id_stack, state)
     }
 }
 
@@ -136,7 +136,7 @@ where
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -148,7 +148,7 @@ where
             sub_lifecycle,
             state,
             &mut children.target,
-            id_context,
+            id_stack,
             sub_store,
             &mut sub_messages,
             entry_point,
@@ -161,7 +161,7 @@ where
         event: <Self as EventTarget>::Event,
         state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -172,7 +172,7 @@ where
             event,
             state,
             &mut children.target,
-            id_context,
+            id_stack,
             sub_store,
             &mut sub_messages,
             entry_point,
@@ -214,12 +214,12 @@ where
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
     ) -> bool {
         let sub_store = (node.components.select_store)(store);
         with_sub_node(node, |mut sub_node| {
-            T::update(&mut sub_node, depth, id_context, sub_store)
+            T::update(&mut sub_node, depth, id_stack, sub_store)
         })
     }
 
@@ -227,7 +227,7 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
@@ -237,10 +237,10 @@ where
         let result = with_sub_node(node, |mut sub_node| {
             match mode {
                 CommitMode::Mount => {
-                    sub_store.subscribe(id_context.id_path().to_vec(), T::depth(&mut sub_node))
+                    sub_store.subscribe(id_stack.id_path().to_vec(), T::depth(&mut sub_node))
                 }
                 CommitMode::Unmount => {
-                    sub_store.unsubscribe(id_context.id_path(), T::depth(&mut sub_node))
+                    sub_store.unsubscribe(id_stack.id_path(), T::depth(&mut sub_node))
                 }
                 CommitMode::Update => {}
             }
@@ -248,7 +248,7 @@ where
                 &mut sub_node,
                 mode,
                 depth,
-                id_context,
+                id_stack,
                 sub_store,
                 &mut sub_messages,
                 entry_point,
@@ -265,10 +265,10 @@ where
 {
     type Storage = Connect<T::Storage, S, M, SS, SM>;
 
-    fn render_children(self, id_context: &mut IdContext, state: &S) -> Self::Storage {
+    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
         let sub_store = (self.select_store)(state);
         Connect::new(
-            self.target.render_children(id_context, sub_store),
+            self.target.render_children(id_stack, sub_store),
             self.select_store.clone(),
             self.lift_message.clone(),
         )
@@ -277,12 +277,12 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         state: &S,
     ) -> bool {
         let sub_store = (self.select_store)(state);
         self.target
-            .update_children(&mut storage.target, id_context, sub_store)
+            .update_children(&mut storage.target, id_stack, sub_store)
     }
 }
 
@@ -303,16 +303,16 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
         store: &Store<S>,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
         let sub_store = (self.select_store)(store);
         let mut sub_messages = Vec::new();
-        let result =
-            self.target
-                .commit(mode, id_context, sub_store, &mut sub_messages, entry_point);
+        let result = self
+            .target
+            .commit(mode, id_stack, sub_store, &mut sub_messages, entry_point);
         messages.extend(sub_messages.into_iter().map(&self.lift_message));
         result
     }
@@ -331,12 +331,12 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut RenderContext<'context, S>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) {
         let mut sub_context = RenderContext {
             store: (self.select_store)(context.store),
         };
-        self.target.for_each(visitor, &mut sub_context, id_context)
+        self.target.for_each(visitor, &mut sub_context, id_stack)
     }
 
     fn for_id(
@@ -344,13 +344,12 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut RenderContext<'context, S>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) -> bool {
         let mut sub_context = RenderContext {
             store: (self.select_store)(context.store),
         };
-        self.target
-            .for_id(id, visitor, &mut sub_context, id_context)
+        self.target.for_id(id, visitor, &mut sub_context, id_stack)
     }
 }
 
@@ -363,7 +362,7 @@ where
         &mut self,
         visitor: &mut Visitor,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
@@ -371,7 +370,7 @@ where
             messages: &mut sub_messages,
             entry_point: context.entry_point,
         };
-        self.target.for_each(visitor, &mut sub_context, id_context);
+        self.target.for_each(visitor, &mut sub_context, id_stack);
         context
             .messages
             .extend(sub_messages.into_iter().map(&self.lift_message));
@@ -382,7 +381,7 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
+        id_stack: &mut IdStack,
     ) -> bool {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
@@ -390,9 +389,7 @@ where
             messages: &mut sub_messages,
             entry_point: context.entry_point,
         };
-        let result = self
-            .target
-            .for_id(id, visitor, &mut sub_context, id_context);
+        let result = self.target.for_id(id, visitor, &mut sub_context, id_stack);
         context
             .messages
             .extend(sub_messages.into_iter().map(&self.lift_message));
