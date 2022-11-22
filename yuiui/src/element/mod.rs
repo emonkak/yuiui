@@ -4,7 +4,7 @@ mod memoize;
 mod view;
 
 pub use component::ComponentElement;
-pub use connect::ConnectEl;
+pub use connect::ConnectElement;
 pub use memoize::Memoize;
 pub use view::ViewElement;
 
@@ -40,8 +40,8 @@ pub trait Element<S, M, E>:
         self,
         select_store: fn(&PS) -> &Store<S>,
         lift_message: fn(M) -> PM,
-    ) -> ConnectEl<Self, PS, PM, S, M> {
-        ConnectEl::new(self, select_store, lift_message)
+    ) -> ConnectElement<Self, PS, PM, S, M> {
+        ConnectElement::new(self, select_store, lift_message)
     }
 }
 

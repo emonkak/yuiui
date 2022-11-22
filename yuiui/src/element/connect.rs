@@ -11,13 +11,13 @@ use crate::view_node::{
 
 use super::{Element, ElementSeq};
 
-pub struct ConnectEl<T, S, M, SS, SM> {
+pub struct ConnectElement<T, S, M, SS, SM> {
     target: T,
     select_store: fn(&S) -> &Store<SS>,
     lift_message: fn(SM) -> M,
 }
 
-impl<T, S, M, SS, SM> ConnectEl<T, S, M, SS, SM> {
+impl<T, S, M, SS, SM> ConnectElement<T, S, M, SS, SM> {
     pub fn new(target: T, select_store: fn(&S) -> &Store<SS>, lift_message: fn(SM) -> M) -> Self {
         Self {
             target,
@@ -27,7 +27,7 @@ impl<T, S, M, SS, SM> ConnectEl<T, S, M, SS, SM> {
     }
 }
 
-impl<T, S, M, SS, SM, E> Element<S, M, E> for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, E> Element<S, M, E> for ConnectElement<T, S, M, SS, SM>
 where
     T: Element<SS, SM, E>,
 {
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<T, S, M, SS, SM, E> ElementSeq<S, M, E> for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM, E> ElementSeq<S, M, E> for ConnectElement<T, S, M, SS, SM>
 where
     T: Element<SS, SM, E>,
 {
@@ -98,12 +98,12 @@ where
     }
 }
 
-impl<T, S, M, SS, SM> fmt::Debug for ConnectEl<T, S, M, SS, SM>
+impl<T, S, M, SS, SM> fmt::Debug for ConnectElement<T, S, M, SS, SM>
 where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("ConnectEl").field(&self.target).finish()
+        f.debug_tuple("ConnectElement").field(&self.target).finish()
     }
 }
 
