@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::VecDeque;
 
 use crate::component_stack::ComponentStack;
@@ -98,47 +97,30 @@ where
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagable() {
-            match self.new_len.cmp(&self.active.len()) {
-                Ordering::Equal => {
-                    // new_len == active_len
-                    for node in &mut self.active {
-                        result |= node.commit(mode, id_stack, store, messages, entry_point);
+            if self.new_len < self.active.len() {
+                for node in &mut self.active[..self.new_len] {
+                    result |= node.commit(mode, id_stack, store, messages, entry_point);
+                }
+                for mut node in self.active.drain(self.new_len..).rev() {
+                    result |=
+                        node.commit(CommitMode::Unmount, id_stack, store, messages, entry_point);
+                    self.staging.push_front(node);
+                }
+            } else if self.new_len > self.active.len() {
+                for node in &mut self.active {
+                    result |= node.commit(mode, id_stack, store, messages, entry_point);
+                }
+                if mode != CommitMode::Unmount {
+                    for _ in 0..self.new_len - self.active.len() {
+                        let mut node = self.staging.pop_front().unwrap();
+                        result |=
+                            node.commit(CommitMode::Mount, id_stack, store, messages, entry_point);
+                        self.active.push(node);
                     }
                 }
-                Ordering::Less => {
-                    // new_len < active_len
-                    for node in &mut self.active[..self.new_len] {
-                        result |= node.commit(mode, id_stack, store, messages, entry_point);
-                    }
-                    for mut node in self.active.drain(self.new_len..).rev() {
-                        result |= node.commit(
-                            CommitMode::Unmount,
-                            id_stack,
-                            store,
-                            messages,
-                            entry_point,
-                        );
-                        self.staging.push_front(node);
-                    }
-                }
-                Ordering::Greater => {
-                    // new_len > active_len
-                    for node in &mut self.active {
-                        result |= node.commit(mode, id_stack, store, messages, entry_point);
-                    }
-                    if mode != CommitMode::Unmount {
-                        for _ in 0..self.new_len - self.active.len() {
-                            let mut node = self.staging.pop_front().unwrap();
-                            result |= node.commit(
-                                CommitMode::Mount,
-                                id_stack,
-                                store,
-                                messages,
-                                entry_point,
-                            );
-                            self.active.push(node);
-                        }
-                    }
+            } else {
+                for node in &mut self.active {
+                    result |= node.commit(mode, id_stack, store, messages, entry_point);
                 }
             }
             self.dirty = false;
