@@ -32,7 +32,7 @@ enum AppMessage {
 }
 
 fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
-    Grid::new().hexpand(true).vexpand(true).el_with(hlist![
+    Grid::new().hexpand(true).vexpand(true).el(hlist![
         GridChild::new(
             Button::new()
                 .hexpand(true)
@@ -43,12 +43,10 @@ fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
             1,
             1,
         )
-        .el_with(
-            Label::new()
-                .label("-".to_owned())
-                .halign(gtk::Align::Center)
-                .el()
-        ),
+        .el(Label::new()
+            .label("-".to_owned())
+            .halign(gtk::Align::Center)
+            .el(())),
         GridChild::new(
             Button::new()
                 .hexpand(true)
@@ -59,12 +57,10 @@ fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
             1,
             1,
         )
-        .el_with(
-            Label::new()
-                .label("+".to_owned())
-                .halign(gtk::Align::Center)
-                .el()
-        ),
+        .el(Label::new()
+            .label("+".to_owned())
+            .halign(gtk::Align::Center)
+            .el(())),
         GridChild::new(
             Label::new()
                 .hexpand(true)
@@ -75,7 +71,7 @@ fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
             2,
             1,
         )
-        .el(),
+        .el(()),
     ])
 }
 
@@ -86,7 +82,7 @@ fn on_activate(application: &gtk::Application) {
         .default_height(240)
         .build();
     let entry_point = EntryPoint::new(window);
-    let element = app.el();
+    let element = app.el(());
     let state = AppState::default();
     entry_point.run(element, state);
 }

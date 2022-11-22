@@ -42,15 +42,7 @@ pub trait View<S, M, E>: Sized + for<'event> EventTarget<'event> {
     ) -> Self::State;
 
     #[inline]
-    fn el(self) -> ViewElement<Self, S, M, E>
-    where
-        Self::Children: Default,
-    {
-        ViewElement::new(self, Self::Children::default())
-    }
-
-    #[inline]
-    fn el_with(self, children: Self::Children) -> ViewElement<Self, S, M, E> {
+    fn el(self, children: Self::Children) -> ViewElement<Self, S, M, E> {
         ViewElement::new(self, children)
     }
 }

@@ -43,16 +43,7 @@ pub trait HigherOrderComponent<Props, S, M, E> {
     fn build(self, props: Props) -> Self::Component;
 
     #[inline]
-    fn el(self) -> ComponentElement<Self::Component>
-    where
-        Self: Sized,
-        Props: Default,
-    {
-        self.build(Props::default()).el()
-    }
-
-    #[inline]
-    fn el_with(self, props: Props) -> ComponentElement<Self::Component>
+    fn el(self, props: Props) -> ComponentElement<Self::Component>
     where
         Self: Sized,
     {

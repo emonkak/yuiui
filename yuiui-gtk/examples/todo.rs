@@ -69,27 +69,25 @@ enum AppMessage {
 
 fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
     let id = todo.id;
-    hbox().hexpand(true).el_with(hlist![
+    hbox().hexpand(true).el(hlist![
         Label::new()
             .hexpand(true)
             .halign(gtk::Align::Start)
             .label(todo.text.to_owned())
-            .el(),
+            .el(()),
         Button::new()
             .on_click(Box::new(move |_| AppMessage::RemoveTodo(id).into()))
-            .el_with(Label::new().label("Delete".to_owned()).el())
+            .el(Label::new().label("Delete".to_owned()).el(()))
     ])
 }
 
 fn todo_list(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
     ListBox::new()
         .hexpand(true)
-        .el_with(Vec::from_iter(state.todos.iter().map(|todo| {
+        .el(Vec::from_iter(state.todos.iter().map(|todo| {
             Memoize::new(
                 |props: &TodoProps, _: &AppState| {
-                    ListBoxRow::new()
-                        .hexpand(true)
-                        .el_with(todo_item(&props.todo))
+                    ListBoxRow::new().hexpand(true).el(todo_item(&props.todo))
                 },
                 TodoProps { todo: todo.clone() },
             )
@@ -97,7 +95,7 @@ fn todo_list(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMess
 }
 
 fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
-    vbox().hexpand(true).vexpand(true).el_with(hlist![
+    vbox().hexpand(true).vexpand(true).el(hlist![
         Entry::new()
             .text(state.text.to_owned())
             .hexpand(true)
@@ -107,11 +105,11 @@ fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
             .on_change(Box::new(
                 |text, _| AppMessage::ChangeText(text.to_owned()).into()
             ))
-            .el(),
+            .el(()),
         ScrolledWindow::new()
             .hexpand(true)
             .vexpand(true)
-            .el_with(todo_list.el()),
+            .el(todo_list.el(())),
     ])
 }
 
@@ -122,7 +120,7 @@ fn on_activate(application: &gtk::Application) {
         .default_height(240)
         .build();
     let entry_point = EntryPoint::new(window);
-    let element = app.el();
+    let element = app.el(());
     let state = AppState::default();
     entry_point.run(element, state);
 }
