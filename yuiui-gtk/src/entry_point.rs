@@ -76,13 +76,8 @@ impl EntryPoint {
         }
     }
 
-    pub fn forward_event<T: Send + 'static>(&self, destination: IdPathBuf, payload: T) {
+    pub fn dispatch_event<T: Send + 'static>(&self, destination: IdPathBuf, payload: T) {
         let event = TransferableEvent::Forward(destination, Box::new(payload));
-        self.inner.pending_events.borrow_mut().push(event)
-    }
-
-    pub fn broadcast_event<T: Send + 'static>(&self, destinations: Vec<IdPathBuf>, payload: T) {
-        let event = TransferableEvent::Broadcast(destinations, Box::new(payload));
         self.inner.pending_events.borrow_mut().push(event)
     }
 

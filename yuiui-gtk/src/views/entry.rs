@@ -208,7 +208,7 @@ impl EntryState {
         self.changed_signal = self
             .widget
             .connect_activate(move |_| {
-                entry_point.forward_event(id_path.clone(), Event::Activate);
+                entry_point.dispatch_event(id_path.clone(), Event::Activate);
             })
             .into();
     }
@@ -217,7 +217,7 @@ impl EntryState {
         self.changed_signal = self
             .widget
             .connect_changed(move |_| {
-                entry_point.forward_event(id_path.clone(), Event::Changed);
+                entry_point.dispatch_event(id_path.clone(), Event::Changed);
             })
             .into();
     }

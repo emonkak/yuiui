@@ -151,7 +151,7 @@ impl ButtonState {
         self.clicked_signal = self
             .widget
             .connect_clicked(move |_| {
-                entry_point.forward_event(id_path.clone(), Event::Clicked);
+                entry_point.dispatch_event(id_path.clone(), Event::Clicked);
             })
             .into();
     }
