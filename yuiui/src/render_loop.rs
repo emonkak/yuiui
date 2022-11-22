@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use std::{cmp, fmt, mem};
 
 use crate::command::CommandRuntime;
+use crate::component_stack::ComponentStack;
 use crate::element::{Element, ElementSeq};
 use crate::event::TransferableEvent;
 use crate::id::{Depth, IdStack, IdTree};
@@ -50,7 +51,8 @@ where
             while let Some(message) = self.message_queue.pop_front() {
                 let (dirty, effect) = store.update(message);
                 if dirty {
-                    self.nodes_to_update.insert(&[], 0);
+                    self.nodes_to_update
+                        .insert(&[], <Element::Components as ComponentStack<S, M, E>>::DEPTH);
                 }
                 for (id_path, depth) in effect.subscribers {
                     self.nodes_to_update
@@ -101,7 +103,7 @@ where
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         self.nodes_to_commit
-                            .insert_or_update(&id_path, depth, cmp::min);
+                            .insert_or_update(&id_path, depth, cmp::max);
                     }
                 }
                 if deadline.did_timeout() {

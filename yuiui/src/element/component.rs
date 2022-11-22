@@ -34,7 +34,7 @@ where
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         let element = self.component.render(state);
         let node = element.render(id_stack, state);
-        let component_node = ComponentNode::new(self.component, node.depth());
+        let component_node = ComponentNode::new(self.component);
         ViewNode {
             id: node.id,
             view: node.view,
@@ -58,7 +58,6 @@ where
         *node.dirty = true;
         let node = ViewNodeMut {
             id: node.id,
-            depth: node.depth,
             view: node.view,
             pending_view: node.pending_view,
             view_state: node.view_state,

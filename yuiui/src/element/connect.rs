@@ -202,13 +202,9 @@ impl<T, S, M, SS, SM, E> ComponentStack<S, M, E> for Connect<T, S, M, SS, SM>
 where
     T: ComponentStack<SS, SM, E>,
 {
-    const LEN: usize = T::LEN;
+    const DEPTH: usize = T::DEPTH;
 
     type View = Connect<T::View, S, M, SS, SM>;
-
-    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>) -> Depth {
-        with_sub_node(node, |mut sub_node| T::depth(&mut sub_node))
-    }
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
@@ -235,12 +231,8 @@ where
         let mut sub_messages = Vec::new();
         let result = with_sub_node(node, |mut sub_node| {
             match mode {
-                CommitMode::Mount => {
-                    sub_store.subscribe(id_stack.id_path().to_vec(), T::depth(&mut sub_node))
-                }
-                CommitMode::Unmount => {
-                    sub_store.unsubscribe(id_stack.id_path(), T::depth(&mut sub_node))
-                }
+                CommitMode::Mount => sub_store.subscribe(id_stack.id_path().to_vec(), T::DEPTH),
+                CommitMode::Unmount => sub_store.unsubscribe(id_stack.id_path(), T::DEPTH),
                 CommitMode::Update => {}
             }
             T::commit(
@@ -415,7 +407,6 @@ where
     let mut sub_pending_view = node.pending_view.take().map(|view| view.target);
     let sub_node = ViewNodeMut {
         id: node.id,
-        depth: node.depth,
         view: &mut node.view.target,
         pending_view: &mut sub_pending_view,
         view_state: node.view_state,

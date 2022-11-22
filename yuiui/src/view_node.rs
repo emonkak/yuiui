@@ -290,10 +290,6 @@ where
         self.id
     }
 
-    pub fn depth(&self) -> Depth {
-        CS::LEN
-    }
-
     pub fn view(&self) -> &V {
         &self.view
     }
@@ -341,7 +337,6 @@ where
 
 pub struct ViewNodeMut<'a, V: View<S, M, E>, CS: ?Sized, S, M, E> {
     pub(crate) id: Id,
-    pub(crate) depth: Depth,
     pub(crate) view: &'a mut V,
     pub(crate) pending_view: &'a mut Option<V>,
     pub(crate) view_state: &'a mut Option<V::State>,
@@ -380,7 +375,6 @@ where
     fn from(node: &'a mut ViewNode<V, CS, S, M, E>) -> Self {
         Self {
             id: node.id,
-            depth: node.depth(),
             view: &mut node.view,
             pending_view: &mut node.pending_view,
             view_state: &mut node.view_state,

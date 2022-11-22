@@ -9,11 +9,9 @@ use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
 pub trait ComponentStack<S, M, E> {
-    const LEN: usize;
+    const DEPTH: usize;
 
     type View: View<S, M, E>;
-
-    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>) -> Depth;
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
@@ -39,13 +37,9 @@ where
     C::Element: Element<S, M, E, Components = CS>,
     CS: ComponentStack<S, M, E, View = <C::Element as Element<S, M, E>>::View>,
 {
-    const LEN: usize = 1 + CS::LEN;
+    const DEPTH: usize = 1 + CS::DEPTH;
 
     type View = <C::Element as Element<S, M, E>>::View;
-
-    fn depth<'a>(node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>) -> Depth {
-        node.components.0.depth()
-    }
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
@@ -56,7 +50,6 @@ where
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
             id: node.id,
-            depth: node.depth,
             view: node.view,
             pending_view: node.pending_view,
             view_state: node.view_state,
@@ -64,7 +57,7 @@ where
             components: tail_components,
             dirty: node.dirty,
         };
-        if depth <= head_component.depth() {
+        if depth >= CS::DEPTH {
             let element = head_component.component().render(store.state());
             element.update(node, id_stack, store.state())
         } else {
@@ -84,7 +77,6 @@ where
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
             id: node.id,
-            depth: node.depth,
             view: node.view,
             pending_view: node.pending_view,
             view_state: node.view_state,
@@ -92,7 +84,7 @@ where
             components: tail_components,
             dirty: node.dirty,
         };
-        if depth <= head_component.depth() {
+        if depth >= CS::DEPTH {
             head_component.commit(mode, node, id_stack, store, messages, entry_point)
         } else {
             CS::commit(
@@ -109,22 +101,22 @@ where
 }
 
 #[derive(Debug)]
-pub struct ComponentTermination<V>(PhantomData<V>);
+pub struct ComponentTermination<V> {
+    _phantom: PhantomData<V>,
+}
 
 impl<V> ComponentTermination<V> {
     pub fn new() -> Self {
-        Self(PhantomData)
+        Self {
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination<V> {
-    const LEN: usize = 0;
+    const DEPTH: usize = 0;
 
     type View = V;
-
-    fn depth<'a>(node: &mut ViewNodeMut<'a, V, Self, S, M, E>) -> Depth {
-        node.depth
-    }
 
     fn update<'a>(
         _node: &mut ViewNodeMut<'a, V, Self, S, M, E>,
