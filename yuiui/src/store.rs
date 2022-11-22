@@ -1,5 +1,4 @@
 use std::cell::{Cell, RefCell};
-use std::ops;
 
 use crate::effect::Effect;
 use crate::id::{Depth, IdPath, IdPathBuf};
@@ -26,6 +25,10 @@ impl<T> Store<T> {
         }
     }
 
+    pub fn state(&self) -> &T {
+        &self.state
+    }
+
     pub(crate) fn subscribe(&self, id_path: IdPathBuf, depth: Depth) {
         self.subscribers.borrow_mut().push((id_path, depth))
     }
@@ -35,7 +38,7 @@ impl<T> Store<T> {
             .subscribers
             .borrow()
             .iter()
-            .position(|(x, y)| x == id_path && *y == depth)
+            .position(|subscriber| subscriber.0 == id_path && subscriber.1 == depth)
         {
             self.subscribers.borrow_mut().remove(position);
         }
@@ -47,14 +50,6 @@ impl<T> Store<T> {
 
     pub(crate) fn dirty(&self) -> bool {
         self.dirty.get()
-    }
-}
-
-impl<T> ops::Deref for Store<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.state
     }
 }
 

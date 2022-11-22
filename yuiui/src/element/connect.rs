@@ -41,7 +41,7 @@ where
         state: &S,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         let sub_store = (self.select_store)(state);
-        let sub_node = self.target.render(id_stack, sub_store);
+        let sub_node = self.target.render(id_stack, sub_store.state());
         ViewNode {
             id: sub_node.id,
             depth: sub_node.depth,
@@ -72,7 +72,7 @@ where
     ) -> bool {
         let sub_store = (self.select_store)(state);
         with_sub_node(&mut node, |sub_node| {
-            self.target.update(sub_node, id_stack, sub_store)
+            self.target.update(sub_node, id_stack, sub_store.state())
         })
     }
 }
@@ -142,7 +142,7 @@ where
         entry_point: &E,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
-        let sub_store = (self.select_store)(store);
+        let sub_store = (self.select_store)(store.state());
         let mut sub_messages = Vec::new();
         self.target.lifecycle(
             sub_lifecycle,
@@ -166,7 +166,7 @@ where
         messages: &mut Vec<M>,
         entry_point: &E,
     ) {
-        let sub_store = (self.select_store)(store);
+        let sub_store = (self.select_store)(store.state());
         let mut sub_messages = Vec::new();
         self.target.event(
             event,
@@ -186,7 +186,7 @@ where
         store: &Store<S>,
         entry_point: &E,
     ) -> Self::State {
-        let sub_store = (self.select_store)(store);
+        let sub_store = (self.select_store)(store.state());
         self.target
             .build(&mut children.target, sub_store, entry_point)
     }
@@ -217,7 +217,7 @@ where
         id_stack: &mut IdStack,
         store: &Store<S>,
     ) -> bool {
-        let sub_store = (node.components.select_store)(store);
+        let sub_store = (node.components.select_store)(store.state());
         with_sub_node(node, |mut sub_node| {
             T::update(&mut sub_node, depth, id_stack, sub_store)
         })
@@ -232,7 +232,7 @@ where
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
-        let sub_store = (node.components.select_store)(store);
+        let sub_store = (node.components.select_store)(store.state());
         let mut sub_messages = Vec::new();
         let result = with_sub_node(node, |mut sub_node| {
             match mode {
@@ -268,7 +268,7 @@ where
     fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
         let sub_store = (self.select_store)(state);
         Connect::new(
-            self.target.render_children(id_stack, sub_store),
+            self.target.render_children(id_stack, sub_store.state()),
             self.select_store.clone(),
             self.lift_message.clone(),
         )
@@ -282,7 +282,7 @@ where
     ) -> bool {
         let sub_store = (self.select_store)(state);
         self.target
-            .update_children(&mut storage.target, id_stack, sub_store)
+            .update_children(&mut storage.target, id_stack, sub_store.state())
     }
 }
 
@@ -304,7 +304,7 @@ where
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
-        let sub_store = (self.select_store)(store);
+        let sub_store = (self.select_store)(store.state());
         let mut sub_messages = Vec::new();
         let result = self
             .target
@@ -330,7 +330,7 @@ where
         id_stack: &mut IdStack,
     ) {
         let mut sub_context = RenderContext {
-            store: (self.select_store)(context.store),
+            store: (self.select_store)(context.store.state()),
         };
         self.target.for_each(visitor, &mut sub_context, id_stack)
     }
@@ -343,7 +343,7 @@ where
         id_stack: &mut IdStack,
     ) -> bool {
         let mut sub_context = RenderContext {
-            store: (self.select_store)(context.store),
+            store: (self.select_store)(context.store.state()),
         };
         self.target.for_id(id, visitor, &mut sub_context, id_stack)
     }
@@ -362,7 +362,7 @@ where
     ) {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
-            store: (self.select_store)(context.store),
+            store: (self.select_store)(context.store.state()),
             messages: &mut sub_messages,
             entry_point: context.entry_point,
         };
@@ -381,7 +381,7 @@ where
     ) -> bool {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
-            store: (self.select_store)(context.store),
+            store: (self.select_store)(context.store.state()),
             messages: &mut sub_messages,
             entry_point: context.entry_point,
         };

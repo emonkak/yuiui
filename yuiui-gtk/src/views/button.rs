@@ -109,7 +109,7 @@ where
         match event {
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
-                    let message = on_click(store);
+                    let message = on_click(store.state());
                     messages.extend(message);
                 }
             }

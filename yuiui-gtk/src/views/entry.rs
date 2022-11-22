@@ -153,14 +153,14 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         match event {
             Event::Activate => {
                 if let Some(on_activate) = &self.on_activate {
-                    let message = on_activate(state.current_text.as_str(), store);
+                    let message = on_activate(state.current_text.as_str(), store.state());
                     messages.extend(message);
                 }
             }
             Event::Changed => {
                 if let Some(on_change) = &self.on_change {
                     state.refresh_text();
-                    let message = on_change(state.current_text.as_str(), store);
+                    let message = on_change(state.current_text.as_str(), store.state());
                     messages.extend(message);
                 }
             }

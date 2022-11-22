@@ -65,8 +65,8 @@ where
             dirty: node.dirty,
         };
         if depth <= head_component.depth() {
-            let element = head_component.component().render(store);
-            element.update(node, id_stack, store)
+            let element = head_component.component().render(store.state());
+            element.update(node, id_stack, store.state())
         } else {
             CS::update(&mut node, depth, id_stack, store)
         }

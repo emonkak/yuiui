@@ -27,7 +27,7 @@ where
 {
     pub fn create(element: Element, store: &Store<S>) -> Self {
         let mut context = IdStack::new();
-        let node = element.render(&mut context, store);
+        let node = element.render(&mut context, store.state());
         Self {
             node,
             id_stack: context,
