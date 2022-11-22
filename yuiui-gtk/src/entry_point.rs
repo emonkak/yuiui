@@ -1,77 +1,102 @@
 use gtk::glib;
 use gtk::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use yuiui::{Element, RenderFlow, RenderLoop, State, Store, View};
+use yuiui::{Element, IdPathBuf, RenderFlow, RenderLoop, State, Store, TransferableEvent, View};
 
-use crate::backend::Backend;
-use crate::command_runtime::{CommandRuntime, RenderAction};
+use crate::command_runtime::CommandRuntime;
 
-pub trait EntryPoint<M>: Sized + 'static {
-    fn attach_widget(&self, widget: &gtk::Widget);
+const DEALINE_PERIOD: Duration = Duration::from_millis(50);
 
-    fn boot<E, S>(self, element: E, state: S)
+#[derive(Debug, Clone)]
+pub struct EntryPoint {
+    inner: Rc<Inner>,
+}
+
+impl EntryPoint {
+    pub fn new(window: gtk::ApplicationWindow) -> Self {
+        Self {
+            inner: Rc::new(Inner {
+                window,
+                pending_events: RefCell::new(Vec::new()),
+            }),
+        }
+    }
+
+    pub fn run<S, M, E>(self, element: E, state: S)
     where
-        E: Element<S, M, Backend<Self>> + 'static,
-        <E::View as View<S, M, Backend<Self>>>::State: AsRef<gtk::Widget>,
+        E: Element<S, M, Self> + 'static,
+        <E::View as View<S, M, Self>>::State: AsRef<gtk::Widget>,
         S: State<Message = M> + 'static,
         M: Send + 'static,
     {
-        const DEALINE_PERIOD: Duration = Duration::from_millis(50);
-
-        let (event_tx, event_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        let (action_tx, action_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-
-        let mut command_runtime =
-            CommandRuntime::new(glib::MainContext::default(), action_tx.clone());
+        let (message_tx, message_rx) = mpsc::channel();
+        let mut command_runtime = CommandRuntime::new(glib::MainContext::default(), message_tx);
         let mut store = Store::new(state);
-        let mut backend = Backend::new(self, event_tx);
         let mut render_loop = RenderLoop::create(element, &mut store);
 
-        render_loop.run_forever(&mut command_runtime, &mut store, &mut backend);
+        render_loop.run_forever(&mut command_runtime, &mut store, &self);
 
         let widget = render_loop.node().state().unwrap().as_ref();
 
-        backend.entry_point().attach_widget(widget);
+        self.attach_widget(widget);
 
-        event_rx.attach(None, move |event| {
-            action_tx.send(RenderAction::Event(event)).unwrap();
-            glib::Continue(true)
-        });
+        while gtk::Window::toplevels().n_items() > 0 {
+            let mut needs_render = false;
 
-        action_rx.attach(None, move |action| {
-            let deadline = Instant::now() + DEALINE_PERIOD;
-
-            match action {
-                RenderAction::RequestRerender => {}
-                RenderAction::Message(message) => {
+            while command_runtime.main_context().iteration(true) {
+                while let Ok(message) = message_rx.try_recv() {
                     render_loop.push_message(message);
+                    needs_render = true;
                 }
-                RenderAction::Event(event) => {
+
+                for event in self.inner.pending_events.borrow_mut().drain(..) {
                     render_loop.push_event(event);
+                    needs_render = true;
+                }
+
+                if !command_runtime.main_context().pending() {
+                    break;
                 }
             }
 
-            if render_loop.run(&deadline, &mut command_runtime, &mut store, &mut backend)
-                == RenderFlow::Suspend
-            {
-                command_runtime.request_rerender();
+            if needs_render {
+                let deadline = Instant::now() + DEALINE_PERIOD;
+
+                if render_loop.run(&deadline, &mut command_runtime, &mut store, &self)
+                    == RenderFlow::Suspend
+                {
+                    command_runtime.request_rerender();
+                    break;
+                }
             }
+        }
+    }
 
-            glib::Continue(true)
-        });
+    pub fn forward_event<T: Send + 'static>(&self, destination: IdPathBuf, payload: T) {
+        let event = TransferableEvent::Forward(destination, Box::new(payload));
+        self.inner.pending_events.borrow_mut().push(event)
+    }
+
+    pub fn broadcast_event<T: Send + 'static>(&self, destinations: Vec<IdPathBuf>, payload: T) {
+        let event = TransferableEvent::Broadcast(destinations, Box::new(payload));
+        self.inner.pending_events.borrow_mut().push(event)
+    }
+
+    pub fn window(&self) -> &gtk::ApplicationWindow {
+        &self.inner.window
+    }
+
+    fn attach_widget(&self, widget: &gtk::Widget) {
+        self.inner.window.set_child(Some(widget));
+        self.inner.window.show();
     }
 }
 
-impl<M> EntryPoint<M> for gtk::Window {
-    fn attach_widget(&self, widget: &gtk::Widget) {
-        self.set_child(Some(widget));
-        self.show();
-    }
-}
-
-impl<M> EntryPoint<M> for gtk::ApplicationWindow {
-    fn attach_widget(&self, widget: &gtk::Widget) {
-        self.set_child(Some(widget));
-        self.show();
-    }
+#[derive(Debug)]
+struct Inner {
+    window: gtk::ApplicationWindow,
+    pending_events: RefCell<Vec<TransferableEvent>>,
 }

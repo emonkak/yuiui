@@ -5,7 +5,7 @@ use gtk::{gdk, glib};
 use yuiui::{Element, ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, Store, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::backend::Backend;
+use crate::entry_point::EntryPoint;
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::Button)]
@@ -53,11 +53,10 @@ pub struct Button<Child, S, M> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M, E> View<S, M, Backend<E>> for Button<Child, S, M>
+impl<Child, S, M> View<S, M, EntryPoint> for Button<Child, S, M>
 where
-    E: 'static + Clone,
-    Child: Element<S, M, Backend<E>>,
-    <Child::View as View<S, M, Backend<E>>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, EntryPoint>,
+    <Child::View as View<S, M, EntryPoint>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -67,11 +66,11 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
+        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         id_context: &mut IdContext,
         _store: &Store<S>,
         _messages: &mut Vec<M>,
-        backend: &Backend<E>,
+        backend: &EntryPoint,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
@@ -101,11 +100,11 @@ where
         &self,
         event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
+        _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         _id_context: &mut IdContext,
         store: &Store<S>,
         messages: &mut Vec<M>,
-        _backend: &Backend<E>,
+        _backend: &EntryPoint,
     ) {
         match event {
             Event::Clicked => {
@@ -119,9 +118,9 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, Backend<E>>>::Storage,
+        child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         _store: &Store<S>,
-        _backend: &Backend<E>,
+        _backend: &EntryPoint,
     ) -> Self::State {
         let widget = self.build();
         let child = child.state().unwrap().as_ref();
@@ -148,13 +147,11 @@ impl ButtonState {
         }
     }
 
-    fn connect_clicked<E: 'static>(&mut self, id_path: IdPathBuf, backend: Backend<E>) {
+    fn connect_clicked(&mut self, id_path: IdPathBuf, backend: EntryPoint) {
         self.clicked_signal = self
             .widget
             .connect_clicked(move |_| {
-                backend
-                    .forward_event(id_path.clone(), Event::Clicked)
-                    .unwrap();
+                backend.forward_event(id_path.clone(), Event::Clicked);
             })
             .into();
     }

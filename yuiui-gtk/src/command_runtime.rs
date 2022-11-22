@@ -1,58 +1,65 @@
 use futures::stream::StreamExt as _;
 use gtk::glib;
-use yuiui::{CancellationToken, Command, RawToken, RawTokenVTable, TransferableEvent};
+use std::sync::mpsc::Sender;
+use yuiui::{CancellationToken, Command, RawToken, RawTokenVTable};
 
 #[derive(Debug)]
-pub struct CommandRuntime<T> {
+pub struct CommandRuntime<M> {
     main_context: glib::MainContext,
-    action_sender: glib::Sender<RenderAction<T>>,
+    message_sender: Sender<M>,
 }
 
-impl<T: Send + 'static> CommandRuntime<T> {
-    pub(super) fn new(
-        main_context: glib::MainContext,
-        action_sender: glib::Sender<RenderAction<T>>,
-    ) -> Self {
+impl<M: Send + 'static> CommandRuntime<M> {
+    pub(super) fn new(main_context: glib::MainContext, message_sender: Sender<M>) -> Self {
         Self {
             main_context,
-            action_sender,
+            message_sender,
         }
+    }
+
+    pub fn main_context(&self) -> &glib::MainContext {
+        &self.main_context
     }
 }
 
-impl<T: Send + 'static> CommandRuntime<T> {
+impl<M: Send + 'static> CommandRuntime<M> {
     pub fn request_rerender(&self) {
-        let action_sender = self.action_sender.clone();
+        let main_context = self.main_context.clone();
         glib::idle_add_once(move || {
-            action_sender.send(RenderAction::RequestRerender).unwrap();
+            main_context.wakeup();
         });
     }
 }
 
-impl<T: Send + 'static> yuiui::CommandRuntime<T> for CommandRuntime<T> {
+impl<M: Send + 'static> yuiui::CommandRuntime<M> for CommandRuntime<M> {
     fn spawn_command(
         &mut self,
-        command: Command<T>,
+        command: Command<M>,
         cancellation_token: Option<CancellationToken>,
     ) {
-        let action_sender = self.action_sender.clone();
+        let message_sender = self.message_sender.clone();
+        let main_context = self.main_context.clone();
         let source_id = match command {
             Command::Future(future) => self.main_context.spawn_local(async move {
                 let message = future.await;
-                action_sender.send(RenderAction::Message(message)).unwrap();
+                message_sender.send(message).unwrap();
+                main_context.wakeup();
             }),
             Command::Stream(mut stream) => self.main_context.spawn_local(async move {
                 while let Some(message) = stream.next().await {
-                    action_sender.send(RenderAction::Message(message)).unwrap();
+                    message_sender.send(message).unwrap();
+                    main_context.wakeup();
                 }
             }),
             Command::Timeout(duration, callback) => glib::timeout_add_once(duration, move || {
                 let message = callback();
-                action_sender.send(RenderAction::Message(message)).unwrap();
+                message_sender.send(message).unwrap();
+                main_context.wakeup();
             }),
             Command::Interval(period, mut callback) => glib::timeout_add(period, move || {
                 let message = callback();
-                action_sender.send(RenderAction::Message(message)).unwrap();
+                message_sender.send(message).unwrap();
+                main_context.wakeup();
                 glib::Continue(true)
             }),
         };
@@ -77,11 +84,4 @@ fn create_token(source_id: glib::SourceId) -> RawToken {
     let data = Box::into_raw(Box::new(source_id)) as *const ();
 
     RawToken::new(data, &VTABLE)
-}
-
-#[derive(Debug)]
-pub(super) enum RenderAction<T> {
-    Message(T),
-    Event(TransferableEvent),
-    RequestRerender,
 }

@@ -85,9 +85,10 @@ fn on_activate(application: &gtk::Application) {
         .default_width(320)
         .default_height(240)
         .build();
+    let entry_point = EntryPoint::new(window);
     let element = app.el();
     let state = AppState::default();
-    window.boot(element, state);
+    entry_point.run(element, state);
 }
 
 fn main() {
