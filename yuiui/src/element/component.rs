@@ -55,7 +55,6 @@ where
         let (head_component, tail_components) = node.components;
         let element = self.component.render(state);
         head_component.update(self.component);
-        *node.dirty = true;
         let node = ViewNodeMut {
             id: node.id,
             view: node.view,
