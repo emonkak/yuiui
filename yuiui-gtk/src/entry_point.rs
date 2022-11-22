@@ -44,8 +44,8 @@ impl EntryPoint {
         self.attach_widget(widget);
 
         while gtk::Window::toplevels().n_items() > 0 {
-            let mut needs_render = false;
             let main_context = command_runtime.main_context();
+            let mut needs_render = false;
 
             while main_context.iteration(true) {
                 while let Ok(message) = message_rx.try_recv() {
@@ -73,6 +73,10 @@ impl EntryPoint {
                     break;
                 }
             }
+        }
+
+        if let Some(application) = self.inner.window.application() {
+            application.quit();
         }
     }
 
