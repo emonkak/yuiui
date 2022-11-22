@@ -27,10 +27,6 @@ impl<S, M, E> ViewNodeSeq<S, M, E> for () {
         0
     }
 
-    fn id_range(&self) -> Option<(Id, Id)> {
-        None
-    }
-
     fn commit(
         &mut self,
         _mode: CommitMode,
@@ -118,17 +114,6 @@ macro_rules! define_tuple_impl {
 
             fn len(&self) -> usize {
                 0 $(+ self.$n.len())*
-            }
-
-            fn id_range(&self) -> Option<(Id, Id)> {
-                let first = self.0.id_range();
-                let last = self.$last_n.id_range();
-                match (first, last) {
-                    (Some((start, _)), Some((_, end))) => {
-                        Some((start, end))
-                    },
-                    _ => None
-                }
             }
 
             fn commit(

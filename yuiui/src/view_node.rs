@@ -429,8 +429,6 @@ pub trait ViewNodeSeq<S, M, E>:
 
     fn len(&self) -> usize;
 
-    fn id_range(&self) -> Option<(Id, Id)>;
-
     fn commit(
         &mut self,
         mode: CommitMode,
@@ -452,10 +450,6 @@ where
 
     fn len(&self) -> usize {
         1
-    }
-
-    fn id_range(&self) -> Option<(Id, Id)> {
-        Some((self.id, self.id))
     }
 
     fn commit(

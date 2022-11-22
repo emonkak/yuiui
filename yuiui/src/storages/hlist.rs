@@ -61,10 +61,6 @@ impl<S, M, E> ViewNodeSeq<S, M, E> for HNil {
         0
     }
 
-    fn id_range(&self) -> Option<(Id, Id)> {
-        None
-    }
-
     fn commit(
         &mut self,
         _mode: CommitMode,
@@ -97,15 +93,6 @@ where
 
     fn len(&self) -> usize {
         self.head.len() + self.tail.len()
-    }
-
-    fn id_range(&self) -> Option<(Id, Id)> {
-        let head = self.head.id_range();
-        let tail = self.tail.id_range();
-        match (head, tail) {
-            (Some((start, _)), Some((_, end))) => Some((start, end)),
-            _ => None,
-        }
     }
 
     fn commit(

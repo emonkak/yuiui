@@ -1,12 +1,9 @@
-use std::collections::VecDeque;
-
 use super::{Id, IdPath, IdPathBuf};
 
 #[derive(Debug)]
 pub struct IdStack {
     id_path: IdPathBuf,
     counter: usize,
-    preloaded_ids: VecDeque<Id>,
 }
 
 impl IdStack {
@@ -14,30 +11,13 @@ impl IdStack {
         Self {
             id_path: IdPathBuf::new(),
             counter: 1,
-            preloaded_ids: VecDeque::new(),
         }
     }
 
     pub(crate) fn next_id(&mut self) -> Id {
-        if let Some(id) = self.preloaded_ids.pop_front() {
-            id
-        } else {
-            let id = self.counter;
-            self.counter += 1;
-            Id::new(id)
-        }
-    }
-
-    pub(crate) fn take_ids(&mut self, n: usize) -> Vec<Id> {
-        let mut ids = Vec::with_capacity(n);
-        for _ in 0..n {
-            ids.push(self.next_id());
-        }
-        ids
-    }
-
-    pub(crate) fn preload_ids<'a>(&mut self, ids: impl IntoIterator<Item = &'a Id>) {
-        self.preloaded_ids.extend(ids)
+        let id = self.counter;
+        self.counter += 1;
+        Id::new(id)
     }
 
     pub(crate) fn push_id(&mut self, id: Id) {

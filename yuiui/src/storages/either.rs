@@ -13,18 +13,14 @@ pub struct EitherStorage<L, R> {
     active: Either<L, R>,
     staging: Option<Either<L, R>>,
     flags: RenderFlags,
-    left_reserved_ids: Vec<Id>,
-    right_reserved_ids: Vec<Id>,
 }
 
 impl<L, R> EitherStorage<L, R> {
-    fn new(active: Either<L, R>, left_reserved_ids: Vec<Id>, right_reserved_ids: Vec<Id>) -> Self {
+    fn new(active: Either<L, R>) -> Self {
         Self {
             active,
             staging: None,
             flags: RenderFlags::NONE,
-            left_reserved_ids,
-            right_reserved_ids,
         }
     }
 }
@@ -37,30 +33,12 @@ where
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
     fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-        let left_reserved_ids: Vec<Id> = L::Storage::SIZE_HINT
-            .1
-            .map(|upper| id_stack.take_ids(upper))
-            .unwrap_or_default();
-        let right_reserved_ids: Vec<Id> = R::Storage::SIZE_HINT
-            .1
-            .map(|upper| id_stack.take_ids(upper))
-            .unwrap_or_default();
         match self {
             Either::Left(element) => {
-                id_stack.preload_ids(&left_reserved_ids);
-                EitherStorage::new(
-                    Either::Left(element.render_children(id_stack, state)),
-                    left_reserved_ids,
-                    right_reserved_ids,
-                )
+                EitherStorage::new(Either::Left(element.render_children(id_stack, state)))
             }
             Either::Right(element) => {
-                id_stack.preload_ids(&right_reserved_ids);
-                EitherStorage::new(
-                    Either::Right(element.render_children(id_stack, state)),
-                    left_reserved_ids,
-                    right_reserved_ids,
-                )
+                EitherStorage::new(Either::Right(element.render_children(id_stack, state)))
             }
         }
     }
@@ -96,7 +74,6 @@ where
                         element.update_children(node, id_stack, state);
                     }
                     None => {
-                        id_stack.preload_ids(&storage.right_reserved_ids);
                         storage.staging =
                             Some(Either::Right(element.render_children(id_stack, state)));
                     }
@@ -111,7 +88,6 @@ where
                         element.update_children(node, id_stack, state);
                     }
                     None => {
-                        id_stack.preload_ids(&storage.left_reserved_ids);
                         storage.staging =
                             Some(Either::Left(element.render_children(id_stack, state)));
                     }
@@ -148,27 +124,6 @@ where
         match &self.active {
             Either::Left(node) => node.len(),
             Either::Right(node) => node.len(),
-        }
-    }
-
-    fn id_range(&self) -> Option<(Id, Id)> {
-        match (
-            !self.left_reserved_ids.is_empty(),
-            !self.right_reserved_ids.is_empty(),
-        ) {
-            (true, true) => Some((
-                self.left_reserved_ids[0],
-                self.right_reserved_ids[self.right_reserved_ids.len() - 1],
-            )),
-            (true, false) => Some((
-                self.left_reserved_ids[0],
-                self.left_reserved_ids[self.left_reserved_ids.len() - 1],
-            )),
-            (false, true) => Some((
-                self.right_reserved_ids[0],
-                self.right_reserved_ids[self.right_reserved_ids.len() - 1],
-            )),
-            (false, false) => None,
         }
     }
 

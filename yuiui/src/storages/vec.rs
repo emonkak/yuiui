@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 
-use crate::element::ElementSeq;
+use crate::component_stack::ComponentStack;
+use crate::element::{Element, ElementSeq};
 use crate::id::{Id, IdStack};
 use crate::store::Store;
-use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
-
-use super::binary_search_by;
+use crate::view::View;
+use crate::view_node::{CommitMode, Traversable, ViewNode, ViewNodeSeq};
 
 #[derive(Debug)]
 pub struct VecStorage<T> {
@@ -27,16 +27,16 @@ impl<T> VecStorage<T> {
     }
 }
 
-impl<T, S, M, E> ElementSeq<S, M, E> for Vec<T>
+impl<Element, S, M, E> ElementSeq<S, M, E> for Vec<Element>
 where
-    T: ElementSeq<S, M, E>,
+    Element: self::Element<S, M, E>,
 {
-    type Storage = VecStorage<T::Storage>;
+    type Storage = VecStorage<ViewNode<Element::View, Element::Components, S, M, E>>;
 
     fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render_children(id_stack, state))
+                .map(|element| element.render(id_stack, state))
                 .collect(),
         )
     }
@@ -57,14 +57,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update_children(node, id_stack, state);
+                has_changed |= element.update(node.into(), id_stack, state);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update_children(node, id_stack, state);
+                    has_changed |= element.update(node.into(), id_stack, state);
                 } else {
-                    let node = element.render_children(id_stack, state);
+                    let node = element.render(id_stack, state);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -77,30 +77,15 @@ where
     }
 }
 
-impl<T, S, M, E> ViewNodeSeq<S, M, E> for VecStorage<T>
+impl<V, CS, S, M, E> ViewNodeSeq<S, M, E> for VecStorage<ViewNode<V, CS, S, M, E>>
 where
-    T: ViewNodeSeq<S, M, E>,
+    V: View<S, M, E>,
+    CS: ComponentStack<S, M, E, View = V>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (0, None);
 
     fn len(&self) -> usize {
-        match T::SIZE_HINT {
-            (lower, Some(upper)) if lower == upper => lower * self.active.len(),
-            _ => self.active.iter().map(|node| node.len()).sum(),
-        }
-    }
-
-    fn id_range(&self) -> Option<(Id, Id)> {
-        if self.active.len() > 0 {
-            let first = self.active[0].id_range();
-            let last = self.active[self.active.len() - 1].id_range();
-            match (first, last) {
-                (Some((start, _)), Some((_, end))) => Some((start, end)),
-                _ => None,
-            }
-        } else {
-            None
-        }
+        self.active.len()
     }
 
     fn commit(
@@ -168,20 +153,21 @@ where
             let additional_len = self.new_len - self.active.len();
             self.staging.truncate(additional_len);
         }
-        if !T::IS_STATIC {
-            for node in &mut self.active {
-                node.gc();
-            }
-            for node in &mut self.staging {
-                node.gc();
-            }
+        for node in &mut self.active {
+            node.gc();
+        }
+        for node in &mut self.staging {
+            node.gc();
         }
     }
 }
 
-impl<T, Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for VecStorage<T>
+impl<Visitor, Context, V, CS, S, M, E> Traversable<Visitor, Context, S, M, E>
+    for VecStorage<ViewNode<V, CS, S, M, E>>
 where
-    T: Traversable<Visitor, Context, S, M, E> + ViewNodeSeq<S, M, E>,
+    V: View<S, M, E>,
+    CS: ComponentStack<S, M, E, View = V>,
+    ViewNode<V, CS, S, M, E>: Traversable<Visitor, Context, S, M, E> + ViewNodeSeq<S, M, E>,
 {
     fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
         for node in &mut self.active {
@@ -196,27 +182,9 @@ where
         context: &mut Context,
         id_stack: &mut IdStack,
     ) -> bool {
-        if T::SIZE_HINT.1.is_some() {
-            if let Ok(index) = binary_search_by(&self.active, |node| {
-                node.id_range().map(|(start, end)| {
-                    if start > id {
-                        Ordering::Less
-                    } else if end < id {
-                        Ordering::Greater
-                    } else {
-                        Ordering::Equal
-                    }
-                })
-            }) {
-                let node = &mut self.active[index];
-                return node.for_id(id, visitor, context, id_stack);
-            }
-        } else {
-            for node in &mut self.active {
-                if node.for_id(id, visitor, context, id_stack) {
-                    return true;
-                }
-            }
+        if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
+            let node = &mut self.active[index];
+            return node.for_id(id, visitor, context, id_stack);
         }
         false
     }

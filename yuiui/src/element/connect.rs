@@ -296,10 +296,6 @@ where
         self.target.len()
     }
 
-    fn id_range(&self) -> Option<(Id, Id)> {
-        self.target.id_range()
-    }
-
     fn commit(
         &mut self,
         mode: CommitMode,

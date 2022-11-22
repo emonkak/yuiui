@@ -1,11 +1,9 @@
-use std::cmp::Ordering;
-
-use crate::element::ElementSeq;
+use crate::component_stack::ComponentStack;
+use crate::element::{Element, ElementSeq};
 use crate::id::{Id, IdStack};
 use crate::store::Store;
-use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
-
-use super::binary_search_by;
+use crate::view::View;
+use crate::view_node::{CommitMode, Traversable, ViewNode, ViewNodeSeq};
 
 #[derive(Debug)]
 pub struct ArrayStorage<T, const N: usize> {
@@ -19,14 +17,14 @@ impl<T, const N: usize> ArrayStorage<T, N> {
     }
 }
 
-impl<T, S, M, E, const N: usize> ElementSeq<S, M, E> for [T; N]
+impl<Element, S, M, E, const N: usize> ElementSeq<S, M, E> for [Element; N]
 where
-    T: ElementSeq<S, M, E>,
+    Element: self::Element<S, M, E>,
 {
-    type Storage = ArrayStorage<T::Storage, N>;
+    type Storage = ArrayStorage<ViewNode<Element::View, Element::Components, S, M, E>, N>;
 
     fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render_children(id_stack, state)))
+        ArrayStorage::new(self.map(|element| element.render(id_stack, state)))
     }
 
     fn update_children(
@@ -39,7 +37,7 @@ where
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update_children(node, id_stack, state);
+            has_changed |= element.update(node.into(), id_stack, state);
         }
 
         storage.dirty |= has_changed;
@@ -48,30 +46,16 @@ where
     }
 }
 
-impl<'a, T, S, M, E, const N: usize> ViewNodeSeq<S, M, E> for ArrayStorage<T, N>
+impl<'a, V, CS, S, M, E, const N: usize> ViewNodeSeq<S, M, E>
+    for ArrayStorage<ViewNode<V, CS, S, M, E>, N>
 where
-    T: ViewNodeSeq<S, M, E>,
+    V: View<S, M, E>,
+    CS: ComponentStack<S, M, E, View = V>,
 {
     const SIZE_HINT: (usize, Option<usize>) = (N, Some(N));
 
     fn len(&self) -> usize {
-        match T::SIZE_HINT {
-            (lower, Some(upper)) if lower == upper => lower * self.nodes.len(),
-            _ => self.nodes.iter().map(|node| node.len()).sum(),
-        }
-    }
-
-    fn id_range(&self) -> Option<(Id, Id)> {
-        if N > 0 {
-            let first = self.nodes[0].id_range();
-            let last = self.nodes[N - 1].id_range();
-            match (first, last) {
-                (Some((start, _)), Some((_, end))) => Some((start, end)),
-                _ => None,
-            }
-        } else {
-            None
-        }
+        N
     }
 
     fn commit(
@@ -93,18 +77,18 @@ where
     }
 
     fn gc(&mut self) {
-        if !T::IS_STATIC {
-            for node in &mut self.nodes {
-                node.gc();
-            }
+        for node in &mut self.nodes {
+            node.gc();
         }
     }
 }
 
-impl<T, Visitor, Context, S, M, E, const N: usize> Traversable<Visitor, Context, S, M, E>
-    for ArrayStorage<T, N>
+impl<Visitor, Context, V, CS, S, M, E, const N: usize> Traversable<Visitor, Context, S, M, E>
+    for ArrayStorage<ViewNode<V, CS, S, M, E>, N>
 where
-    T: Traversable<Visitor, Context, S, M, E> + ViewNodeSeq<S, M, E>,
+    V: View<S, M, E>,
+    CS: ComponentStack<S, M, E, View = V>,
+    ViewNode<V, CS, S, M, E>: Traversable<Visitor, Context, S, M, E>,
 {
     fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
         for node in &mut self.nodes {
@@ -119,27 +103,9 @@ where
         context: &mut Context,
         id_stack: &mut IdStack,
     ) -> bool {
-        if T::SIZE_HINT.1.is_some() {
-            if let Ok(index) = binary_search_by(&self.nodes, |node| {
-                node.id_range().map(|(start, end)| {
-                    if start > id {
-                        Ordering::Less
-                    } else if end < id {
-                        Ordering::Greater
-                    } else {
-                        Ordering::Equal
-                    }
-                })
-            }) {
-                let node = &mut self.nodes[index];
-                return node.for_id(id, visitor, context, id_stack);
-            }
-        } else {
-            for node in &mut self.nodes {
-                if node.for_id(id, visitor, context, id_stack) {
-                    return true;
-                }
-            }
+        if let Ok(index) = self.nodes.binary_search_by_key(&id, |node| node.id) {
+            let node = &mut self.nodes[index];
+            return node.for_id(id, visitor, context, id_stack);
         }
         false
     }

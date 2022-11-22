@@ -12,16 +12,14 @@ pub struct OptionStorage<T> {
     active: Option<T>,
     staging: Option<T>,
     flags: RenderFlags,
-    reserved_ids: Vec<Id>,
 }
 
 impl<T> OptionStorage<T> {
-    fn new(active: Option<T>, reserved_ids: Vec<Id>) -> Self {
+    fn new(active: Option<T>) -> Self {
         Self {
             active,
             staging: None,
             flags: RenderFlags::NONE,
-            reserved_ids,
         }
     }
 }
@@ -33,15 +31,7 @@ where
     type Storage = OptionStorage<T::Storage>;
 
     fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-        let reserved_ids: Vec<Id> = T::Storage::SIZE_HINT
-            .1
-            .map(|upper| id_stack.take_ids(upper))
-            .unwrap_or_default();
-        id_stack.preload_ids(&reserved_ids);
-        OptionStorage::new(
-            self.map(|element| element.render_children(id_stack, state)),
-            reserved_ids,
-        )
+        OptionStorage::new(self.map(|element| element.render_children(id_stack, state)))
     }
 
     fn update_children(
@@ -64,7 +54,6 @@ where
                 if let Some(node) = &mut storage.staging {
                     element.update_children(node, id_stack, state);
                 } else {
-                    id_stack.preload_ids(&storage.reserved_ids);
                     storage.staging = Some(element.render_children(id_stack, state));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
@@ -93,17 +82,6 @@ where
         match &self.active {
             Some(node) => node.len(),
             None => 0,
-        }
-    }
-
-    fn id_range(&self) -> Option<(Id, Id)> {
-        if self.reserved_ids.len() > 0 {
-            Some((
-                self.reserved_ids[0],
-                self.reserved_ids[self.reserved_ids.len() - 1],
-            ))
-        } else {
-            None
         }
     }
 
