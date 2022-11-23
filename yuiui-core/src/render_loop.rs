@@ -154,7 +154,7 @@ where
                     messages: &mut messages,
                     entry_point,
                 };
-                self.node.commit_from(CommitMode::Mount, 0, &mut context);
+                self.node.commit_from_top(CommitMode::Mount, &mut context);
                 self.message_queue.extend(messages);
                 self.is_mounted = true;
                 if deadline.did_timeout() {

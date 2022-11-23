@@ -163,6 +163,14 @@ where
         result
     }
 
+    pub(crate) fn commit_from_top(
+        &mut self,
+        mode: CommitMode,
+        context: &mut CommitContext<S, M, E>,
+    ) -> bool {
+        self.commit_from(mode, CS::DEPTH, context)
+    }
+
     pub(crate) fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
@@ -327,7 +335,7 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, context: &mut CommitContext<S, M, E>) -> bool {
-        self.commit_from(mode, 0, context)
+        self.commit_from_top(mode, context)
     }
 
     fn gc(&mut self) {
