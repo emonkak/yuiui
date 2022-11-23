@@ -4,7 +4,7 @@ use super::{Depth, Id, IdPath, IdPathBuf};
 pub struct IdStack {
     id_path: IdPathBuf,
     depth: Depth,
-    counter: usize,
+    next_id: Id,
 }
 
 impl IdStack {
@@ -12,7 +12,7 @@ impl IdStack {
         Self {
             id_path: IdPathBuf::new(),
             depth: 0,
-            counter: 1,
+            next_id: Id::ROOT.next(),
         }
     }
 
@@ -28,19 +28,20 @@ impl IdStack {
         self.depth
     }
 
-    pub fn next(&mut self) -> Id {
-        self.counter += 1;
-        Id::new(self.counter)
-    }
-
     pub fn push(&mut self, id: Id) {
-        if !id.is_root() {
-            self.id_path.push(id);
-        }
+        assert!(!id.is_root());
+        self.id_path.push(id);
     }
 
     pub fn pop(&mut self) {
+        assert!(!self.id_path.is_empty());
         self.id_path.pop();
+    }
+
+    pub fn next(&mut self) -> Id {
+        let id = self.next_id;
+        self.next_id = id.next();
+        id
     }
 
     pub fn set_depth(&mut self, depth: Depth) {

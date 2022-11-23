@@ -70,8 +70,6 @@ where
             return false;
         }
 
-        context.id_stack.push(self.id);
-
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => self.children.commit(mode, context),
             CommitMode::Unmount => CS::commit(&mut self.into(), mode, depth, context),
@@ -157,8 +155,6 @@ where
             }
             CommitMode::Unmount => self.children.commit(mode, context),
         };
-
-        context.id_stack.pop();
 
         result
     }
@@ -335,7 +331,10 @@ where
     }
 
     fn commit(&mut self, mode: CommitMode, context: &mut CommitContext<S, M, E>) -> bool {
-        self.commit_from_top(mode, context)
+        context.id_stack.push(self.id);
+        let has_changed = self.commit_from_top(mode, context);
+        context.id_stack.pop();
+        has_changed
     }
 
     fn gc(&mut self) {
