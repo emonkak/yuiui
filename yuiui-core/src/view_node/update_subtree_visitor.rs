@@ -1,24 +1,24 @@
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
-use crate::id::{id_tree, Depth, IdPathBuf};
+use crate::id::{id_tree, IdPathBuf, Level};
 use crate::view::View;
 
 use super::{Traversable, ViewNode, Visitor};
 
 pub struct UpdateSubtreeVisitor<'a> {
-    cursor: id_tree::Cursor<'a, Depth>,
-    result: Vec<(IdPathBuf, Depth)>,
+    cursor: id_tree::Cursor<'a, Level>,
+    result: Vec<(IdPathBuf, Level)>,
 }
 
 impl<'a> UpdateSubtreeVisitor<'a> {
-    pub fn new(cursor: id_tree::Cursor<'a, Depth>) -> Self {
+    pub fn new(cursor: id_tree::Cursor<'a, Level>) -> Self {
         Self {
             cursor,
             result: Vec::new(),
         }
     }
 
-    pub fn into_result(self) -> Vec<(IdPathBuf, Depth)> {
+    pub fn into_result(self) -> Vec<(IdPathBuf, Level)> {
         self.result
     }
 }
@@ -34,9 +34,9 @@ where
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut RenderContext<'context, S>,
     ) {
-        if let Some(&depth) = self.cursor.current().data() {
-            let is_updated = if depth > 0 {
-                CS::update(&mut node.into(), depth, context)
+        if let Some(&level) = self.cursor.current().data() {
+            let is_updated = if level > 0 {
+                CS::update(&mut node.into(), level, context)
             } else {
                 node.dirty = true;
                 node.children.for_each(self, context);
@@ -44,7 +44,7 @@ where
             };
             if is_updated {
                 self.result
-                    .push((context.id_stack.id_path().to_vec(), depth));
+                    .push((context.id_stack.id_path().to_vec(), level));
             }
         } else {
             for cursor in self.cursor.children() {

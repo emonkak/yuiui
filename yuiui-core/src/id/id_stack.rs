@@ -1,9 +1,9 @@
-use super::{Depth, Id, IdPath, IdPathBuf};
+use super::{Id, IdPath, IdPathBuf, Level};
 
 #[derive(Debug)]
 pub struct IdStack {
     id_path: IdPathBuf,
-    depth: Depth,
+    level: Level,
     next_id: Id,
 }
 
@@ -11,7 +11,7 @@ impl IdStack {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
-            depth: 0,
+            level: 0,
             next_id: Id::ROOT.next(),
         }
     }
@@ -24,8 +24,8 @@ impl IdStack {
         &self.id_path
     }
 
-    pub fn depth(&self) -> Depth {
-        self.depth
+    pub fn level(&self) -> Level {
+        self.level
     }
 
     pub fn push(&mut self, id: Id) {
@@ -44,7 +44,7 @@ impl IdStack {
         id
     }
 
-    pub fn set_depth(&mut self, depth: Depth) {
-        self.depth = depth;
+    pub fn set_level(&mut self, level: Level) {
+        self.level = level;
     }
 }

@@ -3,7 +3,7 @@ use std::fmt;
 use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
 use crate::event::{EventTarget, Lifecycle};
-use crate::id::{Depth, Id};
+use crate::id::{Id, Level};
 use crate::view::View;
 use crate::view_node::{CommitMode, Traversable, ViewNode, ViewNodeMut, ViewNodeSeq};
 
@@ -205,13 +205,13 @@ impl<T, S, M, SS, SM, E> ComponentStack<S, M, E> for Adapt<T, S, M, SS, SM>
 where
     T: ComponentStack<SS, SM, E>,
 {
-    const DEPTH: Depth = T::DEPTH;
+    const LEVEL: Level = T::LEVEL;
 
     type View = Adapt<T::View, S, M, SS, SM>;
 
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
-        depth: Depth,
+        level: Level,
         context: &mut RenderContext<S>,
     ) -> bool {
         let mut sub_context = RenderContext {
@@ -219,14 +219,14 @@ where
             state: (node.components.select_state)(context.state),
         };
         with_sub_node(node, |mut sub_node| {
-            T::update(&mut sub_node, depth, &mut sub_context)
+            T::update(&mut sub_node, level, &mut sub_context)
         })
     }
 
     fn commit<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
-        depth: Depth,
+        level: Level,
         context: &mut CommitContext<S, M, E>,
     ) -> bool {
         let mut sub_messages = Vec::new();
@@ -237,7 +237,7 @@ where
             entry_point: context.entry_point,
         };
         let result = with_sub_node(node, |mut sub_node| {
-            T::commit(&mut sub_node, mode, depth, &mut sub_context)
+            T::commit(&mut sub_node, mode, level, &mut sub_context)
         });
         context
             .messages

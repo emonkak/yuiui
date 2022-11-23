@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::mem;
 
 use crate::effect::Effect;
-use crate::id::{Depth, IdPath, Subscriber};
+use crate::id::{IdPath, Level, Subscriber};
 
 pub trait State {
     type Message;
@@ -39,18 +39,18 @@ impl<T> Atom<T> {
         &self.value
     }
 
-    pub(crate) fn subscribe(&self, id_path: &IdPath, depth: Depth) {
+    pub(crate) fn subscribe(&self, id_path: &IdPath, level: Level) {
         for subscriber in self.subscribers.borrow_mut().iter_mut() {
             if subscriber.id_path == id_path {
-                if subscriber.depth < depth {
-                    subscriber.depth = depth;
+                if subscriber.level < level {
+                    subscriber.level = level;
                 }
                 return;
             }
         }
         self.subscribers.borrow_mut().push(Subscriber {
             id_path: id_path.to_vec(),
-            depth,
+            level,
         });
     }
 }

@@ -34,7 +34,7 @@ where
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
         context
             .id_stack
-            .set_depth(<Self::Components as ComponentStack<S, M, E>>::DEPTH);
+            .set_level(<Self::Components as ComponentStack<S, M, E>>::LEVEL);
         let element = self.component.render(context);
         let component_node = ComponentNode::new(self.component);
         let node = element.render(context);

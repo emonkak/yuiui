@@ -19,7 +19,7 @@ impl<'context, S> RenderContext<'context, S> {
         F: FnOnce(&S) -> &Atom<T>,
     {
         let atom = f(self.state);
-        atom.subscribe(self.id_stack.id_path(), self.id_stack.depth());
+        atom.subscribe(self.id_stack.id_path(), self.id_stack.level());
         atom.peek()
     }
 

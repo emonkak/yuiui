@@ -10,7 +10,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
-use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
+use crate::id::{Id, IdPath, IdPathBuf, IdTree, Level};
 use crate::view::View;
 
 use broadcast_event_visitor::BroadcastEventVisitor;
@@ -52,9 +52,9 @@ where
 
     pub(crate) fn update_subtree(
         &mut self,
-        id_tree: &IdTree<Depth>,
+        id_tree: &IdTree<Level>,
         context: &mut RenderContext<S>,
-    ) -> Vec<(IdPathBuf, Depth)> {
+    ) -> Vec<(IdPathBuf, Level)> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
         visitor.visit(self, context);
         visitor.into_result()
@@ -63,7 +63,7 @@ where
     pub(crate) fn commit_from(
         &mut self,
         mode: CommitMode,
-        depth: Depth,
+        level: Level,
         context: &mut CommitContext<S, M, E>,
     ) -> bool {
         if !self.dirty && !mode.is_propagable() {
@@ -72,7 +72,7 @@ where
 
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => self.children.commit(mode, context),
-            CommitMode::Unmount => CS::commit(&mut self.into(), mode, depth, context),
+            CommitMode::Unmount => CS::commit(&mut self.into(), mode, level, context),
         };
 
         result |= match (mode, self.pending_view.take(), self.view_state.as_mut()) {
@@ -151,7 +151,7 @@ where
 
         result |= match mode {
             CommitMode::Mount | CommitMode::Update => {
-                CS::commit(&mut self.into(), mode, depth, context)
+                CS::commit(&mut self.into(), mode, level, context)
             }
             CommitMode::Unmount => self.children.commit(mode, context),
         };
@@ -164,12 +164,12 @@ where
         mode: CommitMode,
         context: &mut CommitContext<S, M, E>,
     ) -> bool {
-        self.commit_from(mode, CS::DEPTH, context)
+        self.commit_from(mode, CS::LEVEL, context)
     }
 
     pub(crate) fn commit_subtree(
         &mut self,
-        id_tree: &IdTree<Depth>,
+        id_tree: &IdTree<Level>,
         context: &mut CommitContext<S, M, E>,
     ) {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());

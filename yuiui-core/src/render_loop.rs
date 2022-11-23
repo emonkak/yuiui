@@ -7,7 +7,7 @@ use crate::context::{CommitContext, RenderContext};
 use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
 use crate::event::TransferableEvent;
-use crate::id::{Depth, IdStack, IdTree};
+use crate::id::{IdStack, IdTree, Level};
 use crate::state::State;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
@@ -17,8 +17,8 @@ pub struct RenderLoop<Element: self::Element<S, M, E>, S, M, E> {
     id_stack: IdStack,
     message_queue: VecDeque<M>,
     event_queue: VecDeque<TransferableEvent>,
-    nodes_to_update: IdTree<Depth>,
-    nodes_to_commit: IdTree<Depth>,
+    nodes_to_update: IdTree<Level>,
+    nodes_to_commit: IdTree<Level>,
     is_mounted: bool,
 }
 
@@ -65,7 +65,7 @@ where
                             for subscriber in subscribers {
                                 self.nodes_to_update.insert_or_update(
                                     &subscriber.id_path,
-                                    subscriber.depth,
+                                    subscriber.level,
                                     cmp::min,
                                 );
                             }
@@ -120,9 +120,9 @@ where
                 };
                 let changed_nodes = self.node.update_subtree(&id_tree, &mut context);
                 if self.is_mounted {
-                    for (id_path, depth) in changed_nodes {
+                    for (id_path, level) in changed_nodes {
                         self.nodes_to_commit
-                            .insert_or_update(&id_path, depth, cmp::max);
+                            .insert_or_update(&id_path, level, cmp::max);
                     }
                 }
                 if deadline.did_timeout() {

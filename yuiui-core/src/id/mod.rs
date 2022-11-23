@@ -49,10 +49,10 @@ pub type IdPath = [Id];
 
 pub type IdPathBuf = Vec<Id>;
 
-pub type Depth = u32;
+pub type Level = u32;
 
 #[derive(Clone, Debug)]
 pub struct Subscriber {
     pub(crate) id_path: IdPathBuf,
-    pub(crate) depth: Depth,
+    pub(crate) level: Level,
 }
