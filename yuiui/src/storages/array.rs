@@ -1,7 +1,6 @@
 use crate::component_stack::ComponentStack;
 use crate::element::{Element, ElementSeq};
-use crate::id::{Id, IdStack};
-use crate::store::Store;
+use crate::id::{Id, IdContext};
 use crate::view::View;
 use crate::view_node::{CommitMode, Traversable, ViewNode, ViewNodeSeq};
 
@@ -23,21 +22,21 @@ where
 {
     type Storage = ArrayStorage<ViewNode<Element::View, Element::Components, S, M, E>, N>;
 
-    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render(id_stack, state)))
+    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
+        ArrayStorage::new(self.map(|element| element.render(state, id_context)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
         let mut has_changed = false;
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update(node.into(), id_stack, state);
+            has_changed |= element.update(node.into(), state, id_context);
         }
 
         storage.dirty |= has_changed;
@@ -61,15 +60,15 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagable() {
             for node in &mut self.nodes {
-                result |= node.commit(mode, id_stack, store, messages, entry_point);
+                result |= node.commit(mode, state, id_context, messages, entry_point);
             }
             self.dirty = false;
         }
@@ -90,9 +89,14 @@ where
     CS: ComponentStack<S, M, E, View = V>,
     ViewNode<V, CS, S, M, E>: Traversable<Visitor, Context, S, M, E>,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        context: &mut Context,
+        id_context: &mut IdContext,
+    ) {
         for node in &mut self.nodes {
-            node.for_each(visitor, context, id_stack);
+            node.for_each(visitor, context, id_context);
         }
     }
 
@@ -101,11 +105,11 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) -> bool {
         if let Ok(index) = self.nodes.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.nodes[index];
-            return node.for_id(id, visitor, context, id_stack);
+            return node.for_id(id, visitor, context, id_context);
         }
         false
     }

@@ -2,7 +2,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    CommitContext, ComponentStack, Element, ElementSeq, EventTarget, IdStack, Lifecycle, Store,
+    CommitContext, ComponentStack, Element, ElementSeq, EventTarget, IdContext, Lifecycle,
     Traversable, View, ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
@@ -68,10 +68,10 @@ where
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
         messages: &mut Vec<M>,
         entry_point: &E,
+        id_context: &mut IdContext,
     ) {
         let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
@@ -85,18 +85,18 @@ where
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(view_state);
             let mut context = CommitContext {
-                store,
+                state,
                 messages,
                 entry_point,
             };
-            children.for_each(&mut visitor, &mut context, id_stack);
+            children.for_each(&mut visitor, &mut context, id_context);
         }
     }
 
     fn build(
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _store: &Store<S>,
+        _state: &S,
         _entry_point: &E,
     ) -> Self::State {
         self.build()
@@ -162,10 +162,10 @@ where
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
         _messages: &mut Vec<M>,
         _entry_point: &E,
+        _id_context: &mut IdContext,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -178,7 +178,7 @@ where
     fn build(
         &self,
         child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _store: &Store<S>,
+        _state: &S,
         _entry_point: &E,
     ) -> Self::State {
         let container = self.build();
@@ -218,7 +218,7 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         _context: &mut Context,
-        _id_stack: &mut IdStack,
+        _id_context: &mut IdContext,
     ) {
         let new_widget: &gtk::Widget = node.view_state().unwrap().as_ref();
         loop {

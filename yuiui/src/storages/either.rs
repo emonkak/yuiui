@@ -2,8 +2,7 @@ use either::Either;
 use std::mem;
 
 use crate::element::ElementSeq;
-use crate::id::{Id, IdStack};
-use crate::store::Store;
+use crate::id::{Id, IdContext};
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 use super::RenderFlags;
@@ -32,13 +31,13 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
+    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
         match self {
             Either::Left(element) => {
-                EitherStorage::new(Either::Left(element.render_children(id_stack, state)))
+                EitherStorage::new(Either::Left(element.render_children(state, id_context)))
             }
             Either::Right(element) => {
-                EitherStorage::new(Either::Right(element.render_children(id_stack, state)))
+                EitherStorage::new(Either::Right(element.render_children(state, id_context)))
             }
         }
     }
@@ -46,12 +45,12 @@ where
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update_children(node, id_stack, state) {
+                if element.update_children(node, state, id_context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -60,7 +59,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update_children(node, id_stack, state) {
+                if element.update_children(node, state, id_context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -71,11 +70,11 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update_children(node, id_stack, state);
+                        element.update_children(node, state, id_context);
                     }
                     None => {
                         storage.staging =
-                            Some(Either::Right(element.render_children(id_stack, state)));
+                            Some(Either::Right(element.render_children(state, id_context)));
                     }
                     _ => unreachable!(),
                 };
@@ -85,11 +84,11 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update_children(node, id_stack, state);
+                        element.update_children(node, state, id_context);
                     }
                     None => {
                         storage.staging =
-                            Some(Either::Left(element.render_children(id_stack, state)));
+                            Some(Either::Left(element.render_children(state, id_context)));
                     }
                     _ => unreachable!(),
                 }
@@ -130,8 +129,8 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
@@ -139,29 +138,37 @@ where
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result |= match &mut self.active {
-                    Either::Left(node) => {
-                        node.commit(CommitMode::Unmount, id_stack, store, messages, entry_point)
-                    }
-                    Either::Right(node) => {
-                        node.commit(CommitMode::Unmount, id_stack, store, messages, entry_point)
-                    }
+                    Either::Left(node) => node.commit(
+                        CommitMode::Unmount,
+                        state,
+                        id_context,
+                        messages,
+                        entry_point,
+                    ),
+                    Either::Right(node) => node.commit(
+                        CommitMode::Unmount,
+                        state,
+                        id_context,
+                        messages,
+                        entry_point,
+                    ),
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
                     Either::Left(node) => {
-                        node.commit(CommitMode::Mount, id_stack, store, messages, entry_point)
+                        node.commit(CommitMode::Mount, state, id_context, messages, entry_point)
                     }
                     Either::Right(node) => {
-                        node.commit(CommitMode::Mount, id_stack, store, messages, entry_point)
+                        node.commit(CommitMode::Mount, state, id_context, messages, entry_point)
                     }
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, id_stack, store, messages, entry_point),
-                Either::Right(node) => node.commit(mode, id_stack, store, messages, entry_point),
+                Either::Left(node) => node.commit(mode, state, id_context, messages, entry_point),
+                Either::Right(node) => node.commit(mode, state, id_context, messages, entry_point),
             };
         }
         self.flags = RenderFlags::COMMITED;
@@ -184,10 +191,15 @@ where
     L: Traversable<Visitor, Context, S, M, E>,
     R: Traversable<Visitor, Context, S, M, E>,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        context: &mut Context,
+        id_context: &mut IdContext,
+    ) {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, context, id_stack),
-            Either::Right(node) => node.for_each(visitor, context, id_stack),
+            Either::Left(node) => node.for_each(visitor, context, id_context),
+            Either::Right(node) => node.for_each(visitor, context, id_context),
         }
     }
 
@@ -196,11 +208,11 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.for_id(id, visitor, context, id_stack),
-            Either::Right(node) => node.for_id(id, visitor, context, id_stack),
+            Either::Left(node) => node.for_id(id, visitor, context, id_context),
+            Either::Right(node) => node.for_id(id, visitor, context, id_context),
         }
     }
 }

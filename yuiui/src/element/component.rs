@@ -1,6 +1,7 @@
 use crate::component::Component;
 use crate::component_node::ComponentNode;
-use crate::id::IdStack;
+use crate::component_stack::ComponentStack;
+use crate::id::IdContext;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
@@ -29,12 +30,13 @@ where
 
     fn render(
         self,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        let element = self.component.render(state);
-        let node = element.render(id_stack, state);
+        id_context.set_depth(<Self::Components as ComponentStack<S, M, E>>::DEPTH);
         let component_node = ComponentNode::new(self.component);
+        let element = component_node.render(state, id_context);
+        let node = element.render(state, id_context);
         ViewNode {
             id: node.id,
             view: node.view,
@@ -49,11 +51,11 @@ where
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
         let (head_component, tail_components) = node.components;
-        let element = self.component.render(state);
+        let element = self.component.render(state, id_context);
         head_component.update(self.component);
         let node = ViewNodeMut {
             id: node.id,
@@ -64,7 +66,7 @@ where
             components: tail_components,
             dirty: node.dirty,
         };
-        element.update(node, id_stack, state)
+        element.update(node, state, id_context)
     }
 }
 
@@ -75,16 +77,16 @@ where
     type Storage =
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
-    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-        self.render(id_stack, state)
+    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
+        self.render(state, id_context)
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
-        self.update(storage.into(), id_stack, state)
+        self.update(storage.into(), state, id_context)
     }
 }

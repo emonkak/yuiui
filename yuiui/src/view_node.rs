@@ -9,8 +9,7 @@ use std::{fmt, mem};
 use crate::component_stack::ComponentStack;
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
-use crate::id::{Depth, Id, IdPath, IdPathBuf, IdStack, IdTree};
-use crate::store::Store;
+use crate::id::{Depth, Id, IdContext, IdPath, IdPathBuf, IdTree};
 use crate::view::View;
 
 use broadcast_event_visitor::BroadcastEventVisitor;
@@ -53,12 +52,12 @@ where
     pub(crate) fn update_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        store: &Store<S>,
-        id_stack: &mut IdStack,
+        state: &S,
+        id_context: &mut IdContext,
     ) -> Vec<(IdPathBuf, Depth)> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
-        let mut context = RenderContext { store };
-        visitor.visit(self, &mut context, id_stack);
+        let mut context = RenderContext { state };
+        visitor.visit(self, &mut context, id_context);
         visitor.into_result()
     }
 
@@ -66,8 +65,8 @@ where
         &mut self,
         mode: CommitMode,
         depth: Depth,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
@@ -75,84 +74,84 @@ where
             return false;
         }
 
-        id_stack.push_id(self.id);
+        id_context.push_id(self.id);
 
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => {
                 self.children
-                    .commit(mode, id_stack, store, messages, entry_point)
+                    .commit(mode, state, id_context, messages, entry_point)
             }
             CommitMode::Unmount => CS::commit(
                 &mut self.into(),
                 mode,
                 depth,
-                id_stack,
-                store,
+                state,
                 messages,
                 entry_point,
+                id_context,
             ),
         };
 
         result |= match (mode, self.pending_view.take(), self.view_state.as_mut()) {
             (CommitMode::Mount, None, None) => {
-                let mut view_state = self.view.build(&mut self.children, store, entry_point);
+                let mut view_state = self.view.build(&mut self.children, state, entry_point);
                 self.view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 self.view_state = Some(view_state);
                 true
             }
             (CommitMode::Mount, Some(pending_view), None) => {
-                let mut view_state = pending_view.build(&mut self.children, store, entry_point);
+                let mut view_state = pending_view.build(&mut self.children, state, entry_point);
                 pending_view.lifecycle(
                     Lifecycle::Mount,
                     &mut view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 self.view_state = Some(view_state);
                 true
             }
-            (CommitMode::Mount, None, Some(state)) => {
+            (CommitMode::Mount, None, Some(view_state)) => {
                 self.view.lifecycle(
                     Lifecycle::Remount,
-                    state,
+                    view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 true
             }
-            (CommitMode::Mount, Some(pending_view), Some(state)) => {
+            (CommitMode::Mount, Some(pending_view), Some(view_state)) => {
                 self.view.lifecycle(
                     Lifecycle::Remount,
-                    state,
+                    view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 let old_view = mem::replace(&mut self.view, pending_view);
                 self.view.lifecycle(
                     Lifecycle::Update(old_view),
-                    state,
+                    view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 true
             }
@@ -161,41 +160,41 @@ where
             (CommitMode::Update, Some(_), None) => {
                 unreachable!()
             }
-            (CommitMode::Update, Some(pending_view), Some(state)) => {
+            (CommitMode::Update, Some(pending_view), Some(view_state)) => {
                 let old_view = mem::replace(&mut self.view, pending_view);
                 self.view.lifecycle(
                     Lifecycle::Update(old_view),
-                    state,
+                    view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 true
             }
             (CommitMode::Unmount, None, None) => false,
-            (CommitMode::Unmount, None, Some(state)) => {
+            (CommitMode::Unmount, None, Some(view_state)) => {
                 self.view.lifecycle(
                     Lifecycle::Unmount,
-                    state,
+                    view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 true
             }
-            (CommitMode::Unmount, Some(pending_view), Some(state)) => {
+            (CommitMode::Unmount, Some(pending_view), Some(view_state)) => {
                 self.view.lifecycle(
                     Lifecycle::Unmount,
-                    state,
+                    view_state,
                     &mut self.children,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 self.pending_view = Some(pending_view);
                 true
@@ -212,18 +211,18 @@ where
                 &mut self.into(),
                 mode,
                 depth,
-                id_stack,
-                store,
+                state,
                 messages,
                 entry_point,
+                id_context,
             ),
             CommitMode::Unmount => {
                 self.children
-                    .commit(mode, id_stack, store, messages, entry_point)
+                    .commit(mode, state, id_context, messages, entry_point)
             }
         };
 
-        id_stack.pop_id();
+        id_context.pop_id();
 
         result
     }
@@ -231,18 +230,18 @@ where
     pub(crate) fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        id_context: &mut IdContext,
+        state: &S,
         entry_point: &E,
     ) -> Vec<M> {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
         let mut messages = Vec::new();
         let mut context = CommitContext {
-            store,
+            state,
             messages: &mut messages,
             entry_point,
         };
-        visitor.visit(self, &mut context, id_stack);
+        visitor.visit(self, &mut context, id_context);
         messages
     }
 
@@ -250,18 +249,18 @@ where
         &mut self,
         payload: &dyn Any,
         destination: &IdPath,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        id_context: &mut IdContext,
+        state: &S,
         entry_point: &E,
     ) -> Vec<M> {
         let mut visitor = ForwardEventVisitor::new(payload, destination);
         let mut messages = Vec::new();
         let mut context = CommitContext {
-            store,
+            state,
             messages: &mut messages,
             entry_point,
         };
-        visitor.visit(self, &mut context, id_stack);
+        visitor.visit(self, &mut context, id_context);
         messages
     }
 
@@ -269,8 +268,8 @@ where
         &mut self,
         payload: &dyn Any,
         destinations: &[IdPathBuf],
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        id_context: &mut IdContext,
+        state: &S,
         entry_point: &E,
     ) -> Vec<M> {
         let id_tree = IdTree::from_iter(destinations);
@@ -278,11 +277,11 @@ where
         let mut visitor = BroadcastEventVisitor::new(payload, cursor);
         let mut messages = Vec::new();
         let mut context = CommitContext {
-            store,
+            state,
             messages: &mut messages,
             entry_point,
         };
-        visitor.visit(self, &mut context, id_stack);
+        visitor.visit(self, &mut context, id_context);
         messages
     }
 
@@ -420,8 +419,8 @@ pub trait ViewNodeSeq<S, M, E>:
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool;
@@ -443,12 +442,12 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
-        self.commit_from(mode, 0, id_stack, store, messages, entry_point)
+        self.commit_from(mode, 0, state, id_context, messages, entry_point)
     }
 
     fn gc(&mut self) {
@@ -459,19 +458,24 @@ where
 }
 
 pub trait Traversable<Visitor, Context, S, M, E> {
-    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack);
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        context: &mut Context,
+        id_context: &mut IdContext,
+    );
 
     fn for_id(
         &mut self,
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) -> bool;
 }
 
 pub trait Visitor<Node, Context, S, M, E> {
-    fn visit(&mut self, node: &mut Node, context: &mut Context, id_stack: &mut IdStack);
+    fn visit(&mut self, node: &mut Node, context: &mut Context, id_context: &mut IdContext);
 }
 
 impl<'a, V, CS, S, M, E, Visitor, Context> Traversable<Visitor, Context, S, M, E>
@@ -481,10 +485,15 @@ where
     CS: ComponentStack<S, M, E, View = V>,
     Visitor: self::Visitor<Self, Context, S, M, E>,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
-        id_stack.push_id(self.id);
-        let result = visitor.visit(self, context, id_stack);
-        id_stack.pop_id();
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        context: &mut Context,
+        id_context: &mut IdContext,
+    ) {
+        id_context.push_id(self.id);
+        let result = visitor.visit(self, context, id_context);
+        id_context.pop_id();
         result
     }
 
@@ -493,16 +502,16 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) -> bool {
-        id_stack.push_id(self.id);
+        id_context.push_id(self.id);
         let result = if id == self.id {
-            visitor.visit(self, context, id_stack);
+            visitor.visit(self, context, id_context);
             true
         } else {
             false
         };
-        id_stack.pop_id();
+        id_context.pop_id();
         result
     }
 }
@@ -525,12 +534,12 @@ impl CommitMode {
 
 #[derive(Debug)]
 pub struct RenderContext<'context, S> {
-    pub store: &'context Store<S>,
+    pub state: &'context S,
 }
 
 #[derive(Debug)]
 pub struct CommitContext<'context, S, M, E> {
-    pub store: &'context Store<S>,
+    pub state: &'context S,
     pub messages: &'context mut Vec<M>,
     pub entry_point: &'context E,
 }

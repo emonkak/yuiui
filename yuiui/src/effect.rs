@@ -1,27 +1,17 @@
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::id::{Depth, IdPathBuf};
+use crate::id::Subscriber;
 
-#[derive(Debug, Default)]
-pub struct Effect<T> {
-    pub(crate) commands: Vec<(Command<T>, Option<CancellationToken>)>,
-    pub(crate) subscribers: Vec<(IdPathBuf, Depth)>,
+#[derive(Debug)]
+pub enum Effect<T> {
+    Command(Command<T>, Option<CancellationToken>),
+    Update(Vec<Subscriber>),
+    Batch(Vec<Effect<T>>),
 }
 
 impl<T> Effect<T> {
-    pub fn new() -> Self {
-        Self {
-            commands: Vec::new(),
-            subscribers: Vec::new(),
-        }
-    }
-
-    pub fn add_command(
-        &mut self,
-        command: Command<T>,
-        cancellation_token: Option<CancellationToken>,
-    ) {
-        self.commands.push((command, cancellation_token));
+    pub fn nop() -> Self {
+        Self::Batch(Vec::new())
     }
 
     pub fn map<F, U>(self, f: F) -> Effect<U>
@@ -30,19 +20,37 @@ impl<T> Effect<T> {
         T: 'static,
         U: 'static,
     {
-        let commands = self
-            .commands
-            .into_iter()
-            .map(move |(command, cancellation_token)| (command.map(f.clone()), cancellation_token))
-            .collect();
-        Effect {
-            commands,
-            subscribers: self.subscribers,
+        match self {
+            Effect::Command(command, cancellation_token) => {
+                Effect::Command(command.map(f.clone()), cancellation_token)
+            }
+            Effect::Update(subscribers) => Effect::Update(subscribers),
+            Effect::Batch(effects) => Effect::Batch(
+                effects
+                    .into_iter()
+                    .map(|effect| effect.map(f.clone()))
+                    .collect(),
+            ),
         }
     }
 
-    pub fn append(&mut self, other: &mut Effect<T>) {
-        self.commands.append(&mut other.commands);
-        self.subscribers.append(&mut other.subscribers);
+    pub fn compose(self, rhs: Effect<T>) -> Self {
+        match (self, rhs) {
+            (Effect::Batch(mut lhs), Effect::Batch(rhs)) => {
+                lhs.extend(rhs);
+                Effect::Batch(lhs)
+            }
+            (Effect::Batch(mut lhs), rhs) => {
+                lhs.push(rhs);
+                Effect::Batch(lhs)
+            }
+            (lhs, Effect::Batch(rhs)) => {
+                let mut effects = Vec::with_capacity(rhs.len() + 1);
+                effects.push(lhs);
+                effects.extend(rhs);
+                Effect::Batch(effects)
+            }
+            (lhs, rhs) => Effect::Batch(vec![lhs, rhs]),
+        }
     }
 }

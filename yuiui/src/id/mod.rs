@@ -1,8 +1,8 @@
 pub mod id_tree;
 
-mod id_stack;
+mod id_context;
 
-pub use id_stack::IdStack;
+pub use id_context::IdContext;
 pub use id_tree::IdTree;
 
 use std::num::NonZeroUsize;
@@ -46,3 +46,9 @@ pub type IdPath = [Id];
 pub type IdPathBuf = Vec<Id>;
 
 pub type Depth = usize;
+
+#[derive(Clone, Debug)]
+pub struct Subscriber {
+    pub(crate) id_path: IdPathBuf,
+    pub(crate) depth: Depth,
+}

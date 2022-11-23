@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use gtk::prelude::*;
 use gtk::{gdk, glib};
-use yuiui::{Element, ElementSeq, EventTarget, IdPathBuf, IdStack, Lifecycle, Store, View};
+use yuiui::{Element, ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
@@ -67,15 +67,15 @@ where
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
         _messages: &mut Vec<M>,
         entry_point: &EntryPoint,
+        id_context: &mut IdContext,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_click.is_some() {
-                    view_state.connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
+                    view_state.connect_clicked(id_context.id_path().to_vec(), entry_point.clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -85,7 +85,7 @@ where
                     }
                     (None, Some(_)) => {
                         view_state
-                            .connect_clicked(id_stack.id_path().to_vec(), entry_point.clone());
+                            .connect_clicked(id_context.id_path().to_vec(), entry_point.clone());
                     }
                     _ => {}
                 }
@@ -102,15 +102,15 @@ where
         event: <Self as EventTarget>::Event,
         _state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
         messages: &mut Vec<M>,
         _entry_point: &EntryPoint,
+        _id_context: &mut IdContext,
     ) {
         match event {
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
-                    let message = on_click(store.state());
+                    let message = on_click(state);
                     messages.extend(message);
                 }
             }
@@ -120,7 +120,7 @@ where
     fn build(
         &self,
         child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _store: &Store<S>,
+        _state: &S,
         _entry_point: &EntryPoint,
     ) -> Self::State {
         let widget = self.build();

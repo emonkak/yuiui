@@ -1,18 +1,17 @@
+mod adapt;
 mod component;
-mod connect;
 mod memoize;
 mod view;
 
+pub use adapt::AdaptElement;
 pub use component::ComponentElement;
-pub use connect::ConnectElement;
 pub use memoize::Memoize;
 pub use view::ViewElement;
 
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
-use crate::id::IdStack;
-use crate::store::Store;
+use crate::id::IdContext;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
@@ -25,36 +24,36 @@ pub trait Element<S, M, E>:
 
     fn render(
         self,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> ViewNode<Self::View, Self::Components, S, M, E>;
 
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool;
 
-    fn connect<PS, PM>(
+    fn adapt<PS, PM>(
         self,
-        select_store: fn(&PS) -> &Store<S>,
+        select_state: fn(&PS) -> &S,
         lift_message: fn(M) -> PM,
-    ) -> ConnectElement<Self, PS, PM, S, M> {
-        ConnectElement::new(self, select_store, lift_message)
+    ) -> AdaptElement<Self, PS, PM, S, M> {
+        AdaptElement::new(self, select_state, lift_message)
     }
 }
 
 pub trait ElementSeq<S, M, E> {
     type Storage: ViewNodeSeq<S, M, E>;
 
-    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage;
+    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage;
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool;
 }
 

@@ -1,8 +1,7 @@
 use std::mem;
 
 use crate::element::ElementSeq;
-use crate::id::{Id, IdStack};
-use crate::store::Store;
+use crate::id::{Id, IdContext};
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 use super::RenderFlags;
@@ -30,19 +29,19 @@ where
 {
     type Storage = OptionStorage<T::Storage>;
 
-    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-        OptionStorage::new(self.map(|element| element.render_children(id_stack, state)))
+    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
+        OptionStorage::new(self.map(|element| element.render_children(state, id_context)))
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
         match (&mut storage.active, self) {
             (Some(node), Some(element)) => {
-                if element.update_children(node, id_stack, state) {
+                if element.update_children(node, state, id_context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -52,9 +51,9 @@ where
             }
             (None, Some(element)) => {
                 if let Some(node) = &mut storage.staging {
-                    element.update_children(node, id_stack, state);
+                    element.update_children(node, state, id_context);
                 } else {
-                    storage.staging = Some(element.render_children(id_stack, state));
+                    storage.staging = Some(element.render_children(state, id_context));
                 }
                 storage.flags |= RenderFlags::SWAPPED;
                 true
@@ -88,8 +87,8 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
@@ -97,20 +96,25 @@ where
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 if let Some(node) = &mut self.active {
-                    result |=
-                        node.commit(CommitMode::Unmount, id_stack, store, messages, entry_point);
+                    result |= node.commit(
+                        CommitMode::Unmount,
+                        state,
+                        id_context,
+                        messages,
+                        entry_point,
+                    );
                 }
             }
             mem::swap(&mut self.active, &mut self.staging);
             if mode != CommitMode::Unmount {
                 if let Some(node) = &mut self.active {
                     result |=
-                        node.commit(CommitMode::Mount, id_stack, store, messages, entry_point);
+                        node.commit(CommitMode::Mount, state, id_context, messages, entry_point);
                 }
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             if let Some(node) = &mut self.active {
-                result |= node.commit(mode, id_stack, store, messages, entry_point);
+                result |= node.commit(mode, state, id_context, messages, entry_point);
             }
         }
         self.flags = RenderFlags::COMMITED;
@@ -131,9 +135,14 @@ impl<T, Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for Op
 where
     T: Traversable<Visitor, Context, S, M, E>,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        context: &mut Context,
+        id_context: &mut IdContext,
+    ) {
         if let Some(node) = &mut self.active {
-            node.for_each(visitor, context, id_stack);
+            node.for_each(visitor, context, id_context);
         }
     }
 
@@ -142,10 +151,10 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) -> bool {
         if let Some(node) = &mut self.active {
-            node.for_id(id, visitor, context, id_stack)
+            node.for_id(id, visitor, context, id_context)
         } else {
             false
         }

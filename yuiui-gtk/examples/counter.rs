@@ -1,27 +1,23 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Effect, HigherOrderComponent, State, View};
+use yuiui::{Atom, Effect, HigherOrderComponent, IdContext, State, View};
 use yuiui_gtk::views::{Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
 struct AppState {
-    count: i64,
+    count: Atom<i64>,
 }
 
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
-        match message {
-            AppMessage::Increment => {
-                self.count += 1;
-            }
-            AppMessage::Decrement => {
-                self.count -= 1;
-            }
-        }
-        (true, Effect::new())
+    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
+        let subscribers = match message {
+            AppMessage::Increment => self.count.update(|count| *count += 1),
+            AppMessage::Decrement => self.count.update(|count| *count -= 1),
+        };
+        Effect::Update(subscribers)
     }
 }
 
@@ -31,7 +27,12 @@ enum AppMessage {
     Decrement,
 }
 
-fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
+fn app(
+    _props: &(),
+    state: &AppState,
+    id_context: &mut IdContext,
+) -> impl GtkElement<AppState, AppMessage> {
+    let count = id_context.use_atom(&state.count);
     Grid::new().hexpand(true).vexpand(true).el(hlist![
         GridChild::new(
             Button::new()
@@ -65,7 +66,7 @@ fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
             Label::new()
                 .hexpand(true)
                 .vexpand(true)
-                .label(state.count.to_string()),
+                .label(count.to_string()),
             0,
             1,
             2,

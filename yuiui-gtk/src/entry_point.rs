@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use yuiui::{Element, IdPathBuf, RenderFlow, RenderLoop, State, Store, TransferableEvent, View};
+use yuiui::{Element, IdPathBuf, RenderFlow, RenderLoop, State, TransferableEvent, View};
 
 use crate::command_runtime::CommandRuntime;
 
@@ -25,7 +25,7 @@ impl EntryPoint {
         }
     }
 
-    pub fn run<S, M, E>(self, element: E, state: S)
+    pub fn run<S, M, E>(self, element: E, mut state: S)
     where
         E: Element<S, M, Self> + 'static,
         <E::View as View<S, M, Self>>::State: AsRef<gtk::Widget>,
@@ -34,10 +34,9 @@ impl EntryPoint {
     {
         let (message_tx, message_rx) = mpsc::channel();
         let command_runtime = CommandRuntime::new(glib::MainContext::default(), message_tx);
-        let mut store = Store::new(state);
-        let mut render_loop = RenderLoop::create(element, &mut store);
+        let mut render_loop = RenderLoop::create(element, &mut state);
 
-        render_loop.run_forever(&mut store, &self, &command_runtime);
+        render_loop.run_forever(&mut state, &self, &command_runtime);
 
         let widget = render_loop.node().view_state().unwrap().as_ref();
 
@@ -67,7 +66,7 @@ impl EntryPoint {
                 let deadline = Instant::now() + DEALINE_PERIOD;
 
                 if matches!(
-                    render_loop.run(&mut store, &self, &command_runtime, &deadline),
+                    render_loop.run(&mut state, &self, &command_runtime, &deadline),
                     RenderFlow::Suspend
                 ) {
                     command_runtime.request_rerender();

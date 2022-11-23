@@ -2,7 +2,7 @@ use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
 use crate::event::Event;
-use crate::id::{IdPath, IdStack};
+use crate::id::{IdContext, IdPath};
 use crate::view::View;
 
 use super::{CommitContext, Traversable, ViewNode, Visitor};
@@ -29,11 +29,11 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut CommitContext<'context, S, M, E>,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) {
         if let Some((head, tail)) = self.id_path.split_first() {
             self.id_path = tail;
-            node.children.for_id(*head, self, context, id_stack);
+            node.children.for_id(*head, self, context, id_context);
         } else {
             let view = &mut node.view;
             let state = node.view_state.as_mut().unwrap();
@@ -47,10 +47,10 @@ where
                 event,
                 state,
                 &mut node.children,
-                id_stack,
-                context.store,
+                context.state,
                 context.messages,
                 context.entry_point,
+                id_context,
             );
         }
     }

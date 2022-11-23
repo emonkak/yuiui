@@ -1,20 +1,19 @@
 use crate::element::ElementSeq;
-use crate::id::{Id, IdStack};
-use crate::store::Store;
+use crate::id::{Id, IdContext};
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 impl<S, M, E> ElementSeq<S, M, E> for () {
     type Storage = ();
 
-    fn render_children(self, _id_stack: &mut IdStack, _state: &S) -> Self::Storage {
+    fn render_children(self, _state: &S, _id_context: &mut IdContext) -> Self::Storage {
         ()
     }
 
     fn update_children(
         self,
         _nodes: &mut Self::Storage,
-        _id_stack: &mut IdStack,
         _state: &S,
+        _id_context: &mut IdContext,
     ) -> bool {
         false
     }
@@ -30,8 +29,8 @@ impl<S, M, E> ViewNodeSeq<S, M, E> for () {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
+        _id_context: &mut IdContext,
         _messages: &mut Vec<M>,
         _entry_point: &E,
     ) -> bool {
@@ -46,7 +45,7 @@ impl<Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for () {
         &mut self,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _id_stack: &mut IdStack,
+        _id_context: &mut IdContext,
     ) {
     }
 
@@ -55,7 +54,7 @@ impl<Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for () {
         _id: Id,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _id_stack: &mut IdStack,
+        _id_context: &mut IdContext,
     ) -> bool {
         false
     }
@@ -82,17 +81,17 @@ macro_rules! define_tuple_impl {
         {
             type Storage = ($($T::Storage,)*);
 
-            fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
-                ($(self.$n.render_children(id_stack, state),)*)
+            fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
+                ($(self.$n.render_children(state, id_context),)*)
             }
 
             fn update_children(
                 self,
                 storage: &mut Self::Storage,
-                id_stack: &mut IdStack,
                 state: &S,
+                id_context: &mut IdContext,
             ) -> bool {
-                $(self.$n.update_children(&mut storage.$n, id_stack, state))||*
+                $(self.$n.update_children(&mut storage.$n, state, id_context))||*
             }
         }
 
@@ -119,12 +118,12 @@ macro_rules! define_tuple_impl {
             fn commit(
                 &mut self,
                 mode: CommitMode,
-                id_stack: &mut IdStack,
-                store: &Store<S>,
+                state: &S,
+                id_context: &mut IdContext,
                 messages: &mut Vec<M>,
                 entry_point: &E,
             ) -> bool {
-                $(self.$n.commit(mode, id_stack, store, messages, entry_point))||*
+                $(self.$n.commit(mode, state, id_context, messages, entry_point))||*
             }
 
             fn gc(&mut self) {
@@ -141,10 +140,10 @@ macro_rules! define_tuple_impl {
                 &mut self,
                 visitor: &mut Visitor,
                 context: &mut Context,
-                id_stack: &mut IdStack,
+                id_context: &mut IdContext,
             ) {
                 $(
-                    self.$n.for_each(visitor, context, id_stack);
+                    self.$n.for_each(visitor, context, id_context);
                 )*
             }
 
@@ -153,10 +152,10 @@ macro_rules! define_tuple_impl {
                 id: Id,
                 visitor: &mut Visitor,
                 context: &mut Context,
-                id_stack: &mut IdStack,
+                id_context: &mut IdContext,
             ) -> bool {
                 $(
-                    if self.$n.for_id(id, visitor, context, id_stack) {
+                    if self.$n.for_id(id, visitor, context, id_context) {
                         return true;
                     }
                 )*

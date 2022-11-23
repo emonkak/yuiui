@@ -1,17 +1,33 @@
-use super::{Id, IdPath, IdPathBuf};
+use super::{Depth, Id, IdPath, IdPathBuf};
+use crate::state::Atom;
 
 #[derive(Debug)]
-pub struct IdStack {
+pub struct IdContext {
     id_path: IdPathBuf,
+    depth: Depth,
     counter: usize,
 }
 
-impl IdStack {
+impl IdContext {
     pub fn new() -> Self {
         Self {
             id_path: IdPathBuf::new(),
+            depth: 0,
             counter: 1,
         }
+    }
+
+    pub fn use_atom<'a, T>(&self, atom: &'a Atom<T>) -> &'a T {
+        atom.subscribe(&self.id_path, self.depth);
+        atom.value()
+    }
+
+    pub fn id_path(&self) -> &IdPath {
+        &self.id_path
+    }
+
+    pub fn depth(&self) -> Depth {
+        self.depth
     }
 
     pub(crate) fn next_id(&mut self) -> Id {
@@ -30,7 +46,7 @@ impl IdStack {
         self.id_path.pop();
     }
 
-    pub fn id_path(&self) -> &IdPath {
-        &self.id_path
+    pub(crate) fn set_depth(&mut self, depth: Depth) {
+        self.depth = depth;
     }
 }

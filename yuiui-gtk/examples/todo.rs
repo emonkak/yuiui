@@ -1,41 +1,56 @@
 use gtk::prelude::*;
 use hlist::hlist;
 use std::rc::Rc;
-use yuiui::{Effect, HigherOrderComponent, Memoize, State, View};
+use yuiui::{Atom, Effect, HigherOrderComponent, IdContext, Memoize, State, View};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
 #[derive(Debug, Default)]
 struct AppState {
-    todos: Vec<Rc<Todo>>,
-    text: String,
+    todos: Atom<Vec<Rc<Todo>>>,
+    text: Atom<String>,
     todo_id: usize,
 }
 
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(&mut self, message: Self::Message) -> (bool, Effect<Self::Message>) {
+    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
         match message {
             AppMessage::AddTodo(text) => {
                 let todo = Todo {
                     id: self.todo_id,
                     text,
                 };
-                self.todos.push(Rc::new(todo));
+                let subscribers = [
+                    self.todos.update(|todos| {
+                        todos.push(Rc::new(todo));
+                    }),
+                    self.text.update(|text| {
+                        *text = "".to_owned();
+                    }),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
                 self.todo_id += 1;
-                self.text = "".to_owned();
-                (true, Effect::new())
+                Effect::Update(subscribers)
             }
             AppMessage::RemoveTodo(id) => {
-                if let Some(position) = self.todos.iter().position(|todo| todo.id == id) {
-                    self.todos.remove(position);
+                if let Some(position) = self.todos.peek().iter().position(|todo| todo.id == id) {
+                    let subscribers = self.todos.update(move |todos| {
+                        todos.remove(position);
+                    });
+                    Effect::Update(subscribers)
+                } else {
+                    Effect::nop()
                 }
-                (true, Effect::new())
             }
-            AppMessage::ChangeText(text) => {
-                self.text = text;
-                (true, Effect::new())
+            AppMessage::ChangeText(new_text) => {
+                let subscribers = self.text.update(move |text| {
+                    *text = new_text;
+                });
+                Effect::Update(subscribers)
             }
         }
     }
@@ -81,23 +96,34 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
     ])
 }
 
-fn todo_list(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
-    ListBox::new()
-        .hexpand(true)
-        .el(Vec::from_iter(state.todos.iter().map(|todo| {
+fn todo_list(
+    _props: &(),
+    state: &AppState,
+    id_context: &mut IdContext,
+) -> impl GtkElement<AppState, AppMessage> {
+    let todos = id_context.use_atom(&state.todos);
+    ListBox::new().hexpand(true).el(todos
+        .iter()
+        .map(|todo| {
             Memoize::new(
-                |props: &TodoProps, _: &AppState| {
+                |props: &TodoProps, _: &AppState, _id_context: &mut IdContext| {
                     ListBoxRow::new().hexpand(true).el(todo_item(&props.todo))
                 },
                 TodoProps { todo: todo.clone() },
             )
-        })))
+        })
+        .collect::<Vec<_>>())
 }
 
-fn app(_props: &(), state: &AppState) -> impl GtkElement<AppState, AppMessage> {
+fn app(
+    _props: &(),
+    state: &AppState,
+    id_context: &mut IdContext,
+) -> impl GtkElement<AppState, AppMessage> {
+    let text = id_context.use_atom(&state.text);
     vbox().hexpand(true).vexpand(true).el(hlist![
         Entry::new()
-            .text(state.text.to_owned())
+            .text(text.to_owned())
             .hexpand(true)
             .on_activate(Box::new(
                 |text, _| (!text.is_empty()).then(|| AppMessage::AddTodo(text.to_owned()))

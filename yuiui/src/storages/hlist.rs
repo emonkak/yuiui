@@ -1,22 +1,21 @@
 use hlist::{HCons, HList, HNil};
 
 use crate::element::ElementSeq;
-use crate::id::{Id, IdStack};
-use crate::store::Store;
+use crate::id::{Id, IdContext};
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 impl<S, M, E> ElementSeq<S, M, E> for HNil {
     type Storage = HNil;
 
-    fn render_children(self, _id_stack: &mut IdStack, _state: &S) -> Self::Storage {
+    fn render_children(self, _state: &S, _id_context: &mut IdContext) -> Self::Storage {
         HNil
     }
 
     fn update_children(
         self,
         _nodes: &mut Self::Storage,
-        _id_stack: &mut IdStack,
         _state: &S,
+        _id_context: &mut IdContext,
     ) -> bool {
         false
     }
@@ -30,26 +29,26 @@ where
 {
     type Storage = HCons<H::Storage, T::Storage>;
 
-    fn render_children(self, id_stack: &mut IdStack, state: &S) -> Self::Storage {
+    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
         HCons {
-            head: self.head.render_children(id_stack, state),
-            tail: self.tail.render_children(id_stack, state),
+            head: self.head.render_children(state, id_context),
+            tail: self.tail.render_children(state, id_context),
         }
     }
 
     fn update_children(
         self,
         storage: &mut Self::Storage,
-        id_stack: &mut IdStack,
         state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
         let mut has_changed = false;
         has_changed |= self
             .head
-            .update_children(&mut storage.head, id_stack, state);
+            .update_children(&mut storage.head, state, id_context);
         has_changed |= self
             .tail
-            .update_children(&mut storage.tail, id_stack, state);
+            .update_children(&mut storage.tail, state, id_context);
         has_changed
     }
 }
@@ -64,8 +63,8 @@ impl<S, M, E> ViewNodeSeq<S, M, E> for HNil {
     fn commit(
         &mut self,
         _mode: CommitMode,
-        _id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
+        _id_context: &mut IdContext,
         _messages: &mut Vec<M>,
         _entry_point: &E,
     ) -> bool {
@@ -98,17 +97,17 @@ where
     fn commit(
         &mut self,
         mode: CommitMode,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
         let head_result = self
             .head
-            .commit(mode, id_stack, store, messages, entry_point);
+            .commit(mode, state, id_context, messages, entry_point);
         let tail_result = self
             .tail
-            .commit(mode, id_stack, store, messages, entry_point);
+            .commit(mode, state, id_context, messages, entry_point);
         head_result || tail_result
     }
 
@@ -123,7 +122,7 @@ impl<Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for HNil 
         &mut self,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _id_stack: &mut IdStack,
+        _id_context: &mut IdContext,
     ) {
     }
 
@@ -132,7 +131,7 @@ impl<Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for HNil 
         _id: Id,
         _visitor: &mut Visitor,
         _context: &mut Context,
-        _id_stack: &mut IdStack,
+        _id_context: &mut IdContext,
     ) -> bool {
         false
     }
@@ -143,9 +142,14 @@ where
     H: Traversable<Visitor, Context, S, M, E>,
     T: Traversable<Visitor, Context, S, M, E> + HList,
 {
-    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context, id_stack: &mut IdStack) {
-        self.head.for_each(visitor, context, id_stack);
-        self.tail.for_each(visitor, context, id_stack);
+    fn for_each(
+        &mut self,
+        visitor: &mut Visitor,
+        context: &mut Context,
+        id_context: &mut IdContext,
+    ) {
+        self.head.for_each(visitor, context, id_context);
+        self.tail.for_each(visitor, context, id_context);
     }
 
     fn for_id(
@@ -153,12 +157,12 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut Context,
-        id_stack: &mut IdStack,
+        id_context: &mut IdContext,
     ) -> bool {
-        if self.head.for_id(id, visitor, context, id_stack) {
+        if self.head.for_id(id, visitor, context, id_context) {
             return true;
         }
-        if self.tail.for_id(id, visitor, context, id_stack) {
+        if self.tail.for_id(id, visitor, context, id_context) {
             return true;
         }
         false

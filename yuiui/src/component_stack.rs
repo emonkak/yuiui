@@ -3,8 +3,7 @@ use std::marker::PhantomData;
 use crate::component::Component;
 use crate::component_node::ComponentNode;
 use crate::element::Element;
-use crate::id::{Depth, IdStack};
-use crate::store::Store;
+use crate::id::{Depth, IdContext};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
@@ -16,18 +15,18 @@ pub trait ComponentStack<S, M, E> {
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
     ) -> bool;
 
     fn commit<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
         messages: &mut Vec<M>,
         entry_point: &E,
+        id_context: &mut IdContext,
     ) -> bool;
 }
 
@@ -44,8 +43,8 @@ where
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
@@ -58,10 +57,11 @@ where
             dirty: node.dirty,
         };
         if depth >= CS::DEPTH {
-            let element = head_component.component().render(store.state());
-            element.update(node, id_stack, store.state())
+            id_context.set_depth(Self::DEPTH);
+            let element = head_component.render(state, id_context);
+            element.update(node, state, id_context)
         } else {
-            CS::update(&mut node, depth, id_stack, store)
+            CS::update(&mut node, depth, state, id_context)
         }
     }
 
@@ -69,10 +69,10 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
         messages: &mut Vec<M>,
         entry_point: &E,
+        id_context: &mut IdContext,
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
@@ -85,16 +85,17 @@ where
             dirty: node.dirty,
         };
         if depth >= CS::DEPTH {
-            head_component.commit(mode, node, id_stack, store, messages, entry_point)
+            id_context.set_depth(Self::DEPTH);
+            head_component.commit(mode, node, state, id_context, messages, entry_point)
         } else {
             CS::commit(
                 &mut node,
                 mode,
                 depth,
-                id_stack,
-                store,
+                state,
                 messages,
                 entry_point,
+                id_context,
             )
         }
     }
@@ -121,9 +122,10 @@ impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination
     fn update<'a>(
         _node: &mut ViewNodeMut<'a, V, Self, S, M, E>,
         _depth: Depth,
-        _id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
+        id_context: &mut IdContext,
     ) -> bool {
+        id_context.set_depth(Self::DEPTH);
         false
     }
 
@@ -131,11 +133,12 @@ impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination
         _node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         _mode: CommitMode,
         _depth: Depth,
-        _id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
         _messages: &mut Vec<M>,
         _entry_point: &E,
+        id_context: &mut IdContext,
     ) -> bool {
+        id_context.set_depth(Self::DEPTH);
         false
     }
 }

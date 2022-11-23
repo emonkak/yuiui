@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, glib};
-use yuiui::{ElementSeq, EventTarget, IdStack, Lifecycle, Store, View};
+use yuiui::{ElementSeq, EventTarget, IdContext, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]
@@ -55,10 +55,10 @@ impl<S, M, E> View<S, M, E> for CheckButton {
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _id_stack: &mut IdStack,
-        _store: &Store<S>,
+        _state: &S,
         _messages: &mut Vec<M>,
         _entry_point: &E,
+        _id_context: &mut IdContext,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -71,7 +71,7 @@ impl<S, M, E> View<S, M, E> for CheckButton {
     fn build(
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _store: &Store<S>,
+        _state: &S,
         _entry_point: &E,
     ) -> Self::State {
         self.build()

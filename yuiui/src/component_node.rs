@@ -4,8 +4,7 @@ use std::{fmt, mem};
 use crate::component::Component;
 use crate::element::Element;
 use crate::event::Lifecycle;
-use crate::id::IdStack;
-use crate::store::Store;
+use crate::id::IdContext;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
 pub struct ComponentNode<C: Component<S, M, E>, S, M, E> {
@@ -28,6 +27,10 @@ where
         }
     }
 
+    pub(crate) fn render(&self, state: &S, id_context: &mut IdContext) -> C::Element {
+        self.component.render(state, id_context)
+    }
+
     pub(crate) fn update(&mut self, component: C) {
         self.pending_component = Some(component);
     }
@@ -43,8 +46,8 @@ where
             M,
             E,
         >,
-        id_stack: &mut IdStack,
-        store: &Store<S>,
+        state: &S,
+        id_context: &mut IdContext,
         messages: &mut Vec<M>,
         entry_point: &E,
     ) -> bool {
@@ -58,10 +61,10 @@ where
                 self.component.lifecycle(
                     lifecycle,
                     view_node,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 self.is_mounted = true;
                 true
@@ -72,10 +75,10 @@ where
                     self.component.lifecycle(
                         Lifecycle::Update(old_component),
                         view_node,
-                        id_stack,
-                        store,
+                        state,
                         messages,
                         entry_point,
+                        id_context,
                     );
                     true
                 } else {
@@ -86,10 +89,10 @@ where
                 self.component.lifecycle(
                     Lifecycle::Unmount,
                     view_node,
-                    id_stack,
-                    store,
+                    state,
                     messages,
                     entry_point,
+                    id_context,
                 );
                 true
             }

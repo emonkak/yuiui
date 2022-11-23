@@ -8,8 +8,8 @@ mod element;
 mod event;
 mod id;
 mod render_loop;
+mod state;
 mod storages;
-mod store;
 mod view;
 mod view_node;
 
@@ -23,9 +23,9 @@ pub use component_stack::ComponentStack;
 pub use effect::Effect;
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memoize, ViewElement};
 pub use event::{Event, EventTarget, Lifecycle, TransferableEvent};
-pub use id::{Depth, Id, IdPath, IdPathBuf, IdStack};
+pub use id::{Depth, Id, IdContext, IdPath, IdPathBuf, Subscriber};
 pub use render_loop::{RenderFlow, RenderLoop};
-pub use store::{State, Store};
+pub use state::{Atom, State};
 pub use view::View;
 pub use view_node::{
     CommitContext, CommitMode, RenderContext, Traversable, ViewNode, ViewNodeMut, ViewNodeSeq,
