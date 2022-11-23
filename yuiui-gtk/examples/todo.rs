@@ -1,7 +1,9 @@
 use gtk::prelude::*;
 use hlist::hlist;
 use std::rc::Rc;
-use yuiui_core::{Atom, Effect, HigherOrderComponent, Memoize, RenderContext, State, View};
+use yuiui_core::{
+    Atom, Effect, HigherOrderComponent, Memoize, RenderContext, State, View, ViewElement,
+};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -82,18 +84,24 @@ enum AppMessage {
     ChangeText(String),
 }
 
-fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
-    let id = todo.id;
-    hbox().hexpand(true).el(hlist![
-        Label::new()
-            .hexpand(true)
-            .halign(gtk::Align::Start)
-            .label(todo.text.to_owned())
-            .el(()),
-        Button::new()
-            .on_click(Box::new(move |_| AppMessage::RemoveTodo(id).into()))
-            .el(Label::new().label("Delete".to_owned()).el(()))
-    ])
+fn todo_item(
+    props: &TodoProps,
+    _context: &mut RenderContext<AppState>,
+) -> ViewElement<ListBoxRow<impl GtkElement<AppState, AppMessage>>, AppState, AppMessage, EntryPoint>
+{
+    let id = props.todo.id;
+    ListBoxRow::new()
+        .hexpand(true)
+        .el(hbox().hexpand(true).el(hlist![
+            Label::new()
+                .hexpand(true)
+                .halign(gtk::Align::Start)
+                .label(props.todo.text.to_owned())
+                .el(()),
+            Button::new()
+                .on_click(Box::new(move |_| AppMessage::RemoveTodo(id).into()))
+                .el(Label::new().label("Delete".to_owned()).el(()))
+        ]))
 }
 
 fn todo_list(
@@ -103,14 +111,7 @@ fn todo_list(
     let todos = context.use_atom(|state| &state.todos);
     ListBox::new().hexpand(true).el(todos
         .iter()
-        .map(|todo| {
-            Memoize::new(
-                |props: &TodoProps, _context: &mut RenderContext<AppState>| {
-                    ListBoxRow::new().hexpand(true).el(todo_item(&props.todo))
-                },
-                TodoProps { todo: todo.clone() },
-            )
-        })
+        .map(|todo| Memoize::new(todo_item, TodoProps { todo: todo.clone() }))
         .collect::<Vec<_>>())
 }
 
