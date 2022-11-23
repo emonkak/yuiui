@@ -1,20 +1,16 @@
+use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::{Id, IdContext};
+use crate::id::Id;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 impl<S, M, E> ElementSeq<S, M, E> for () {
     type Storage = ();
 
-    fn render_children(self, _state: &S, _id_context: &mut IdContext) -> Self::Storage {
+    fn render_children(self, _context: &mut RenderContext<S>) -> Self::Storage {
         ()
     }
 
-    fn update_children(
-        self,
-        _nodes: &mut Self::Storage,
-        _state: &S,
-        _id_context: &mut IdContext,
-    ) -> bool {
+    fn update_children(self, _nodes: &mut Self::Storage, _context: &mut RenderContext<S>) -> bool {
         false
     }
 }
@@ -26,36 +22,17 @@ impl<S, M, E> ViewNodeSeq<S, M, E> for () {
         0
     }
 
-    fn commit(
-        &mut self,
-        _mode: CommitMode,
-        _state: &S,
-        _id_context: &mut IdContext,
-        _messages: &mut Vec<M>,
-        _entry_point: &E,
-    ) -> bool {
+    fn commit(&mut self, _mode: CommitMode, _context: &mut CommitContext<S, M, E>) -> bool {
         false
     }
 
     fn gc(&mut self) {}
 }
 
-impl<Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for () {
-    fn for_each(
-        &mut self,
-        _visitor: &mut Visitor,
-        _context: &mut Context,
-        _id_context: &mut IdContext,
-    ) {
-    }
+impl<Visitor, Context> Traversable<Visitor, Context> for () {
+    fn for_each(&mut self, _visitor: &mut Visitor, _context: &mut Context) {}
 
-    fn for_id(
-        &mut self,
-        _id: Id,
-        _visitor: &mut Visitor,
-        _context: &mut Context,
-        _id_context: &mut IdContext,
-    ) -> bool {
+    fn for_id(&mut self, _id: Id, _visitor: &mut Visitor, _context: &mut Context) -> bool {
         false
     }
 }
@@ -81,17 +58,16 @@ macro_rules! define_tuple_impl {
         {
             type Storage = ($($T::Storage,)*);
 
-            fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
-                ($(self.$n.render_children(state, id_context),)*)
+            fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
+                ($(self.$n.render_children(context),)*)
             }
 
             fn update_children(
                 self,
                 storage: &mut Self::Storage,
-                state: &S,
-                id_context: &mut IdContext,
+                context: &mut RenderContext<S>,
             ) -> bool {
-                $(self.$n.update_children(&mut storage.$n, state, id_context))||*
+                $(self.$n.update_children(&mut storage.$n, context))||*
             }
         }
 
@@ -118,12 +94,9 @@ macro_rules! define_tuple_impl {
             fn commit(
                 &mut self,
                 mode: CommitMode,
-                state: &S,
-                id_context: &mut IdContext,
-                messages: &mut Vec<M>,
-                entry_point: &E,
+                context: &mut CommitContext<S, M, E>,
             ) -> bool {
-                $(self.$n.commit(mode, state, id_context, messages, entry_point))||*
+                $(self.$n.commit(mode, context))||*
             }
 
             fn gc(&mut self) {
@@ -131,19 +104,18 @@ macro_rules! define_tuple_impl {
             }
         }
 
-        impl<$($T,)* Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E>
+        impl<$($T,)* Visitor, Context> Traversable<Visitor, Context>
             for ($($T,)*)
         where
-            $($T: Traversable<Visitor, Context, S, M, E>,)*
+            $($T: Traversable<Visitor, Context>,)*
         {
             fn for_each(
                 &mut self,
                 visitor: &mut Visitor,
                 context: &mut Context,
-                id_context: &mut IdContext,
             ) {
                 $(
-                    self.$n.for_each(visitor, context, id_context);
+                    self.$n.for_each(visitor, context);
                 )*
             }
 
@@ -152,10 +124,9 @@ macro_rules! define_tuple_impl {
                 id: Id,
                 visitor: &mut Visitor,
                 context: &mut Context,
-                id_context: &mut IdContext,
             ) -> bool {
                 $(
-                    if self.$n.for_id(id, visitor, context, id_context) {
+                    if self.$n.for_id(id, visitor, context) {
                         return true;
                     }
                 )*

@@ -1,7 +1,9 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{ElementSeq, EventTarget, IdContext, Lifecycle, View};
+use yuiui::{CommitContext, ElementSeq, EventTarget, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
+
+use crate::entry_point::EntryPoint;
 
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Label)]
@@ -55,7 +57,7 @@ pub struct Label {
     accessible_role: Option<gtk::AccessibleRole>,
 }
 
-impl<S, M, E> View<S, M, E> for Label {
+impl<S, M> View<S, M, EntryPoint> for Label {
     type Children = ();
 
     type State = gtk::Label;
@@ -64,11 +66,8 @@ impl<S, M, E> View<S, M, E> for Label {
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _state: &S,
-        _messages: &mut Vec<M>,
-        _entry_point: &E,
-        _id_context: &mut IdContext,
+        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        _context: &mut CommitContext<S, M, EntryPoint>,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -80,9 +79,8 @@ impl<S, M, E> View<S, M, E> for Label {
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _state: &S,
-        _entry_point: &E,
+        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        _context: &mut CommitContext<S, M, EntryPoint>,
     ) -> Self::State {
         self.build()
     }

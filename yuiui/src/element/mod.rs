@@ -11,7 +11,7 @@ pub use view::ViewElement;
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
-use crate::id::IdContext;
+use crate::context::RenderContext;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
@@ -24,15 +24,13 @@ pub trait Element<S, M, E>:
 
     fn render(
         self,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E>;
 
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool;
 
     fn adapt<PS, PM>(
@@ -47,14 +45,9 @@ pub trait Element<S, M, E>:
 pub trait ElementSeq<S, M, E> {
     type Storage: ViewNodeSeq<S, M, E>;
 
-    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage;
+    fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage;
 
-    fn update_children(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        id_context: &mut IdContext,
-    ) -> bool;
+    fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool;
 }
 
 pub trait DebuggableElement<S, M, E>:

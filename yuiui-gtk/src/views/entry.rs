@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{ElementSeq, EventTarget, IdContext, IdPathBuf, Lifecycle, View};
+use yuiui::{CommitContext, ElementSeq, EventTarget, IdPathBuf, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
@@ -97,18 +97,19 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _state: &S,
-        _messages: &mut Vec<M>,
-        entry_point: &EntryPoint,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, EntryPoint>,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {
                 if self.on_activate.is_some() {
-                    view_state.connect_activate(id_context.id_path().to_vec(), entry_point.clone());
+                    view_state.connect_activate(
+                        context.id_path().to_vec(),
+                        context.entry_point().clone(),
+                    );
                 }
                 if self.on_change.is_some() {
-                    view_state.connect_changed(id_context.id_path().to_vec(), entry_point.clone());
+                    view_state
+                        .connect_changed(context.id_path().to_vec(), context.entry_point().clone());
                 }
             }
             Lifecycle::Update(old_view) => {
@@ -117,8 +118,10 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                         view_state.disconnect_activate();
                     }
                     (None, Some(_)) => {
-                        view_state
-                            .connect_activate(id_context.id_path().to_vec(), entry_point.clone());
+                        view_state.connect_activate(
+                            context.id_path().to_vec(),
+                            context.entry_point().clone(),
+                        );
                     }
                     _ => {}
                 }
@@ -127,8 +130,10 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                         view_state.disconnect_changed();
                     }
                     (None, Some(_)) => {
-                        view_state
-                            .connect_changed(id_context.id_path().to_vec(), entry_point.clone());
+                        view_state.connect_changed(
+                            context.id_path().to_vec(),
+                            context.entry_point().clone(),
+                        );
                     }
                     _ => {}
                 }
@@ -147,23 +152,26 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         event: <Self as EventTarget>::Event,
         view_state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        _entry_point: &EntryPoint,
-        _id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, EntryPoint>,
     ) {
         match event {
             Event::Activate => {
                 if let Some(on_activate) = &self.on_activate {
-                    let message = on_activate(view_state.current_text.as_str(), state);
-                    messages.extend(message);
+                    if let Some(message) =
+                        on_activate(view_state.current_text.as_str(), context.state())
+                    {
+                        context.push_message(message);
+                    }
                 }
             }
             Event::Changed => {
                 if let Some(on_change) = &self.on_change {
                     view_state.refresh_text();
-                    let message = on_change(view_state.current_text.as_str(), state);
-                    messages.extend(message);
+                    if let Some(message) =
+                        on_change(view_state.current_text.as_str(), context.state())
+                    {
+                        context.push_message(message);
+                    }
                 }
             }
         }
@@ -172,8 +180,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
     fn build(
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _state: &S,
-        _entry_point: &EntryPoint,
+        _context: &mut CommitContext<S, M, EntryPoint>,
     ) -> Self::State {
         let widget = self.build();
         if let Some(text) = &self.text {

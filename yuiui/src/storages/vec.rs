@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 
 use crate::component_stack::ComponentStack;
+use crate::context::{CommitContext, RenderContext};
 use crate::element::{Element, ElementSeq};
-use crate::id::{Id, IdContext};
+use crate::id::Id;
 use crate::view::View;
 use crate::view_node::{CommitMode, Traversable, ViewNode, ViewNodeSeq};
 
@@ -31,20 +32,15 @@ where
 {
     type Storage = VecStorage<ViewNode<Element::View, Element::Components, S, M, E>>;
 
-    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(state, id_context))
+                .map(|element| element.render(context))
                 .collect(),
         )
     }
 
-    fn update_children(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        id_context: &mut IdContext,
-    ) -> bool {
+    fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
         let mut has_changed = storage.active.len() != self.len();
 
         storage
@@ -55,14 +51,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(node.into(), state, id_context);
+                has_changed |= element.update(node.into(), context);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(node.into(), state, id_context);
+                    has_changed |= element.update(node.into(), context);
                 } else {
-                    let node = element.render(state, id_context);
+                    let node = element.render(context);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }
@@ -86,50 +82,31 @@ where
         self.active.len()
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        id_context: &mut IdContext,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-    ) -> bool {
+    fn commit(&mut self, mode: CommitMode, context: &mut CommitContext<S, M, E>) -> bool {
         let mut result = false;
         if self.dirty || mode.is_propagable() {
             if self.new_len < self.active.len() {
                 for node in &mut self.active[..self.new_len] {
-                    result |= node.commit(mode, state, id_context, messages, entry_point);
+                    result |= node.commit(mode, context);
                 }
                 for mut node in self.active.drain(self.new_len..).rev() {
-                    result |= node.commit(
-                        CommitMode::Unmount,
-                        state,
-                        id_context,
-                        messages,
-                        entry_point,
-                    );
+                    result |= node.commit(CommitMode::Unmount, context);
                     self.staging.push_front(node);
                 }
             } else if self.new_len > self.active.len() {
                 for node in &mut self.active {
-                    result |= node.commit(mode, state, id_context, messages, entry_point);
+                    result |= node.commit(mode, context);
                 }
                 if mode != CommitMode::Unmount {
                     for _ in 0..self.new_len - self.active.len() {
                         let mut node = self.staging.pop_front().unwrap();
-                        result |= node.commit(
-                            CommitMode::Mount,
-                            state,
-                            id_context,
-                            messages,
-                            entry_point,
-                        );
+                        result |= node.commit(CommitMode::Mount, context);
                         self.active.push(node);
                     }
                 }
             } else {
                 for node in &mut self.active {
-                    result |= node.commit(mode, state, id_context, messages, entry_point);
+                    result |= node.commit(mode, context);
                 }
             }
             self.dirty = false;
@@ -153,34 +130,23 @@ where
     }
 }
 
-impl<Visitor, Context, V, CS, S, M, E> Traversable<Visitor, Context, S, M, E>
+impl<Visitor, Context, V, CS, S, M, E> Traversable<Visitor, Context>
     for VecStorage<ViewNode<V, CS, S, M, E>>
 where
     V: View<S, M, E>,
     CS: ComponentStack<S, M, E, View = V>,
-    ViewNode<V, CS, S, M, E>: Traversable<Visitor, Context, S, M, E> + ViewNodeSeq<S, M, E>,
+    ViewNode<V, CS, S, M, E>: Traversable<Visitor, Context> + ViewNodeSeq<S, M, E>,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context) {
         for node in &mut self.active {
-            node.for_each(visitor, context, id_context);
+            node.for_each(visitor, context);
         }
     }
 
-    fn for_id(
-        &mut self,
-        id: Id,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    ) -> bool {
+    fn for_id(&mut self, id: Id, visitor: &mut Visitor, context: &mut Context) -> bool {
         if let Ok(index) = self.active.binary_search_by_key(&id, |node| node.id) {
             let node = &mut self.active[index];
-            return node.for_id(id, visitor, context, id_context);
+            return node.for_id(id, visitor, context);
         }
         false
     }

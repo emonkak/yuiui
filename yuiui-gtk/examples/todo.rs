@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use hlist::hlist;
 use std::rc::Rc;
-use yuiui::{Atom, Effect, HigherOrderComponent, IdContext, Memoize, State, View};
+use yuiui::{Atom, Effect, HigherOrderComponent, Memoize, RenderContext, State, View};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -98,15 +98,14 @@ fn todo_item(todo: &Todo) -> impl GtkElement<AppState, AppMessage> {
 
 fn todo_list(
     _props: &(),
-    state: &AppState,
-    id_context: &mut IdContext,
+    context: &mut RenderContext<AppState>,
 ) -> impl GtkElement<AppState, AppMessage> {
-    let todos = id_context.use_atom(&state.todos);
+    let todos = context.use_atom(|state| &state.todos);
     ListBox::new().hexpand(true).el(todos
         .iter()
         .map(|todo| {
             Memoize::new(
-                |props: &TodoProps, _: &AppState, _id_context: &mut IdContext| {
+                |props: &TodoProps, _context: &mut RenderContext<AppState>| {
                     ListBoxRow::new().hexpand(true).el(todo_item(&props.todo))
                 },
                 TodoProps { todo: todo.clone() },
@@ -117,10 +116,9 @@ fn todo_list(
 
 fn app(
     _props: &(),
-    state: &AppState,
-    id_context: &mut IdContext,
+    context: &mut RenderContext<AppState>,
 ) -> impl GtkElement<AppState, AppMessage> {
-    let text = id_context.use_atom(&state.text);
+    let text = context.use_atom(|state| &state.text);
     vbox().hexpand(true).vexpand(true).el(hlist![
         Entry::new()
             .text(text.to_owned())

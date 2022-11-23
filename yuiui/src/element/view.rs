@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::component_stack::ComponentTermination;
-use crate::id::IdContext;
+use crate::context::RenderContext;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
@@ -31,29 +31,26 @@ where
 
     fn render(
         self,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        let id = id_context.next_id();
-        id_context.push_id(id);
-        let children = self.children.render_children(state, id_context);
+        let id = context.id_stack.next_id();
+        context.id_stack.push_id(id);
+        let children = self.children.render_children(context);
         let node = ViewNode::new(id, self.view, children, ComponentTermination::new());
-        id_context.pop_id();
+        context.id_stack.pop_id();
         node
     }
 
     fn update(
         self,
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool {
-        id_context.push_id(node.id);
-        self.children
-            .update_children(node.children, state, id_context);
+        context.id_stack.push_id(node.id);
+        self.children.update_children(node.children, context);
         *node.pending_view = Some(self.view);
         *node.dirty = true;
-        id_context.pop_id();
+        context.id_stack.pop_id();
         true
     }
 }
@@ -65,17 +62,12 @@ where
     type Storage =
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
-    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
-        self.render(state, id_context)
+    fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
+        self.render(context)
     }
 
-    fn update_children(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        id_context: &mut IdContext,
-    ) -> bool {
-        self.update(storage.into(), state, id_context)
+    fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
+        self.update(storage.into(), context)
     }
 }
 

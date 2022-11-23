@@ -53,8 +53,4 @@ impl<T> Atom<T> {
             depth,
         });
     }
-
-    pub(crate) fn value(&self) -> &T {
-        &self.value
-    }
 }

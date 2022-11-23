@@ -1,9 +1,11 @@
 use std::marker::PhantomData;
+use std::{fmt, mem};
 
 use crate::component::Component;
-use crate::component_node::ComponentNode;
+use crate::context::{CommitContext, RenderContext};
 use crate::element::Element;
-use crate::id::{Depth, IdContext};
+use crate::event::Lifecycle;
+use crate::id::Depth;
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
@@ -15,18 +17,14 @@ pub trait ComponentStack<S, M, E> {
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool;
 
     fn commit<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) -> bool;
 }
 
@@ -43,8 +41,7 @@ where
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
@@ -57,11 +54,11 @@ where
             dirty: node.dirty,
         };
         if depth >= CS::DEPTH {
-            id_context.set_depth(Self::DEPTH);
-            let element = head_component.render(state, id_context);
-            element.update(node, state, id_context)
+            context.id_stack.set_depth(Self::DEPTH);
+            let element = head_component.component.render(context);
+            element.update(node, context)
         } else {
-            CS::update(&mut node, depth, state, id_context)
+            CS::update(&mut node, depth, context)
         }
     }
 
@@ -69,10 +66,7 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let mut node = ViewNodeMut {
@@ -85,18 +79,10 @@ where
             dirty: node.dirty,
         };
         if depth >= CS::DEPTH {
-            id_context.set_depth(Self::DEPTH);
-            head_component.commit(mode, node, state, id_context, messages, entry_point)
+            context.id_stack.set_depth(Self::DEPTH);
+            head_component.commit(mode, node, context)
         } else {
-            CS::commit(
-                &mut node,
-                mode,
-                depth,
-                state,
-                messages,
-                entry_point,
-                id_context,
-            )
+            CS::commit(&mut node, mode, depth, context)
         }
     }
 }
@@ -122,10 +108,9 @@ impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination
     fn update<'a>(
         _node: &mut ViewNodeMut<'a, V, Self, S, M, E>,
         _depth: Depth,
-        _state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool {
-        id_context.set_depth(Self::DEPTH);
+        context.id_stack.set_depth(Self::DEPTH);
         false
     }
 
@@ -133,12 +118,93 @@ impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination
         _node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         _mode: CommitMode,
         _depth: Depth,
-        _state: &S,
-        _messages: &mut Vec<M>,
-        _entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) -> bool {
-        id_context.set_depth(Self::DEPTH);
+        context.id_stack.set_depth(Self::DEPTH);
         false
+    }
+}
+
+pub struct ComponentNode<C: Component<S, M, E>, S, M, E> {
+    component: C,
+    pending_component: Option<C>,
+    is_mounted: bool,
+    _phantom: PhantomData<(S, M, E)>,
+}
+
+impl<C, S, M, E> ComponentNode<C, S, M, E>
+where
+    C: Component<S, M, E>,
+{
+    pub(crate) fn new(component: C) -> Self {
+        Self {
+            component,
+            pending_component: None,
+            is_mounted: false,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub(crate) fn update(&mut self, component: C) {
+        self.pending_component = Some(component);
+    }
+
+    pub(crate) fn commit(
+        &mut self,
+        mode: CommitMode,
+        view_node: ViewNodeMut<
+            '_,
+            <C::Element as Element<S, M, E>>::View,
+            <C::Element as Element<S, M, E>>::Components,
+            S,
+            M,
+            E,
+        >,
+        context: &mut CommitContext<S, M, E>,
+    ) -> bool {
+        match mode {
+            CommitMode::Mount => {
+                let lifecycle = if self.is_mounted {
+                    Lifecycle::Remount
+                } else {
+                    Lifecycle::Mount
+                };
+                self.component.lifecycle(lifecycle, view_node, context);
+                self.is_mounted = true;
+                true
+            }
+            CommitMode::Update => {
+                if let Some(pending_component) = self.pending_component.take() {
+                    let old_component = mem::replace(&mut self.component, pending_component);
+                    self.component
+                        .lifecycle(Lifecycle::Update(old_component), view_node, context);
+                    true
+                } else {
+                    false
+                }
+            }
+            CommitMode::Unmount => {
+                self.component
+                    .lifecycle(Lifecycle::Unmount, view_node, context);
+                true
+            }
+        }
+    }
+
+    pub fn component(&self) -> &C {
+        &self.component
+    }
+}
+
+impl<C, S, M, E> fmt::Debug for ComponentNode<C, S, M, E>
+where
+    C: Component<S, M, E> + fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ComponentNode")
+            .field("component", &self.component)
+            .field("pending_component", &self.pending_component)
+            .field("is_mounted", &self.is_mounted)
+            .finish()
     }
 }

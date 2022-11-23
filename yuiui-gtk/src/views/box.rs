@@ -2,8 +2,8 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    CommitContext, ComponentStack, ElementSeq, EventTarget, IdContext, Lifecycle, Traversable,
-    View, ViewNode, ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, ElementSeq, EventTarget, Lifecycle, Traversable, View, ViewNode,
+    ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
@@ -62,9 +62,6 @@ where
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
         CommitContext<'context, S, M, E>,
-        S,
-        M,
-        E,
     >,
 {
     type Children = Children;
@@ -76,10 +73,7 @@ where
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) {
         let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
@@ -92,20 +86,14 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(view_state);
-            let mut context = CommitContext {
-                state,
-                messages,
-                entry_point,
-            };
-            children.for_each(&mut visitor, &mut context, id_context);
+            children.for_each(&mut visitor, context);
         }
     }
 
     fn build(
         &self,
         _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _state: &S,
-        _entry_point: &E,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         self.build()
     }
@@ -129,19 +117,14 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<V, CS, S, M, E>, Context, S, M, E>
+impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<V, CS, S, M, E>, Context>
     for ReconcileChildrenVisitor<'a>
 where
     V: View<S, M, E>,
     V::State: AsRef<gtk::Widget>,
     CS: ComponentStack<S, M, E, View = V>,
 {
-    fn visit(
-        &mut self,
-        node: &mut ViewNode<V, CS, S, M, E>,
-        _context: &mut Context,
-        _id_context: &mut IdContext,
-    ) {
+    fn visit(&mut self, node: &mut ViewNode<V, CS, S, M, E>, _context: &mut Context) {
         let new_widget: &gtk::Widget = node.view_state().unwrap().as_ref();
         loop {
             match self.current_child.take() {

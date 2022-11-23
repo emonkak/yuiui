@@ -2,10 +2,12 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui::{
-    CommitContext, ComponentStack, ElementSeq, EventTarget, IdContext, Lifecycle, Traversable,
-    View, ViewNode, ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, ElementSeq, EventTarget, Lifecycle, Traversable, View, ViewNode,
+    ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
+
+use crate::entry_point::EntryPoint;
 
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Notebook)]
@@ -51,15 +53,12 @@ pub struct Notebook<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M, E> View<S, M, E> for Notebook<Children>
+impl<Children, S, M> View<S, M, EntryPoint> for Notebook<Children>
 where
-    Children: ElementSeq<S, M, E>,
+    Children: ElementSeq<S, M, EntryPoint>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, E>,
-        S,
-        M,
-        E,
+        CommitContext<'context, S, M, EntryPoint>,
     >,
 {
     type Children = Children;
@@ -70,13 +69,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        context: &mut CommitContext<S, M, EntryPoint>,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -87,20 +83,14 @@ where
         };
         if needs_reconcile {
             let mut visitor = ReconcileChildrenVisitor::new(view_state);
-            let mut context = CommitContext {
-                state,
-                messages,
-                entry_point,
-            };
-            children.for_each(&mut visitor, &mut context, id_context);
+            children.for_each(&mut visitor, context);
         }
     }
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _state: &S,
-        _entry_point: &E,
+        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        _context: &mut CommitContext<S, M, EntryPoint>,
     ) -> Self::State {
         self.build()
     }
@@ -138,9 +128,9 @@ pub enum NotebookChildType {
     Content,
 }
 
-impl<Child, S, M, E> View<S, M, E> for NotebookChild<Child>
+impl<Child, S, M> View<S, M, EntryPoint> for NotebookChild<Child>
 where
-    Child: View<S, M, E>,
+    Child: View<S, M, EntryPoint>,
 {
     type Children = Child::Children;
 
@@ -150,52 +140,30 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        context: &mut CommitContext<S, M, EntryPoint>,
     ) {
         let lifecycle = lifecycle.map(|view| view.child);
-        self.child.lifecycle(
-            lifecycle,
-            view_state,
-            children,
-            state,
-            messages,
-            entry_point,
-            id_context,
-        )
+        self.child
+            .lifecycle(lifecycle, view_state, children, context)
     }
 
     fn event(
         &self,
         event: <Self as EventTarget>::Event,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        context: &mut CommitContext<S, M, EntryPoint>,
     ) {
-        self.child.event(
-            event,
-            view_state,
-            children,
-            state,
-            messages,
-            entry_point,
-            id_context,
-        )
+        self.child.event(event, view_state, children, context)
     }
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        entry_point: &E,
+        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        context: &mut CommitContext<S, M, EntryPoint>,
     ) -> Self::State {
-        self.child.build(children, state, entry_point)
+        self.child.build(children, context)
     }
 }
 
@@ -221,7 +189,7 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<NotebookChild<V>, CS, S, M, E>, Context, S, M, E>
+impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<NotebookChild<V>, CS, S, M, E>, Context>
     for ReconcileChildrenVisitor<'a>
 where
     V: View<S, M, E>,
@@ -233,7 +201,6 @@ where
         &mut self,
         node: &mut ViewNode<NotebookChild<V>, CS, S, M, E>,
         _context: &mut Context,
-        _id_context: &mut IdContext,
     ) {
         match node.view().child_type {
             NotebookChildType::TabLabel => {

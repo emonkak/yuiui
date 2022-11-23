@@ -1,11 +1,12 @@
 use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
+use crate::context::CommitContext;
 use crate::event::Event;
-use crate::id::{IdContext, IdPath};
+use crate::id::IdPath;
 use crate::view::View;
 
-use super::{CommitContext, Traversable, ViewNode, Visitor};
+use super::{Traversable, ViewNode, Visitor};
 
 pub struct ForwardEventVisitor<'a> {
     payload: &'a dyn Any,
@@ -19,8 +20,7 @@ impl<'a> ForwardEventVisitor<'a> {
 }
 
 impl<'a, 'context, V, CS, S, M, E>
-    Visitor<ViewNode<V, CS, S, M, E>, CommitContext<'context, S, M, E>, S, M, E>
-    for ForwardEventVisitor<'a>
+    Visitor<ViewNode<V, CS, S, M, E>, CommitContext<'context, S, M, E>> for ForwardEventVisitor<'a>
 where
     V: View<S, M, E>,
     CS: ComponentStack<S, M, E, View = V>,
@@ -29,11 +29,10 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
     ) {
         if let Some((head, tail)) = self.id_path.split_first() {
             self.id_path = tail;
-            node.children.for_id(*head, self, context, id_context);
+            node.children.for_id(*head, self, context);
         } else {
             let view = &mut node.view;
             let state = node.view_state.as_mut().unwrap();
@@ -43,15 +42,7 @@ where
                     any::type_name::<V::Event>()
                 )
             });
-            view.event(
-                event,
-                state,
-                &mut node.children,
-                context.state,
-                context.messages,
-                context.entry_point,
-                id_context,
-            );
+            view.event(event, state, &mut node.children, context);
         }
     }
 }

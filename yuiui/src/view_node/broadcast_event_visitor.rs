@@ -1,11 +1,12 @@
 use std::any::{self, Any};
 
 use crate::component_stack::ComponentStack;
+use crate::context::CommitContext;
 use crate::event::Event;
-use crate::id::{id_tree, IdContext};
+use crate::id::id_tree;
 use crate::view::View;
 
-use super::{CommitContext, Traversable, ViewNode, Visitor};
+use super::{Traversable, ViewNode, Visitor};
 
 pub struct BroadcastEventVisitor<'a> {
     payload: &'a dyn Any,
@@ -19,7 +20,7 @@ impl<'a> BroadcastEventVisitor<'a> {
 }
 
 impl<'a, 'context, V, CS, S, M, E>
-    Visitor<ViewNode<V, CS, S, M, E>, CommitContext<'context, S, M, E>, S, M, E>
+    Visitor<ViewNode<V, CS, S, M, E>, CommitContext<'context, S, M, E>>
     for BroadcastEventVisitor<'a>
 where
     V: View<S, M, E>,
@@ -29,7 +30,6 @@ where
         &mut self,
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
     ) {
         if self.cursor.current().data().is_some() {
             let view = &mut node.view;
@@ -40,20 +40,12 @@ where
                     any::type_name::<V::Event>()
                 )
             });
-            view.event(
-                event,
-                view_state,
-                &mut node.children,
-                context.state,
-                context.messages,
-                context.entry_point,
-                id_context,
-            );
+            view.event(event, view_state, &mut node.children, context);
         }
         for cursor in self.cursor.children() {
             let id = cursor.current().id();
             self.cursor = cursor;
-            node.children.for_id(id, self, context, id_context);
+            node.children.for_id(id, self, context);
         }
     }
 }

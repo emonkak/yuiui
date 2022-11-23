@@ -1,12 +1,11 @@
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
+use crate::context::{CommitContext, RenderContext};
 use crate::event::{EventTarget, Lifecycle};
-use crate::id::{Depth, Id, IdContext};
+use crate::id::{Depth, Id};
 use crate::view::View;
-use crate::view_node::{
-    CommitContext, CommitMode, RenderContext, Traversable, ViewNode, ViewNodeMut, ViewNodeSeq,
-};
+use crate::view_node::{CommitMode, Traversable, ViewNode, ViewNodeMut, ViewNodeSeq};
 
 use super::{Element, ElementSeq};
 
@@ -36,11 +35,13 @@ where
 
     fn render(
         self,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        let sub_state = (self.select_state)(state);
-        let sub_node = self.target.render(sub_state, id_context);
+        let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+        };
+        let sub_node = self.target.render(&mut sub_context);
         ViewNode {
             id: sub_node.id,
             view: Adapt::new(
@@ -65,12 +66,14 @@ where
     fn update(
         self,
         mut node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool {
-        let sub_state = (self.select_state)(state);
+        let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+        };
         with_sub_node(&mut node, |sub_node| {
-            self.target.update(sub_node, sub_state, id_context)
+            self.target.update(sub_node, &mut sub_context)
         })
     }
 }
@@ -82,17 +85,12 @@ where
     type Storage =
         ViewNode<Adapt<T::View, S, M, SS, SM>, Adapt<T::Components, S, M, SS, SM>, S, M, E>;
 
-    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
-        self.render(state, id_context)
+    fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
+        self.render(context)
     }
 
-    fn update_children(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        id_context: &mut IdContext,
-    ) -> bool {
-        self.update(storage.into(), state, id_context)
+    fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
+        self.update(storage.into(), context)
     }
 }
 
@@ -134,24 +132,25 @@ where
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) {
         let sub_lifecycle = lifecycle.map(|view| view.target);
-        let sub_state = (self.select_state)(state);
         let mut sub_messages = Vec::new();
+        let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+            messages: &mut sub_messages,
+            entry_point: context.entry_point,
+        };
         self.target.lifecycle(
             sub_lifecycle,
             view_state,
             &mut children.target,
-            sub_state,
-            &mut sub_messages,
-            entry_point,
-            id_context,
+            &mut sub_context,
         );
-        messages.extend(sub_messages.into_iter().map(&self.lift_message));
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&self.lift_message));
     }
 
     fn event(
@@ -159,34 +158,39 @@ where
         event: <Self as EventTarget>::Event,
         view_state: &mut Self::State,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) {
-        let sub_state = (self.select_state)(state);
         let mut sub_messages = Vec::new();
-        self.target.event(
-            event,
-            view_state,
-            &mut children.target,
-            sub_state,
-            &mut sub_messages,
-            entry_point,
-            id_context,
-        );
-        messages.extend(sub_messages.into_iter().map(&self.lift_message));
+        let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+            messages: &mut sub_messages,
+            entry_point: context.entry_point,
+        };
+        self.target
+            .event(event, view_state, &mut children.target, &mut sub_context);
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&self.lift_message));
     }
 
     fn build(
         &self,
         children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        state: &S,
-        entry_point: &E,
+        context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
-        let sub_state = (self.select_state)(state);
-        self.target
-            .build(&mut children.target, sub_state, entry_point)
+        let mut sub_messages = Vec::new();
+        let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+            messages: &mut sub_messages,
+            entry_point: context.entry_point,
+        };
+        let view_state = self.target.build(&mut children.target, &mut sub_context);
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&self.lift_message));
+        view_state
     }
 }
 
@@ -208,12 +212,14 @@ where
     fn update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         depth: Depth,
-        state: &S,
-        id_context: &mut IdContext,
+        context: &mut RenderContext<S>,
     ) -> bool {
-        let sub_state = (node.components.select_state)(state);
+        let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
+            state: (node.components.select_state)(context.state),
+        };
         with_sub_node(node, |mut sub_node| {
-            T::update(&mut sub_node, depth, sub_state, id_context)
+            T::update(&mut sub_node, depth, &mut sub_context)
         })
     }
 
@@ -221,25 +227,21 @@ where
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         mode: CommitMode,
         depth: Depth,
-        state: &S,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-        id_context: &mut IdContext,
+        context: &mut CommitContext<S, M, E>,
     ) -> bool {
-        let sub_state = (node.components.select_state)(state);
         let mut sub_messages = Vec::new();
+        let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
+            state: (node.components.select_state)(context.state),
+            messages: &mut sub_messages,
+            entry_point: context.entry_point,
+        };
         let result = with_sub_node(node, |mut sub_node| {
-            T::commit(
-                &mut sub_node,
-                mode,
-                depth,
-                sub_state,
-                &mut sub_messages,
-                entry_point,
-                id_context,
-            )
+            T::commit(&mut sub_node, mode, depth, &mut sub_context)
         });
-        messages.extend(sub_messages.into_iter().map(&node.components.lift_message));
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&node.components.lift_message));
         result
     }
 }
@@ -250,24 +252,25 @@ where
 {
     type Storage = Adapt<T::Storage, S, M, SS, SM>;
 
-    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
-        let sub_state = (self.select_state)(state);
+    fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
+        let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+        };
         Adapt::new(
-            self.target.render_children(sub_state, id_context),
+            self.target.render_children(&mut sub_context),
             self.select_state.clone(),
             self.lift_message.clone(),
         )
     }
 
-    fn update_children(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        id_context: &mut IdContext,
-    ) -> bool {
-        let sub_state = (self.select_state)(state);
+    fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
+        let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+        };
         self.target
-            .update_children(&mut storage.target, sub_state, id_context)
+            .update_children(&mut storage.target, &mut sub_context)
     }
 }
 
@@ -281,20 +284,18 @@ where
         self.target.len()
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        id_context: &mut IdContext,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-    ) -> bool {
-        let sub_state = (self.select_state)(state);
+    fn commit(&mut self, mode: CommitMode, context: &mut CommitContext<S, M, E>) -> bool {
         let mut sub_messages = Vec::new();
-        let result =
-            self.target
-                .commit(mode, sub_state, id_context, &mut sub_messages, entry_point);
-        messages.extend(sub_messages.into_iter().map(&self.lift_message));
+        let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
+            state: (self.select_state)(context.state),
+            messages: &mut sub_messages,
+            entry_point: context.entry_point,
+        };
+        let result = self.target.commit(mode, &mut sub_context);
+        context
+            .messages
+            .extend(sub_messages.into_iter().map(&self.lift_message));
         result
     }
 
@@ -303,21 +304,17 @@ where
     }
 }
 
-impl<'context, T, S, M, SS, SM, E, Visitor>
-    Traversable<Visitor, RenderContext<'context, S>, S, M, E> for Adapt<T, S, M, SS, SM>
+impl<'context, T, S, M, SS, SM, Visitor> Traversable<Visitor, RenderContext<'context, S>>
+    for Adapt<T, S, M, SS, SM>
 where
-    T: for<'sub_context> Traversable<Visitor, RenderContext<'sub_context, SS>, SS, SM, E>,
+    T: for<'sub_context> Traversable<Visitor, RenderContext<'sub_context, SS>>,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut RenderContext<'context, S>,
-        id_context: &mut IdContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut RenderContext<'context, S>) {
         let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
             state: (self.select_state)(context.state),
         };
-        self.target.for_each(visitor, &mut sub_context, id_context)
+        self.target.for_each(visitor, &mut sub_context)
     }
 
     fn for_id(
@@ -325,34 +322,29 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut RenderContext<'context, S>,
-        id_context: &mut IdContext,
     ) -> bool {
         let mut sub_context = RenderContext {
+            id_stack: context.id_stack,
             state: (self.select_state)(context.state),
         };
-        self.target
-            .for_id(id, visitor, &mut sub_context, id_context)
+        self.target.for_id(id, visitor, &mut sub_context)
     }
 }
 
-impl<'context, T, S, M, SS, SM, E, Visitor>
-    Traversable<Visitor, CommitContext<'context, S, M, E>, S, M, E> for Adapt<T, S, M, SS, SM>
+impl<'context, T, S, M, SS, SM, E, Visitor> Traversable<Visitor, CommitContext<'context, S, M, E>>
+    for Adapt<T, S, M, SS, SM>
 where
-    T: for<'sub_context> Traversable<Visitor, CommitContext<'sub_context, SS, SM, E>, SS, SM, E>,
+    T: for<'sub_context> Traversable<Visitor, CommitContext<'sub_context, SS, SM, E>>,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut CommitContext<'context, S, M, E>) {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
             state: (self.select_state)(context.state),
             messages: &mut sub_messages,
             entry_point: context.entry_point,
         };
-        self.target.for_each(visitor, &mut sub_context, id_context);
+        self.target.for_each(visitor, &mut sub_context);
         context
             .messages
             .extend(sub_messages.into_iter().map(&self.lift_message));
@@ -363,17 +355,15 @@ where
         id: Id,
         visitor: &mut Visitor,
         context: &mut CommitContext<'context, S, M, E>,
-        id_context: &mut IdContext,
     ) -> bool {
         let mut sub_messages = Vec::new();
         let mut sub_context = CommitContext {
+            id_stack: context.id_stack,
             state: (self.select_state)(context.state),
             messages: &mut sub_messages,
             entry_point: context.entry_point,
         };
-        let result = self
-            .target
-            .for_id(id, visitor, &mut sub_context, id_context);
+        let result = self.target.for_id(id, visitor, &mut sub_context);
         context
             .messages
             .extend(sub_messages.into_iter().map(&self.lift_message));

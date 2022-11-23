@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Atom, Effect, HigherOrderComponent, IdContext, State, View};
+use yuiui::{Atom, Effect, HigherOrderComponent, RenderContext, State, View};
 use yuiui_gtk::views::{Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -29,10 +29,9 @@ enum AppMessage {
 
 fn app(
     _props: &(),
-    state: &AppState,
-    id_context: &mut IdContext,
+    context: &mut RenderContext<AppState>,
 ) -> impl GtkElement<AppState, AppMessage> {
-    let count = id_context.use_atom(&state.count);
+    let count = context.use_atom(|state| &state.count);
     Grid::new().hexpand(true).vexpand(true).el(hlist![
         GridChild::new(
             Button::new()

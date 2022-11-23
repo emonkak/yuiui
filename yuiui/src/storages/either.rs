@@ -1,8 +1,9 @@
 use either::Either;
 use std::mem;
 
+use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
-use crate::id::{Id, IdContext};
+use crate::id::Id;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 
 use super::RenderFlags;
@@ -31,26 +32,21 @@ where
 {
     type Storage = EitherStorage<L::Storage, R::Storage>;
 
-    fn render_children(self, state: &S, id_context: &mut IdContext) -> Self::Storage {
+    fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
         match self {
             Either::Left(element) => {
-                EitherStorage::new(Either::Left(element.render_children(state, id_context)))
+                EitherStorage::new(Either::Left(element.render_children(context)))
             }
             Either::Right(element) => {
-                EitherStorage::new(Either::Right(element.render_children(state, id_context)))
+                EitherStorage::new(Either::Right(element.render_children(context)))
             }
         }
     }
 
-    fn update_children(
-        self,
-        storage: &mut Self::Storage,
-        state: &S,
-        id_context: &mut IdContext,
-    ) -> bool {
+    fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
         match (&mut storage.active, self) {
             (Either::Left(node), Either::Left(element)) => {
-                if element.update_children(node, state, id_context) {
+                if element.update_children(node, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -59,7 +55,7 @@ where
                 }
             }
             (Either::Right(node), Either::Right(element)) => {
-                if element.update_children(node, state, id_context) {
+                if element.update_children(node, context) {
                     storage.flags |= RenderFlags::UPDATED;
                     storage.flags -= RenderFlags::SWAPPED;
                     true
@@ -70,11 +66,10 @@ where
             (Either::Left(_), Either::Right(element)) => {
                 match &mut storage.staging {
                     Some(Either::Right(node)) => {
-                        element.update_children(node, state, id_context);
+                        element.update_children(node, context);
                     }
                     None => {
-                        storage.staging =
-                            Some(Either::Right(element.render_children(state, id_context)));
+                        storage.staging = Some(Either::Right(element.render_children(context)));
                     }
                     _ => unreachable!(),
                 };
@@ -84,11 +79,10 @@ where
             (Either::Right(_), Either::Left(element)) => {
                 match &mut storage.staging {
                     Some(Either::Left(node)) => {
-                        element.update_children(node, state, id_context);
+                        element.update_children(node, context);
                     }
                     None => {
-                        storage.staging =
-                            Some(Either::Left(element.render_children(state, id_context)));
+                        storage.staging = Some(Either::Left(element.render_children(context)));
                     }
                     _ => unreachable!(),
                 }
@@ -126,49 +120,26 @@ where
         }
     }
 
-    fn commit(
-        &mut self,
-        mode: CommitMode,
-        state: &S,
-        id_context: &mut IdContext,
-        messages: &mut Vec<M>,
-        entry_point: &E,
-    ) -> bool {
+    fn commit(&mut self, mode: CommitMode, context: &mut CommitContext<S, M, E>) -> bool {
         let mut result = false;
         if self.flags.contains(RenderFlags::SWAPPED) {
             if self.flags.contains(RenderFlags::COMMITED) {
                 result |= match &mut self.active {
-                    Either::Left(node) => node.commit(
-                        CommitMode::Unmount,
-                        state,
-                        id_context,
-                        messages,
-                        entry_point,
-                    ),
-                    Either::Right(node) => node.commit(
-                        CommitMode::Unmount,
-                        state,
-                        id_context,
-                        messages,
-                        entry_point,
-                    ),
+                    Either::Left(node) => node.commit(CommitMode::Unmount, context),
+                    Either::Right(node) => node.commit(CommitMode::Unmount, context),
                 };
             }
             mem::swap(&mut self.active, self.staging.as_mut().unwrap());
             if mode != CommitMode::Unmount {
                 result |= match &mut self.active {
-                    Either::Left(node) => {
-                        node.commit(CommitMode::Mount, state, id_context, messages, entry_point)
-                    }
-                    Either::Right(node) => {
-                        node.commit(CommitMode::Mount, state, id_context, messages, entry_point)
-                    }
+                    Either::Left(node) => node.commit(CommitMode::Mount, context),
+                    Either::Right(node) => node.commit(CommitMode::Mount, context),
                 };
             }
         } else if self.flags.contains(RenderFlags::UPDATED) || mode.is_propagable() {
             result |= match &mut self.active {
-                Either::Left(node) => node.commit(mode, state, id_context, messages, entry_point),
-                Either::Right(node) => node.commit(mode, state, id_context, messages, entry_point),
+                Either::Left(node) => node.commit(mode, context),
+                Either::Right(node) => node.commit(mode, context),
             };
         }
         self.flags = RenderFlags::COMMITED;
@@ -186,33 +157,22 @@ where
     }
 }
 
-impl<L, R, Visitor, Context, S, M, E> Traversable<Visitor, Context, S, M, E> for EitherStorage<L, R>
+impl<L, R, Visitor, Context> Traversable<Visitor, Context> for EitherStorage<L, R>
 where
-    L: Traversable<Visitor, Context, S, M, E>,
-    R: Traversable<Visitor, Context, S, M, E>,
+    L: Traversable<Visitor, Context>,
+    R: Traversable<Visitor, Context>,
 {
-    fn for_each(
-        &mut self,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    ) {
+    fn for_each(&mut self, visitor: &mut Visitor, context: &mut Context) {
         match &mut self.active {
-            Either::Left(node) => node.for_each(visitor, context, id_context),
-            Either::Right(node) => node.for_each(visitor, context, id_context),
+            Either::Left(node) => node.for_each(visitor, context),
+            Either::Right(node) => node.for_each(visitor, context),
         }
     }
 
-    fn for_id(
-        &mut self,
-        id: Id,
-        visitor: &mut Visitor,
-        context: &mut Context,
-        id_context: &mut IdContext,
-    ) -> bool {
+    fn for_id(&mut self, id: Id, visitor: &mut Visitor, context: &mut Context) -> bool {
         match &mut self.active {
-            Either::Left(node) => node.for_id(id, visitor, context, id_context),
-            Either::Right(node) => node.for_id(id, visitor, context, id_context),
+            Either::Left(node) => node.for_id(id, visitor, context),
+            Either::Right(node) => node.for_id(id, visitor, context),
         }
     }
 }

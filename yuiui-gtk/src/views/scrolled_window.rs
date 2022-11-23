@@ -1,8 +1,10 @@
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
-use yuiui::{Element, ElementSeq, EventTarget, IdContext, Lifecycle, View};
+use yuiui::{CommitContext, Element, ElementSeq, EventTarget, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
+
+use crate::entry_point::EntryPoint;
 
 #[derive(WidgetBuilder)]
 #[widget(gtk::ScrolledWindow)]
@@ -55,10 +57,10 @@ pub struct ScrolledWindow<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M, E> View<S, M, E> for ScrolledWindow<Child>
+impl<Child, S, M> View<S, M, EntryPoint> for ScrolledWindow<Child>
 where
-    Child: Element<S, M, E>,
-    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, EntryPoint>,
+    <Child::View as View<S, M, EntryPoint>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -68,11 +70,8 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _state: &S,
-        _messages: &mut Vec<M>,
-        _entry_point: &E,
-        _id_context: &mut IdContext,
+        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        _context: &mut CommitContext<S, M, EntryPoint>,
     ) {
         match lifecycle {
             Lifecycle::Mount | Lifecycle::Remount => {}
@@ -85,9 +84,8 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
-        _state: &S,
-        _entry_point: &E,
+        child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
+        _context: &mut CommitContext<S, M, EntryPoint>,
     ) -> Self::State {
         let widget = self.build();
         let child = child.view_state().unwrap().as_ref();
