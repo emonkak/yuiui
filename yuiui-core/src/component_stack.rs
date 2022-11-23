@@ -10,7 +10,7 @@ use crate::view::View;
 use crate::view_node::{CommitMode, ViewNodeMut};
 
 pub trait ComponentStack<S, M, E> {
-    const DEPTH: usize;
+    const DEPTH: Depth;
 
     type View: View<S, M, E>;
 
@@ -34,7 +34,7 @@ where
     C::Element: Element<S, M, E, Components = CS>,
     CS: ComponentStack<S, M, E, View = <C::Element as Element<S, M, E>>::View>,
 {
-    const DEPTH: usize = 1 + CS::DEPTH;
+    const DEPTH: Depth = 1 + CS::DEPTH;
 
     type View = <C::Element as Element<S, M, E>>::View;
 
@@ -101,7 +101,7 @@ impl<V> ComponentTermination<V> {
 }
 
 impl<V: View<S, M, E>, S, M, E> ComponentStack<S, M, E> for ComponentTermination<V> {
-    const DEPTH: usize = 0;
+    const DEPTH: Depth = 0;
 
     type View = V;
 

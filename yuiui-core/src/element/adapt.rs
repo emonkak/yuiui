@@ -205,7 +205,7 @@ impl<T, S, M, SS, SM, E> ComponentStack<S, M, E> for Adapt<T, S, M, SS, SM>
 where
     T: ComponentStack<SS, SM, E>,
 {
-    const DEPTH: usize = T::DEPTH;
+    const DEPTH: Depth = T::DEPTH;
 
     type View = Adapt<T::View, S, M, SS, SM>;
 
