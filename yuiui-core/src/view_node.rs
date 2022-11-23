@@ -10,7 +10,7 @@ use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
 use crate::event::Lifecycle;
-use crate::id::{Depth, Id, IdPath, IdPathBuf, IdStack, IdTree};
+use crate::id::{Depth, Id, IdPath, IdPathBuf, IdTree};
 use crate::view::View;
 
 use broadcast_event_visitor::BroadcastEventVisitor;
@@ -53,12 +53,10 @@ where
     pub(crate) fn update_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        state: &S,
-        id_stack: &mut IdStack,
+        context: &mut RenderContext<S>,
     ) -> Vec<(IdPathBuf, Depth)> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
-        let mut context = RenderContext { id_stack, state };
-        visitor.visit(self, &mut context);
+        visitor.visit(self, context);
         visitor.into_result()
     }
 
@@ -168,62 +166,32 @@ where
     pub(crate) fn commit_subtree(
         &mut self,
         id_tree: &IdTree<Depth>,
-        id_stack: &mut IdStack,
-        state: &S,
-        entry_point: &E,
-    ) -> Vec<M> {
+        context: &mut CommitContext<S, M, E>,
+    ) {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
-        let mut messages = Vec::new();
-        let mut context = CommitContext {
-            id_stack,
-            state,
-            messages: &mut messages,
-            entry_point,
-        };
-        visitor.visit(self, &mut context);
-        messages
+        visitor.visit(self, context);
     }
 
     pub(crate) fn forward_event(
         &mut self,
         payload: &dyn Any,
         destination: &IdPath,
-        id_stack: &mut IdStack,
-        state: &S,
-        entry_point: &E,
-    ) -> Vec<M> {
+        context: &mut CommitContext<S, M, E>,
+    ) {
         let mut visitor = ForwardEventVisitor::new(payload, destination);
-        let mut messages = Vec::new();
-        let mut context = CommitContext {
-            id_stack,
-            state,
-            messages: &mut messages,
-            entry_point,
-        };
-        visitor.visit(self, &mut context);
-        messages
+        visitor.visit(self, context);
     }
 
     pub(crate) fn broadcast_event(
         &mut self,
         payload: &dyn Any,
         destinations: &[IdPathBuf],
-        id_stack: &mut IdStack,
-        state: &S,
-        entry_point: &E,
-    ) -> Vec<M> {
+        context: &mut CommitContext<S, M, E>,
+    ) {
         let id_tree = IdTree::from_iter(destinations);
         let cursor = id_tree.root();
         let mut visitor = BroadcastEventVisitor::new(payload, cursor);
-        let mut messages = Vec::new();
-        let mut context = CommitContext {
-            id_stack,
-            state,
-            messages: &mut messages,
-            entry_point,
-        };
-        visitor.visit(self, &mut context);
-        messages
+        visitor.visit(self, context);
     }
 
     pub fn id(&self) -> Id {

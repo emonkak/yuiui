@@ -86,24 +86,22 @@ where
             }
 
             while let Some(event) = self.event_queue.pop_front() {
-                let messages = match event {
-                    TransferableEvent::Forward(destination, payload) => self.node.forward_event(
-                        &*payload,
-                        &destination,
-                        &mut self.id_stack,
-                        state,
-                        entry_point,
-                    ),
-                    TransferableEvent::Broadcast(destinations, paylaod) => {
-                        self.node.broadcast_event(
-                            &*paylaod,
-                            &destinations,
-                            &mut self.id_stack,
-                            state,
-                            entry_point,
-                        )
-                    }
+                let mut messages = Vec::new();
+                let mut context = CommitContext {
+                    id_stack: &mut self.id_stack,
+                    state,
+                    messages: &mut messages,
+                    entry_point,
                 };
+                match event {
+                    TransferableEvent::Forward(destination, payload) => {
+                        self.node
+                            .forward_event(&*payload, &destination, &mut context)
+                    }
+                    TransferableEvent::Broadcast(destinations, paylaod) => self
+                        .node
+                        .broadcast_event(&*paylaod, &destinations, &mut context),
+                }
                 self.message_queue.extend(messages);
                 if deadline.did_timeout() {
                     return self.render_flow();
@@ -116,9 +114,11 @@ where
 
             if !self.nodes_to_update.is_empty() {
                 let id_tree = mem::take(&mut self.nodes_to_update);
-                let changed_nodes = self
-                    .node
-                    .update_subtree(&id_tree, state, &mut self.id_stack);
+                let mut context = RenderContext {
+                    id_stack: &mut self.id_stack,
+                    state,
+                };
+                let changed_nodes = self.node.update_subtree(&id_tree, &mut context);
                 if self.is_mounted {
                     for (id_path, depth) in changed_nodes {
                         self.nodes_to_commit
@@ -133,9 +133,14 @@ where
             if self.is_mounted {
                 if !self.nodes_to_commit.is_empty() {
                     let id_tree = mem::take(&mut self.nodes_to_commit);
-                    let messages =
-                        self.node
-                            .commit_subtree(&id_tree, &mut self.id_stack, state, entry_point);
+                    let mut messages = Vec::new();
+                    let mut context = CommitContext {
+                        id_stack: &mut self.id_stack,
+                        state,
+                        messages: &mut messages,
+                        entry_point,
+                    };
+                    self.node.commit_subtree(&id_tree, &mut context);
                     self.message_queue.extend(messages);
                     if deadline.did_timeout() {
                         return self.render_flow();
