@@ -46,7 +46,7 @@ impl<T> Lifecycle<T> {
     {
         match self {
             Self::Mount => Lifecycle::Mount,
-            Self::Remount => Lifecycle::Mount,
+            Self::Remount => Lifecycle::Remount,
             Self::Update(value) => Lifecycle::Update(f(value)),
             Self::Unmount => Lifecycle::Unmount,
         }
