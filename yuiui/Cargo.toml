@@ -11,6 +11,5 @@ resolver = "2"
 
 [dependencies]
 bitflags = "1"
-either = "1"
 futures = "0.3"
 hlist = { path = "../hlist" }

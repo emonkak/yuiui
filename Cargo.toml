@@ -4,6 +4,5 @@ members = [
     "yuiui",
     "yuiui-gtk",
     "yuiui-gtk-derive",
-    "yuiui-macros",
 ]
 resolver = "2"

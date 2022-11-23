@@ -1,5 +1,4 @@
 mod array;
-mod either;
 mod hlist;
 mod option;
 mod tuple;
