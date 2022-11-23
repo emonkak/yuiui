@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
-use yuiui::{CommitContext, Element, ElementSeq, EventTarget, Lifecycle, View};
+use yuiui_core::{CommitContext, Element, ElementSeq, EventTarget, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;

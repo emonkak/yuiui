@@ -5,7 +5,7 @@ mod entry_point;
 
 pub use entry_point::EntryPoint;
 
-use yuiui::{ComponentStack, Element, ElementSeq, View};
+use yuiui_core::{ComponentStack, Element, ElementSeq, View};
 
 pub trait GtkElement<S, M, E = EntryPoint>:
     Element<

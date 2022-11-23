@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use hlist::hlist;
-use yuiui::{Atom, Effect, HigherOrderComponent, RenderContext, State, View};
+use yuiui_core::{Atom, Effect, HigherOrderComponent, RenderContext, State, View};
 use yuiui_gtk::views::{Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 

@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use yuiui::{Element, IdPathBuf, RenderFlow, RenderLoop, State, TransferableEvent, View};
+use yuiui_core::{Element, IdPathBuf, RenderFlow, RenderLoop, State, TransferableEvent, View};
 
 use crate::command_runtime::CommandRuntime;
 

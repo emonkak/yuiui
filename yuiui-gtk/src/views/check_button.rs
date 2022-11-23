@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, glib};
-use yuiui::{CommitContext, ElementSeq, EventTarget, Lifecycle, View};
+use yuiui_core::{CommitContext, ElementSeq, EventTarget, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 #[derive(Clone, Debug, WidgetBuilder)]

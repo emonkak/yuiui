@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
-use yuiui::{
+use yuiui_core::{
     CommitContext, ComponentStack, ElementSeq, EventTarget, Lifecycle, Traversable, View, ViewNode,
     ViewNodeSeq, Visitor,
 };

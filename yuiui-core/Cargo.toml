@@ -1,5 +1,5 @@
 [package]
-name = "yuiui"
+name = "yuiui-core"
 version = "0.0.0"
 authors = ["Shota Nozaki <emonkak@gmail.com>"]
 license = "MIT"

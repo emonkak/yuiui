@@ -1,7 +1,7 @@
 use futures::stream::StreamExt as _;
 use gtk::glib;
 use std::sync::mpsc::Sender;
-use yuiui::{CancellationToken, Command, RawToken, RawTokenVTable};
+use yuiui_core::{CancellationToken, Command, RawToken, RawTokenVTable};
 
 #[derive(Debug)]
 pub struct CommandRuntime<M> {
@@ -31,7 +31,7 @@ impl<M: Send + 'static> CommandRuntime<M> {
     }
 }
 
-impl<M: Send + 'static> yuiui::CommandRuntime<M> for CommandRuntime<M> {
+impl<M: Send + 'static> yuiui_core::CommandRuntime<M> for CommandRuntime<M> {
     fn spawn_command(&self, command: Command<M>, cancellation_token: Option<CancellationToken>) {
         let message_sender = self.message_sender.clone();
         let main_context = self.main_context.clone();

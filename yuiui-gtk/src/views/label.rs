@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui::{CommitContext, ElementSeq, EventTarget, Lifecycle, View};
+use yuiui_core::{CommitContext, ElementSeq, EventTarget, Lifecycle, View};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
