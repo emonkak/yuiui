@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::component::{Component, HigherOrderComponent};
-use crate::component_stack::ComponentNode;
+use crate::component_node::ComponentNode;
 use crate::context::RenderContext;
 use crate::view_node::{ViewNode, ViewNodeMut};
 

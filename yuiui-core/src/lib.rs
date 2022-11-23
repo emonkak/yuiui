@@ -1,6 +1,7 @@
 mod cancellation_token;
 mod command;
 mod component;
+mod component_node;
 mod component_stack;
 mod context;
 mod effect;
@@ -18,7 +19,8 @@ pub use command::{Command, CommandRuntime};
 pub use component::{
     Component, FunctionComponent, FunctionComponentInstance, HigherOrderComponent,
 };
-pub use component_stack::{ComponentNode, ComponentStack};
+pub use component_node::ComponentNode;
+pub use component_stack::ComponentStack;
 pub use context::{CommitContext, RenderContext};
 pub use effect::Effect;
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memoize, ViewElement};

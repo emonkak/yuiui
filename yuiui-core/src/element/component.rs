@@ -1,5 +1,6 @@
 use crate::component::Component;
-use crate::component_stack::{ComponentNode, ComponentStack};
+use crate::component_node::ComponentNode;
+use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::view_node::{ViewNode, ViewNodeMut};
 
