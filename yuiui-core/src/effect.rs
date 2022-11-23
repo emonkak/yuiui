@@ -1,11 +1,11 @@
 use crate::cancellation_token::CancellationToken;
 use crate::command::Command;
-use crate::id::Subscriber;
+use crate::id::NodePath;
 
 #[derive(Debug)]
 pub enum Effect<T> {
     Command(Command<T>, Option<CancellationToken>),
-    Update(Vec<Subscriber>),
+    Update(Vec<NodePath>),
     Batch(Vec<Effect<T>>),
 }
 

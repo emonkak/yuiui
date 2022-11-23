@@ -25,7 +25,7 @@ pub use context::{CommitContext, RenderContext};
 pub use effect::Effect;
 pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memoize, ViewElement};
 pub use event::{Event, EventTarget, Lifecycle, TransferableEvent};
-pub use id::{Id, IdPath, IdPathBuf, Level, Subscriber};
+pub use id::{Id, IdPath, IdPathBuf, Level, NodePath};
 pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{Atom, State};
 pub use view::View;

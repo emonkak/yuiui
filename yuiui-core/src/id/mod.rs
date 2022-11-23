@@ -45,14 +45,14 @@ impl Into<u32> for Id {
     }
 }
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct NodePath {
+    pub id_path: IdPathBuf,
+    pub level: Level,
+}
+
 pub type IdPath = [Id];
 
 pub type IdPathBuf = Vec<Id>;
 
 pub type Level = u32;
-
-#[derive(Clone, Debug)]
-pub struct Subscriber {
-    pub(crate) id_path: IdPathBuf,
-    pub(crate) level: Level,
-}

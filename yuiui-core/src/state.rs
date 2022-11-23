@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::mem;
 
 use crate::effect::Effect;
-use crate::id::{IdPath, Level, Subscriber};
+use crate::id::{IdPath, Level, NodePath};
 
 pub trait State {
     type Message;
@@ -13,7 +13,7 @@ pub trait State {
 #[derive(Clone, Debug, Default)]
 pub struct Atom<T> {
     value: T,
-    subscribers: RefCell<Vec<Subscriber>>,
+    subscribers: RefCell<Vec<NodePath>>,
 }
 
 impl<T> Atom<T> {
@@ -26,7 +26,7 @@ impl<T> Atom<T> {
     }
 
     #[inline]
-    pub fn update<F>(&mut self, f: F) -> Vec<Subscriber>
+    pub fn update<F>(&mut self, f: F) -> Vec<NodePath>
     where
         F: FnOnce(&mut T),
     {
@@ -48,7 +48,7 @@ impl<T> Atom<T> {
                 return;
             }
         }
-        self.subscribers.borrow_mut().push(Subscriber {
+        self.subscribers.borrow_mut().push(NodePath {
             id_path: id_path.to_vec(),
             level,
         });
