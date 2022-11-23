@@ -86,11 +86,11 @@ where
         ViewNode<Adapt<T::View, S, M, SS, SM>, Adapt<T::Components, S, M, SS, SM>, S, M, E>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        self.render(context)
+        context.render_element(self)
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
-        self.update(storage.into(), context)
+        context.update_node(self, storage)
     }
 }
 

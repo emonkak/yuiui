@@ -33,11 +33,9 @@ where
         self,
         context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        let id = context.id_stack.next_id();
-        context.id_stack.push_id(id);
+        let id = context.id_stack.id();
         let children = self.children.render_children(context);
         let node = ViewNode::new(id, self.view, children, ComponentTermination::new());
-        context.id_stack.pop_id();
         node
     }
 
@@ -46,11 +44,9 @@ where
         node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool {
-        context.id_stack.push_id(node.id);
         self.children.update_children(node.children, context);
         *node.pending_view = Some(self.view);
         *node.dirty = true;
-        context.id_stack.pop_id();
         true
     }
 }
@@ -63,11 +59,11 @@ where
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        self.render(context)
+        context.render_element(self)
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
-        self.update(storage.into(), context)
+        context.update_node(self, storage)
     }
 }
 

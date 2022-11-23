@@ -72,7 +72,7 @@ where
             return false;
         }
 
-        context.id_stack.push_id(self.id);
+        context.id_stack.push(self.id);
 
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => self.children.commit(mode, context),
@@ -160,7 +160,7 @@ where
             CommitMode::Unmount => self.children.commit(mode, context),
         };
 
-        context.id_stack.pop_id();
+        context.id_stack.pop();
 
         result
     }
@@ -387,9 +387,9 @@ where
     Visitor: self::Visitor<Self, RenderContext<'context, S>>,
 {
     fn for_each(&mut self, visitor: &mut Visitor, context: &mut RenderContext<'context, S>) {
-        context.id_stack.push_id(self.id);
+        context.id_stack.push(self.id);
         let result = visitor.visit(self, context);
-        context.id_stack.pop_id();
+        context.id_stack.pop();
         result
     }
 
@@ -399,14 +399,14 @@ where
         visitor: &mut Visitor,
         context: &mut RenderContext<'context, S>,
     ) -> bool {
-        context.id_stack.push_id(self.id);
+        context.id_stack.push(self.id);
         let result = if id == self.id {
             visitor.visit(self, context);
             true
         } else {
             false
         };
-        context.id_stack.pop_id();
+        context.id_stack.pop();
         result
     }
 }
@@ -419,9 +419,9 @@ where
     Visitor: self::Visitor<Self, CommitContext<'context, S, M, E>>,
 {
     fn for_each(&mut self, visitor: &mut Visitor, context: &mut CommitContext<'context, S, M, E>) {
-        context.id_stack.push_id(self.id);
+        context.id_stack.push(self.id);
         let result = visitor.visit(self, context);
-        context.id_stack.pop_id();
+        context.id_stack.pop();
         result
     }
 
@@ -431,14 +431,14 @@ where
         visitor: &mut Visitor,
         context: &mut CommitContext<'context, S, M, E>,
     ) -> bool {
-        context.id_stack.push_id(self.id);
+        context.id_stack.push(self.id);
         let result = if id == self.id {
             visitor.visit(self, context);
             true
         } else {
             false
         };
-        context.id_stack.pop_id();
+        context.id_stack.pop();
         result
     }
 }

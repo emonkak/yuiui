@@ -24,7 +24,7 @@ where
     type Storage = ArrayStorage<ViewNode<Element::View, Element::Components, S, M, E>, N>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| element.render(context)))
+        ArrayStorage::new(self.map(|element| context.render_element(element)))
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
@@ -32,7 +32,7 @@ where
 
         for (i, element) in self.into_iter().enumerate() {
             let node = &mut storage.nodes[i];
-            has_changed |= element.update(node.into(), context);
+            has_changed |= context.update_node(element, node);
         }
 
         storage.dirty |= has_changed;

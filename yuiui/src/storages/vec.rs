@@ -35,7 +35,7 @@ where
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| element.render(context))
+                .map(|element| context.render_element(element))
                 .collect(),
         )
     }
@@ -51,14 +51,14 @@ where
         for (i, element) in self.into_iter().enumerate() {
             if i < storage.active.len() {
                 let node = &mut storage.active[i];
-                has_changed |= element.update(node.into(), context);
+                has_changed |= context.update_node(element, node);
             } else {
                 let j = i - storage.active.len();
                 if j < storage.staging.len() {
                     let node = &mut storage.staging[j];
-                    has_changed |= element.update(node.into(), context);
+                    has_changed |= context.update_node(element, node);
                 } else {
-                    let node = element.render(context);
+                    let node = context.render_element(element);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }

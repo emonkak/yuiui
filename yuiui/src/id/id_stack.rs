@@ -16,6 +16,10 @@ impl IdStack {
         }
     }
 
+    pub fn id(&self) -> Id {
+        Id::from(self.id_path.as_slice())
+    }
+
     pub fn id_path(&self) -> &IdPath {
         &self.id_path
     }
@@ -24,19 +28,18 @@ impl IdStack {
         self.depth
     }
 
-    pub fn next_id(&mut self) -> Id {
-        let id = self.counter;
+    pub fn next(&mut self) -> Id {
         self.counter += 1;
-        Id::new(id)
+        Id::new(self.counter)
     }
 
-    pub fn push_id(&mut self, id: Id) {
+    pub fn push(&mut self, id: Id) {
         if !id.is_root() {
             self.id_path.push(id);
         }
     }
 
-    pub fn pop_id(&mut self) {
+    pub fn pop(&mut self) {
         self.id_path.pop();
     }
 

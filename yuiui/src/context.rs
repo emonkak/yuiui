@@ -1,5 +1,7 @@
+use crate::element::Element;
 use crate::id::{IdPath, IdStack};
 use crate::state::Atom;
+use crate::view_node::ViewNode;
 
 #[derive(Debug)]
 pub struct RenderContext<'context, S> {
@@ -19,6 +21,34 @@ impl<'context, S> RenderContext<'context, S> {
         let atom = f(self.state);
         atom.subscribe(self.id_stack.id_path(), self.id_stack.depth());
         atom.peek()
+    }
+
+    pub(crate) fn render_element<Element, M, E>(
+        &mut self,
+        element: Element,
+    ) -> ViewNode<Element::View, Element::Components, S, M, E>
+    where
+        Element: self::Element<S, M, E>,
+    {
+        let id = self.id_stack.next();
+        self.id_stack.push(id);
+        let node = element.render(self);
+        self.id_stack.pop();
+        node
+    }
+
+    pub(crate) fn update_node<Element, M, E>(
+        &mut self,
+        element: Element,
+        node: &mut ViewNode<Element::View, Element::Components, S, M, E>,
+    ) -> bool
+    where
+        Element: self::Element<S, M, E>,
+    {
+        self.id_stack.push(node.id);
+        let has_changed = element.update(node.into(), self);
+        self.id_stack.pop();
+        has_changed
     }
 }
 
