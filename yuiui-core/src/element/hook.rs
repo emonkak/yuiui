@@ -1,3 +1,5 @@
+use std::fmt;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::component_stack::ComponentStack;
@@ -9,18 +11,43 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
-pub struct HookElement<Inner, Callback> {
+pub struct HookElement<Inner, Callback, S, M, E>
+where
+    Inner: Element<S, M, E>,
+    Callback: Fn(
+        &Inner::View,
+        &Lifecycle<Inner::View>,
+        &<Inner::View as View<S, M, E>>::State,
+        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
+        &mut CommitContext<S, M, E>,
+    ),
+{
     inner: Inner,
     callback: Callback,
+    _phantom: PhantomData<(S, M, E)>,
 }
 
-impl<Inner, Callback> HookElement<Inner, Callback> {
+impl<Inner, Callback, S, M, E> HookElement<Inner, Callback, S, M, E>
+where
+    Inner: Element<S, M, E>,
+    Callback: Fn(
+        &Inner::View,
+        &Lifecycle<Inner::View>,
+        &<Inner::View as View<S, M, E>>::State,
+        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
+        &mut CommitContext<S, M, E>,
+    ),
+{
     pub const fn new(inner: Inner, callback: Callback) -> Self {
-        Self { inner, callback }
+        Self {
+            inner,
+            callback,
+            _phantom: PhantomData,
+        }
     }
 }
 
-impl<Inner, Callback, S, M, E> Element<S, M, E> for HookElement<Inner, Callback>
+impl<Inner, Callback, S, M, E> Element<S, M, E> for HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E>,
     Callback: Fn(
@@ -68,7 +95,7 @@ where
     }
 }
 
-impl<Inner, Callback, S, M, E> ElementSeq<S, M, E> for HookElement<Inner, Callback>
+impl<Inner, Callback, S, M, E> ElementSeq<S, M, E> for HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E>,
     Callback: Fn(
@@ -88,6 +115,22 @@ where
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
         context.update_node(self, storage)
+    }
+}
+
+impl<Inner, Callback, S, M, E> fmt::Debug for HookElement<Inner, Callback, S, M, E>
+where
+    Inner: Element<S, M, E> + fmt::Debug,
+    Callback: Fn(
+        &Inner::View,
+        &Lifecycle<Inner::View>,
+        &<Inner::View as View<S, M, E>>::State,
+        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
+        &mut CommitContext<S, M, E>,
+    ),
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("HookElement").field(&self.inner).finish()
     }
 }
 
@@ -179,6 +222,15 @@ where
         with_inner_node(node, |mut inner_node| {
             Inner::force_update(&mut inner_node, level, context)
         })
+    }
+}
+
+impl<Inner, Callback> fmt::Debug for Hook<Inner, Callback>
+where
+    Inner: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Hook").field(&self.inner).finish()
     }
 }
 

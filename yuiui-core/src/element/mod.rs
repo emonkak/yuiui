@@ -44,7 +44,7 @@ pub trait Element<S, M, E>:
         AdaptElement::new(self, select_state, lift_message)
     }
 
-    fn hook<Callback>(self, callback: Callback) -> HookElement<Self, Callback>
+    fn hook<Callback>(self, callback: Callback) -> HookElement<Self, Callback, S, M, E>
     where
         Callback: Fn(
             &Self::View,
