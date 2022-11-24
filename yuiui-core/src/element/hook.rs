@@ -14,13 +14,7 @@ use super::{Element, ElementSeq};
 pub struct HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E>,
-    Callback: Fn(
-        &Inner::View,
-        &Lifecycle<Inner::View>,
-        &<Inner::View as View<S, M, E>>::State,
-        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner::View, S, M, E>,
 {
     inner: Inner,
     callback: Callback,
@@ -30,13 +24,7 @@ where
 impl<Inner, Callback, S, M, E> HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E>,
-    Callback: Fn(
-        &Inner::View,
-        &Lifecycle<Inner::View>,
-        &<Inner::View as View<S, M, E>>::State,
-        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner::View, S, M, E>,
 {
     pub const fn new(inner: Inner, callback: Callback) -> Self {
         Self {
@@ -50,13 +38,7 @@ where
 impl<Inner, Callback, S, M, E> Element<S, M, E> for HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E>,
-    Callback: Fn(
-        &Inner::View,
-        &Lifecycle<Inner::View>,
-        &<Inner::View as View<S, M, E>>::State,
-        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner::View, S, M, E>,
 {
     type View = Hook<Inner::View, Callback>;
 
@@ -66,17 +48,16 @@ where
         self,
         context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        let callback = Rc::new(self.callback);
         let node = self.inner.render(context);
         ViewNode {
             id: node.id,
-            view: Hook::new(node.view, callback.clone()),
+            view: Hook::new(node.view, self.callback.clone()),
             pending_view: node
                 .pending_view
-                .map(|view| Hook::new(view, callback.clone())),
+                .map(|view| Hook::new(view, self.callback.clone())),
             view_state: node.view_state,
             children: node.children,
-            components: Hook::new(node.components, callback),
+            components: Hook::new(node.components, self.callback),
             dirty: node.dirty,
         }
     }
@@ -86,9 +67,8 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool {
-        let callback = Rc::new(self.callback);
-        node.view.callback = callback.clone();
-        node.components.callback = callback.clone();
+        node.view.callback = self.callback.clone();
+        node.components.callback = self.callback;
         with_inner_node(node, |mut inner_node| {
             self.inner.update(&mut inner_node, context)
         })
@@ -98,13 +78,7 @@ where
 impl<Inner, Callback, S, M, E> ElementSeq<S, M, E> for HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E>,
-    Callback: Fn(
-        &Inner::View,
-        &Lifecycle<Inner::View>,
-        &<Inner::View as View<S, M, E>>::State,
-        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner::View, S, M, E>,
 {
     type Storage =
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
@@ -121,13 +95,7 @@ where
 impl<Inner, Callback, S, M, E> fmt::Debug for HookElement<Inner, Callback, S, M, E>
 where
     Inner: Element<S, M, E> + fmt::Debug,
-    Callback: Fn(
-        &Inner::View,
-        &Lifecycle<Inner::View>,
-        &<Inner::View as View<S, M, E>>::State,
-        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner::View, S, M, E>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("HookElement").field(&self.inner).finish()
@@ -136,11 +104,11 @@ where
 
 pub struct Hook<Inner, Callback> {
     inner: Inner,
-    callback: Rc<Callback>,
+    callback: Callback,
 }
 
 impl<Inner, Callback> Hook<Inner, Callback> {
-    fn new(inner: Inner, callback: Rc<Callback>) -> Self {
+    fn new(inner: Inner, callback: Callback) -> Self {
         Self { inner, callback }
     }
 }
@@ -148,13 +116,7 @@ impl<Inner, Callback> Hook<Inner, Callback> {
 impl<Inner, Callback, S, M, E> View<S, M, E> for Hook<Inner, Callback>
 where
     Inner: View<S, M, E>,
-    Callback: Fn(
-        &Inner,
-        &Lifecycle<Inner>,
-        &Inner::State,
-        &<Inner::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner, S, M, E>,
 {
     type Children = Inner::Children;
 
@@ -168,7 +130,8 @@ where
         context: &mut CommitContext<S, M, E>,
     ) {
         let lifecycle = lifecycle.map(|view| view.inner);
-        (self.callback)(&self.inner, &lifecycle, view_state, children, context);
+        self.callback
+            .call(&self.inner, &lifecycle, view_state, children, context);
         self.inner
             .lifecycle(lifecycle, view_state, children, context)
     }
@@ -202,13 +165,7 @@ where
 impl<Inner, Callback, S, M, E> ComponentStack<S, M, E> for Hook<Inner, Callback>
 where
     Inner: ComponentStack<S, M, E>,
-    Callback: Fn(
-        &Inner::View,
-        &Lifecycle<Inner::View>,
-        &<Inner::View as View<S, M, E>>::State,
-        &<<Inner::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<Inner::View, S, M, E>,
 {
     const LEVEL: Level = Inner::LEVEL;
 
@@ -239,13 +196,7 @@ fn with_inner_node<Callback, V, CS, S, M, E, F, T>(
     f: F,
 ) -> T
 where
-    Callback: Fn(
-        &V,
-        &Lifecycle<V>,
-        &V::State,
-        &<V::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    ),
+    Callback: HookCallback<V, S, M, E>,
     V: View<S, M, E>,
     CS: ComponentStack<S, M, E, View = V>,
     F: FnOnce(ViewNodeMut<V, CS, S, M, E>) -> T,
@@ -264,4 +215,64 @@ where
     let result = f(inner_node);
     *node.pending_view = inner_pending_view.map(|view| Hook::new(view, callback.clone()));
     result
+}
+
+pub trait HookCallback<V, S, M, E>: Clone
+where
+    V: View<S, M, E>,
+{
+    fn call(
+        &self,
+        view: &V,
+        lifecycle: &Lifecycle<V>,
+        view_state: &V::State,
+        children: &<V::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
+    );
+}
+
+impl<V, S, M, E> HookCallback<V, S, M, E>
+    for fn(
+        &V,
+        &Lifecycle<V>,
+        &V::State,
+        &<V::Children as ElementSeq<S, M, E>>::Storage,
+        &mut CommitContext<S, M, E>,
+    )
+where
+    V: View<S, M, E>,
+{
+    fn call(
+        &self,
+        view: &V,
+        lifecycle: &Lifecycle<V>,
+        view_state: &V::State,
+        children: &<V::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
+    ) {
+        self(view, lifecycle, view_state, children, context);
+    }
+}
+
+impl<F, V, S, M, E> HookCallback<V, S, M, E> for Rc<F>
+where
+    F: Fn(
+        &V,
+        &Lifecycle<V>,
+        &V::State,
+        &<V::Children as ElementSeq<S, M, E>>::Storage,
+        &mut CommitContext<S, M, E>,
+    ),
+    V: View<S, M, E>,
+{
+    fn call(
+        &self,
+        view: &V,
+        lifecycle: &Lifecycle<V>,
+        view_state: &V::State,
+        children: &<V::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
+    ) {
+        self(view, lifecycle, view_state, children, context);
+    }
 }

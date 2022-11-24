@@ -6,15 +6,14 @@ mod view;
 
 pub use adapt::AdaptElement;
 pub use component::ComponentElement;
-pub use hook::HookElement;
+pub use hook::{HookCallback, HookElement};
 pub use memoize::MemoizeElement;
 pub use view::ViewElement;
 
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
-use crate::context::{CommitContext, RenderContext};
-use crate::event::Lifecycle;
+use crate::context::RenderContext;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
@@ -46,13 +45,7 @@ pub trait Element<S, M, E>:
 
     fn hook<Callback>(self, callback: Callback) -> HookElement<Self, Callback, S, M, E>
     where
-        Callback: Fn(
-            &Self::View,
-            &Lifecycle<Self::View>,
-            &<Self::View as View<S, M, E>>::State,
-            &<<Self::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
-            &mut CommitContext<S, M, E>,
-        ),
+        Callback: HookCallback<Self::View, S, M, E>,
     {
         HookElement::new(self, callback)
     }
