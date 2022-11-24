@@ -2,7 +2,7 @@ use gtk::prelude::*;
 use hlist::hlist;
 use std::rc::Rc;
 use yuiui_core::{
-    Atom, Effect, HigherOrderComponent, Memoize, RenderContext, State, View, ViewElement,
+    Atom, Effect, HigherOrderComponent, MemoizeElement, RenderContext, State, View, ViewElement,
 };
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
@@ -111,7 +111,7 @@ fn todo_list(
     let todos = context.use_atom(|state| &state.todos);
     ListBox::new().hexpand(true).el(todos
         .iter()
-        .map(|todo| Memoize::new(todo_item, TodoProps { todo: todo.clone() }))
+        .map(|todo| MemoizeElement::new(todo_item, TodoProps { todo: todo.clone() }))
         .collect::<Vec<_>>())
 }
 

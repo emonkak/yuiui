@@ -1,17 +1,20 @@
 mod adapt;
 mod component;
+mod hook;
 mod memoize;
 mod view;
 
 pub use adapt::AdaptElement;
 pub use component::ComponentElement;
-pub use memoize::Memoize;
+pub use hook::HookElement;
+pub use memoize::MemoizeElement;
 pub use view::ViewElement;
 
 use std::fmt;
 
 use crate::component_stack::ComponentStack;
-use crate::context::RenderContext;
+use crate::context::{CommitContext, RenderContext};
+use crate::event::Lifecycle;
 use crate::view::View;
 use crate::view_node::{ViewNode, ViewNodeMut, ViewNodeSeq};
 
@@ -29,16 +32,29 @@ pub trait Element<S, M, E>:
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool;
 
-    fn adapt<PS, PM>(
+    fn adapt<ParentState, ParentMessage>(
         self,
-        select_state: fn(&PS) -> &S,
-        lift_message: fn(M) -> PM,
-    ) -> AdaptElement<Self, PS, PM, S, M> {
+        select_state: fn(&ParentState) -> &S,
+        lift_message: fn(M) -> ParentMessage,
+    ) -> AdaptElement<Self, ParentState, ParentMessage, S, M> {
         AdaptElement::new(self, select_state, lift_message)
+    }
+
+    fn hook<Callback>(self, callback: Callback) -> HookElement<Self, Callback>
+    where
+        Callback: Fn(
+            &Self::View,
+            &Lifecycle<Self::View>,
+            &<Self::View as View<S, M, E>>::State,
+            &<<Self::View as View<S, M, E>>::Children as ElementSeq<S, M, E>>::Storage,
+            &mut CommitContext<S, M, E>,
+        ),
+    {
+        HookElement::new(self, callback)
     }
 }
 

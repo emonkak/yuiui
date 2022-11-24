@@ -23,7 +23,10 @@ pub use component_node::ComponentNode;
 pub use component_stack::ComponentStack;
 pub use context::{CommitContext, RenderContext};
 pub use effect::Effect;
-pub use element::{ComponentElement, DebuggableElement, Element, ElementSeq, Memoize, ViewElement};
+pub use element::{
+    ComponentElement, DebuggableElement, Element, ElementSeq, HookElement, MemoizeElement,
+    ViewElement,
+};
 pub use event::{Event, EventTarget, Lifecycle, TransferableEvent};
 pub use id::{Id, IdPath, IdPathBuf, Level, NodePath};
 pub use render_loop::{RenderFlow, RenderLoop};

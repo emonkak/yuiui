@@ -7,13 +7,13 @@ use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{ComponentElement, Element, ElementSeq};
 
-pub struct Memoize<Hoc: HigherOrderComponent<Deps, S, M, E>, Deps, S, M, E> {
+pub struct MemoizeElement<Hoc: HigherOrderComponent<Deps, S, M, E>, Deps, S, M, E> {
     hoc: Hoc,
     deps: Deps,
     _phantom: PhantomData<(S, M, E)>,
 }
 
-impl<Hoc, Deps, S, M, E> Memoize<Hoc, Deps, S, M, E>
+impl<Hoc, Deps, S, M, E> MemoizeElement<Hoc, Deps, S, M, E>
 where
     Hoc: HigherOrderComponent<Deps, S, M, E>,
 {
@@ -27,7 +27,7 @@ where
     }
 }
 
-impl<Hoc, Deps, S, M, E> Element<S, M, E> for Memoize<Hoc, Deps, S, M, E>
+impl<Hoc, Deps, S, M, E> Element<S, M, E> for MemoizeElement<Hoc, Deps, S, M, E>
 where
     Hoc: HigherOrderComponent<Deps, S, M, E>,
     Hoc::Component: AsRef<Deps>,
@@ -51,7 +51,7 @@ where
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool {
         let (head_component, _) = node.components;
@@ -66,7 +66,7 @@ where
     }
 }
 
-impl<Hoc, Deps, S, M, E> ElementSeq<S, M, E> for Memoize<Hoc, Deps, S, M, E>
+impl<Hoc, Deps, S, M, E> ElementSeq<S, M, E> for MemoizeElement<Hoc, Deps, S, M, E>
 where
     Hoc: HigherOrderComponent<Deps, S, M, E>,
     Hoc::Component: AsRef<Deps>,

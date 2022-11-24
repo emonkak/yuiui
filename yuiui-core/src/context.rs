@@ -46,7 +46,7 @@ impl<'context, S> RenderContext<'context, S> {
         Element: self::Element<S, M, E>,
     {
         self.id_stack.push(node.id);
-        let has_changed = element.update(node.into(), self);
+        let has_changed = element.update(&mut node.into(), self);
         self.id_stack.pop();
         has_changed
     }

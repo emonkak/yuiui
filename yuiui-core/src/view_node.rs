@@ -350,10 +350,6 @@ pub trait Traversable<Visitor, Context> {
     fn for_id(&mut self, id: Id, visitor: &mut Visitor, context: &mut Context) -> bool;
 }
 
-pub trait Visitor<Node, Context> {
-    fn visit(&mut self, node: &mut Node, context: &mut Context);
-}
-
 impl<'context, V, CS, S, M, E, Visitor> Traversable<Visitor, RenderContext<'context, S>>
     for ViewNode<V, CS, S, M, E>
 where
@@ -416,6 +412,10 @@ where
         context.id_stack.pop();
         result
     }
+}
+
+pub trait Visitor<Node, Context> {
+    fn visit(&mut self, node: &mut Node, context: &mut Context);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

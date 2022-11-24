@@ -51,13 +51,13 @@ where
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let element = self.component.render(context);
         head_component.update(self.component);
-        let node = ViewNodeMut {
+        let mut node = ViewNodeMut {
             id: node.id,
             view: node.view,
             pending_view: node.pending_view,
@@ -66,7 +66,7 @@ where
             components: tail_components,
             dirty: node.dirty,
         };
-        element.update(node, context)
+        element.update(&mut node, context)
     }
 }
 

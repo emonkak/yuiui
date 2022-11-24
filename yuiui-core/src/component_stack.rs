@@ -55,7 +55,7 @@ where
         if level >= CS::LEVEL {
             context.id_stack.set_level(Self::LEVEL);
             let element = head_component.render(context);
-            element.update(node, context)
+            element.update(&mut node, context)
         } else {
             CS::update(&mut node, level, context)
         }

@@ -41,7 +41,7 @@ where
 
     fn update(
         self,
-        node: ViewNodeMut<Self::View, Self::Components, S, M, E>,
+        node: &mut ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool {
         self.children.update_children(node.children, context);
