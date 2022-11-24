@@ -26,9 +26,7 @@ impl State for AppState {
                     self.todos.update(|todos| {
                         todos.push(Rc::new(todo));
                     }),
-                    self.text.update(|text| {
-                        *text = "".to_owned();
-                    }),
+                    self.text.set("".to_owned()),
                 ]
                 .into_iter()
                 .flatten()
@@ -37,7 +35,7 @@ impl State for AppState {
                 Effect::Update(subscribers)
             }
             AppMessage::RemoveTodo(id) => {
-                if let Some(position) = self.todos.peek().iter().position(|todo| todo.id == id) {
+                if let Some(position) = self.todos.get().iter().position(|todo| todo.id == id) {
                     let subscribers = self.todos.update(move |todos| {
                         todos.remove(position);
                     });

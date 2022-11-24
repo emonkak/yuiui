@@ -20,7 +20,7 @@ impl<'context, S> RenderContext<'context, S> {
     {
         let atom = f(self.state);
         atom.subscribe(self.id_stack.id_path(), self.id_stack.level());
-        atom.peek()
+        atom.get()
     }
 
     pub(crate) fn render_node<Element, M, E>(

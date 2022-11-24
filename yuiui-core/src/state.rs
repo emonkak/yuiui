@@ -26,17 +26,23 @@ impl<T> Atom<T> {
     }
 
     #[inline]
+    pub fn get(&self) -> &T {
+        &self.value
+    }
+
+    #[inline]
+    pub fn set(&mut self, new_value: T) -> Vec<NodePath> {
+        self.value = new_value;
+        mem::take(self.subscribers.get_mut())
+    }
+
+    #[inline]
     pub fn update<F>(&mut self, f: F) -> Vec<NodePath>
     where
         F: FnOnce(&mut T),
     {
         f(&mut self.value);
         mem::take(self.subscribers.get_mut())
-    }
-
-    #[inline]
-    pub fn peek(&self) -> &T {
-        &self.value
     }
 
     pub(crate) fn subscribe(&self, id_path: &IdPath, level: Level) {
