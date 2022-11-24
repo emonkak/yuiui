@@ -7,7 +7,7 @@ use super::{Traversable, ViewNode, Visitor};
 
 pub struct UpdateSubtreeVisitor<'a> {
     cursor: id_tree::Cursor<'a, Level>,
-    result: Vec<(IdPathBuf, Level)>,
+    result: Vec<IdPathBuf>,
 }
 
 impl<'a> UpdateSubtreeVisitor<'a> {
@@ -18,7 +18,7 @@ impl<'a> UpdateSubtreeVisitor<'a> {
         }
     }
 
-    pub fn into_result(self) -> Vec<(IdPathBuf, Level)> {
+    pub fn into_result(self) -> Vec<IdPathBuf> {
         self.result
     }
 }
@@ -36,15 +36,14 @@ where
     ) {
         if let Some(&level) = self.cursor.current().data() {
             let is_updated = if level > 0 {
-                CS::update(&mut node.into(), level, context)
+                CS::force_update(&mut node.into(), level, context)
             } else {
                 node.dirty = true;
                 node.children.for_each(self, context);
                 true
             };
             if is_updated {
-                self.result
-                    .push((context.id_stack.id_path().to_vec(), level));
+                self.result.push(context.id_stack.id_path().to_vec());
             }
         } else {
             for cursor in self.cursor.children() {

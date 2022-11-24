@@ -59,7 +59,7 @@ where
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        context.render_element(self)
+        context.render_node(self)
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {

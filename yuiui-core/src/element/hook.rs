@@ -5,22 +5,18 @@ use crate::context::{CommitContext, RenderContext};
 use crate::event::{EventTarget, Lifecycle};
 use crate::id::Level;
 use crate::view::View;
-use crate::view_node::{CommitMode, ViewNode, ViewNodeMut};
+use crate::view_node::{ViewNode, ViewNodeMut};
 
 use super::{Element, ElementSeq};
 
 pub struct HookElement<Inner, Callback> {
     inner: Inner,
-    callback: Rc<Callback>,
+    callback: Callback,
 }
 
 impl<Inner, Callback> HookElement<Inner, Callback> {
-    #[inline]
-    pub fn new(inner: Inner, callback: Callback) -> Self {
-        Self {
-            inner,
-            callback: Rc::new(callback),
-        }
+    pub const fn new(inner: Inner, callback: Callback) -> Self {
+        Self { inner, callback }
     }
 }
 
@@ -43,16 +39,17 @@ where
         self,
         context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
+        let callback = Rc::new(self.callback);
         let node = self.inner.render(context);
         ViewNode {
             id: node.id,
-            view: Hook::new(node.view, self.callback.clone()),
+            view: Hook::new(node.view, callback.clone()),
             pending_view: node
                 .pending_view
-                .map(|view| Hook::new(view, self.callback.clone())),
+                .map(|view| Hook::new(view, callback.clone())),
             view_state: node.view_state,
             children: node.children,
-            components: Hook::new(node.components, self.callback),
+            components: Hook::new(node.components, callback),
             dirty: node.dirty,
         }
     }
@@ -62,7 +59,8 @@ where
         node: &mut ViewNodeMut<Self::View, Self::Components, S, M, E>,
         context: &mut RenderContext<S>,
     ) -> bool {
-        with_inner_node(node, self.callback, |mut inner_node| {
+        let callback = Rc::new(self.callback);
+        with_inner_node(node, callback, |mut inner_node| {
             self.inner.update(&mut inner_node, context)
         })
     }
@@ -83,7 +81,7 @@ where
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        context.render_element(self)
+        context.render_node(self)
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
@@ -171,24 +169,13 @@ where
 
     type View = Hook<Inner::View, Callback>;
 
-    fn update<'a>(
+    fn force_update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         level: Level,
         context: &mut RenderContext<S>,
     ) -> bool {
         with_inner_node(node, node.components.callback.clone(), |mut inner_node| {
-            Inner::update(&mut inner_node, level, context)
-        })
-    }
-
-    fn commit<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
-        mode: CommitMode,
-        level: Level,
-        context: &mut CommitContext<S, M, E>,
-    ) -> bool {
-        with_inner_node(node, node.components.callback.clone(), |mut inner_node| {
-            Inner::commit(&mut inner_node, mode, level, context)
+            Inner::force_update(&mut inner_node, level, context)
         })
     }
 }

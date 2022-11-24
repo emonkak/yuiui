@@ -18,7 +18,7 @@ pub struct RenderLoop<Element: self::Element<S, M, E>, S, M, E> {
     message_queue: VecDeque<M>,
     event_queue: VecDeque<TransferableEvent>,
     nodes_to_update: IdTree<Level>,
-    nodes_to_commit: IdTree<Level>,
+    nodes_to_commit: IdTree<()>,
     is_mounted: bool,
 }
 
@@ -120,9 +120,8 @@ where
                 };
                 let changed_nodes = self.node.update_subtree(&id_tree, &mut context);
                 if self.is_mounted {
-                    for (id_path, level) in changed_nodes {
-                        self.nodes_to_commit
-                            .insert_or_update(&id_path, level, cmp::max);
+                    for id_path in changed_nodes {
+                        self.nodes_to_commit.insert(&id_path, ());
                     }
                 }
                 if deadline.did_timeout() {
@@ -154,7 +153,7 @@ where
                     messages: &mut messages,
                     entry_point,
                 };
-                self.node.commit_from_top(CommitMode::Mount, &mut context);
+                self.node.commit_whole(CommitMode::Mount, &mut context);
                 self.message_queue.extend(messages);
                 self.is_mounted = true;
                 if deadline.did_timeout() {

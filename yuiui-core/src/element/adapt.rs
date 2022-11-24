@@ -89,7 +89,7 @@ where
         ViewNode<Adapt<Inner::View, S, M, SS, SM>, Adapt<Inner::Components, S, M, SS, SM>, S, M, E>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        context.render_element(self)
+        context.render_node(self)
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {
@@ -212,7 +212,7 @@ where
 
     type View = Adapt<Inner::View, S, M, SS, SM>;
 
-    fn update<'a>(
+    fn force_update<'a>(
         node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
         level: Level,
         context: &mut RenderContext<S>,
@@ -225,33 +225,8 @@ where
             node,
             node.components.select_state,
             node.components.lift_message,
-            |mut inner_node| Inner::update(&mut inner_node, level, &mut sub_context),
+            |mut inner_node| Inner::force_update(&mut inner_node, level, &mut sub_context),
         )
-    }
-
-    fn commit<'a>(
-        node: &mut ViewNodeMut<'a, Self::View, Self, S, M, E>,
-        mode: CommitMode,
-        level: Level,
-        context: &mut CommitContext<S, M, E>,
-    ) -> bool {
-        let mut sub_messages = Vec::new();
-        let mut sub_context = CommitContext {
-            id_stack: context.id_stack,
-            state: (node.components.select_state)(context.state),
-            messages: &mut sub_messages,
-            entry_point: context.entry_point,
-        };
-        let result = with_inner_node(
-            node,
-            node.components.select_state,
-            node.components.lift_message,
-            |mut inner_node| Inner::commit(&mut inner_node, mode, level, &mut sub_context),
-        );
-        context
-            .messages
-            .extend(sub_messages.into_iter().map(&node.components.lift_message));
-        result
     }
 }
 

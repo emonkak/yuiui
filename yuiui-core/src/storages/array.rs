@@ -24,7 +24,7 @@ where
     type Storage = ArrayStorage<ViewNode<Element::View, Element::Components, S, M, E>, N>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        ArrayStorage::new(self.map(|element| context.render_element(element)))
+        ArrayStorage::new(self.map(|element| context.render_node(element)))
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {

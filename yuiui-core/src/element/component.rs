@@ -1,5 +1,4 @@
 use crate::component::Component;
-use crate::component_node::ComponentNode;
 use crate::component_stack::ComponentStack;
 use crate::context::RenderContext;
 use crate::view_node::{ViewNode, ViewNodeMut};
@@ -23,10 +22,7 @@ where
 {
     type View = <C::Element as Element<S, M, E>>::View;
 
-    type Components = (
-        ComponentNode<C, S, M, E>,
-        <C::Element as Element<S, M, E>>::Components,
-    );
+    type Components = (C, <C::Element as Element<S, M, E>>::Components);
 
     fn render(
         self,
@@ -36,7 +32,6 @@ where
             .id_stack
             .set_level(<Self::Components as ComponentStack<S, M, E>>::LEVEL);
         let element = self.component.render(context);
-        let component_node = ComponentNode::new(self.component);
         let node = element.render(context);
         ViewNode {
             id: node.id,
@@ -44,7 +39,7 @@ where
             pending_view: node.pending_view,
             view_state: node.view_state,
             children: node.children,
-            components: (component_node, node.components),
+            components: (self.component, node.components),
             dirty: true,
         }
     }
@@ -56,7 +51,7 @@ where
     ) -> bool {
         let (head_component, tail_components) = node.components;
         let element = self.component.render(context);
-        head_component.update(self.component);
+        *head_component = self.component;
         let mut node = ViewNodeMut {
             id: node.id,
             view: node.view,
@@ -78,7 +73,7 @@ where
         ViewNode<<Self as Element<S, M, E>>::View, <Self as Element<S, M, E>>::Components, S, M, E>;
 
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
-        context.render_element(self)
+        context.render_node(self)
     }
 
     fn update_children(self, storage: &mut Self::Storage, context: &mut RenderContext<S>) -> bool {

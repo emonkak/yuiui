@@ -1,17 +1,17 @@
 use crate::component_stack::ComponentStack;
 use crate::context::CommitContext;
-use crate::id::{id_tree, Level};
+use crate::id::id_tree;
 use crate::view::View;
 
 use super::{CommitMode, Traversable, ViewNode, Visitor};
 
 pub struct CommitSubtreeVisitor<'a> {
     mode: CommitMode,
-    cursor: id_tree::Cursor<'a, Level>,
+    cursor: id_tree::Cursor<'a, ()>,
 }
 
 impl<'a> CommitSubtreeVisitor<'a> {
-    pub fn new(mode: CommitMode, cursor: id_tree::Cursor<'a, Level>) -> Self {
+    pub fn new(mode: CommitMode, cursor: id_tree::Cursor<'a, ()>) -> Self {
         Self { mode, cursor }
     }
 }
@@ -27,8 +27,8 @@ where
         node: &mut ViewNode<V, CS, S, M, E>,
         context: &mut CommitContext<'context, S, M, E>,
     ) {
-        if let Some(level) = self.cursor.current().data() {
-            node.commit_from(self.mode, *level, context);
+        if self.cursor.current().data().is_some() {
+            node.commit_whole(self.mode, context);
         } else {
             for cursor in self.cursor.children() {
                 let id = cursor.current().id();

@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use super::{Id, IdPath, IdPathBuf};
 
 #[derive(Debug, Clone)]
-pub struct IdTree<T = ()> {
+pub struct IdTree<T> {
     arena: Vec<Node<T>>,
     len: usize,
 }
@@ -86,7 +86,7 @@ impl<T> Default for IdTree<T> {
     }
 }
 
-impl<'a> FromIterator<&'a IdPathBuf> for IdTree {
+impl<'a> FromIterator<&'a IdPathBuf> for IdTree<()> {
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = &'a IdPathBuf>,
@@ -117,7 +117,7 @@ impl<T> FromIterator<(IdPathBuf, T)> for IdTree<T> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Node<T = ()> {
+pub struct Node<T> {
     id: Id,
     data: Option<T>,
     children: Vec<usize>,
@@ -140,7 +140,7 @@ impl<T> Node<T> {
 }
 
 #[derive(Debug)]
-pub struct Cursor<'a, T = ()> {
+pub struct Cursor<'a, T> {
     arena: &'a [Node<T>],
     node: &'a Node<T>,
 }

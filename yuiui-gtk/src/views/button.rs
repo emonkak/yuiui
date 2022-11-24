@@ -100,7 +100,7 @@ where
     fn event(
         &self,
         event: <Self as EventTarget>::Event,
-        _state: &mut Self::State,
+        _view_state: &mut Self::State,
         _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
         context: &mut CommitContext<S, M, EntryPoint>,
     ) {

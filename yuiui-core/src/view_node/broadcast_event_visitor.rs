@@ -10,11 +10,11 @@ use super::{Traversable, ViewNode, Visitor};
 
 pub struct BroadcastEventVisitor<'a> {
     payload: &'a dyn Any,
-    cursor: id_tree::Cursor<'a>,
+    cursor: id_tree::Cursor<'a, ()>,
 }
 
 impl<'a> BroadcastEventVisitor<'a> {
-    pub fn new(payload: &'a dyn Any, cursor: id_tree::Cursor<'a>) -> Self {
+    pub fn new(payload: &'a dyn Any, cursor: id_tree::Cursor<'a, ()>) -> Self {
         Self { payload, cursor }
     }
 }

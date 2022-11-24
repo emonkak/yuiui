@@ -23,7 +23,7 @@ impl<'context, S> RenderContext<'context, S> {
         atom.peek()
     }
 
-    pub(crate) fn render_element<Element, M, E>(
+    pub(crate) fn render_node<Element, M, E>(
         &mut self,
         element: Element,
     ) -> ViewNode<Element::View, Element::Components, S, M, E>

@@ -35,7 +35,7 @@ where
     fn render_children(self, context: &mut RenderContext<S>) -> Self::Storage {
         VecStorage::new(
             self.into_iter()
-                .map(|element| context.render_element(element))
+                .map(|element| context.render_node(element))
                 .collect(),
         )
     }
@@ -58,7 +58,7 @@ where
                     let node = &mut storage.staging[j];
                     has_changed |= context.update_node(element, node);
                 } else {
-                    let node = context.render_element(element);
+                    let node = context.render_node(element);
                     storage.staging.push_back(node);
                     has_changed = true;
                 }

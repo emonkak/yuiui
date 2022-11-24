@@ -54,16 +54,15 @@ where
         &mut self,
         id_tree: &IdTree<Level>,
         context: &mut RenderContext<S>,
-    ) -> Vec<(IdPathBuf, Level)> {
+    ) -> Vec<IdPathBuf> {
         let mut visitor = UpdateSubtreeVisitor::new(id_tree.root());
         visitor.visit(self, context);
         visitor.into_result()
     }
 
-    pub(crate) fn commit_from(
+    pub(crate) fn commit_whole(
         &mut self,
         mode: CommitMode,
-        level: Level,
         context: &mut CommitContext<S, M, E>,
     ) -> bool {
         if !self.dirty && !mode.is_propagable() {
@@ -72,7 +71,7 @@ where
 
         let mut result = match mode {
             CommitMode::Mount | CommitMode::Update => self.children.commit(mode, context),
-            CommitMode::Unmount => CS::commit(&mut self.into(), mode, level, context),
+            CommitMode::Unmount => false,
         };
 
         result |= match (mode, self.pending_view.take(), self.view_state.as_mut()) {
@@ -150,26 +149,16 @@ where
         self.dirty = false;
 
         result |= match mode {
-            CommitMode::Mount | CommitMode::Update => {
-                CS::commit(&mut self.into(), mode, level, context)
-            }
+            CommitMode::Mount | CommitMode::Update => false,
             CommitMode::Unmount => self.children.commit(mode, context),
         };
 
         result
     }
 
-    pub(crate) fn commit_from_top(
-        &mut self,
-        mode: CommitMode,
-        context: &mut CommitContext<S, M, E>,
-    ) -> bool {
-        self.commit_from(mode, CS::LEVEL, context)
-    }
-
     pub(crate) fn commit_subtree(
         &mut self,
-        id_tree: &IdTree<Level>,
+        id_tree: &IdTree<()>,
         context: &mut CommitContext<S, M, E>,
     ) {
         let mut visitor = CommitSubtreeVisitor::new(CommitMode::Update, id_tree.root());
@@ -332,7 +321,7 @@ where
 
     fn commit(&mut self, mode: CommitMode, context: &mut CommitContext<S, M, E>) -> bool {
         context.id_stack.push(self.id);
-        let has_changed = self.commit_from_top(mode, context);
+        let has_changed = self.commit_whole(mode, context);
         context.id_stack.pop();
         has_changed
     }
