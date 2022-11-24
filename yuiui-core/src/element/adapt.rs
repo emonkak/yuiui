@@ -44,20 +44,12 @@ where
         let inner_node = self.inner.render(&mut inner_context);
         ViewNode {
             id: inner_node.id,
-            view: Adapt::new(
-                inner_node.view,
-                self.select_state.clone(),
-                self.lift_message.clone(),
-            ),
+            view: Adapt::new(inner_node.view, self.select_state, self.lift_message),
             pending_view: inner_node
                 .pending_view
-                .map(|view| Adapt::new(view, self.select_state.clone(), self.lift_message.clone())),
+                .map(|view| Adapt::new(view, self.select_state, self.lift_message)),
             view_state: inner_node.view_state,
-            children: Adapt::new(
-                inner_node.children,
-                self.select_state.clone(),
-                self.lift_message.clone(),
-            ),
+            children: Adapt::new(inner_node.children, self.select_state, self.lift_message),
             components: Adapt::new(inner_node.components, self.select_state, self.lift_message),
             dirty: inner_node.dirty,
         }
@@ -243,8 +235,8 @@ where
         };
         Adapt::new(
             self.inner.render_children(&mut inner_context),
-            self.select_state.clone(),
-            self.lift_message.clone(),
+            self.select_state,
+            self.lift_message,
         )
     }
 
