@@ -6,6 +6,7 @@ use crate::id::NodePath;
 pub enum Effect<T> {
     Command(Command<T>, Option<CancellationToken>),
     Update(Vec<NodePath>),
+    ForceUpdate,
     Batch(Vec<Effect<T>>),
 }
 
@@ -25,6 +26,7 @@ impl<T> Effect<T> {
                 Effect::Command(command.map(f.clone()), cancellation_token)
             }
             Effect::Update(subscribers) => Effect::Update(subscribers),
+            Effect::ForceUpdate => Effect::ForceUpdate,
             Effect::Batch(effects) => Effect::Batch(
                 effects
                     .into_iter()

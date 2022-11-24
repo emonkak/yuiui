@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use std::{cmp, fmt, mem};
 
 use crate::command::CommandRuntime;
+use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
 use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
@@ -66,9 +67,16 @@ where
                                 self.nodes_to_update.insert_or_update(
                                     &subscriber.id_path,
                                     subscriber.level,
-                                    cmp::min,
+                                    cmp::max,
                                 );
                             }
+                        }
+                        Effect::ForceUpdate => {
+                            self.nodes_to_update.insert_or_update(
+                                &[],
+                                <Element::Components as ComponentStack<S, M, E>>::LEVEL,
+                                cmp::max,
+                            );
                         }
                         Effect::Batch(effects) => {
                             effect_queue.extend(effects);
