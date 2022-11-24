@@ -60,7 +60,9 @@ where
         context: &mut RenderContext<S>,
     ) -> bool {
         let callback = Rc::new(self.callback);
-        with_inner_node(node, callback, |mut inner_node| {
+        node.view.callback = callback.clone();
+        node.components.callback = callback.clone();
+        with_inner_node(node, |mut inner_node| {
             self.inner.update(&mut inner_node, context)
         })
     }
@@ -174,7 +176,7 @@ where
         level: Level,
         context: &mut RenderContext<S>,
     ) -> bool {
-        with_inner_node(node, node.components.callback.clone(), |mut inner_node| {
+        with_inner_node(node, |mut inner_node| {
             Inner::force_update(&mut inner_node, level, context)
         })
     }
@@ -182,7 +184,6 @@ where
 
 fn with_inner_node<Callback, V, CS, S, M, E, F, T>(
     node: &mut ViewNodeMut<Hook<V, Callback>, Hook<CS, Callback>, S, M, E>,
-    callback: Rc<Callback>,
     f: F,
 ) -> T
 where
@@ -207,7 +208,8 @@ where
         components: &mut node.components.inner,
         dirty: node.dirty,
     };
+    let callback = &node.view.callback;
     let result = f(inner_node);
-    *node.pending_view = inner_pending_view.map(|view| Hook::new(view, callback));
+    *node.pending_view = inner_pending_view.map(|view| Hook::new(view, callback.clone()));
     result
 }
