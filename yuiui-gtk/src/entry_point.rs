@@ -66,7 +66,7 @@ impl EntryPoint {
                 let deadline = Instant::now() + DEALINE_PERIOD;
 
                 if matches!(
-                    render_loop.run(&mut state, &self, &command_runtime, &deadline),
+                    render_loop.run_until(&mut state, &self, &command_runtime, &deadline),
                     RenderFlow::Suspend
                 ) {
                     command_runtime.request_rerender();

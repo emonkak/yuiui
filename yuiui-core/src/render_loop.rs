@@ -46,7 +46,39 @@ where
         }
     }
 
-    pub fn run(
+    pub fn run_until(
+        &mut self,
+        state: &mut S,
+        entry_point: &E,
+        command_runtime: &impl CommandRuntime<M>,
+        deadline: &Instant,
+    ) -> RenderFlow {
+        self.run(state, entry_point, command_runtime, deadline)
+    }
+
+    pub fn run_forever(
+        &mut self,
+        state: &mut S,
+        entry_point: &E,
+        command_runtime: &impl CommandRuntime<M>,
+    ) {
+        let render_flow = self.run(state, entry_point, command_runtime, &Forever);
+        assert_eq!(render_flow, RenderFlow::Done);
+    }
+
+    pub fn push_message(&mut self, message: M) {
+        self.message_queue.push_back(message);
+    }
+
+    pub fn push_event(&mut self, event: TransferableEvent) {
+        self.event_queue.push_back(event);
+    }
+
+    pub fn node(&self) -> &ViewNode<Element::View, Element::Components, S, M, E> {
+        &self.node
+    }
+
+    fn run(
         &mut self,
         state: &mut S,
         entry_point: &E,
@@ -55,62 +87,15 @@ where
     ) -> RenderFlow {
         loop {
             while let Some(message) = self.message_queue.pop_front() {
-                let mut current_effect = state.update(message);
-                let mut effect_queue = VecDeque::new();
-                loop {
-                    match current_effect {
-                        Effect::Command(command, cancellation_token) => {
-                            command_runtime.spawn_command(command, cancellation_token);
-                        }
-                        Effect::Update(subscribers) => {
-                            for subscriber in subscribers {
-                                self.nodes_to_update.insert_or_update(
-                                    &subscriber.id_path,
-                                    subscriber.level,
-                                    cmp::max,
-                                );
-                            }
-                        }
-                        Effect::ForceUpdate => {
-                            self.nodes_to_update.insert_or_update(
-                                &[],
-                                <Element::Components as ComponentStack<S, M, E>>::LEVEL,
-                                cmp::max,
-                            );
-                        }
-                        Effect::Batch(effects) => {
-                            effect_queue.extend(effects);
-                        }
-                    }
-                    if let Some(next_effect) = effect_queue.pop_front() {
-                        current_effect = next_effect;
-                    } else {
-                        break;
-                    }
-                }
+                let effect = state.update(message);
+                self.process_effect(effect, command_runtime);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
             }
 
             while let Some(event) = self.event_queue.pop_front() {
-                let mut messages = Vec::new();
-                let mut context = CommitContext {
-                    id_stack: &mut self.id_stack,
-                    state,
-                    messages: &mut messages,
-                    entry_point,
-                };
-                match event {
-                    TransferableEvent::Forward(destination, payload) => {
-                        self.node
-                            .forward_event(&*payload, &destination, &mut context)
-                    }
-                    TransferableEvent::Broadcast(destinations, paylaod) => self
-                        .node
-                        .broadcast_event(&*paylaod, &destinations, &mut context),
-                }
-                self.message_queue.extend(messages);
+                self.process_event(event, state, entry_point);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -175,26 +160,61 @@ where
         }
     }
 
-    pub fn run_forever(
-        &mut self,
-        state: &mut S,
-        entry_point: &E,
-        command_runtime: &impl CommandRuntime<M>,
-    ) {
-        let render_flow = self.run(state, entry_point, command_runtime, &Forever);
-        assert_eq!(render_flow, RenderFlow::Done);
+    fn process_effect(&mut self, effect: Effect<M>, command_runtime: &impl CommandRuntime<M>) {
+        let mut current_effect = effect;
+        let mut effect_queue = VecDeque::new();
+        loop {
+            match current_effect {
+                Effect::Command(command, cancellation_token) => {
+                    command_runtime.spawn_command(command, cancellation_token);
+                }
+                Effect::Update(subscribers) => {
+                    for subscriber in subscribers {
+                        self.nodes_to_update.insert_or_update(
+                            &subscriber.id_path,
+                            subscriber.level,
+                            cmp::max,
+                        );
+                    }
+                }
+                Effect::ForceUpdate => {
+                    self.nodes_to_update.insert_or_update(
+                        &[],
+                        <Element::Components as ComponentStack<S, M, E>>::LEVEL,
+                        cmp::max,
+                    );
+                }
+                Effect::Batch(effects) => {
+                    effect_queue.extend(effects);
+                }
+            }
+            if let Some(next_effect) = effect_queue.pop_front() {
+                current_effect = next_effect;
+            } else {
+                break;
+            }
+        }
     }
 
-    pub fn push_message(&mut self, message: M) {
-        self.message_queue.push_back(message);
-    }
-
-    pub fn push_event(&mut self, event: TransferableEvent) {
-        self.event_queue.push_back(event);
-    }
-
-    pub fn node(&self) -> &ViewNode<Element::View, Element::Components, S, M, E> {
-        &self.node
+    fn process_event(&mut self, event: TransferableEvent, state: &mut S, entry_point: &E) {
+        let mut messages = Vec::new();
+        let mut context = CommitContext {
+            id_stack: &mut self.id_stack,
+            state,
+            messages: &mut messages,
+            entry_point,
+        };
+        match event {
+            TransferableEvent::Forward(destination, payload) => {
+                self.node
+                    .forward_event(&*payload, &destination, &mut context)
+            }
+            TransferableEvent::Broadcast(destinations, paylaod) => {
+                self.node
+                    .broadcast_event(&*paylaod, &destinations, &mut context)
+            }
+        }
+        self.message_queue.extend(messages);
     }
 
     fn render_flow(&self) -> RenderFlow {
@@ -240,7 +260,7 @@ pub enum RenderFlow {
     Done,
 }
 
-pub trait Deadline {
+trait Deadline {
     fn did_timeout(&self) -> bool;
 }
 
