@@ -15,34 +15,35 @@ pub trait Component<S, M, E>: Sized {
     }
 }
 
-pub struct FunctionComponent<Props, Element, S, M, E, RenderFn>
+pub struct FunctionComponent<RenderFn, Props, Element, S, M, E>
 where
     RenderFn: Fn(&Props, &mut RenderContext<S>) -> Element,
+    Element: self::Element<S, M, E>,
 {
-    props: Props,
     render_fn: RenderFn,
-    _phantom: PhantomData<(Element, S, M, E)>,
+    props: Props,
+    _phantom: PhantomData<(S, M, E)>,
 }
 
-impl<Props, Element, S, M, E, RenderFn> FunctionComponent<Props, Element, S, M, E, RenderFn>
+impl<RenderFn, Props, Element, S, M, E> FunctionComponent<RenderFn, Props, Element, S, M, E>
 where
     RenderFn: Fn(&Props, &mut RenderContext<S>) -> Element,
+    Element: self::Element<S, M, E>,
 {
-    #[inline]
-    pub const fn new(props: Props, render_fn: RenderFn) -> Self {
+    pub const fn new(render_fn: RenderFn, props: Props) -> Self {
         Self {
-            props,
             render_fn,
+            props,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<Props, Element, S, M, E, RenderFn> Component<S, M, E>
-    for FunctionComponent<Props, Element, S, M, E, RenderFn>
+impl<RenderFn, Props, Element, S, M, E> Component<S, M, E>
+    for FunctionComponent<RenderFn, Props, Element, S, M, E>
 where
-    Element: self::Element<S, M, E>,
     RenderFn: Fn(&Props, &mut RenderContext<S>) -> Element,
+    Element: self::Element<S, M, E>,
 {
     type Element = Element;
 
@@ -52,10 +53,11 @@ where
     }
 }
 
-impl<Props, Element, S, M, E, RenderFn> AsRef<Props>
-    for FunctionComponent<Props, Element, S, M, E, RenderFn>
+impl<RenderFn, Props, Element, S, M, E> AsRef<Props>
+    for FunctionComponent<RenderFn, Props, Element, S, M, E>
 where
     RenderFn: Fn(&Props, &mut RenderContext<S>) -> Element,
+    Element: self::Element<S, M, E>,
 {
     #[inline]
     fn as_ref(&self) -> &Props {
@@ -63,11 +65,12 @@ where
     }
 }
 
-impl<Props, Element, S, M, E, RenderFn> fmt::Debug
-    for FunctionComponent<Props, Element, S, M, E, RenderFn>
+impl<RenderFn, Props, Element, S, M, E> fmt::Debug
+    for FunctionComponent<RenderFn, Props, Element, S, M, E>
 where
-    Props: fmt::Debug,
     RenderFn: Fn(&Props, &mut RenderContext<S>) -> Element,
+    Props: fmt::Debug,
+    Element: self::Element<S, M, E>,
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -99,15 +102,15 @@ pub trait HigherOrderComponent<Props, S, M, E> {
     }
 }
 
-impl<Props, Element, S, M, E, RenderFn> HigherOrderComponent<Props, S, M, E> for RenderFn
+impl<RenderFn, Props, Element, S, M, E> HigherOrderComponent<Props, S, M, E> for RenderFn
 where
     Element: self::Element<S, M, E>,
     RenderFn: Fn(&Props, &mut RenderContext<S>) -> Element,
 {
-    type Component = FunctionComponent<Props, Element, S, M, E, RenderFn>;
+    type Component = FunctionComponent<RenderFn, Props, Element, S, M, E>;
 
     #[inline]
     fn build(self, props: Props) -> Self::Component {
-        FunctionComponent::new(props, self)
+        FunctionComponent::new(self, props)
     }
 }
