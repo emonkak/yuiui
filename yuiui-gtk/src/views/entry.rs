@@ -160,7 +160,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                     if let Some(message) =
                         on_activate(view_state.current_text.as_str(), context.state())
                     {
-                        context.push_message(message);
+                        context.dispatch(message);
                     }
                 }
             }
@@ -170,7 +170,7 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
                     if let Some(message) =
                         on_change(view_state.current_text.as_str(), context.state())
                     {
-                        context.push_message(message);
+                        context.dispatch(message);
                     }
                 }
             }

@@ -73,7 +73,7 @@ impl<'context, S, M, E> CommitContext<'context, S, M, E> {
         self.entry_point
     }
 
-    pub fn push_message(&mut self, message: M) {
+    pub fn dispatch(&mut self, message: M) {
         self.messages.push(message);
     }
 }

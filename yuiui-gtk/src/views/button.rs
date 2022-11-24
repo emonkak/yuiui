@@ -108,7 +108,7 @@ where
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
                     if let Some(message) = on_click(context.state()) {
-                        context.push_message(message);
+                        context.dispatch(message);
                     }
                 }
             }
