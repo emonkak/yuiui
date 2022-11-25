@@ -28,9 +28,7 @@ where
         self,
         context: &mut RenderContext<S>,
     ) -> ViewNode<Self::View, Self::Components, S, M, E> {
-        context
-            .id_stack
-            .set_level(<Self::Components as ComponentStack<S, M, E>>::LEVEL);
+        context.level = Self::Components::LEVEL;
         let element = self.component.render(context);
         let node = element.render(context);
         ViewNode {
@@ -50,6 +48,7 @@ where
         context: &mut RenderContext<S>,
     ) -> bool {
         let (head_component, tail_components) = node.components;
+        context.level = Self::Components::LEVEL;
         let element = self.component.render(context);
         *head_component = self.component;
         let mut node = ViewNodeMut {

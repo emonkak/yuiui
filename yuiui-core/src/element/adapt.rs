@@ -40,6 +40,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (self.select_state)(context.state),
+            level: context.level,
         };
         let inner_node = self.inner.render(&mut inner_context);
         ViewNode {
@@ -63,6 +64,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (self.select_state)(context.state),
+            level: context.level,
         };
         node.view.select_state = self.select_state;
         node.view.lift_message = self.lift_message;
@@ -215,6 +217,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (node.components.select_state)(context.state),
+            level: context.level,
         };
         with_inner_node(node, |mut inner_node| {
             Inner::force_update(&mut inner_node, level, &mut inner_context)
@@ -232,6 +235,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (self.select_state)(context.state),
+            level: context.level,
         };
         Adapt::new(
             self.inner.render_children(&mut inner_context),
@@ -244,6 +248,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (self.select_state)(context.state),
+            level: context.level,
         };
         self.inner
             .update_children(&mut storage.inner, &mut inner_context)
@@ -289,6 +294,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (self.select_state)(context.state),
+            level: context.level,
         };
         self.inner.for_each(visitor, &mut inner_context)
     }
@@ -302,6 +308,7 @@ where
         let mut inner_context = RenderContext {
             id_stack: context.id_stack,
             state: (self.select_state)(context.state),
+            level: context.level,
         };
         self.inner.for_id(id, visitor, &mut inner_context)
     }

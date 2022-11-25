@@ -1,5 +1,5 @@
 use crate::element::Element;
-use crate::id::{IdPath, IdStack};
+use crate::id::{IdPath, IdStack, Level};
 use crate::state::Atom;
 use crate::view_node::ViewNode;
 
@@ -7,6 +7,7 @@ use crate::view_node::ViewNode;
 pub struct RenderContext<'context, S> {
     pub(crate) id_stack: &'context mut IdStack,
     pub(crate) state: &'context S,
+    pub(crate) level: Level,
 }
 
 impl<'context, S> RenderContext<'context, S> {
@@ -19,7 +20,7 @@ impl<'context, S> RenderContext<'context, S> {
         F: FnOnce(&S) -> &Atom<T>,
     {
         let atom = f(self.state);
-        atom.subscribe(self.id_stack.id_path(), self.id_stack.level());
+        atom.subscribe(self.id_stack.id_path(), self.level);
         atom.get()
     }
 

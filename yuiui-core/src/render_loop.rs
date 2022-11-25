@@ -33,6 +33,7 @@ where
         let mut context = RenderContext {
             id_stack: &mut id_stack,
             state,
+            level: Element::Components::LEVEL,
         };
         let node = element.render(&mut context);
         Self {
@@ -110,6 +111,7 @@ where
                 let mut context = RenderContext {
                     id_stack: &mut self.id_stack,
                     state,
+                    level: Element::Components::LEVEL,
                 };
                 let changed_nodes = self.node.update_subtree(&id_tree, &mut context);
                 if self.is_mounted {
@@ -180,7 +182,7 @@ where
                 Effect::ForceUpdate => {
                     self.nodes_to_update.insert_or_update(
                         &[],
-                        <Element::Components as ComponentStack<S, M, E>>::LEVEL,
+                        Element::Components::LEVEL,
                         cmp::max,
                     );
                 }

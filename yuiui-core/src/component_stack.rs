@@ -45,7 +45,7 @@ where
             dirty: node.dirty,
         };
         if level >= CS::LEVEL {
-            context.id_stack.set_level(Self::LEVEL);
+            context.level = Self::LEVEL;
             let element = head_component.render(context);
             element.update(&mut node, context)
         } else {
@@ -78,9 +78,8 @@ where
     fn force_update<'a>(
         _node: &mut ViewNodeMut<'a, V, Self, S, M, E>,
         _level: Level,
-        context: &mut RenderContext<S>,
+        _context: &mut RenderContext<S>,
     ) -> bool {
-        context.id_stack.set_level(Self::LEVEL);
         false
     }
 }
