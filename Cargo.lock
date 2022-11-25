@@ -443,10 +443,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
 
 [[package]]
-name = "hlist"
-version = "0.0.0"
-
-[[package]]
 name = "libc"
 version = "0.2.134"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -756,7 +752,6 @@ version = "0.0.0"
 dependencies = [
  "bitflags",
  "futures",
- "hlist",
 ]
 
 [[package]]
@@ -765,7 +760,6 @@ version = "0.0.0"
 dependencies = [
  "futures",
  "gtk4",
- "hlist",
  "yuiui-core",
  "yuiui-gtk-derive",
 ]

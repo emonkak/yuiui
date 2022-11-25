@@ -1,7 +1,6 @@
-use hlist::{HCons, HList, HNil};
-
 use crate::context::{CommitContext, RenderContext};
 use crate::element::ElementSeq;
+use crate::hlist::{HCons, HList, HNil};
 use crate::id::Id;
 use crate::view_node::{CommitMode, Traversable, ViewNodeSeq};
 

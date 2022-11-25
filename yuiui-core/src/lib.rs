@@ -6,6 +6,7 @@ mod context;
 mod effect;
 mod element;
 mod event;
+mod hlist;
 mod id;
 mod render_loop;
 mod state;
@@ -24,6 +25,7 @@ pub use element::{
     ViewElement,
 };
 pub use event::{Event, EventTarget, Lifecycle, TransferableEvent};
+pub use hlist::{HCons, HList, HNil};
 pub use id::{Id, IdPath, IdPathBuf, Level, NodePath};
 pub use render_loop::{RenderFlow, RenderLoop};
 pub use state::{Atom, State};

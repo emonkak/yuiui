@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "hlist",
     "yuiui-core",
     "yuiui-gtk",
     "yuiui-gtk-derive",

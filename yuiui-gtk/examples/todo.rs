@@ -1,7 +1,8 @@
 use gtk::prelude::*;
-use hlist::hlist;
 use std::rc::Rc;
-use yuiui_core::{Atom, Effect, HigherOrderComponent, RenderContext, State, View, ViewElement};
+use yuiui_core::{
+    hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View, ViewElement,
+};
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
