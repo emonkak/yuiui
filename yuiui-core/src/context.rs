@@ -13,10 +13,17 @@ pub struct RenderContext<'context, S> {
 }
 
 impl<'context, S> RenderContext<'context, S> {
+    #[inline]
     pub fn id_path(&self) -> &IdPath {
         self.id_stack.id_path()
     }
 
+    #[inline]
+    pub fn state(&self) -> &S {
+        self.state
+    }
+
+    #[inline]
     pub fn use_atom<F, T>(&self, f: F) -> &T
     where
         F: FnOnce(&S) -> &Atom<T>,
@@ -65,22 +72,27 @@ pub struct CommitContext<'context, S, M, E> {
 }
 
 impl<'context, S, M, E> CommitContext<'context, S, M, E> {
+    #[inline]
     pub fn id_path(&self) -> &IdPath {
         self.id_stack.id_path()
     }
 
+    #[inline]
     pub fn state(&self) -> &S {
         self.state
     }
 
+    #[inline]
     pub fn entry_point(&self) -> &E {
         self.entry_point
     }
 
+    #[inline]
     pub fn dispatch(&mut self, message: M) {
         self.messages.push(message);
     }
 
+    #[inline]
     pub fn spawn(&mut self, command: Command<M>, cancellation_token: Option<CancellationToken>) {
         self.commands.push((command, cancellation_token));
     }
