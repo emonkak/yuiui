@@ -12,6 +12,9 @@ yuiui-core = { path = "../yuiui-core" }
 yuiui-gtk-derive = { path = "../yuiui-gtk-derive" }
 
 [[example]]
+name = "calculator"
+
+[[example]]
 name = "counter"
 
 [[example]]

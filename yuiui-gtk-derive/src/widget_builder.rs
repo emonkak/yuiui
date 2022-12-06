@@ -39,7 +39,7 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
         let property = Property::from_attributes(&field.attrs).unwrap_or_default();
         let property_name = &property
             .name_literal()
-            .unwrap_or_else(|| Literal::string(&field_name.to_string()));
+            .unwrap_or_else(|| Literal::string(&field_name.to_string().replace("_", "-")));
 
         if property.enables_argument() {
             new_arguments.push(quote!(#field_name: #ty));

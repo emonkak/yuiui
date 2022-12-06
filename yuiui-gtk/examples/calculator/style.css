@@ -1,0 +1,82 @@
+@define-color gray-1 #f5f6f7;
+@define-color gray-2 #e8e9eb;
+@define-color gray-3 #dadce0;
+@define-color gray-4 #c3c9d6;
+@define-color gray-5 #a1acc4;
+@define-color gray-6 #8190b3;
+@define-color gray-7 #5f719c;
+@define-color gray-8 #455987;
+@define-color gray-9 #2b3f6e;
+@define-color gray-10 #12234d;
+@define-color red-1 #fff0ed;
+@define-color red-2 #ffe7e3;
+@define-color red-3 #ffd1c9;
+@define-color red-4 #fcb4a9;
+@define-color red-5 #fa907f;
+@define-color red-6 #f25d46;
+@define-color red-7 #d1331b;
+@define-color red-8 #a1220e;
+@define-color red-9 #78190b;
+@define-color red-10 #451008;
+
+.calculator-state {
+  font-size: 96px;
+  background-color: @gray-10;
+  color: @gray-1;
+  padding: 32px 16px 0;
+}
+
+.calculator-button {
+  font-size: 48px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.calculator-button.is-clear > label,
+.calculator-button.is-negate > label,
+.calculator-button.is-mod > label {
+  background-color: @gray-8;
+  color: @gray-1;
+}
+
+.calculator-button.is-clear:hover > label,
+.calculator-button.is-negate:hover > label,
+.calculator-button.is-mod:hover > label {
+  background-color: @gray-9;
+}
+
+.calculator-button.is-number > label,
+.calculator-button.is-dot > label {
+  background-color: @gray-7;
+  color: @gray-1;
+}
+
+.calculator-button.is-number:hover > label,
+.calculator-button.is-dot:hover > label {
+  background-color: @gray-6;
+}
+
+.calculator-button.is-div > label {
+  background-color: @red-8;
+  color: @gray-1;
+}
+
+.calculator-button.is-div:hover > label {
+  background-color: @red-9;
+}
+
+.calculator-button.is-mul > label,
+.calculator-button.is-add > label,
+.calculator-button.is-sub > label,
+.calculator-button.is-equal > label {
+  background-color: @red-7;
+  color: @gray-1;
+}
+
+.calculator-button.is-mul:hover > label,
+.calculator-button.is-add:hover > label,
+.calculator-button.is-sub:hover > label,
+.calculator-button.is-equal:hover > label {
+  background-color: @red-6;
+}
