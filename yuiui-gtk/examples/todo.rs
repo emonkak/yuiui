@@ -1,7 +1,8 @@
 use gtk::prelude::*;
 use std::rc::Rc;
 use yuiui_core::{
-    hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View, ViewElement,
+    hlist, Atom, CancellableCommand, Effect, HigherOrderComponent, RenderContext, State, View,
+    ViewElement,
 };
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
@@ -16,40 +17,40 @@ struct TodoState {
 impl State for TodoState {
     type Message = TodoMessage;
 
-    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
+    fn update(
+        &mut self,
+        message: Self::Message,
+    ) -> (Effect, Vec<CancellableCommand<Self::Message>>) {
         match message {
             TodoMessage::AddTodo(text) => {
                 let todo = Todo {
                     id: self.todo_id,
                     text,
                 };
-                let subscribers = [
-                    self.todos.update(|todos| {
+                let effect = self
+                    .todos
+                    .update(|todos| {
                         todos.push(Rc::new(todo));
-                    }),
-                    self.text.set("".to_owned()),
-                ]
-                .into_iter()
-                .flatten()
-                .collect();
+                    })
+                    .compose(self.text.set("".to_owned()));
                 self.todo_id += 1;
-                Effect::Update(subscribers)
+                (effect, Vec::new())
             }
             TodoMessage::RemoveTodo(id) => {
                 if let Some(position) = self.todos.get().iter().position(|todo| todo.id == id) {
-                    let subscribers = self.todos.update(move |todos| {
+                    let effect = self.todos.update(move |todos| {
                         todos.remove(position);
                     });
-                    Effect::Update(subscribers)
+                    (effect, Vec::new())
                 } else {
-                    Effect::nop()
+                    (Effect::NoChanges, Vec::new())
                 }
             }
             TodoMessage::ChangeText(new_text) => {
-                let subscribers = self.text.update(move |text| {
+                let effect = self.text.update(move |text| {
                     *text = new_text;
                 });
-                Effect::Update(subscribers)
+                (effect, Vec::new())
             }
         }
     }

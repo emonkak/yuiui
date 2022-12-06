@@ -2,7 +2,9 @@ mod calculator;
 
 use gtk::prelude::*;
 use gtk::{gdk, pango};
-use yuiui_core::{hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View};
+use yuiui_core::{
+    hlist, Atom, CancellableCommand, Effect, HigherOrderComponent, RenderContext, State, View,
+};
 use yuiui_gtk::views::{vbox, Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -24,13 +26,16 @@ impl AppState {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
+    fn update(
+        &mut self,
+        message: Self::Message,
+    ) -> (Effect, Vec<CancellableCommand<Self::Message>>) {
         match message {
             AppMessage::CalculatorAction(action) => {
-                let subscribers = self
+                let effect = self
                     .calculator
                     .update(|calculator| calculator.update(action));
-                Effect::Update(subscribers)
+                (effect, Vec::new())
             }
         }
     }

@@ -5,11 +5,10 @@ use std::{cmp, fmt, mem};
 use crate::command::CommandRuntime;
 use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
-use crate::effect::Effect;
 use crate::element::{Element, ElementSeq};
 use crate::event::TransferableEvent;
 use crate::id::{IdStack, IdTree, Level};
-use crate::state::State;
+use crate::state::{Effect, State};
 use crate::view::View;
 use crate::view_node::{CommitMode, ViewNode};
 
@@ -88,8 +87,11 @@ where
     ) -> RenderFlow {
         loop {
             while let Some(message) = self.message_queue.pop_front() {
-                let effect = state.update(message);
-                self.process_effect(effect, command_runtime);
+                let (effect, commands) = state.update(message);
+                self.process_effect(effect);
+                for command in commands {
+                    command_runtime.spawn_command(command.command, command.cancellation_token);
+                }
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -162,38 +164,21 @@ where
         }
     }
 
-    fn process_effect(&mut self, effect: Effect<M>, command_runtime: &impl CommandRuntime<M>) {
-        let mut current_effect = effect;
-        let mut effect_queue = VecDeque::new();
-        loop {
-            match current_effect {
-                Effect::Command(command, cancellation_token) => {
-                    command_runtime.spawn_command(command, cancellation_token);
-                }
-                Effect::Update(subscribers) => {
-                    for subscriber in subscribers {
-                        self.nodes_to_update.insert_or_update(
-                            &subscriber.id_path,
-                            subscriber.level,
-                            cmp::max,
-                        );
-                    }
-                }
-                Effect::ForceUpdate => {
+    fn process_effect(&mut self, effect: Effect) {
+        match effect {
+            Effect::NoChanges => {}
+            Effect::Update(subscribers) => {
+                for subscriber in subscribers {
                     self.nodes_to_update.insert_or_update(
-                        &[],
-                        Element::Components::LEVEL,
+                        &subscriber.id_path,
+                        subscriber.level,
                         cmp::max,
                     );
                 }
-                Effect::Batch(effects) => {
-                    effect_queue.extend(effects);
-                }
             }
-            if let Some(next_effect) = effect_queue.pop_front() {
-                current_effect = next_effect;
-            } else {
-                break;
+            Effect::ForceUpdate => {
+                self.nodes_to_update
+                    .insert_or_update(&[], Element::Components::LEVEL, cmp::max);
             }
         }
     }

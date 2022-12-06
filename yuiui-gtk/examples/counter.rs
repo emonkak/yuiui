@@ -1,5 +1,7 @@
 use gtk::prelude::*;
-use yuiui_core::{hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View};
+use yuiui_core::{
+    hlist, Atom, CancellableCommand, Effect, HigherOrderComponent, RenderContext, State, View,
+};
 use yuiui_gtk::views::{Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -11,12 +13,15 @@ struct AppState {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(&mut self, message: Self::Message) -> Effect<Self::Message> {
-        let subscribers = match message {
+    fn update(
+        &mut self,
+        message: Self::Message,
+    ) -> (Effect, Vec<CancellableCommand<Self::Message>>) {
+        let effect = match message {
             AppMessage::Increment => self.count.update(|count| *count += 1),
             AppMessage::Decrement => self.count.update(|count| *count -= 1),
         };
-        Effect::Update(subscribers)
+        (effect, Vec::new())
     }
 }
 
