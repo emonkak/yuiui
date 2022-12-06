@@ -11,7 +11,11 @@ impl<S, M, E> ElementSeq<S, M, E> for HNil {
         HNil
     }
 
-    fn update_children(self, _nodes: &mut Self::Storage, _context: &mut RenderContext<S>) -> bool {
+    fn update_children(
+        self,
+        _storage: &mut Self::Storage,
+        _context: &mut RenderContext<S>,
+    ) -> bool {
         false
     }
 }
