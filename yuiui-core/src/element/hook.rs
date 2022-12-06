@@ -191,15 +191,15 @@ where
     }
 }
 
-fn with_inner_node<Callback, V, CS, S, M, E, F, T>(
+fn with_inner_node<F, T, Callback, V, CS, S, M, E>(
     node: &mut ViewNodeMut<Hook<V, Callback>, Hook<CS, Callback>, S, M, E>,
     f: F,
 ) -> T
 where
+    F: FnOnce(ViewNodeMut<V, CS, S, M, E>) -> T,
     Callback: HookCallback<V, S, M, E>,
     V: View<S, M, E>,
     CS: ComponentStack<S, M, E, View = V>,
-    F: FnOnce(ViewNodeMut<V, CS, S, M, E>) -> T,
 {
     let mut inner_pending_view = node.pending_view.take().map(|view| view.inner);
     let inner_node = ViewNodeMut {

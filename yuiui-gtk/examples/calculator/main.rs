@@ -2,9 +2,7 @@ mod calculator;
 
 use gtk::prelude::*;
 use gtk::{gdk, pango};
-use yuiui_core::{
-    hlist, Atom, CancellableCommand, Effect, HigherOrderComponent, RenderContext, State, View,
-};
+use yuiui_core::{hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View};
 use yuiui_gtk::views::{vbox, Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -26,17 +24,11 @@ impl AppState {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-    ) -> (Effect, Vec<CancellableCommand<Self::Message>>) {
+    fn update(&mut self, message: Self::Message) -> Effect {
         match message {
-            AppMessage::CalculatorAction(action) => {
-                let effect = self
-                    .calculator
-                    .update(|calculator| calculator.update(action));
-                (effect, Vec::new())
-            }
+            AppMessage::CalculatorAction(action) => self
+                .calculator
+                .update(|calculator| calculator.update(action)),
         }
     }
 }
@@ -61,9 +53,7 @@ fn num_button(digit: Digit) -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-number".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(Box::new(move |_| {
-            AppMessage::CalculatorAction(Action::Digit(digit)).into()
-        }))
+        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Digit(digit))))
         .el(Label::new().label(digit.into_char().to_string()).el(()))
 }
 
@@ -75,18 +65,16 @@ fn operator_button(operator: Operator) -> impl GtkElement<AppState, AppMessage> 
         ])
         .hexpand(true)
         .vexpand(true)
-        .on_click(Box::new(move |_| {
-            AppMessage::CalculatorAction(Action::Operator(operator)).into()
-        }))
+        .on_click(|context| {
+            context.dispatch(AppMessage::CalculatorAction(Action::Operator(operator)))
+        })
         .el(Label::new().label(operator.into_char().to_string()).el(()))
 }
 
 fn clear_button() -> impl GtkElement<AppState, AppMessage> {
     Button::new()
         .css_classes(vec!["calculator-button".to_owned(), "is-clear".to_owned()])
-        .on_click(Box::new(move |_| {
-            AppMessage::CalculatorAction(Action::Clear).into()
-        }))
+        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Clear)))
         .hexpand(true)
         .vexpand(true)
         .el(Label::new().label("C".to_owned()).el(()))
@@ -97,9 +85,7 @@ fn negate_button() -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-negate".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(Box::new(move |_| {
-            AppMessage::CalculatorAction(Action::Negate).into()
-        }))
+        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Negate)))
         .el(Label::new().label("±".to_owned()).el(()))
 }
 
@@ -108,9 +94,7 @@ fn dot_button() -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-dot".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(Box::new(move |_| {
-            AppMessage::CalculatorAction(Action::Dot).into()
-        }))
+        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Dot)))
         .el(Label::new().label(".".to_owned()).el(()))
 }
 
@@ -119,9 +103,7 @@ fn equal_button() -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-equal".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(Box::new(move |_| {
-            AppMessage::CalculatorAction(Action::Equal).into()
-        }))
+        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Equal)))
         .el(Label::new().label("=".to_string()).el(()))
 }
 

@@ -1,21 +1,17 @@
 use std::cell::RefCell;
 use std::mem;
 
-use crate::command::CancellableCommand;
 use crate::id::{IdPath, Level, NodePath};
 
 pub trait State {
     type Message;
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-    ) -> (Effect, Vec<CancellableCommand<Self::Message>>);
+    fn update(&mut self, message: Self::Message) -> Effect;
 }
 
 #[derive(Debug)]
 pub enum Effect {
-    NoChanges,
+    Nop,
     Update(Vec<NodePath>),
     ForceUpdate,
 }
@@ -23,8 +19,8 @@ pub enum Effect {
 impl Effect {
     pub fn compose(self, rhs: Self) -> Self {
         match (self, rhs) {
-            (Self::NoChanges, rhs) => rhs,
-            (lhs, Self::NoChanges) => lhs,
+            (Self::Nop, rhs) => rhs,
+            (lhs, Self::Nop) => lhs,
             (Self::ForceUpdate, _) | (_, Self::ForceUpdate) => Self::ForceUpdate,
             (Self::Update(mut lhs), Self::Update(rhs)) => {
                 lhs.extend(rhs);

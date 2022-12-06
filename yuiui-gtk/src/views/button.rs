@@ -47,10 +47,17 @@ pub struct Button<Child, S, M> {
     accessible_role: Option<gtk::AccessibleRole>,
     action_name: Option<String>,
     action_target: Option<glib::Variant>,
-    #[property(bind = false)]
-    on_click: Option<Box<dyn Fn(&S) -> Option<M>>>,
+    #[property(bind = false, setter = false)]
+    on_click: Option<Box<dyn Fn(&mut CommitContext<S, M, EntryPoint>)>>,
     #[property(bind = false, setter = false)]
     _phantom: PhantomData<Child>,
+}
+
+impl<Child, S, M> Button<Child, S, M> {
+    pub fn on_click(mut self, f: impl Fn(&mut CommitContext<S, M, EntryPoint>) + 'static) -> Self {
+        self.on_click = Some(Box::new(f));
+        self
+    }
 }
 
 impl<Child, S, M> View<S, M, EntryPoint> for Button<Child, S, M>
@@ -107,9 +114,7 @@ where
         match event {
             Event::Clicked => {
                 if let Some(on_click) = &self.on_click {
-                    if let Some(message) = on_click(context.state()) {
-                        context.dispatch(message);
-                    }
+                    on_click(context)
                 }
             }
         }

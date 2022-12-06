@@ -1,3 +1,5 @@
+use crate::cancellation_token::CancellationToken;
+use crate::command::Command;
 use crate::element::Element;
 use crate::id::{IdPath, IdStack, Level};
 use crate::state::Atom;
@@ -58,6 +60,7 @@ pub struct CommitContext<'context, S, M, E> {
     pub(crate) id_stack: &'context mut IdStack,
     pub(crate) state: &'context S,
     pub(crate) messages: &'context mut Vec<M>,
+    pub(crate) commands: &'context mut Vec<(Command<M>, Option<CancellationToken>)>,
     pub(crate) entry_point: &'context E,
 }
 
@@ -76,5 +79,39 @@ impl<'context, S, M, E> CommitContext<'context, S, M, E> {
 
     pub fn dispatch(&mut self, message: M) {
         self.messages.push(message);
+    }
+
+    pub fn spawn(&mut self, command: Command<M>, cancellation_token: Option<CancellationToken>) {
+        self.commands.push((command, cancellation_token));
+    }
+
+    pub(crate) fn enter_sub_context<F, FS, FM, T, SS, SM>(
+        &mut self,
+        select_state: &FS,
+        lift_message: &FM,
+        f: F,
+    ) -> T
+    where
+        F: FnOnce(CommitContext<SS, SM, E>) -> T,
+        FS: Fn(&S) -> &SS + Clone,
+        FM: Fn(SM) -> M + Clone + Send + 'static,
+        SM: 'static,
+    {
+        let mut messages = Vec::new();
+        let mut commands = Vec::new();
+        let inner_context = CommitContext {
+            id_stack: self.id_stack,
+            state: select_state(&self.state),
+            messages: &mut messages,
+            commands: &mut commands,
+            entry_point: self.entry_point,
+        };
+        let result = f(inner_context);
+        self.messages.extend(messages.into_iter().map(lift_message));
+        self.commands
+            .extend(commands.into_iter().map(|(command, cancellation_token)| {
+                (command.map(lift_message.clone()), cancellation_token)
+            }));
+        result
     }
 }

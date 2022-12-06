@@ -81,10 +81,28 @@ pub struct Entry<S, M> {
     text: Option<String>,
     width_chars: Option<i32>,
     xalign: Option<f32>,
-    #[property(bind = false)]
-    on_activate: Option<Box<dyn Fn(&str, &S) -> Option<M>>>,
-    #[property(bind = false)]
-    on_change: Option<Box<dyn Fn(&str, &S) -> Option<M>>>,
+    #[property(bind = false, setter = false)]
+    on_activate: Option<Box<dyn Fn(&str, &mut CommitContext<S, M, EntryPoint>)>>,
+    #[property(bind = false, setter = false)]
+    on_change: Option<Box<dyn Fn(&str, &mut CommitContext<S, M, EntryPoint>)>>,
+}
+
+impl<S, M> Entry<S, M> {
+    pub fn on_activate(
+        mut self,
+        f: impl Fn(&str, &mut CommitContext<S, M, EntryPoint>) + 'static,
+    ) -> Self {
+        self.on_activate = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_change(
+        mut self,
+        f: impl Fn(&str, &mut CommitContext<S, M, EntryPoint>) + 'static,
+    ) -> Self {
+        self.on_change = Some(Box::new(f));
+        self
+    }
 }
 
 impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
@@ -157,21 +175,13 @@ impl<S, M> View<S, M, EntryPoint> for Entry<S, M> {
         match event {
             Event::Activate => {
                 if let Some(on_activate) = &self.on_activate {
-                    if let Some(message) =
-                        on_activate(view_state.current_text.as_str(), context.state())
-                    {
-                        context.dispatch(message);
-                    }
+                    on_activate(view_state.current_text.as_str(), context)
                 }
             }
             Event::Changed => {
                 if let Some(on_change) = &self.on_change {
                     view_state.refresh_text();
-                    if let Some(message) =
-                        on_change(view_state.current_text.as_str(), context.state())
-                    {
-                        context.dispatch(message);
-                    }
+                    on_change(view_state.current_text.as_str(), context)
                 }
             }
         }

@@ -6,67 +6,6 @@ use std::time::Duration;
 
 use crate::cancellation_token::CancellationToken;
 
-#[derive(Debug)]
-pub struct CancellableCommand<T> {
-    pub(crate) command: Command<T>,
-    pub(crate) cancellation_token: Option<CancellationToken>,
-}
-
-impl<T> CancellableCommand<T> {
-    pub fn new(command: Command<T>, cancellation_token: Option<CancellationToken>) -> Self {
-        Self {
-            command,
-            cancellation_token,
-        }
-    }
-
-    pub fn from_future<Future>(
-        future: Future,
-        cancellation_token: Option<CancellationToken>,
-    ) -> Self
-    where
-        Future: self::Future<Output = T> + Send + 'static,
-    {
-        Self::new(Command::Future(Box::pin(future)), cancellation_token)
-    }
-
-    pub fn from_stream<Stream>(
-        stream: Stream,
-        cancellation_token: Option<CancellationToken>,
-    ) -> Self
-    where
-        Stream: self::Stream<Item = T> + Send + 'static,
-    {
-        Self::new(Command::Stream(Box::pin(stream)), cancellation_token)
-    }
-
-    pub fn delay<F>(duration: Duration, f: F, cancellation_token: Option<CancellationToken>) -> Self
-    where
-        F: FnOnce() -> T + Send + 'static,
-    {
-        Self::new(Command::Timeout(duration, Box::new(f)), cancellation_token)
-    }
-
-    pub fn every<F>(period: Duration, f: F, cancellation_token: Option<CancellationToken>) -> Self
-    where
-        F: FnMut() -> T + Send + 'static,
-    {
-        Self::new(Command::Interval(period, Box::new(f)), cancellation_token)
-    }
-
-    pub fn map<F, U>(self, f: F) -> CancellableCommand<U>
-    where
-        F: FnMut(T) -> U + Send + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        CancellableCommand {
-            command: self.command.map(f),
-            cancellation_token: self.cancellation_token,
-        }
-    }
-}
-
 pub enum Command<T> {
     Future(BoxFuture<'static, T>),
     Stream(BoxStream<'static, T>),
@@ -75,11 +14,37 @@ pub enum Command<T> {
 }
 
 impl<T> Command<T> {
+    pub fn from_future<Future>(future: Future) -> Self
+    where
+        Future: self::Future<Output = T> + Send + 'static,
+    {
+        Self::Future(Box::pin(future))
+    }
+
+    pub fn from_stream<Stream>(stream: Stream) -> Self
+    where
+        Stream: self::Stream<Item = T> + Send + 'static,
+    {
+        Self::Stream(Box::pin(stream))
+    }
+
+    pub fn delay<F>(duration: Duration, f: F) -> Self
+    where
+        F: FnOnce() -> T + Send + 'static,
+    {
+        Self::Timeout(duration, Box::new(f))
+    }
+
+    pub fn every<F>(period: Duration, f: F) -> Self
+    where
+        F: FnMut() -> T + Send + 'static,
+    {
+        Self::Interval(period, Box::new(f))
+    }
     pub fn map<F, U>(self, mut f: F) -> Command<U>
     where
         F: FnMut(T) -> U + Send + 'static,
         T: 'static,
-        U: 'static,
     {
         match self {
             Self::Future(future) => Command::Future(Box::pin(future.map(f))),

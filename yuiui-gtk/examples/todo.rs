@@ -1,8 +1,7 @@
 use gtk::prelude::*;
 use std::rc::Rc;
 use yuiui_core::{
-    hlist, Atom, CancellableCommand, Effect, HigherOrderComponent, RenderContext, State, View,
-    ViewElement,
+    hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View, ViewElement,
 };
 use yuiui_gtk::views::{hbox, vbox, Button, Entry, Label, ListBox, ListBoxRow, ScrolledWindow};
 use yuiui_gtk::{EntryPoint, GtkElement};
@@ -17,41 +16,31 @@ struct TodoState {
 impl State for TodoState {
     type Message = TodoMessage;
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-    ) -> (Effect, Vec<CancellableCommand<Self::Message>>) {
+    fn update(&mut self, message: Self::Message) -> Effect {
         match message {
             TodoMessage::AddTodo(text) => {
                 let todo = Todo {
                     id: self.todo_id,
                     text,
                 };
-                let effect = self
-                    .todos
+                self.todos
                     .update(|todos| {
                         todos.push(Rc::new(todo));
                     })
-                    .compose(self.text.set("".to_owned()));
-                self.todo_id += 1;
-                (effect, Vec::new())
+                    .compose(self.text.set("".to_owned()))
             }
             TodoMessage::RemoveTodo(id) => {
                 if let Some(position) = self.todos.get().iter().position(|todo| todo.id == id) {
-                    let effect = self.todos.update(move |todos| {
+                    self.todos.update(move |todos| {
                         todos.remove(position);
-                    });
-                    (effect, Vec::new())
+                    })
                 } else {
-                    (Effect::NoChanges, Vec::new())
+                    Effect::Nop
                 }
             }
-            TodoMessage::ChangeText(new_text) => {
-                let effect = self.text.update(move |text| {
-                    *text = new_text;
-                });
-                (effect, Vec::new())
-            }
+            TodoMessage::ChangeText(new_text) => self.text.update(move |text| {
+                *text = new_text;
+            }),
         }
     }
 }
@@ -103,12 +92,12 @@ fn todo_input(
     Entry::new()
         .text(text.to_owned())
         .hexpand(true)
-        .on_activate(Box::new(|text, _| {
-            (!text.is_empty()).then(|| TodoMessage::AddTodo(text.to_owned()))
-        }))
-        .on_change(Box::new(|text, _| {
-            TodoMessage::ChangeText(text.to_owned()).into()
-        }))
+        .on_activate(|text, context| {
+            if !text.is_empty() {
+                context.dispatch(TodoMessage::AddTodo(text.to_owned()))
+            }
+        })
+        .on_change(|text, context| context.dispatch(TodoMessage::ChangeText(text.to_owned())))
         .el(())
 }
 
@@ -142,7 +131,7 @@ fn todo_item(
                 .label(props.todo.text.to_owned())
                 .el(()),
             Button::new()
-                .on_click(Box::new(move |_| TodoMessage::RemoveTodo(id).into()))
+                .on_click(move |context| context.dispatch(TodoMessage::RemoveTodo(id)))
                 .el(Label::new().label("Delete".to_owned()).el(()))
         ]))
 }

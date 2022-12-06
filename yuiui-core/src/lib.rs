@@ -14,7 +14,7 @@ mod view;
 mod view_node;
 
 pub use cancellation_token::{CancellationToken, RawToken, RawTokenVTable};
-pub use command::{CancellableCommand, Command, CommandRuntime};
+pub use command::{Command, CommandRuntime};
 pub use component::{Component, FunctionComponent, HigherOrderComponent};
 pub use component_stack::ComponentStack;
 pub use context::{CommitContext, RenderContext};

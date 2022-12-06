@@ -1,7 +1,5 @@
 use gtk::prelude::*;
-use yuiui_core::{
-    hlist, Atom, CancellableCommand, Effect, HigherOrderComponent, RenderContext, State, View,
-};
+use yuiui_core::{hlist, Atom, Effect, HigherOrderComponent, RenderContext, State, View};
 use yuiui_gtk::views::{Button, Grid, GridChild, Label};
 use yuiui_gtk::{EntryPoint, GtkElement};
 
@@ -13,15 +11,11 @@ struct AppState {
 impl State for AppState {
     type Message = AppMessage;
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-    ) -> (Effect, Vec<CancellableCommand<Self::Message>>) {
-        let effect = match message {
+    fn update(&mut self, message: Self::Message) -> Effect {
+        match message {
             AppMessage::Increment => self.count.update(|count| *count += 1),
             AppMessage::Decrement => self.count.update(|count| *count -= 1),
-        };
-        (effect, Vec::new())
+        }
     }
 }
 
@@ -40,7 +34,7 @@ fn app(
         GridChild::new(0, 0, 1, 1).el(Button::new()
             .hexpand(true)
             .vexpand(true)
-            .on_click(Box::new(|_| AppMessage::Decrement.into()))
+            .on_click(|context| context.dispatch(AppMessage::Decrement))
             .el(Label::new()
                 .label("-".to_owned())
                 .halign(gtk::Align::Center)
@@ -48,7 +42,7 @@ fn app(
         GridChild::new(1, 0, 1, 1,).el(Button::new()
             .hexpand(true)
             .vexpand(true)
-            .on_click(Box::new(|_| AppMessage::Increment.into()))
+            .on_click(|context| context.dispatch(AppMessage::Increment))
             .el(Label::new()
                 .label("+".to_owned())
                 .halign(gtk::Align::Center)

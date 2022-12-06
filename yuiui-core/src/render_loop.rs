@@ -87,18 +87,15 @@ where
     ) -> RenderFlow {
         loop {
             while let Some(message) = self.message_queue.pop_front() {
-                let (effect, commands) = state.update(message);
+                let effect = state.update(message);
                 self.process_effect(effect);
-                for command in commands {
-                    command_runtime.spawn_command(command.command, command.cancellation_token);
-                }
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
             }
 
             while let Some(event) = self.event_queue.pop_front() {
-                self.process_event(event, state, entry_point);
+                self.process_event(event, state, entry_point, command_runtime);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -130,28 +127,38 @@ where
                 if !self.nodes_to_commit.is_empty() {
                     let id_tree = mem::take(&mut self.nodes_to_commit);
                     let mut messages = Vec::new();
+                    let mut commands = Vec::new();
                     let mut context = CommitContext {
                         id_stack: &mut self.id_stack,
                         state,
                         messages: &mut messages,
+                        commands: &mut commands,
                         entry_point,
                     };
                     self.node.commit_subtree(&id_tree, &mut context);
                     self.message_queue.extend(messages);
+                    for (command, cancellation_token) in commands {
+                        command_runtime.spawn_command(command, cancellation_token);
+                    }
                     if deadline.did_timeout() {
                         return self.render_flow();
                     }
                 }
             } else {
                 let mut messages = Vec::new();
+                let mut commands = Vec::new();
                 let mut context = CommitContext {
                     id_stack: &mut self.id_stack,
                     state,
                     messages: &mut messages,
+                    commands: &mut commands,
                     entry_point,
                 };
                 self.node.commit_whole(CommitMode::Mount, &mut context);
                 self.message_queue.extend(messages);
+                for (command, cancellation_token) in commands {
+                    command_runtime.spawn_command(command, cancellation_token);
+                }
                 self.is_mounted = true;
                 if deadline.did_timeout() {
                     return self.render_flow();
@@ -166,7 +173,7 @@ where
 
     fn process_effect(&mut self, effect: Effect) {
         match effect {
-            Effect::NoChanges => {}
+            Effect::Nop => {}
             Effect::Update(subscribers) => {
                 for subscriber in subscribers {
                     self.nodes_to_update.insert_or_update(
@@ -183,12 +190,20 @@ where
         }
     }
 
-    fn process_event(&mut self, event: TransferableEvent, state: &mut S, entry_point: &E) {
+    fn process_event(
+        &mut self,
+        event: TransferableEvent,
+        state: &mut S,
+        entry_point: &E,
+        command_runtime: &impl CommandRuntime<M>,
+    ) {
         let mut messages = Vec::new();
+        let mut commands = Vec::new();
         let mut context = CommitContext {
             id_stack: &mut self.id_stack,
             state,
             messages: &mut messages,
+            commands: &mut commands,
             entry_point,
         };
         match event {
@@ -202,6 +217,9 @@ where
             }
         }
         self.message_queue.extend(messages);
+        for (command, cancellation_token) in commands {
+            command_runtime.spawn_command(command, cancellation_token);
+        }
     }
 
     fn render_flow(&self) -> RenderFlow {

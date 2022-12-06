@@ -35,7 +35,7 @@ impl Calculator {
             }
             Action::Dot => {
                 if let Some(operant) = &mut self.pending_operant {
-                    operant.enable_decimal_part();
+                    operant.init_decimal_part();
                 } else {
                     self.pending_operant = Some(Operant::new(Sign::Plus, vec![], Some(vec![])));
                 }
@@ -205,7 +205,7 @@ impl Operant {
         }
     }
 
-    fn enable_decimal_part(&mut self) {
+    fn init_decimal_part(&mut self) {
         self.decimal_part = Some(Vec::new());
     }
 
