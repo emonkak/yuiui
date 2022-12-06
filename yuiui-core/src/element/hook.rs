@@ -231,15 +231,15 @@ where
     );
 }
 
-impl<V, S, M, E> HookCallback<V, S, M, E>
-    for fn(
-        &V,
-        &Lifecycle<V>,
-        &V::State,
-        &<V::Children as ElementSeq<S, M, E>>::Storage,
-        &mut CommitContext<S, M, E>,
-    )
+impl<F, V, S, M, E> HookCallback<V, S, M, E> for F
 where
+    F: Fn(
+            &V,
+            &Lifecycle<V>,
+            &V::State,
+            &<V::Children as ElementSeq<S, M, E>>::Storage,
+            &mut CommitContext<S, M, E>,
+        ) + Clone,
     V: View<S, M, E>,
 {
     fn call(
