@@ -65,6 +65,18 @@ impl<T> Atom<T> {
         Effect::Update(mem::take(self.subscribers.get_mut()))
     }
 
+    #[inline]
+    pub fn update_if<F>(&mut self, f: F) -> Effect
+    where
+        F: FnOnce(&mut T) -> bool,
+    {
+        if f(&mut self.value) {
+            Effect::Update(mem::take(self.subscribers.get_mut()))
+        } else {
+            Effect::Nop
+        }
+    }
+
     pub(crate) fn subscribe(&self, id_path: &IdPath, level: Level) {
         for subscriber in self.subscribers.borrow_mut().iter_mut() {
             if subscriber.id_path == id_path {
