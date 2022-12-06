@@ -2,12 +2,10 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui_core::{
-    CommitContext, ComponentStack, ElementSeq, EventTarget, Lifecycle, Traversable, View, ViewNode,
-    ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, Element, ElementSeq, EventTarget, Lifecycle, Traversable, View,
+    ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
-
-use crate::entry_point::EntryPoint;
 
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Notebook)]
@@ -53,12 +51,12 @@ pub struct Notebook<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M> View<S, M, EntryPoint> for Notebook<Children>
+impl<Children, S, M, E> View<S, M, E> for Notebook<Children>
 where
-    Children: ElementSeq<S, M, EntryPoint>,
+    Children: ElementSeq<S, M, E>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, EntryPoint>,
+        CommitContext<'context, S, M, E>,
     >,
 {
     type Children = Children;
@@ -69,10 +67,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -89,8 +87,8 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         self.build()
     }
@@ -101,80 +99,47 @@ impl<'event, Children> EventTarget<'event> for Notebook<Children> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NotebookChild<Child> {
-    child: Child,
-    child_type: NotebookChildType,
+pub struct NotebookChild<Label, Content> {
+    _phantom: PhantomData<(Label, Content)>,
 }
 
-impl<Child> NotebookChild<Child> {
-    pub fn from_tab(child: Child) -> Self {
+impl<Label, Content> NotebookChild<Label, Content> {
+    pub fn new() -> Self {
         Self {
-            child,
-            child_type: NotebookChildType::TabLabel,
-        }
-    }
-
-    pub fn from_content(child: Child) -> Self {
-        Self {
-            child,
-            child_type: NotebookChildType::Content,
+            _phantom: PhantomData,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum NotebookChildType {
-    TabLabel,
-    Content,
-}
-
-impl<Child, S, M> View<S, M, EntryPoint> for NotebookChild<Child>
+impl<Label, Content, S, M, E> View<S, M, E> for NotebookChild<Label, Content>
 where
-    Child: View<S, M, EntryPoint>,
+    Label: Element<S, M, E>,
+    Label::View: View<S, M, E>,
+    <Label::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
+    Content: Element<S, M, E>,
+    Content::View: View<S, M, E>,
+    <Content::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
 {
-    type Children = Child::Children;
+    type Children = (Label, Content);
 
-    type State = Child::State;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
-    ) {
-        let lifecycle = lifecycle.map(|view| view.child);
-        self.child
-            .lifecycle(lifecycle, view_state, children, context)
-    }
-
-    fn event(
-        &self,
-        event: <Self as EventTarget>::Event,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
-    ) {
-        self.child.event(event, view_state, children, context)
-    }
+    type State = ();
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
-        self.child.build(children, context)
+        ()
     }
 }
 
-impl<'event, Child: EventTarget<'event>> EventTarget<'event> for NotebookChild<Child> {
-    type Event = Child::Event;
+impl<'event, Label, Content> EventTarget<'event> for NotebookChild<Label, Content> {
+    type Event = ();
 }
 
 pub struct ReconcileChildrenVisitor<'a> {
     container: &'a gtk::Notebook,
     current_child: Option<gtk::Widget>,
-    current_tab: Option<gtk::Widget>,
     index: u32,
 }
 
@@ -183,63 +148,55 @@ impl<'a> ReconcileChildrenVisitor<'a> {
         Self {
             container,
             current_child: container.first_child(),
-            current_tab: None,
             index: 0,
         }
     }
 }
 
-impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<NotebookChild<V>, CS, S, M, E>, Context>
+impl<'a, Label, Content, CS, S, M, E, Context>
+    Visitor<ViewNode<NotebookChild<Label, Content>, CS, S, M, E>, Context>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, E>,
-    V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, E, View = NotebookChild<V>>,
-    NotebookChild<V>: View<S, M, E, Children = V::Children, State = V::State>,
+    Label: Element<S, M, E>,
+    Label::View: View<S, M, E>,
+    <Label::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
+    Content: Element<S, M, E>,
+    Content::View: View<S, M, E>,
+    <Content::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
+    CS: ComponentStack<S, M, E, View = NotebookChild<Label, Content>>,
 {
     fn visit(
         &mut self,
-        node: &mut ViewNode<NotebookChild<V>, CS, S, M, E>,
+        node: &mut ViewNode<NotebookChild<Label, Content>, CS, S, M, E>,
         _context: &mut Context,
     ) {
-        match node.view().child_type {
-            NotebookChildType::TabLabel => {
-                let new_child: &gtk::Widget = node.view_state().unwrap().as_ref();
-                self.current_tab = Some(new_child.clone());
-            }
-            NotebookChildType::Content => {
-                let new_child: &gtk::Widget = node.view_state().unwrap().as_ref();
-                loop {
-                    match self.current_child.take() {
-                        Some(child) if new_child == &child => {
-                            self.current_child = child.next_sibling();
-                            self.index += 1;
-                            break;
-                        }
-                        Some(child) if new_child.parent().is_some() => {
-                            self.current_child = child.next_sibling();
-                            self.container.detach_tab(&child);
-                            self.index += 1;
-                        }
-                        Some(child) => {
-                            let new_tab = self.current_tab.take();
-                            self.container.insert_page(
-                                new_child,
-                                new_tab.as_ref(),
-                                Some(self.index),
-                            );
-                            new_child.insert_before(self.container, Some(&child));
-                            self.current_child = Some(child);
-                            self.index += 1;
-                            break;
-                        }
-                        None => {
-                            let new_tab = self.current_tab.take();
-                            self.container.append_page(new_child, new_tab.as_ref());
-                            self.index += 1;
-                            break;
-                        }
-                    }
+        let new_label: &gtk::Widget = node.children().0.view_state().unwrap().as_ref();
+        let new_child: &gtk::Widget = node.children().1.view_state().unwrap().as_ref();
+
+        loop {
+            match self.current_child.take() {
+                Some(child) if new_child == &child => {
+                    self.current_child = child.next_sibling();
+                    self.index += 1;
+                    break;
+                }
+                Some(child) if new_child.parent().is_some() => {
+                    self.current_child = child.next_sibling();
+                    self.container.detach_tab(&child);
+                    self.index += 1;
+                }
+                Some(child) => {
+                    self.container
+                        .insert_page(new_child, Some(new_label), Some(self.index));
+                    new_child.insert_before(self.container, Some(&child));
+                    self.current_child = Some(child);
+                    self.index += 1;
+                    break;
+                }
+                None => {
+                    self.container.append_page(new_child, Some(new_label));
+                    self.index += 1;
+                    break;
                 }
             }
         }

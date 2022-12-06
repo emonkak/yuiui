@@ -7,8 +7,6 @@ use yuiui_core::{
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::entry_point::EntryPoint;
-
 #[derive(WidgetBuilder, Debug, Clone)]
 #[widget(gtk::Stack)]
 pub struct Stack<Children> {
@@ -52,12 +50,12 @@ pub struct Stack<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M> View<S, M, EntryPoint> for Stack<Children>
+impl<Children, S, M, E> View<S, M, E> for Stack<Children>
 where
-    Children: ElementSeq<S, M, EntryPoint>,
+    Children: ElementSeq<S, M, E>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, EntryPoint>,
+        CommitContext<'context, S, M, E>,
     >,
 {
     type Children = Children;
@@ -68,10 +66,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -88,8 +86,8 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         self.build()
     }
@@ -137,10 +135,10 @@ pub struct StackSwitcher<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, EntryPoint> for StackSwitcher<Child>
+impl<Child, S, M, E> View<S, M, E> for StackSwitcher<Child>
 where
-    Child: Element<S, M, EntryPoint>,
-    Child::View: View<S, M, EntryPoint, State = gtk::Stack>,
+    Child: Element<S, M, E>,
+    Child::View: View<S, M, E, State = gtk::Stack>,
 {
     type Children = Child;
 
@@ -150,8 +148,8 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        _child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        _child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -163,8 +161,8 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         let container = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -200,88 +198,37 @@ impl AsRef<gtk::Widget> for StackSwitcherState {
 #[derive(Debug, Clone, WidgetBuilder)]
 #[widget(gtk::StackPage)]
 pub struct StackPage<Child> {
-    #[property(argument = true, bind = false, setter = false)]
-    child: Child,
     icon_name: Option<String>,
     name: Option<String>,
     needs_attention: Option<bool>,
     title: Option<String>,
     use_underline: Option<bool>,
     visible: Option<bool>,
+    #[property(bind = false, setter = false)]
+    _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, EntryPoint> for StackPage<Child>
+impl<Child, S, M, E> View<S, M, E> for StackPage<Child>
 where
-    Child: View<S, M, EntryPoint>,
+    Child: Element<S, M, E>,
+    Child::View: View<S, M, E>,
+    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
 {
-    type Children = Child::Children;
+    type Children = Child;
 
-    type State = StackPageState<Child::State>;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
-    ) {
-        match &lifecycle {
-            Lifecycle::Update(old_view) => {
-                if let Some(stack_page) = &view_state.stack_page {
-                    self.update(old_view, stack_page);
-                }
-            }
-            _ => {}
-        }
-        let lifecycle = lifecycle.map(|view| view.child);
-        self.child
-            .lifecycle(lifecycle, &mut view_state.child_state, children, context)
-    }
-
-    fn event(
-        &self,
-        event: <Self as EventTarget>::Event,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
-    ) {
-        self.child
-            .event(event, &mut view_state.child_state, children, context)
-    }
+    type State = Option<gtk::StackPage>;
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
-        let child_state = self.child.build(children, context);
-        StackPageState::new(child_state)
+        None
     }
 }
 
-impl<'event, Child: EventTarget<'event>> EventTarget<'event> for StackPage<Child> {
-    type Event = Child::Event;
-}
-
-#[derive(Debug)]
-pub struct StackPageState<State> {
-    child_state: State,
-    stack_page: Option<gtk::StackPage>,
-}
-
-impl<State> StackPageState<State> {
-    fn new(child_state: State) -> Self {
-        Self {
-            child_state,
-            stack_page: None,
-        }
-    }
-}
-
-impl<State: AsRef<gtk::Widget>> AsRef<gtk::Widget> for StackPageState<State> {
-    fn as_ref(&self) -> &gtk::Widget {
-        self.child_state.as_ref()
-    }
+impl<'event, Child> EventTarget<'event> for StackPage<Child> {
+    type Event = ();
 }
 
 pub struct ReconcileChildrenVisitor<'a> {
@@ -298,16 +245,20 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<StackPage<V>, CS, S, M, E>, Context>
+impl<'a, Child, CS, S, M, E, Context> Visitor<ViewNode<StackPage<Child>, CS, S, M, E>, Context>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, E>,
-    V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, E, View = StackPage<V>>,
-    StackPage<V>: View<S, M, E, Children = V::Children, State = StackPageState<V::State>>,
+    Child: Element<S, M, E>,
+    Child::View: View<S, M, E>,
+    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
+    CS: ComponentStack<S, M, E, View = StackPage<Child>>,
 {
-    fn visit(&mut self, node: &mut ViewNode<StackPage<V>, CS, S, M, E>, _context: &mut Context) {
-        let new_child: &gtk::Widget = node.view_state().as_ref().unwrap().child_state.as_ref();
+    fn visit(
+        &mut self,
+        node: &mut ViewNode<StackPage<Child>, CS, S, M, E>,
+        _context: &mut Context,
+    ) {
+        let new_child: &gtk::Widget = node.children().view_state().unwrap().as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_child == &child => {
@@ -322,14 +273,14 @@ where
                     let stack_page = self.container.add_child(new_child);
                     new_child.insert_before(self.container, Some(&child));
                     node.view_mut().force_update(&stack_page);
-                    node.view_state_mut().unwrap().stack_page = Some(stack_page);
+                    *node.view_state_mut().unwrap() = Some(stack_page);
                     self.current_child = Some(child);
                     break;
                 }
                 None => {
                     let stack_page = self.container.add_child(new_child);
                     node.view_mut().force_update(&stack_page);
-                    node.view_state_mut().unwrap().stack_page = Some(stack_page);
+                    *node.view_state_mut().unwrap() = Some(stack_page);
                     break;
                 }
             }

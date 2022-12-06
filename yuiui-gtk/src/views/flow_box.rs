@@ -7,8 +7,6 @@ use yuiui_core::{
 };
 use yuiui_gtk_derive::WidgetBuilder;
 
-use crate::entry_point::EntryPoint;
-
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::FlowBox)]
 pub struct FlowBox<Children> {
@@ -55,12 +53,12 @@ pub struct FlowBox<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M> View<S, M, EntryPoint> for FlowBox<Children>
+impl<Children, S, M, E> View<S, M, E> for FlowBox<Children>
 where
-    Children: ElementSeq<S, M, EntryPoint>,
+    Children: ElementSeq<S, M, E>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, EntryPoint>,
+        CommitContext<'context, S, M, E>,
     >,
 {
     type Children = Children;
@@ -71,10 +69,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -91,8 +89,8 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         self.build()
     }
@@ -139,10 +137,10 @@ pub struct FlowBoxChild<Child> {
     _phantom: PhantomData<Child>,
 }
 
-impl<Child, S, M> View<S, M, EntryPoint> for FlowBoxChild<Child>
+impl<Child, S, M, E> View<S, M, E> for FlowBoxChild<Child>
 where
-    Child: Element<S, M, EntryPoint>,
-    <Child::View as View<S, M, EntryPoint>>::State: AsRef<gtk::Widget>,
+    Child: Element<S, M, E>,
+    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
 {
     type Children = Child;
 
@@ -152,8 +150,8 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) {
         match lifecycle {
             Lifecycle::Update(old_view) => {
@@ -165,8 +163,8 @@ where
 
     fn build(
         &self,
-        child: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        child: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         let container = self.build();
         let child = child.view_state().unwrap();

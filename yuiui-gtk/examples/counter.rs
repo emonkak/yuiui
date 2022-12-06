@@ -32,45 +32,27 @@ fn app(
 ) -> impl GtkElement<AppState, AppMessage> {
     let count = context.use_atom(|state| &state.count);
     Grid::new().hexpand(true).vexpand(true).el(hlist![
-        GridChild::new(
-            Button::new()
-                .hexpand(true)
-                .vexpand(true)
-                .on_click(Box::new(|_| AppMessage::Decrement.into())),
-            0,
-            0,
-            1,
-            1,
-        )
-        .el(Label::new()
-            .label("-".to_owned())
-            .halign(gtk::Align::Center)
+        GridChild::new(0, 0, 1, 1).el(Button::new()
+            .hexpand(true)
+            .vexpand(true)
+            .on_click(Box::new(|_| AppMessage::Decrement.into()))
+            .el(Label::new()
+                .label("-".to_owned())
+                .halign(gtk::Align::Center)
+                .el(()))),
+        GridChild::new(1, 0, 1, 1,).el(Button::new()
+            .hexpand(true)
+            .vexpand(true)
+            .on_click(Box::new(|_| AppMessage::Increment.into()))
+            .el(Label::new()
+                .label("+".to_owned())
+                .halign(gtk::Align::Center)
+                .el(()))),
+        GridChild::new(0, 1, 2, 1,).el(Label::new()
+            .hexpand(true)
+            .vexpand(true)
+            .label(count.to_string())
             .el(())),
-        GridChild::new(
-            Button::new()
-                .hexpand(true)
-                .vexpand(true)
-                .on_click(Box::new(|_| AppMessage::Increment.into())),
-            1,
-            0,
-            1,
-            1,
-        )
-        .el(Label::new()
-            .label("+".to_owned())
-            .halign(gtk::Align::Center)
-            .el(())),
-        GridChild::new(
-            Label::new()
-                .hexpand(true)
-                .vexpand(true)
-                .label(count.to_string()),
-            0,
-            1,
-            2,
-            1,
-        )
-        .el(()),
     ])
 }
 

@@ -2,12 +2,10 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::marker::PhantomData;
 use yuiui_core::{
-    CommitContext, ComponentStack, ElementSeq, EventTarget, Lifecycle, Traversable, View, ViewNode,
-    ViewNodeSeq, Visitor,
+    CommitContext, ComponentStack, Element, ElementSeq, EventTarget, Lifecycle, Traversable, View,
+    ViewNode, ViewNodeSeq, Visitor,
 };
 use yuiui_gtk_derive::WidgetBuilder;
-
-use crate::entry_point::EntryPoint;
 
 #[derive(Clone, Debug, WidgetBuilder)]
 #[widget(gtk::Grid)]
@@ -52,12 +50,12 @@ pub struct Grid<Children> {
     _phantom: PhantomData<Children>,
 }
 
-impl<Children, S, M> View<S, M, EntryPoint> for Grid<Children>
+impl<Children, S, M, E> View<S, M, E> for Grid<Children>
 where
-    Children: ElementSeq<S, M, EntryPoint>,
+    Children: ElementSeq<S, M, E>,
     Children::Storage: for<'a, 'context> Traversable<
         ReconcileChildrenVisitor<'a>,
-        CommitContext<'context, S, M, EntryPoint>,
+        CommitContext<'context, S, M, E>,
     >,
 {
     type Children = Children;
@@ -68,10 +66,10 @@ where
         &self,
         lifecycle: Lifecycle<Self>,
         view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        context: &mut CommitContext<S, M, E>,
     ) {
-        let is_static = <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage::IS_STATIC;
+        let is_static = <Self::Children as ElementSeq<S, M, E>>::Storage::IS_STATIC;
         let needs_reconcile = match lifecycle {
             Lifecycle::Mount => true,
             Lifecycle::Remount | Lifecycle::Unmount => !is_static,
@@ -88,8 +86,8 @@ where
 
     fn build(
         &self,
-        _children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        _context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
         self.build()
     }
@@ -101,66 +99,46 @@ impl<'event, Children> EventTarget<'event> for Grid<Children> {
 
 #[derive(Debug, Clone)]
 pub struct GridChild<Child> {
-    child: Child,
     column: i32,
     row: i32,
     column_span: i32,
     row_span: i32,
+    _phantom: PhantomData<Child>,
 }
 
 impl<Child> GridChild<Child> {
-    pub fn new(child: Child, column: i32, row: i32, column_span: i32, row_span: i32) -> Self {
+    pub fn new(column: i32, row: i32, column_span: i32, row_span: i32) -> Self {
         Self {
-            child,
             column,
             row,
             column_span,
             row_span,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<Child, S, M> View<S, M, EntryPoint> for GridChild<Child>
+impl<Child, S, M, E> View<S, M, E> for GridChild<Child>
 where
-    Child: View<S, M, EntryPoint>,
+    Child: Element<S, M, E>,
+    Child::View: View<S, M, E>,
+    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
 {
-    type Children = Child::Children;
+    type Children = Child;
 
-    type State = Child::State;
-
-    fn lifecycle(
-        &self,
-        lifecycle: Lifecycle<Self>,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
-    ) {
-        let lifecycle = lifecycle.map(|view| view.child);
-        self.child
-            .lifecycle(lifecycle, view_state, children, context)
-    }
-
-    fn event(
-        &self,
-        event: <Self as EventTarget>::Event,
-        view_state: &mut Self::State,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
-    ) {
-        self.child.event(event, view_state, children, context)
-    }
+    type State = ();
 
     fn build(
         &self,
-        children: &mut <Self::Children as ElementSeq<S, M, EntryPoint>>::Storage,
-        context: &mut CommitContext<S, M, EntryPoint>,
+        _children: &mut <Self::Children as ElementSeq<S, M, E>>::Storage,
+        _context: &mut CommitContext<S, M, E>,
     ) -> Self::State {
-        self.child.build(children, context)
+        ()
     }
 }
 
-impl<'event, Child: EventTarget<'event>> EventTarget<'event> for GridChild<Child> {
-    type Event = Child::Event;
+impl<'event, Child> EventTarget<'event> for GridChild<Child> {
+    type Event = ();
 }
 
 pub struct ReconcileChildrenVisitor<'a> {
@@ -177,16 +155,20 @@ impl<'a> ReconcileChildrenVisitor<'a> {
     }
 }
 
-impl<'a, V, CS, S, M, E, Context> Visitor<ViewNode<GridChild<V>, CS, S, M, E>, Context>
+impl<'a, Child, CS, S, M, E, Context> Visitor<ViewNode<GridChild<Child>, CS, S, M, E>, Context>
     for ReconcileChildrenVisitor<'a>
 where
-    V: View<S, M, E>,
-    V::State: AsRef<gtk::Widget>,
-    CS: ComponentStack<S, M, E, View = GridChild<V>>,
-    GridChild<V>: View<S, M, E, Children = V::Children, State = V::State>,
+    Child: Element<S, M, E>,
+    Child::View: View<S, M, E>,
+    <Child::View as View<S, M, E>>::State: AsRef<gtk::Widget>,
+    CS: ComponentStack<S, M, E, View = GridChild<Child>>,
 {
-    fn visit(&mut self, node: &mut ViewNode<GridChild<V>, CS, S, M, E>, _context: &mut Context) {
-        let new_child: &gtk::Widget = node.view_state().unwrap().as_ref();
+    fn visit(
+        &mut self,
+        node: &mut ViewNode<GridChild<Child>, CS, S, M, E>,
+        _context: &mut Context,
+    ) {
+        let new_child: &gtk::Widget = node.children().view_state().unwrap().as_ref();
         loop {
             match self.current_child.take() {
                 Some(child) if new_child == &child => {
