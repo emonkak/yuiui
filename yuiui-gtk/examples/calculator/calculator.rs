@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct Calculator {
-    current_state: f64,
+    current_value: f64,
     pending_operant: Option<Operant>,
     pending_operator: Option<Operator>,
 }
@@ -11,66 +11,67 @@ pub struct Calculator {
 impl Calculator {
     pub fn new() -> Self {
         Self {
-            current_state: 0.0,
+            current_value: 0.0,
             pending_operator: None,
             pending_operant: None,
         }
     }
 
-    pub fn update(&mut self, action: Action) {
-        match action {
-            Action::Digit(digit) => {
-                if let Some(operant) = &mut self.pending_operant {
-                    operant.push(digit);
-                } else {
-                    self.pending_operant = Some(Operant::new(Sign::Plus, vec![digit], None));
-                }
-            }
-            Action::Negate => {
-                if let Some(operant) = &mut self.pending_operant {
-                    operant.negate();
-                } else {
-                    self.current_state = -self.current_state;
-                }
-            }
-            Action::Dot => {
-                if let Some(operant) = &mut self.pending_operant {
-                    operant.init_decimal_part();
-                } else {
-                    self.pending_operant = Some(Operant::new(Sign::Plus, vec![], Some(vec![])));
-                }
-            }
-            Action::Operator(op) => {
-                match (
-                    self.pending_operator.replace(op),
-                    self.pending_operant.take(),
-                ) {
-                    (Some(operator), Some(operant)) => {
-                        self.current_state = operator.eval(self.current_state, operant.to_f64());
-                    }
-                    (None, Some(operant)) => {
-                        self.current_state = operant.to_f64();
-                    }
-                    _ => {}
-                };
-            }
-            Action::Equal => {
-                match (self.pending_operator.take(), self.pending_operant.take()) {
-                    (Some(operator), Some(operant)) => {
-                        self.current_state = operator.eval(self.current_state, operant.to_f64());
-                    }
-                    (None, Some(operant)) => {
-                        self.current_state = operant.to_f64();
-                    }
-                    _ => {}
-                };
-            }
-            Action::Clear => {
-                self.current_state = 0.0;
-                self.pending_operant = None;
-                self.pending_operator = None;
-            }
+    pub fn push_digit(&mut self, digit: Digit) {
+        if let Some(operant) = &mut self.pending_operant {
+            operant.push(digit);
+        } else {
+            self.pending_operant = Some(Operant::new(Sign::Plus, vec![digit], None));
         }
+    }
+
+    pub fn push_operator(&mut self, operator: Operator) {
+        match (
+            self.pending_operator.replace(operator),
+            self.pending_operant.take(),
+        ) {
+            (Some(operator), Some(operant)) => {
+                self.current_value = operator.eval(self.current_value, operant.to_f64());
+            }
+            (None, Some(operant)) => {
+                self.current_value = operant.to_f64();
+            }
+            _ => {}
+        };
+    }
+
+    pub fn push_dot(&mut self) {
+        if let Some(operant) = &mut self.pending_operant {
+            operant.init_decimal_part();
+        } else {
+            self.pending_operant = Some(Operant::new(Sign::Plus, vec![], Some(vec![])));
+        }
+    }
+
+    pub fn negate(&mut self) {
+        if let Some(operant) = &mut self.pending_operant {
+            operant.negate();
+        } else {
+            self.current_value = -self.current_value;
+        }
+    }
+
+    pub fn evaluate(&mut self) {
+        match (self.pending_operator.take(), self.pending_operant.take()) {
+            (Some(operator), Some(operant)) => {
+                self.current_value = operator.eval(self.current_value, operant.to_f64());
+            }
+            (None, Some(operant)) => {
+                self.current_value = operant.to_f64();
+            }
+            _ => {}
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.current_value = 0.0;
+        self.pending_operant = None;
+        self.pending_operator = None;
     }
 
     pub fn display(&self) -> Display {
@@ -83,7 +84,7 @@ pub struct Display<'a>(&'a Calculator);
 impl<'a> fmt::Display for Display<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(operator) = &self.0.pending_operator {
-            self.0.current_state.fmt(f)?;
+            self.0.current_value.fmt(f)?;
             f.write_char(' ')?;
             f.write_char(operator.into_char())?;
             if let Some(operant) = &self.0.pending_operant {
@@ -93,20 +94,10 @@ impl<'a> fmt::Display for Display<'a> {
         } else if let Some(operant) = &self.0.pending_operant {
             operant.fmt(f)?;
         } else {
-            self.0.current_state.fmt(f)?;
+            self.0.current_value.fmt(f)?;
         }
         Ok(())
     }
-}
-
-#[derive(Debug)]
-pub enum Action {
-    Digit(Digit),
-    Negate,
-    Dot,
-    Operator(Operator),
-    Equal,
-    Clear,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -220,7 +211,7 @@ impl Operant {
 
 impl fmt::Display for Operant {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.sign.is_minus() {
+        if matches!(self.sign, Sign::Minus) {
             f.write_char('-')?;
         }
 
@@ -249,13 +240,6 @@ enum Sign {
 }
 
 impl Sign {
-    fn is_minus(&self) -> bool {
-        match self {
-            Self::Plus => false,
-            Self::Minus => true,
-        }
-    }
-
     fn negate(&self) -> Self {
         match self {
             Self::Plus => Self::Minus,

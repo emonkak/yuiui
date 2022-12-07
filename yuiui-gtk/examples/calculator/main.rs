@@ -26,16 +26,28 @@ impl State for AppState {
 
     fn update(&mut self, message: Self::Message) -> Effect {
         match message {
-            AppMessage::CalculatorAction(action) => self
+            AppMessage::PushDigit(digit) => self
                 .calculator
-                .update(|calculator| calculator.update(action)),
+                .update(|calculator| calculator.push_digit(digit)),
+            AppMessage::PushDot => self.calculator.update(|calculator| calculator.push_dot()),
+            AppMessage::Negate => self.calculator.update(|calculator| calculator.negate()),
+            AppMessage::PushOperator(operator) => self
+                .calculator
+                .update(|calculator| calculator.push_operator(operator)),
+            AppMessage::Evaluate => self.calculator.update(|calculator| calculator.evaluate()),
+            AppMessage::Clear => self.calculator.update(|calculator| calculator.clear()),
         }
     }
 }
 
 #[derive(Debug)]
 enum AppMessage {
-    CalculatorAction(Action),
+    PushDigit(Digit),
+    PushOperator(Operator),
+    PushDot,
+    Negate,
+    Evaluate,
+    Clear,
 }
 
 fn calculator_state(calculator: &Calculator) -> impl GtkElement<AppState, AppMessage> {
@@ -53,7 +65,7 @@ fn num_button(digit: Digit) -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-number".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Digit(digit))))
+        .on_click(move |context| context.dispatch(AppMessage::PushDigit(digit)))
         .el(Label::new().label(digit.into_char().to_string()).el(()))
 }
 
@@ -65,16 +77,14 @@ fn operator_button(operator: Operator) -> impl GtkElement<AppState, AppMessage> 
         ])
         .hexpand(true)
         .vexpand(true)
-        .on_click(|context| {
-            context.dispatch(AppMessage::CalculatorAction(Action::Operator(operator)))
-        })
+        .on_click(move |context| context.dispatch(AppMessage::PushOperator(operator)))
         .el(Label::new().label(operator.into_char().to_string()).el(()))
 }
 
 fn clear_button() -> impl GtkElement<AppState, AppMessage> {
     Button::new()
         .css_classes(vec!["calculator-button".to_owned(), "is-clear".to_owned()])
-        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Clear)))
+        .on_click(|context| context.dispatch(AppMessage::Clear))
         .hexpand(true)
         .vexpand(true)
         .el(Label::new().label("C".to_owned()).el(()))
@@ -85,7 +95,7 @@ fn negate_button() -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-negate".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Negate)))
+        .on_click(|context| context.dispatch(AppMessage::Negate))
         .el(Label::new().label("±".to_owned()).el(()))
 }
 
@@ -94,7 +104,7 @@ fn dot_button() -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-dot".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Dot)))
+        .on_click(|context| context.dispatch(AppMessage::PushDot))
         .el(Label::new().label(".".to_owned()).el(()))
 }
 
@@ -103,7 +113,7 @@ fn equal_button() -> impl GtkElement<AppState, AppMessage> {
         .css_classes(vec!["calculator-button".to_owned(), "is-equal".to_owned()])
         .hexpand(true)
         .vexpand(true)
-        .on_click(|context| context.dispatch(AppMessage::CalculatorAction(Action::Equal)))
+        .on_click(|context| context.dispatch(AppMessage::Evaluate))
         .el(Label::new().label("=".to_string()).el(()))
 }
 
