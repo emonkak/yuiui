@@ -70,7 +70,6 @@ impl EntryPoint {
                     RenderFlow::Suspend
                 ) {
                     command_runtime.request_rerender();
-                    break;
                 }
             }
         }
