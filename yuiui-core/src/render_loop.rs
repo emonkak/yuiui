@@ -6,7 +6,7 @@ use crate::command::CommandRuntime;
 use crate::component_stack::ComponentStack;
 use crate::context::{CommitContext, RenderContext};
 use crate::element::{Element, ElementSeq};
-use crate::event::TransferableEvent;
+use crate::event::{EventDestination, EventPayload};
 use crate::id::{IdStack, IdTree, Level};
 use crate::state::{Effect, State};
 use crate::view::View;
@@ -16,7 +16,7 @@ pub struct RenderLoop<Element: self::Element<S, M, E>, S, M, E> {
     node: ViewNode<Element::View, Element::Components, S, M, E>,
     id_stack: IdStack,
     message_queue: VecDeque<M>,
-    event_queue: VecDeque<TransferableEvent>,
+    event_queue: VecDeque<(EventDestination, EventPayload)>,
     nodes_to_update: IdTree<Level>,
     nodes_to_commit: IdTree<()>,
     is_mounted: bool,
@@ -70,8 +70,8 @@ where
         self.message_queue.push_back(message);
     }
 
-    pub fn push_event(&mut self, event: TransferableEvent) {
-        self.event_queue.push_back(event);
+    pub fn push_event(&mut self, destination: EventDestination, payload: EventPayload) {
+        self.event_queue.push_back((destination, payload));
     }
 
     pub fn node(&self) -> &ViewNode<Element::View, Element::Components, S, M, E> {
@@ -94,8 +94,8 @@ where
                 }
             }
 
-            while let Some(event) = self.event_queue.pop_front() {
-                self.process_event(event, state, entry_point, command_runtime);
+            while let Some((destination, payload)) = self.event_queue.pop_front() {
+                self.process_event(destination, payload, state, entry_point, command_runtime);
                 if deadline.did_timeout() {
                     return self.render_flow();
                 }
@@ -192,7 +192,8 @@ where
 
     fn process_event(
         &mut self,
-        event: TransferableEvent,
+        destination: EventDestination,
+        payload: EventPayload,
         state: &mut S,
         entry_point: &E,
         command_runtime: &impl CommandRuntime<M>,
@@ -206,14 +207,14 @@ where
             commands: &mut commands,
             entry_point,
         };
-        match event {
-            TransferableEvent::Forward(destination, payload) => {
+        match destination {
+            EventDestination::Unicast(destination) => {
                 self.node
-                    .forward_event(&*payload, &destination, &mut context)
+                    .dispatch_unicast_event(&destination, &*payload, &mut context)
             }
-            TransferableEvent::Broadcast(destinations, paylaod) => {
+            EventDestination::Multicast(destinations) => {
                 self.node
-                    .broadcast_event(&*paylaod, &destinations, &mut context)
+                    .dispatch_multicast_event(&destinations, &*payload, &mut context)
             }
         }
         self.message_queue.extend(messages);

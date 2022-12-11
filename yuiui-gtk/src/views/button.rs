@@ -2,7 +2,9 @@ use std::marker::PhantomData;
 
 use gtk::prelude::*;
 use gtk::{gdk, glib};
-use yuiui_core::{CommitContext, Element, ElementSeq, EventTarget, IdPathBuf, Lifecycle, View};
+use yuiui_core::{
+    CommitContext, Element, ElementSeq, EventDestination, EventTarget, IdPathBuf, Lifecycle, View,
+};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
@@ -154,7 +156,8 @@ impl ButtonState {
         self.clicked_signal = self
             .widget
             .connect_clicked(move |_| {
-                entry_point.dispatch_event(id_path.clone(), Event::Clicked);
+                entry_point
+                    .dispatch_event(EventDestination::Unicast(id_path.clone()), Event::Clicked);
             })
             .into();
     }

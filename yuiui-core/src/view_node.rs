@@ -1,6 +1,6 @@
-mod broadcast_event_visitor;
 mod commit_subtree_visitor;
-mod forward_event_visitor;
+mod multicast_event_visitor;
+mod unicast_event_visitor;
 mod update_subtree_visitor;
 
 use std::any::Any;
@@ -13,9 +13,9 @@ use crate::event::Lifecycle;
 use crate::id::{Id, IdPath, IdPathBuf, IdTree, Level};
 use crate::view::View;
 
-use broadcast_event_visitor::BroadcastEventVisitor;
 use commit_subtree_visitor::CommitSubtreeVisitor;
-use forward_event_visitor::ForwardEventVisitor;
+use multicast_event_visitor::MulticastEventVisitor;
+use unicast_event_visitor::UnicastEventVisitor;
 use update_subtree_visitor::UpdateSubtreeVisitor;
 
 pub struct ViewNode<V: View<S, M, E>, CS: ComponentStack<S, M, E, View = V>, S, M, E> {
@@ -165,25 +165,25 @@ where
         visitor.visit(self, context);
     }
 
-    pub(crate) fn forward_event(
+    pub(crate) fn dispatch_unicast_event(
         &mut self,
-        payload: &dyn Any,
         destination: &IdPath,
+        payload: &dyn Any,
         context: &mut CommitContext<S, M, E>,
     ) {
-        let mut visitor = ForwardEventVisitor::new(payload, destination);
+        let mut visitor = UnicastEventVisitor::new(payload, destination);
         visitor.visit(self, context);
     }
 
-    pub(crate) fn broadcast_event(
+    pub(crate) fn dispatch_multicast_event(
         &mut self,
-        payload: &dyn Any,
         destinations: &[IdPathBuf],
+        payload: &dyn Any,
         context: &mut CommitContext<S, M, E>,
     ) {
         let id_tree = IdTree::from_iter(destinations);
         let cursor = id_tree.root();
-        let mut visitor = BroadcastEventVisitor::new(payload, cursor);
+        let mut visitor = MulticastEventVisitor::new(payload, cursor);
         visitor.visit(self, context);
     }
 
@@ -287,9 +287,9 @@ where
 }
 
 pub trait ViewNodeSeq<S, M, E>:
-    for<'a, 'context> Traversable<BroadcastEventVisitor<'a>, CommitContext<'context, S, M, E>>
+    for<'a, 'context> Traversable<MulticastEventVisitor<'a>, CommitContext<'context, S, M, E>>
     + for<'a, 'context> Traversable<CommitSubtreeVisitor<'a>, CommitContext<'context, S, M, E>>
-    + for<'a, 'context> Traversable<ForwardEventVisitor<'a>, CommitContext<'context, S, M, E>>
+    + for<'a, 'context> Traversable<UnicastEventVisitor<'a>, CommitContext<'context, S, M, E>>
     + for<'a, 'context> Traversable<UpdateSubtreeVisitor<'a>, RenderContext<'context, S>>
 {
     const SIZE_HINT: (usize, Option<usize>);

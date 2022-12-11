@@ -1,6 +1,8 @@
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
-use yuiui_core::{CommitContext, ElementSeq, EventTarget, IdPathBuf, Lifecycle, View};
+use yuiui_core::{
+    CommitContext, ElementSeq, EventDestination, EventTarget, IdPathBuf, Lifecycle, View,
+};
 use yuiui_gtk_derive::WidgetBuilder;
 
 use crate::entry_point::EntryPoint;
@@ -227,7 +229,8 @@ impl EntryState {
         self.changed_signal = self
             .widget
             .connect_activate(move |_| {
-                entry_point.dispatch_event(id_path.clone(), Event::Activate);
+                entry_point
+                    .dispatch_event(EventDestination::Unicast(id_path.clone()), Event::Activate);
             })
             .into();
     }
@@ -236,7 +239,8 @@ impl EntryState {
         self.changed_signal = self
             .widget
             .connect_changed(move |_| {
-                entry_point.dispatch_event(id_path.clone(), Event::Changed);
+                entry_point
+                    .dispatch_event(EventDestination::Unicast(id_path.clone()), Event::Changed);
             })
             .into();
     }

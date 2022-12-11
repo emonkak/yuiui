@@ -25,10 +25,12 @@ impl<'event, T: 'static> Event<'event> for &'event T {
 }
 
 #[derive(Debug)]
-pub enum TransferableEvent {
-    Forward(IdPathBuf, Box<dyn Any + Send>),
-    Broadcast(Vec<IdPathBuf>, Box<dyn Any + Send>),
+pub enum EventDestination {
+    Unicast(IdPathBuf),
+    Multicast(Vec<IdPathBuf>),
 }
+
+pub type EventPayload = Box<dyn Any + Send>;
 
 #[derive(Debug)]
 pub enum Lifecycle<T> {

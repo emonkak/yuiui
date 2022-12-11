@@ -22,7 +22,7 @@ pub use element::{
     ComponentElement, DebuggableElement, Element, ElementSeq, HookElement, MemoizeElement,
     ViewElement,
 };
-pub use event::{Event, EventTarget, Lifecycle, TransferableEvent};
+pub use event::{Event, EventDestination, EventPayload, EventTarget, Lifecycle};
 pub use hlist::{HCons, HList, HNil};
 pub use id::{Id, IdPath, IdPathBuf, Level, NodePath};
 pub use render_loop::{RenderFlow, RenderLoop};

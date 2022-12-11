@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use yuiui_core::{Element, IdPathBuf, RenderFlow, RenderLoop, State, TransferableEvent, View};
+use yuiui_core::{Element, EventDestination, EventPayload, RenderFlow, RenderLoop, State, View};
 
 use crate::command_runtime::CommandRuntime;
 
@@ -52,8 +52,8 @@ impl EntryPoint {
                     needs_render = true;
                 }
 
-                for event in self.inner.pending_events.borrow_mut().drain(..) {
-                    render_loop.push_event(event);
+                for (destination, payload) in self.inner.pending_events.borrow_mut().drain(..) {
+                    render_loop.push_event(destination, payload);
                     needs_render = true;
                 }
 
@@ -79,9 +79,11 @@ impl EntryPoint {
         }
     }
 
-    pub fn dispatch_event<T: Send + 'static>(&self, destination: IdPathBuf, payload: T) {
-        let event = TransferableEvent::Forward(destination, Box::new(payload));
-        self.inner.pending_events.borrow_mut().push(event)
+    pub fn dispatch_event<T: Send + 'static>(&self, destination: EventDestination, payload: T) {
+        self.inner
+            .pending_events
+            .borrow_mut()
+            .push((destination, Box::new(payload)));
     }
 
     pub fn window(&self) -> &gtk::ApplicationWindow {
@@ -97,5 +99,5 @@ impl EntryPoint {
 #[derive(Debug)]
 struct Inner {
     window: gtk::ApplicationWindow,
-    pending_events: RefCell<Vec<TransferableEvent>>,
+    pending_events: RefCell<Vec<(EventDestination, EventPayload)>>,
 }
