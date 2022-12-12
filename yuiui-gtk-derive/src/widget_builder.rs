@@ -38,10 +38,10 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
             .ok_or_else(|| syn::Error::new(field.span(), "the field name must be specified"))?;
         let property = Property::from_attributes(&field.attrs).unwrap_or_default();
         let property_name = &property
-            .name_literal()
+            .name()
             .unwrap_or_else(|| Literal::string(&field_name.to_string().replace("_", "-")));
 
-        if property.enables_argument() {
+        if property.argument() {
             new_arguments.push(quote!(#field_name: #ty));
             new_body.push(quote!(#field_name));
         } else {
@@ -49,7 +49,7 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
         }
 
         if let Some(inner_ty) = extract_option(ty) {
-            if property.enables_bind() {
+            if property.bind() {
                 build_body.push(quote!(
                     if let Some(ref #field_name) = self.#field_name {
                         properties.push((#property_name, #field_name));
@@ -65,7 +65,7 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
                         }
                         (Some(_), None) => {
                             let pspec = object.find_property(#property_name)
-                                .expect(concat!("unable to find the property of ", #property_name));
+                                .expect(concat!("unable to find the property ", #property_name));
                             let default_value = pspec.default_value().to_value();
                             properties.push((#property_name, default_value));
                         }
@@ -77,7 +77,7 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
                 ));
             }
 
-            if property.enables_setter() {
+            if property.setter() {
                 setter_fns.push(quote!(
                     pub fn #field_name(mut self, #field_name: #inner_ty) -> Self {
                         self.#field_name = Some(#field_name);
@@ -86,7 +86,7 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
                 ));
             }
         } else {
-            if property.enables_bind() {
+            if property.bind() {
                 build_body.push(quote!(
                     properties.push((#property_name, &self.#field_name));
                 ));
@@ -98,7 +98,7 @@ pub(super) fn derive_widget_builder(item: &syn::ItemStruct) -> syn::Result<Token
                 ));
             }
 
-            if property.enables_setter() {
+            if property.setter() {
                 setter_fns.push(quote!(
                     pub fn #field_name(mut self, #field_name: #ty) -> Self {
                         self.#field_name = #field_name;
@@ -162,19 +162,19 @@ struct Property {
 }
 
 impl Property {
-    fn enables_bind(&self) -> bool {
+    fn bind(&self) -> bool {
         self.bind.as_ref().map_or(true, |lit| lit.value())
     }
 
-    fn enables_argument(&self) -> bool {
+    fn argument(&self) -> bool {
         self.argument.as_ref().map_or(false, |lit| lit.value())
     }
 
-    fn enables_setter(&self) -> bool {
+    fn setter(&self) -> bool {
         self.setter.as_ref().map_or(true, |lit| lit.value())
     }
 
-    fn name_literal(&self) -> Option<Literal> {
+    fn name(&self) -> Option<Literal> {
         self.name.as_ref().map(|name| name.token())
     }
 }
