@@ -105,7 +105,7 @@ impl<'context, S, M, E> CommitContext<'context, S, M, E> {
     ) -> T
     where
         F: FnOnce(CommitContext<SS, SM, E>) -> T,
-        FS: Fn(&S) -> &SS + Clone,
+        FS: Fn(&S) -> &SS,
         FM: Fn(SM) -> M + Clone + Send + 'static,
         SM: 'static,
     {
